@@ -264,3 +264,382 @@ The UI linkage represents a sophisticated pipeline that:
 7. **Displays results** via optimized terminal components
 
 The key insight is that while the LLM is streaming, the UI displays progress via state machine (streamMode) and preview state (streamingToolUses), but actual message rendering only happens on complete message arrival.
+
+---
+
+## Cross-Feature Linkages
+
+### Integration with Agent Loop (03_llm_core/agent_loop.md)
+
+**Event Source:**
+The UI receives events from the main agent loop async generator:
+
+```javascript
+// In handleQuery (oc):
+for await (let event of mainAgentLoop({...})) {
+    handleStreamedEvent(event);
+}
+```
+
+**Event Types from Agent Loop:**
+| Event Type | Source in Agent Loop | UI Effect |
+|------------|---------------------|-----------|
+| `stream_request_start` | Before API call | Shows requesting indicator |
+| `stream_event` | Direct from API SSE | Updates streaming state |
+| `assistant` | After API response complete | Adds message to transcript |
+| `user` | Tool result injection | Adds tool result to transcript |
+| `tombstone` | Message removal | Removes message from transcript |
+| `system` | System notifications | Shows system message |
+
+### Integration with Streaming (03_llm_core/stream_processing.md)
+
+**SSE Event Processing:**
+The streaming module converts raw SSE events into agent loop events:
+
+```
+Anthropic API SSE
+    ↓
+streamingQueryCore (mGq)
+    ↓
+Yields stream_event objects
+    ↓
+mainAgentLoop (ZR) yields to UI
+    ↓
+handleStreamedEvent (T11) processes
+```
+
+**Delta Assembly:**
+For tool_use blocks, the streaming module assembles partial JSON:
+
+```javascript
+// In streamingQueryCore:
+if (event.type === "content_block_delta" && event.delta.type === "input_json_delta") {
+    // Append to accumulating JSON string
+    streamingToolInputJson += event.delta.partial_json;
+    // Yield preview event
+    yield { type: "stream_event", event: {...} };
+}
+```
+
+### Integration with Tools (05_tools)
+
+**Tool Execution UI Flow:**
+
+```
+User sees: "Building tool input..."
+    ↓ (streaming completes JSON)
+setStreamMode("tool-use")
+    ↓ (tool execution starts)
+User sees: "Executing tool..."
+    ↓ (tool completes)
+Tool result arrives as "user" event
+    ↓
+Message added to transcript
+```
+
+**Bash Output Polling:**
+For long-running Bash commands, the UI polls for output:
+
+```javascript
+// In BashOutputRenderer (BYq):
+useEffect(() => {
+    if (status === "running") {
+        const interval = setInterval(() => {
+            // Read output file from disk
+            refreshOutput();
+        }, 1000);
+        return () => clearInterval(interval);
+    }
+}, [status]);
+```
+
+### Integration with System Reminders (04_system_reminder)
+
+**Attachment Injection Flow:**
+
+```
+mainAgentLoop yields user event with attachments
+    ↓
+handleStreamedEvent receives event
+    ↓
+processStreamEvent adds to messages state
+    ↓
+SessionLogRenderer displays as system-reminder
+```
+
+**Meta Message Display:**
+Attachments with `isMeta: true` are displayed differently:
+- No user attribution
+- Styled as system information
+- Can be collapsed in UI
+
+### Integration with Compact (07_compact)
+
+**Compaction UI Notification:**
+When compaction occurs, the UI shows a notification:
+
+```
+checkAndTriggerAutoCompact (fs4)
+    ↓ (triggers compaction)
+Yields compaction events
+    ↓
+UI shows: "Compressing conversation..."
+    ↓ (compaction complete)
+New summary message appears
+```
+
+**Tombstone for Compaction:**
+After compaction, old messages may be replaced:
+
+```javascript
+// Agent loop yields tombstone events:
+yield { type: "tombstone", uuids: [...removedMessageUuids] };
+
+// UI removes messages:
+setMessages(prev => prev.filter(m => !uuids.includes(m.uuid)));
+```
+
+### Integration with Proactive Mode
+
+**Proactive Mode Abort:**
+When user submits input during proactive mode:
+
+```javascript
+// In onQuery (ff):
+if (proactiveController) {
+    proactiveController.abort();
+    setProactiveMode(false);
+}
+```
+
+**Proactive Prompt Display:**
+Proactive prompts are enqueued if a query is in progress:
+
+```javascript
+// In onQuery:
+if (isQueryInProgress.current) {
+    setQueuedPrompt(userInput);
+    return;
+}
+```
+
+### Integration with Plan Mode (06_plan_mode)
+
+**Plan Mode State Indicators:**
+The UI shows plan mode status:
+
+| State | UI Indicator |
+|-------|-------------|
+| In plan mode | Status bar shows "Plan mode" |
+| Plan file exists | Path shown in status |
+| Exit requested | Shows "Exiting plan mode..." |
+
+### Integration with Background Tasks (08_background_tasks)
+
+**Task Status Display:**
+Background task status appears in the UI:
+
+```
+Task started
+    ↓
+UI shows: "Task 123 started (type: shell)"
+    ↓ (task runs in background)
+User can continue conversation
+    ↓
+TaskOutput tool fetches result
+```
+
+---
+
+## React State Management
+
+### State Variables
+
+| State | Type | Purpose |
+|-------|------|---------|
+| `messages` | `Message[]` | Conversation transcript |
+| `isLoading` | `boolean` | Query in progress flag |
+| `streamMode` | `string \| null` | Current streaming state |
+| `streamingToolUses` | `Map<string, ToolUse>` | Tool inputs being streamed |
+| `queuedPrompt` | `string \| null` | Enqueued user input |
+| `proactiveMode` | `boolean` | Proactive mode active |
+| `tokenCounter` | `number` | Tokens streamed this turn |
+
+### State Update Patterns
+
+**Batching Strategy:**
+React batches state updates within event handlers:
+
+```javascript
+// These updates are batched:
+setStreamMode("responding");
+updateTokenCounter(prev => prev + chunk.length);
+setStreamingToolUses(prev => new Map(prev).set(id, toolUse));
+// Only one re-render occurs
+```
+
+**Immutable Updates:**
+All state updates use immutable patterns:
+
+```javascript
+// Add message:
+setMessages(prev => [...prev, newMessage]);
+
+// Remove message:
+setMessages(prev => prev.filter(m => m.uuid !== removedUuid));
+
+// Update streaming tool:
+setStreamingToolUses(prev => {
+    const next = new Map(prev);
+    next.set(toolId, { ...prev.get(toolId), inputJson: accumulated });
+    return next;
+});
+```
+
+---
+
+## Component Hierarchy
+
+```
+App (Root)
+├── REPL (Input handling)
+│   ├── InputBox (Text entry)
+│   └── onQuery callback
+│
+├── SessionLogRenderer (KYq)
+│   ├── MessageTranscript (g91)
+│   │   ├── UserMessageRenderer
+│   │   ├── AssistantMessageRenderer (Yd1)
+│   │   ├── ToolUseBlockRenderer
+│   │   └── ToolResultBlockRenderer
+│   │
+│   └── StreamingIndicator
+│       ├── RequestingIndicator
+│       ├── ThinkingIndicator
+│       ├── RespondingIndicator
+│       └── ToolExecutionIndicator
+│
+├── StatusBar
+│   ├── ModelIndicator
+│   ├── TokenUsageDisplay
+│   ├── PlanModeIndicator
+│   └── BackgroundTaskStatus
+│
+└── DetailPanels
+    ├── BashOutputRenderer (BYq)
+    ├── ImagePreviewRenderer
+    └── PdfPageRenderer
+```
+
+---
+
+## Performance Optimizations
+
+### Message List Virtualization
+
+The `MessageTranscript` component uses key-based rendering for efficiency:
+
+```javascript
+// Messages are rendered with stable keys:
+messages.map(message => (
+    <MessageRenderer key={message.uuid} message={message} />
+));
+```
+
+React's reconciliation efficiently updates only changed messages.
+
+### Debounced Token Counter
+
+The token counter updates are debounced to prevent excessive re-renders:
+
+```javascript
+// Token counter uses functional update
+updateTokenCounter(prev => prev + chunkText.length);
+// UI only re-renders on complete messages
+```
+
+### Streaming Tool Preview
+
+Tool input JSON is assembled in streaming state, not messages:
+
+```javascript
+// During streaming:
+streamingToolUses.set(toolId, {
+    id: toolId,
+    name: toolName,
+    inputJson: partialJson  // Accumulated incrementally
+});
+
+// Only when complete:
+// ToolUse is added to message content
+```
+
+This prevents re-rendering the entire transcript for each JSON delta.
+
+---
+
+## Error Handling
+
+### Query Error Recovery
+
+When an error occurs during query execution:
+
+```javascript
+// In handleQuery:
+try {
+    for await (let event of mainAgentLoop(...)) {
+        handleStreamedEvent(event);
+    }
+} catch (error) {
+    // Add error message to transcript
+    setMessages(prev => [...prev, {
+        type: "system",
+        subtype: "error",
+        content: error.message
+    }]);
+} finally {
+    // Always reset loading state
+    setIsLoading(false);
+    setStreamMode(null);
+}
+```
+
+### Tombstone for Failed Tools
+
+When a tool fails, its partial result is removed:
+
+```javascript
+// Agent loop yields:
+yield { type: "tombstone", uuids: [failedToolResultUuid] };
+yield { type: "user", message: errorMessage };
+```
+
+---
+
+## Telemetry Events
+
+### UI Interaction Events
+
+```javascript
+// Query submission:
+logEvent("tengu_query_submitted", {
+    messageLength: userMessage.length,
+    hasAttachments: boolean
+});
+
+// Streaming events:
+logEvent("tengu_stream_event", {
+    type: eventType,
+    blockType: contentBlockType
+});
+```
+
+### Performance Metrics
+
+```javascript
+// UI rendering metrics:
+logEvent("tengu_message_render_time", {
+    messageCount: messages.length,
+    renderTimeMs: duration
+});
+```

@@ -282,3 +282,11 @@ If a session is compacted multiple times:
 Boundary markers are intentionally visible in the transcript (`isMeta: false`) while reminder messages are hidden (`isMeta: true`). This distinction reflects their audiences:
 - **Reminder**: For the LLM (guides behavior) — should not pollute user-visible transcript
 - **Boundary**: For the user (shows when auto-compact fired) — should appear in transcript as a timeline event
+
+---
+
+## Cross-References
+
+- **Rewind/Checkpointing**: The `createCompactBoundaryMessage` function is also used by the rewind feature's "Summarize from here" option. See [../35_rewind/implementation.md](../35_rewind/implementation.md).
+- **System Reminder Types**: For the full catalog of system reminder types, see [../04_system_reminder/reminder_types.md](../04_system_reminder/reminder_types.md).
+- **Symbol Index**: See [../00_overview/symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) for the compact module section.

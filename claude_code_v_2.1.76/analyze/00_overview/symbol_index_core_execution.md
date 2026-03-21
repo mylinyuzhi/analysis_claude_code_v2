@@ -231,11 +231,81 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ZR | mainAgentLoop | chunks.149.mjs:1753 | function (generator) |
-| uU1 | StreamingToolExecutor | chunks.149.mjs:1835 | class |
-| tZ6 | executeToolsSequentially | chunks.149.mjs:2035 | function (generator) |
-| w6q | generateChainId | chunks.149.mjs:1776 | function |
-| udY | MAX_OUTPUT_TOKENS_RECOVERY | chunks.149.mjs:2143 | constant (3) |
+| Yh | mainAgentLoop | chunks.148.mjs:875 | async generator |
+| omY | mainAgentLoopCore | chunks.148.mjs:882 | async generator (inner implementation) |
+| ui6 | StreamingToolExecutor | chunks.148.mjs:3 | class |
+| Wi6 | toolDispatcher | chunks.146.mjs:285 | async generator |
+| RKq | getSessionGates | chunks.148.mjs:816 | function |
+| SKq | getModelCallHelpers | chunks.148.mjs:834 | function (returns {callModel, microcompact, autocompact, uuid}) |
+| NT6 | callModel | chunks.170.mjs:2009 | async generator (wrapper, delegates to mGq) |
+| mGq | streamingQueryCore | chunks.171.mjs:3 | async generator (full streaming implementation) |
+| pg | microcompact | chunks.133.mjs:991 | function (removes consecutive duplicate messages) |
+| sqq | autoCompact | chunks.147.mjs:2633 | function (summarizes conversation when over threshold) |
+| aqq | MAX_CONSECUTIVE_COMPACT_FAILURES | chunks.147.mjs:2686 | constant (3) - circuit breaker threshold |
+| $54 | parseContextOverflowError | chunks.89.mjs:110 | function (extracts token counts from error) |
+| fN8 | FLOOR_OUTPUT_TOKENS | chunks.89.mjs:217 | constant (3000) - minimum output tokens |
+| nmY | generateUUID | chunks.148.mjs:839 | function (via SKq) |
+| rmY | MAX_OUTPUT_TOKENS_RECOVERY | chunks.148.mjs:1418 | constant (3) |
+| bKq | isMaxOutputTokens | chunks.148.mjs:871 | function (checks if message hit max_tokens) |
+| _P1 | withApiRetry | chunks.89.mjs:3 | async generator (retry wrapper with context overflow recovery) |
+| fxY | executeToolCore | chunks.146.mjs:442 | async function (core tool execution pipeline) |
+| y4q | executePreToolHooks | chunks.146.mjs | async generator (pre-tool hook execution) |
+| PE1 | normalizeToolInput | chunks.146.mjs:240 | function (handles string->typed conversions) |
+| dK | findToolByName | chunks.56.mjs:1592 | function (tool definition lookup by name/alias) |
+| Wm | cloneAbortController | chunks.148.mjs:16 | function (creates sibling abort controller) |
+| umY | removeToolFromInProgress | chunks.148.mjs:230 | function (removes tool ID from in-progress set) |
+| X1 | getGlobalState | chunks.148.mjs:multiple | function (access global React state) |
+| K5 | recordPerformanceMark | chunks.148.mjs:250 | function (performance tracking) |
+
+### Streaming & SSE Processing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ff8 | withMessageCollector | chunks.170.mjs:1990 | async generator wrapper |
+| MI | buildApiParams | chunks.170.mjs | function (constructs API request parameters) |
+| O9z | buildStreamingRequest | chunks.171.mjs | function (builds streaming request object) |
+| w9z | getStreamingConfig | chunks.171.mjs | function (returns streaming configuration) |
+| iA | isAPIKeyAuth | chunks.171.mjs:4 | function (checks if using API key) |
+| rR | getFeatureFlag | chunks.171.mjs:4 | function (GrowthBook feature flag) |
+| QA | getPlatform | chunks.171.mjs:11 | function (returns "firstParty"|"bedrock"|"vertex") |
+| G31 | resolveInferenceProfile | chunks.171.mjs:11 | async function (Bedrock profile resolution) |
+| A9z | getLastAssistantRequestId | chunks.170.mjs:2059 | function (finds last request ID for caching) |
+| cM | normalizeMessages | chunks.173.mjs:1999 | function (message normalization for API) |
+| TTq | deduplicateContent | chunks.173.mjs:2195 | function (removes duplicate content blocks) |
+| an8 | mergeUserMessages | chunks.173.mjs:2182 | function (combines consecutive user messages) |
+| Mzz | mergeAssistantMessages | chunks.173.mjs:2165 | function (combines assistant message chunks) |
+| Dzz | hasToolResult | chunks.173.mjs:2175 | function (checks if user message has tool_result) |
+| YS1 | ensureArray | chunks.173.mjs | function (ensures content is array) |
+| wzz | flattenMessages | chunks.173.mjs | function (flattens nested message structures) |
+| Xn8 | normalizeUserMessage | chunks.173.mjs:1852 | function (user message normalization) |
+| BGq | normalizeAssistantMessage | chunks.173.mjs:1879 | function (assistant message normalization) |
+| gGq | addCacheControlsToMessages | chunks.174.mjs:829 | function (adds cache_control to messages) |
+| q9z | trimImageCount | chunks.170.mjs:2075 | function (removes excess images from context) |
+| Uh1 | isImageOrDocument | chunks.170.mjs:2067 | function (type guard) |
+| xGq | isToolResult | chunks.170.mjs:2071 | function (type guard) |
+| zF | extractReferencedTools | chunks.171.mjs:21 | function (finds tools mentioned in messages) |
+| GX | isDeferredTool | chunks.171.mjs | function (checks if tool is deferred) |
+| z3 | hasDeferredMarker | chunks.171.mjs | function (checks for HZ marker) |
+| HZ | DEFERRED_TOOL_MARKER | chunks.171.mjs | constant ("deferred") |
+| yi6 | shouldUseDynamicLoading | chunks.169.mjs:433 | async function (determines dynamic/tool search mode) |
+| Sh1 | buildToolSchema | chunks.170.mjs:1452 | async function (constructs tool schema for API) |
+| uq | buildSystemPromptFromSections | chunks.168.mjs | function (assembles system prompt) |
+| _9z | buildSystemPromptBlocks | chunks.171.mjs:799 | function (wrapper that adds cache_control; calls Jn8) |
+| Jn8 | formatSystemPromptBlocks | chunks.170.mjs:1483 | function (core system prompt formatter with cache scopes) |
+| PA4 | MAX_IMAGES_IN_CONTEXT | chunks.170.mjs | constant (20) |
+| VKq | executeStopHooks | chunks.148.mjs:621 | async generator (runs Stop hooks after turn) |
+| Lp8 | executeStopHooksCore | chunks.148.mjs | async generator (core hook execution) |
+| dh1 | processContentBlocks | chunks.173.mjs:2267 | function (processes content blocks from API response) |
+| fp6 | formatDeferredToolHint | chunks.90.mjs:2274 | function (formats tool name for deferred tools hint) |
+| Li6 | getDefaultMaxTokens | chunks.171.mjs:908 | function (gets default max output tokens for model) |
+| lg | stripAnsiCodes | chunks.176.mjs:1469 | function (removes ANSI codes from model name) |
+| kE1 | DEFERRED_TOOLS_INSTRUCTION | chunks.146.mjs:2508 | constant (instruction for loading deferred tools) |
+| Dn8 | generateUUID | chunks.148.mjs:839 | function (via SKq, creates unique identifiers) |
+
+> **CORRECTION:** Previous versions incorrectly listed `NT6` location as chunks.148.mjs:836.
+> The actual `NT6` (callModel) is defined at chunks.170.mjs:2009 and is a thin wrapper.
+> The value chunks.148.mjs:836 is where `SKq` references `NT6`, not where it's defined.
+> The full streaming implementation is in `mGq` (streamingQueryCore) at chunks.171.mjs:3.
 
 ### Tool Execution Symbols
 
@@ -263,21 +333,23 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ui6 | ToolExecutorClass | chunks.148.mjs:3 | class |
-| Wi6 | toolDispatcher | chunks.146.mjs:285 | generator |
-| ZxY | toolExecutionOrchestrator | chunks.146.mjs:391 | function |
-| fxY | toolExecutionPipeline | chunks.146.mjs:442 | function |
-| y4q | executePreToolHooksIterator | chunks.146.mjs:74 | generator |
-| k4q | executePostToolHooksIterator | chunks.145.mjs:3107 | generator |
-| E4q | executePostToolFailureHooksIterator | chunks.146.mjs:3 | generator |
-| GE1 | batchToolExecutor | chunks.146.mjs:1024 | generator |
-| LF8 | executePreToolHooks | chunks.175.mjs:2462 | generator |
-| RF8 | executePostToolHooks | chunks.175.mjs:2486 | generator |
-| hF8 | executePostToolFailureHooks | chunks.175.mjs:2505 | generator |
-| Ax | executeHooksIterator | chunks.175.mjs | generator |
+| ui6 | StreamingToolExecutor | chunks.148.mjs:3 | class |
+| Wm | cloneAbortController | chunks.148.mjs:16 | function (creates sibling abort controller) |
+| Wi6 | toolDispatcher | chunks.146.mjs:285 | async generator |
+| ZxY | executeToolWithProgress | chunks.146.mjs:391 | async generator |
+| fxY | executeToolCore | chunks.146.mjs:442 | async function |
+| y4q | executePreToolHooksIterator | chunks.146.mjs:74 | async generator |
+| k4q | executePostToolHooksIterator | chunks.145.mjs:3107 | async generator |
+| E4q | executePostToolFailureHooksIterator | chunks.146.mjs:3 | async generator |
+| GE1 | batchToolExecutor | chunks.146.mjs:1024 | async generator |
+| LF8 | executePreToolHooks | chunks.175.mjs:2462 | async generator |
+| RF8 | executePostToolHooks | chunks.175.mjs:2486 | async generator |
+| hF8 | executePostToolFailureHooks | chunks.175.mjs:2505 | async generator |
+| Ax | executeHooksIterator | chunks.175.mjs | async generator |
 | Pi6 | AsyncQueue | chunks.146.mjs | class |
 | NS1 | hasHooksForEvent | chunks.175.mjs | function |
 | yF8 | formatHookBlockingError | chunks.175.mjs | function |
+| umY | clearInProgressToolUseID | chunks.148.mjs:230 | function |
 
 ### Tool Coordination Symbols
 
@@ -503,13 +575,17 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
 | pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
 | dVY | spawnSplitPaneTeammate | chunks.129.mjs | function |
-| nVY | BACKGROUND_HINT_THRESHOLD | chunks.132.mjs | constant |
+| rVY | BACKGROUND_HINT_THRESHOLD | chunks.136.mjs:1379 | constant (2000ms) |
 | - | backgroundAgentFlag | chunks.132.mjs | constant (background: true flag) |
 
 > **CORRECTION:** The symbol `iVY` was incorrectly documented as `spawnTeammateDispatcher`.
 > The actual `iVY` is `fs.promises` from Node.js (used as `iVY.access` for file access checks).
 > The correct symbol for `spawnTeammateDispatcher` is `pNY` (chunks.135.mjs:1110).
 > The correct symbol for `spawnTeammate` is `qn4` (chunks.135.mjs:1116).
+>
+> **CORRECTION:** The symbol `nVY` was incorrectly documented as `BACKGROUND_HINT_THRESHOLD`.
+> The actual `nVY` is `proactiveController` (chunks.136.mjs:1377), used in agent loop context.
+> The correct symbol for `BACKGROUND_HINT_THRESHOLD` is `rVY` (chunks.136.mjs:1379, value: 2000).
 
 ### Teammate Mailbox Symbols
 
@@ -554,7 +630,11 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | qh | agentLoopRunner | chunks.133.mjs:1565 | function (generator) |
-| Yh | llmMessageLoop | chunks.148.mjs:875 | function (generator) |
+| Yh | mainAgentLoop | chunks.148.mjs:875 | async generator (main entry point) |
+| omY | mainAgentLoopCore | chunks.148.mjs:882 | async generator (implementation) |
+| ui6 | StreamingToolExecutor | chunks.148.mjs:3 | class (parallel tool execution) |
+| Wi6 | toolDispatcher | chunks.146.mjs:285 | async generator |
+| fxY | executeToolCore | chunks.146.mjs:442 | async function |
 | Bc6 | deriveToolUseContext | chunks.148.mjs:1978 | function |
 | Fx8 | cloneForkContext | chunks.133.mjs:1788 | function |
 | vvY | buildAgentSystemPrompt | chunks.133.mjs:1806 | function |
@@ -621,9 +701,44 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 
 ## Module: LLM API
 
+> **VERIFIED 2026-03-21**: Symbol mappings cross-validated against source code.
+> Key files: chunks.170.mjs (callModel), chunks.171.mjs (streamingQueryCore), chunks.89.mjs (withApiRetry)
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| $OA | contextCompactor | chunks.169.mjs:672 | function (generator, wraps lOq with compact check) |
+| Yh | mainAgentLoop | chunks.148.mjs:875 | async generator (entry point) |
+| omY | mainAgentLoopCore | chunks.148.mjs:882 | async generator (implementation) |
+| NT6 | callModel | chunks.170.mjs:2009 | async generator (wrapper) |
+| mGq | streamingQueryCore | chunks.171.mjs:3 | async generator (full implementation) |
+| _P1 | withApiRetry | chunks.89.mjs:3 | async generator |
+| $54 | parseContextOverflowError | chunks.89.mjs:110 | function |
+| VI | calculateBackoffDelay | chunks.89.mjs:100 | function |
+| O54 | extractRetryAfterHeader | chunks.89.mjs:96 | function |
+| Cb9 | isFastModeDisabledError | chunks.89.mjs:131 | function |
+| iF6 | isOverloadedError | chunks.89.mjs:136 | function |
+| R36 | ModelFallbackError | chunks.89.mjs:260 | class (signals model overload) |
+| RB | RetryError | chunks.89.mjs:249 | class (wraps retry failures) |
+| Qz6 | mergeUsage | chunks.171.mjs:670 | function (merges incremental usage from SSE) |
+| K9z | abortStream | chunks.171.mjs:663 | function (safely aborts stream controller) |
+| bGq | nonStreamingFallbackCore | chunks.170.mjs:2028 | async generator (fallback when streaming fails) |
+| qy1 | accumulateUsage | chunks.171.mjs:695 | function (adds usage stats across responses) |
+
+### Retry Configuration Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Rb9 | DEFAULT_MAX_RETRIES | chunks.89.mjs:215 | constant (10) |
+| fN8 | FLOOR_OUTPUT_TOKENS | chunks.89.mjs:217 | constant (3000, min output tokens after overflow) |
+| hb9 | MAX_CONSECUTIVE_529_ERRORS | chunks.89.mjs:219 | constant (3, circuit breaker for overload) |
+| Sb9 | BASE_RETRY_DELAY_MS | chunks.89.mjs:221 | constant (500ms) |
+| Bb9 | MAX_RETRY_DELAY_MS | chunks.89.mjs:227 | constant (1800000, 30 min) |
+| gb9 | MIN_RATE_LIMIT_RETRY_MS | chunks.89.mjs:229 | constant (20000, 20s) |
+| Fb9 | DEFAULT_RATE_LIMIT_RETRY_MS | chunks.89.mjs:231 | constant (600000, 10 min) |
+
+### Streaming & Query Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | $71 | selectModelForMode | chunks.47.mjs:2003 | function |
 | Af6 | accumulateUsage | chunks.169.mjs:1365 | function |
 | b9z | wrapUserMessageWithCache | chunks.169.mjs:1385 | function |
@@ -636,7 +751,6 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | hOq | buildSimplifiedSystemPrompt | chunks.169.mjs:225 | function |
 | IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function |
 | JT6 | processContentBlocks | chunks.173.mjs:278 | function |
-| lOq | llmRequestGenerator | chunks.169.mjs:739 | function (generator) |
 | LN | initialUsageObject | chunks.169.mjs:1340 | constant |
 | m9z | buildCacheControlMessages | chunks.169.mjs:580 | function |
 | mp | completeQuery | chunks.169.mjs:672 | function |
@@ -651,10 +765,60 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | u9z | wrapAssistantMessageWithCache | chunks.169.mjs:1385 | function |
 | US | createLlmClient | chunks.169.mjs:100 | function |
 | UW1 | streamingQuery | chunks.169.mjs:691 | function (generator) |
-| V26 | withApiRetry | chunks.72.mjs:1861 | function (generator) |
 | WJ | normalizeMessages | chunks.169.mjs:600 | function |
 | x9z | applyEffortToRequest | chunks.169.mjs:566 | function |
 | yd1 | abortStream | chunks.169.mjs:1336 | function |
+
+### System Prompt Building
+
+> Full analysis: [03_llm_core/system_prompt_building.md](../03_llm_core/system_prompt_building.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R0 | buildSystemPrompt | chunks.168.mjs:2144 | async function |
+| P5z | buildIntroSection | chunks.168.mjs:2071 | function |
+| W5z | buildSystemSection | chunks.168.mjs:2079 | function |
+| Z5z | buildCodingSection | chunks.168.mjs:2085 | function |
+| G5z | buildCareSection | chunks.168.mjs:2093 | function |
+| f5z | buildToolsSection | chunks.168.mjs:2106 | function |
+| N5z | buildToneSection | chunks.168.mjs:2138 | function |
+| v5z | buildOutputEfficiencySection | chunks.168.mjs:2122 | function |
+| RZq | buildEnvSection | chunks.168.mjs:2194 | async function |
+| ID1 | buildMemorySection | chunks.84.mjs:382 | async function |
+| M5z | buildLanguageSection | chunks.168.mjs:2050 | function |
+| D5z | buildOutputStyleSection | chunks.168.mjs:2056 | function |
+| X5z | buildMcpInstructionsSection | chunks.168.mjs:2062 | function |
+| Jn8 | formatSystemPromptBlocks | chunks.170.mjs:1483 | function |
+| S_6 | CACHE_BOUNDARY_MARKER | chunks.168.mjs:2277 | constant |
+| hZq | getModelKnowledgeCutoff | chunks.168.mjs:2215 | function |
+
+### Message Normalization
+
+> Full analysis: [03_llm_core/message_normalization.md](../03_llm_core/message_normalization.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fN | trimMessagesAfterCompactBoundary | chunks.174.mjs:628 | function |
+| Szz | findCompactBoundaryIndex | chunks.174.mjs:620 | function |
+| RZ | isCompactBoundaryMessage | chunks.174.mjs:617 | function |
+| T34 | applyContentReplacements | chunks.89.mjs:2205 | async function |
+| djq | shouldIncludeInApi | chunks.174.mjs:634 | function |
+| Ei6 | isThinkingOnly | chunks.174.mjs:641 | function |
+| qr8 | countToolUses | chunks.174.mjs:647 | function |
+| VTq | hasToolUseInHistory | chunks.174.mjs:660 | function |
+| _9z | formatSystemPromptForApi | chunks.171.mjs:799 | function |
+| Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:3 | function |
+| p1 | createUserMessage | chunks.173.mjs:1378 | function |
+| b5 | wrapWithSystemReminderTags | chunks.174.mjs:469 | function |
+| nr6 | createToolUsePlaceholder | chunks.174.mjs:456 | function |
+| ir6 | createToolResultPlaceholder | chunks.174.mjs:463 | function |
+
+> **CORRECTIONS:**
+> - `lOq` (chunks.159.mjs:367) is QR code KANJI mode, NOT llmRequestGenerator
+> - `V26` (chunks.193.mjs:2255) is module export, NOT withApiRetry. Use `_P1` instead.
+> - `ZR` is module wrapper, NOT mainAgentLoop. Use `Yh` instead.
+> - `uU1` location was wrong. Use `ui6` for StreamingToolExecutor.
+> - `$OA` (previously listed as contextCompactor) does NOT exist. Compact integration is handled by `pg` (microcompact) and `sqq` (autoCompact) called from mainAgentLoopCore.
 
 ---
 
@@ -767,20 +931,6 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | Lzz | autoModeReminder | chunks.173.mjs:2714-2717 | function |
 | Rzz | fullAutoModeReminder | chunks.173.mjs:2719-2732 | function |
 | hzz | sparseAutoModeReminder | chunks.173.mjs:2734-2739 | function |
-
----
-
-## Module: Agent Loop
-
-> Full analysis: [03_llm_core/](../03_llm_core/)
-
-### Loop Entry & Telemetry
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| QL4 | bootstrapTelemetry | chunks.cli.mjs (referenced) | function |
-| ZR | mainAgentLoop | chunks.149.mjs:1753 | function (generator, REPL-facing agent loop entry) |
-| T11 | handleStreamedEvent | chunks.188.mjs:542 | function (REPL stream event callback) |
 
 ---
 

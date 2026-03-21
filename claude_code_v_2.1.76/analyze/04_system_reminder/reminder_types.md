@@ -1607,3 +1607,44 @@ Key functions referenced in this document:
 - `TodoWriteTool` (cg) - Todo write tool name reference
 - `TaskCreateTool` (Nh) - Task create tool name reference
 - `TaskUpdateTool` (DR) - Task update tool name reference
+
+---
+
+## System Message Types (Non-Attachment)
+
+> These are system messages that appear in the message stream but are NOT produced by the attachment pipeline. They are documented here for cross-reference.
+
+### compact_boundary
+
+**Type:** System message (not an attachment type)
+
+**Purpose:** Marks where a conversation was compacted, preserving metadata about the compaction event.
+
+**Created by:** `createCompactBoundaryMessage` (Ri6) at chunks.174.mjs:580-599
+
+**Message format:**
+```javascript
+{
+    type: "system",
+    subtype: "compact_boundary",
+    content: "Conversation compacted",
+    isMeta: false,  // Visible in transcript
+    uuid: generateUUID(),
+    timestamp: new Date().toISOString(),
+    level: "info",
+    compactMetadata: {
+        trigger: "manual" | "auto",
+        preTokens: number,
+        userContext: string | undefined,
+        messagesSummarized: number,
+        preservedSegment: { headUuid, anchorUuid, tailUuid }  // optional
+    }
+}
+```
+
+**When created:**
+- After `/compact` command execution
+- After "Summarize from here" selection in rewind UI
+- After auto-compact triggers
+
+**Full documentation:** See [../07_compact/reminder_and_boundary.md](../07_compact/reminder_and_boundary.md) and [../35_rewind/implementation.md](../35_rewind/implementation.md)

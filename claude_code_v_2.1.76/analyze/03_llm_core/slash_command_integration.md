@@ -11,11 +11,14 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `SkillTool` (wt) - Tool that executes slash commands and skills
-- `getSkills` (cZ) - Discovers available skills from directories
+- `SkillTool` (m66) - Tool that executes slash commands and skills (VERIFIED: chunks.137.mjs:46-250)
+- `getSkills` (I0) - Discovers available skills from directories
 - `loadSkill` (zI) - Loads a specific skill's definition
+- `findSkillByName` (G66) - Finds a skill by name from the skill set
 - `agentLoopRunner` (dR) - Runs a subagent for forked skill execution
-- `TOOL_NAME_SKILL` (NJ) - Constant "Skill"
+- `TOOL_NAME_SKILL` (oH) - Constant "Skill"
+- `isSafePromptSkill` ($kY) - Checks if skill is safe for auto-approval
+- `processPromptSlashCommand` (j) - Processes inline skill execution
 
 ---
 
@@ -44,16 +47,408 @@ EXECUTION MODES
 
 ## Core Components
 
-### SkillTool Definition
+### SkillTool Definition (m66) - VERIFIED
 
 **What it does:**
-The `SkillTool` (wt) is a tool that allows the LLM to execute user-defined skills. It handles skill lookup, validation, permission checking, and execution.
+The `SkillTool` (m66) is a tool that allows the LLM to execute user-defined skills. It handles skill lookup, validation, permission checking, and execution with both inline and forked modes.
 
-**How it works:**
+**Source Code (VERIFIED):**
 
-1. **Input Schema**: Takes `{ skill: string, args?: string }`
-2. **Description Generation**: Dynamic description based on skill name
-3. **Output Schema**: Union of inline vs forked execution results
+```javascript
+// ============================================
+// SkillTool - Tool for executing slash commands and skills
+// Location: chunks.137.mjs:46-250
+// ============================================
+
+// ORIGINAL (for source lookup):
+m66 = {
+    name: oH,
+    searchHint: "invoke a slash-command skill",
+    maxResultSizeChars: 1e5,
+    get inputSchema() {
+        return _kY()
+    },
+    get outputSchema() {
+        return wkY()
+    },
+    description: async ({
+        skill: A
+    }) => `Execute skill: ${A}`,
+    prompt: async () => dP1(qY()),
+    userFacingName: () => oH,
+    isConcurrencySafe: () => !1,
+    isEnabled: () => !0,
+    isReadOnly: () => !1,
+    toAutoClassifierInput: () => "",
+    async validateInput({
+        skill: A
+    }, q) {
+        let K = A.trim();
+        if (!K) return {
+            result: !1,
+            message: `Invalid skill format: ${A}`,
+            errorCode: 1
+        };
+        let Y = K.startsWith("/");
+        if (Y) d("tengu_skill_tool_slash_prefix", {});
+        let z = Y ? K.substring(1) : K,
+            _ = await I0(qY()),
+            w = G66(z, _);
+        if (!w) return {
+            result: !1,
+            message: `Unknown skill: ${z}`,
+            errorCode: 2
+        };
+        if (w.disableModelInvocation) return {
+            result: !1,
+            message: `Skill ${z} cannot be used with ${oH} tool due to disable-model-invocation`,
+            errorCode: 4
+        };
+        if (w.type !== "prompt") return {
+            result: !1,
+            message: `Skill ${z} is not a prompt-based skill`,
+            errorCode: 5
+        };
+        return {
+            result: !0
+        }
+    },
+    async checkPermissions({
+        skill: A,
+        args: q
+    }, K) {
+        let Y = A.trim(),
+            z = Y.startsWith("/") ? Y.substring(1) : Y,
+            w = K.getAppState().toolPermissionContext,
+            O = await I0(qY()),
+            $ = G66(z, O),
+            H = (D) => {
+                let X = D.startsWith("/") ? D.substring(1) : D;
+                if (X === z) return !0;
+                if (X.endsWith(":*")) {
+                    let P = X.slice(0, -2);
+                    return z.startsWith(P)
+                }
+                return !1
+            },
+            j = Sb(w, m66, "deny");
+        for (let [D, X] of j.entries())
+            if (H(D)) return {
+                behavior: "deny",
+                message: "Skill execution blocked by permission rules",
+                decisionReason: {
+                    type: "rule",
+                    rule: X
+                }
+            };
+        let J = Sb(w, m66, "allow");
+        for (let [D, X] of J.entries())
+            if (H(D)) return {
+                behavior: "allow",
+                updatedInput: {
+                    skill: A,
+                    args: q
+                },
+                decisionReason: {
+                    type: "rule",
+                    rule: X
+                }
+            };
+        if ($?.type === "prompt" && $kY($)) return {
+            behavior: "allow",
+            updatedInput: {
+                skill: A,
+                args: q
+            },
+            decisionReason: void 0
+        };
+        // ... ask user for permission ...
+    },
+    async call({
+        skill: A,
+        args: q
+    }, K, Y, z, _) {
+        let w = A.trim(),
+            O = w.startsWith("/") ? w.substring(1) : w,
+            $ = await I0(qY()),
+            H = G66(O, $);
+        if (ON1(O), H?.type === "prompt" && H.context === "fork")
+            return zkY(H, O, q, K, Y, z, _);  // Forked execution
+        let {
+            processPromptSlashCommand: j
+        } = await Promise.resolve().then(() => (MN1(), JN1)),
+            J = await j(O, q || "", $, K);  // Inline execution
+        if (!J.shouldQuery) throw Error("Command processing failed");
+        // ... return result with contextModifier ...
+    }
+}
+
+// READABLE (for understanding):
+const SkillTool = {
+    name: "Skill",
+    searchHint: "invoke a slash-command skill",
+    maxResultSizeChars: 100000,
+
+    get inputSchema() {
+        return getSkillInputSchema();
+    },
+
+    get outputSchema() {
+        return getSkillOutputSchema();
+    },
+
+    description: async ({ skill }) => `Execute skill: ${skill}`,
+
+    prompt: async () => buildSkillPrompt(getAllSkillDirectories()),
+
+    userFacingName: () => "Skill",
+
+    isConcurrencySafe: () => false,  // Skills can modify state
+    isEnabled: () => true,
+    isReadOnly: () => false,
+    toAutoClassifierInput: () => "",
+
+    async validateInput({ skill }, context) {
+        let skillName = skill.trim();
+
+        // 1. Check for empty skill name
+        if (!skillName) {
+            return {
+                result: false,
+                message: `Invalid skill format: ${skill}`,
+                errorCode: 1
+            };
+        }
+
+        // 2. Handle "/" prefix (e.g., "/commit")
+        let hasSlashPrefix = skillName.startsWith("/");
+        if (hasSlashPrefix) {
+            logEvent("tengu_skill_tool_slash_prefix", {});
+        }
+        let skillNameWithoutSlash = hasSlashPrefix
+            ? skillName.substring(1)
+            : skillName;
+
+        // 3. Look up skill in available skills
+        let skills = await getSkills(getAllSkillDirectories());
+        let skillDefinition = findSkillByName(skillNameWithoutSlash, skills);
+
+        // 4. Check if skill exists
+        if (!skillDefinition) {
+            return {
+                result: false,
+                message: `Unknown skill: ${skillNameWithoutSlash}`,
+                errorCode: 2
+            };
+        }
+
+        // 5. Check if skill allows model invocation
+        if (skillDefinition.disableModelInvocation) {
+            return {
+                result: false,
+                message: `Skill ${skillNameWithoutSlash} cannot be used with Skill tool due to disable-model-invocation`,
+                errorCode: 4
+            };
+        }
+
+        // 6. Check if skill is prompt-based
+        if (skillDefinition.type !== "prompt") {
+            return {
+                result: false,
+                message: `Skill ${skillNameWithoutSlash} is not a prompt-based skill`,
+                errorCode: 5
+            };
+        }
+
+        return { result: true };
+    },
+
+    async checkPermissions({ skill, args }, context) {
+        let skillName = skill.trim();
+        let skillNameWithoutSlash = skillName.startsWith("/")
+            ? skillName.substring(1)
+            : skillName;
+
+        let permissionContext = context.getAppState().toolPermissionContext;
+        let skills = await getSkills(getAllSkillDirectories());
+        let skillDefinition = findSkillByName(skillNameWithoutSlash, skills);
+
+        // Match function for rule patterns (supports wildcards)
+        let matchesRule = (rulePattern) => {
+            let pattern = rulePattern.startsWith("/")
+                ? rulePattern.substring(1)
+                : rulePattern;
+
+            // Exact match
+            if (pattern === skillNameWithoutSlash) return true;
+
+            // Wildcard match (e.g., "commit:*" matches "commit:amend")
+            if (pattern.endsWith(":*")) {
+                let prefix = pattern.slice(0, -2);
+                return skillNameWithoutSlash.startsWith(prefix);
+            }
+
+            return false;
+        };
+
+        // 1. Check deny rules first
+        let denyRules = getPermissionRules(permissionContext, SkillTool, "deny");
+        for (let [rulePattern, rule] of denyRules.entries()) {
+            if (matchesRule(rulePattern)) {
+                return {
+                    behavior: "deny",
+                    message: "Skill execution blocked by permission rules",
+                    decisionReason: { type: "rule", rule }
+                };
+            }
+        }
+
+        // 2. Check allow rules
+        let allowRules = getPermissionRules(permissionContext, SkillTool, "allow");
+        for (let [rulePattern, rule] of allowRules.entries()) {
+            if (matchesRule(rulePattern)) {
+                return {
+                    behavior: "allow",
+                    updatedInput: { skill, args },
+                    decisionReason: { type: "rule", rule }
+                };
+            }
+        }
+
+        // 3. Auto-approve safe skills
+        if (skillDefinition?.type === "prompt" && isSafePromptSkill(skillDefinition)) {
+            return {
+                behavior: "allow",
+                updatedInput: { skill, args },
+                decisionReason: undefined
+            };
+        }
+
+        // 4. Ask user with suggestions to add rules
+        let suggestions = [
+            {
+                type: "addRules",
+                rules: [{ toolName: "Skill", ruleContent: skillNameWithoutSlash }],
+                behavior: "allow",
+                destination: "localSettings"
+            },
+            {
+                type: "addRules",
+                rules: [{ toolName: "Skill", ruleContent: `${skillNameWithoutSlash}:*` }],
+                behavior: "allow",
+                destination: "localSettings"
+            }
+        ];
+
+        return {
+            behavior: "ask",
+            message: `Execute skill: ${skillNameWithoutSlash}`,
+            decisionReason: undefined,
+            suggestions,
+            updatedInput: { skill, args },
+            metadata: skillDefinition ? { command: skillDefinition } : undefined
+        };
+    },
+
+    async call({ skill, args }, context, progressCallback, abortSignal, hookContext) {
+        let skillName = skill.trim();
+        let skillNameWithoutSlash = skillName.startsWith("/")
+            ? skillName.substring(1)
+            : skillName;
+
+        let skills = await getSkills(getAllSkillDirectories());
+        let skillDefinition = findSkillByName(skillNameWithoutSlash, skills);
+
+        // Record skill invocation for telemetry
+        recordSkillInvocation(skillNameWithoutSlash);
+
+        // Forked execution: spawn a subagent
+        if (skillDefinition?.type === "prompt" && skillDefinition.context === "fork") {
+            return executeForkedSkill(
+                skillDefinition,
+                skillNameWithoutSlash,
+                args,
+                context,
+                progressCallback,
+                abortSignal,
+                hookContext
+            );
+        }
+
+        // Inline execution: inject prompt into current context
+        let { processPromptSlashCommand } = await importSkillProcessor();
+        let result = await processPromptSlashCommand(
+            skillNameWithoutSlash,
+            args || "",
+            skills,
+            context
+        );
+
+        if (!result.shouldQuery) {
+            throw new Error("Command processing failed");
+        }
+
+        // Log telemetry
+        logEvent("tengu_skill_tool_invocation", {
+            command_name: isBuiltInSkill(skillNameWithoutSlash)
+                ? skillNameWithoutSlash
+                : "custom",
+            // ... additional telemetry ...
+        });
+
+        return {
+            data: {
+                success: true,
+                commandName: skillNameWithoutSlash,
+                allowedTools: result.allowedTools?.length > 0
+                    ? result.allowedTools
+                    : undefined,
+                model: result.model
+            },
+            newMessages: result.messages,
+            contextModifier(originalContext) {
+                // Apply tool restrictions if specified
+                if (result.allowedTools?.length > 0) {
+                    return {
+                        ...originalContext,
+                        getAppState() {
+                            let state = originalContext.getAppState();
+                            return {
+                                ...state,
+                                toolPermissionContext: {
+                                    ...state.toolPermissionContext,
+                                    alwaysAllowRules: {
+                                        ...state.toolPermissionContext.alwaysAllowRules,
+                                        command: [
+                                            ...new Set([
+                                                ...(state.toolPermissionContext.alwaysAllowRules.command || []),
+                                                ...result.allowedTools
+                                            ])
+                                        ]
+                                    }
+                                }
+                            };
+                        }
+                    };
+                }
+                return originalContext;
+            }
+        };
+    }
+};
+
+// Mapping: m66→SkillTool, oH→TOOL_NAME_SKILL, _kY→getSkillInputSchema,
+//   wkY→getSkillOutputSchema, dP1→buildSkillPrompt, qY→getAllSkillDirectories,
+//   I0→getSkills, G66→findSkillByName, $kY→isSafePromptSkill, Sb→getPermissionRules,
+//   zkY→executeForkedSkill, ON1→recordSkillInvocation, d→logEvent
+```
+
+**Key insight:** The SkillTool is more than a simple command executor - it's a sophisticated system that:
+1. **Validates skill existence and type** before execution
+2. **Enforces permission rules** with wildcard pattern support
+3. **Auto-approves safe skills** to reduce friction
+4. **Supports two execution modes**: inline (inject prompt) and forked (spawn subagent)
+5. **Applies context modifiers** to restrict tool access for the skill's execution
 
 ### Skill Discovery
 

@@ -758,7 +758,16 @@
 > Full analysis: [03_llm_core/proactive_mode.md](../03_llm_core/proactive_mode.md)
 > **NEW in 2.1.38** - Experimental autonomous agent behavior
 
-### Proactive Controller References
+### Proactive Controller References (2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Nb1 | proactiveController | chunks.196.mjs:1792 | variable (REPL) |
+| _fz | proactiveController | chunks.192.mjs:2137 | variable (prompt suggestion) |
+| nVY | proactiveController | chunks.136.mjs:1377 | variable (agent loop) |
+| WeY | proactiveController | chunks.160.mjs:3104 | variable (progress bar) |
+
+### Legacy Proactive Controller References (2.1.38)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
@@ -767,14 +776,13 @@
 | M8z | proactiveController | chunks.161.mjs | variable |
 | ajz | proactiveController | chunks.184.mjs | variable |
 | sGq | proactiveController | chunks.183.mjs | variable |
-| Ajz | noopSubscribe | chunks.183.mjs:2876 | function |
-| tGq | returnsNull | chunks.183.mjs:2878 | function |
 
 ### Proactive Mode Functions
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| x8 | getFeatureFlag | chunks.174.mjs:2137 | function |
+| w8 | getFeatureFlag | chunks.177.mjs:217 | function |
+| x8 | getFeatureFlag (legacy) | chunks.174.mjs:2137 | function |
 | COq | getClientDataPromptVariant | chunks.168.mjs:2386 | function |
 | M9z | extractPromptVariant | chunks.168.mjs:2380 | function |
 
@@ -1596,7 +1604,39 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 ## Module: Thinking Mode
 
-> Full analysis: [19_think_level/](../19_think_level/)
+> Full analysis: [03_llm_core/thinking_mode_integration.md](../03_llm_core/thinking_mode_integration.md), [19_think_level/](../19_think_level/)
+
+### Thinking Capability Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| QG7 | supportsThinking | chunks.56.mjs:1348 | function (checks if model supports thinking) |
+| I21 | supportsAdaptiveThinking | chunks.56.mjs:1355 | function (checks if model supports adaptive thinking) |
+| Bvq | supportsInterleavedThinking | chunks.176.mjs:1594 | function (checks interleaved thinking beta support) |
+
+### Thinking Budget Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| FGq | getDefaultThinkingBudget | chunks.176.mjs:1549 | function (default budget based on model) |
+| oa | getThinkingBudgetLimits | chunks.176.mjs:1533 | function (returns min/max budget) |
+
+### Thinking Mode State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| K | thinkingConfig | multiple | parameter (thinking configuration object) |
+| gG7 | buildContextManagementConfig | chunks.56.mjs:1291 | function (builds context_management for thinking) |
+
+### Budget Constants
+
+| Model Family | Default Budget | Max Budget |
+|-------------|---------------|------------|
+| Opus 4.5/4.6, Sonnet 4.x, Haiku 4.x | 32,000 | 64,000 |
+| Opus 4.0/4.1 | 32,000 | 32,000 |
+| Claude 3 Opus | 4,096 | 4,096 |
+| Claude 3 Sonnet/Haiku | 8,192 | 8,192 |
+| Claude 3.7 Sonnet | 32,000 | 64,000 |
 
 ---
 
@@ -1999,110 +2039,130 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 > Full analysis: [35_rewind/](../35_rewind/)
 
-### File History Core (chunks.134.mjs)
+### Enable/Disable Logic (chunks.135.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| kP6 | rewindHandler | chunks.134.mjs:334341-334368 | function (execute rewind to target message snapshot) |
-| DF4 | rewindAndRestoreFiles | chunks.134.mjs:334380-334415 | function (restore tracked files from snapshot; supports dry-run) |
-| TkA | createBackupFile | chunks.134.mjs:146-172 | function (write versioned backup copy of a file to backup dir) |
-| TvY | generateBackupFileName | chunks.134.mjs:137-139 | function (SHA256(filePath).slice(0,16) + "@v" + version → content-addressed name) |
-| Jt | resolveBackupPath | chunks.134.mjs:141-144 | function (~/.claude/file-history/{sessionId}/{backupFileName} path builder) |
-| jF4 | fileNeedsRestore | chunks.134.mjs:78-100 | function (multi-tier file comparison: existence, mode, size, mtime, content) |
-| vvY | restoreFileFromBackup | chunks.134.mjs:174-192 | function (copy backup content back to original file path) |
-| OF4 | calculateFileDiffStats | chunks.134.mjs:102-135 | function (compute +/- line counts for dry-run preview) |
-| EvY | findBackupInOlderSnapshot | chunks.134.mjs:194-200 | function (fallback: find version-1 backup in earliest snapshot) |
+| iz | isFileCheckpointingEnabled | chunks.135.mjs:1977-1980 | function (master guard: interactive=opt-out; SDK=opt-in) |
+| YVY | isSDKCheckpointingEnabled | chunks.135.mjs:1982-1984 | function (SDK mode: requires CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true) |
 
-### Snapshot Recording (chunks.133.mjs)
+### File History Core (chunks.135.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| WW1 | createSnapshotForMessage | chunks.133.mjs:334285-334350 | function (finalize snapshot for all tracked files at message end) |
-| Xt | trackFileEdit | chunks.133.mjs:2760-2793 | function (record file pre-edit backup into current snapshot; first-edit-only) |
-| MF4 | normalizeFilePath | chunks.133.mjs (utility) | function (normalize file path for use as snapshot key) |
-| X61 | copySnapshot | chunks.1.mjs:3762-3765 | function (DEEP clone of snapshot via Myers clone; needed before mutation in trackFileEdit) |
-| PF4 | debugLogFileHistoryState | chunks.133.mjs:334653 | function (conditional stderr debug logger; ALWAYS no-op in prod: LvY guard = false) |
-| LvY | isDebugLoggingEnabled | chunks.133.mjs:334656 | constant (= false; debug flag for PF4; never set to true in production) |
-| kvY | checkForHistoryChanges | chunks.134.mjs:288-314 | function (vestigial: computes backup diff between old/new snapshots, calls _t which is a no-op stub) |
-| _t | reportFileDiffToIDE | chunks.133.mjs:334190 | function (NO-OP STUB: empty body; was IDE diff notification hook, removed/never shipped) |
-| iQ1 | recordFileHistorySnapshot | chunks.173.mjs:1992-1994 | function (writes file-history-snapshot entry to session .jsonl via NJq write queue) |
-| EkA | resolveTrackedFilePath | chunks.134.mjs:209-212 | function (resolve normalized/relative path to absolute via cwd; used before fs ops) |
-| cjq | cleanupOldBackups | chunks.178.mjs:328-346 | function (delete backup files older than cleanupPeriodDays cutoff) |
-| NJq | SessionDatabase | chunks.173.mjs:1720-1810 | class (JSONL session DB with write queue, 100ms batching, 100MB chunk limit) |
+| R66 | trackFileEdit | chunks.135.mjs:1986-2014 | async function (record file pre-edit backup; first-edit-only pattern) |
+| lf6 | createSnapshotForMessage | chunks.135.mjs:2016-2073 | async function (finalize snapshot for all tracked files at message end) |
+| sN1 | rewindHandler | chunks.135.mjs:2075-2100 | async function (execute rewind to target message snapshot) |
+| tN1 | snapshotExistsForMessage | chunks.135.mjs:2102-2105 | function (check if snapshot exists for messageId) |
+| eN1 | getDryRunDiffStats | chunks.135.mjs:2107-2112 | function (run rewindAndRestoreFiles with dryRun=true, return diff stats) |
+| Wn4 | hasChangesToRestore | chunks.135.mjs:2114-2133 | function (check if any files differ from snapshot) |
+| Zn4 | rewindAndRestoreFiles | chunks.135.mjs:2135-2169 | function (restore tracked files from snapshot; supports dry-run) |
+| cu8 | fileNeedsRestore | chunks.135.mjs:2171-2201 | function (multi-tier comparison: existence, mode, size, mtime, content) |
+| Mn4 | calculateFileDiffStats | chunks.135.mjs:2203-2233 | function (compute +/- line counts for dry-run preview using Myers diff) |
+| zVY | generateBackupFileName | chunks.135.mjs:2238-2240 | function (SHA256 hash of path + @v{version}; e.g. `a1b2c3d4e5f6a7b8@v2`) |
+| zz6 | resolveBackupPath | chunks.135.mjs:2242-2245 | function (build full path to backup file in ~/.claude/file-history/{sessionId}/) |
+| du8 | createBackupFile | chunks.135.mjs:2247-2273 | function (write versioned backup copy to ~/.claude/file-history/) |
+| _VY | restoreFileFromBackup | chunks.135.mjs:2275-2293 | function (copy backup content back to original file path) |
+| Gn4 | findBackupInOlderSnapshot | chunks.135.mjs:2295-2301 | function (fallback: find version-1 backup in earliest snapshot) |
+| fn4 | normalizeFilePath | chunks.135.mjs:2303-2308 | function (normalize file path for use as snapshot key) |
+| AV1 | resolveTrackedFilePath | chunks.135.mjs:2310-2313 | function (resolve normalized path to absolute via cwd) |
+| Dn4 | getDirectoryPath | (inferred from Node.js path.dirname) | function (extract directory from file path) |
+| Pn4 | setFilePermissions | (inferred from Node.js fs.chmodSync) | function (apply file permissions/mode to restored file) |
+| Tn4 | debugLogState | chunks.135.mjs:2419-2421 | function (log state for debugging; no-op in production) |
+| Jn4 | MAX_SNAPSHOTS | chunks.135.mjs:2423 | constant (= 100; max snapshots retained in memory) |
+| OVY | DEBUG_FILE_HISTORY | chunks.135.mjs:2425 | constant (= false; enables verbose debug logging for file history) |
 
-### Capability Check & Settings (chunks.179.mjs, chunks.140.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| mMq | checkRewindCapability | chunks.179.mjs:1747-1779 | function (validate rewind feasibility; dry-run or execute) |
-| LP6 | snapshotExistsForMessage | chunks.134.mjs:334368 | function (check if file history has snapshot for messageId) |
-| RP6 | getDryRunDiffStats | chunks.134.mjs:334373 | function (run DF4 with dryRun=true, return diff stats) |
-| z2 | isFileCheckpointingEnabled | chunks.133.mjs:334248 | function (master guard: interactive=opt-out via setting+env; SDK=opt-in via CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING) |
-| NvY | isSDKCheckpointingEnabled | chunks.133.mjs:334253 | function (SDK mode checkpointing: only ON if CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true AND disable env not set) |
-| CP6 | migrateFileHistoryToNewSession | chunks.134.mjs:334572 | function (on --resume: hard-link/copy backup files from old session dir to new session dir) |
-| yP6 | hydrateFileHistoryFromSnapshots | chunks.134.mjs:334552 | function (reconstruct FileHistory React state from persisted JSONL snapshots on session load) |
-| fileCheckpointingEnabled | fileCheckpointingEnabled | chunks.140.mjs:2613 | constant (global boolean setting: "Enable file checkpointing for code rewind") |
-
-### UI Component (chunks.178.mjs)
+### Snapshot Helpers (chunks.135.mjs, chunks.1.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| fMq | RewindMessageSelector | chunks.178.mjs:2328-2800 | function (React component: message list + restore options UI) |
-| TJz | calculateFileDiffBetweenMessages | chunks.178.mjs:2803-2834 | function (compute diff stats from stored structuredPatch data in messages) |
-| g | generateRestoreOptions | chunks.178.mjs:2356-2384 | function (build restore option list; conditional on hasCodeChanges) |
-| U | messageSelectionCallback | chunks.178.mjs:2388-2412 | function (Phase 1 Enter handler: fileHistory on → show Phase 2 options; off → directly call onRestoreMessage) |
-| x | handleRestoreOptionSelected | chunks.178.mjs:2413-2456 | function (dispatch restore/summarize based on selected option) |
-| dQA | MAX_VISIBLE_MESSAGES | chunks.178.mjs | constant (= 7; messages visible per page; scroll window centers on selected) |
-| GMq | MessagePreview | chunks.178.mjs | function (React component: renders single message text preview) |
-| VMq | DiffStats | chunks.178.mjs | function (React component: renders +insertions -deletions in color) |
-| Zc1 | isSelectableMessage | chunks.178.mjs:2836-2846 | function (filter: user messages only, exclude tool_result turns/compact markers/meta/internal XML) |
-| iS | doubleKeyPressHandler | chunks.73.mjs:2527-2544 | function (800ms double-press window; tracks Esc+Esc; shows "press again" pending indicator) |
-| ZQ1 | extractMessageContent | chunks.173.mjs:377-386 | function (extract text blocks from message content for input re-injection after restore) |
-| BL7 | buildSummarizeRequestContent | chunks.76.mjs:115-196 | function (build LLM summarize prompt with optional userContext appended as Additional Instructions) |
-| lo | computeDiff | chunks.75.mjs:2676-2678 | function (Myers diff algorithm; built-in, not npm; returns [{added,removed,count,value}]) |
-| cjq | cleanupOldBackupFiles | chunks.178.mjs:328-346 | function (delete session backup files older than cleanupPeriodDays × 24h cutoff) |
-| kA | RestoreOptionSelector | chunks.178.mjs | function (React component: radio-style list; isDisabled during non-summarize loading; defaultFocus "both" or "conversation") |
-| NJz | RestoreDiffStats | chunks.178.mjs | function (React component: shows file-level +/- counts from mMq dry-run; rendered for modes "both"/"code") |
-| ZE7 | useDoubleEscapeExit | chunks.73.mjs:2555-2579 | function (hook: tracks Ctrl-C/Ctrl-D double-press pending state; returns {pending, keyName}) |
-| GE7 | DOUBLE_PRESS_WINDOW_MS | chunks.73.mjs | constant (= 800ms; window for double-press detection in iS/doubleKeyPressHandler) |
-| bE6 | randomUUID | cli.chunks.mjs:6568 | function (Node crypto.randomUUID; called after restore to invalidate derived caches) |
-| $K1 | syncTodosToStorage | chunks.88.mjs:278-280 | function (write restored todos array to {sessionId}-agent.json + refreshAppState) |
-| q6 | showNotification | chunks.188.mjs | function (push notification to queue; only summarize action triggers post-restore notification) |
+| rw6 | deepCopySnapshot | chunks.1.mjs:3865 | function (lodash cloneDeep wrapper for immutable snapshot copies) |
+| wVY | checkForHistoryChanges | chunks.135.mjs:2391-2417 | function (compare old/new snapshot state for debugging; no-op in prod) |
+| L66 | reportFileHistoryChange | chunks.135.mjs:1928-1930 | function (no-op placeholder for potential history change notifications) |
+
+### Persistence (chunks.135.mjs, chunks.174.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qV1 | hydrateFileHistoryFromSnapshots | chunks.135.mjs:2315-2335 | function (reconstruct FileHistory React state from JSONL snapshots) |
+| KV1 | migrateFileHistoryToNewSession | chunks.135.mjs:2337-2400 | async function (on --resume: hard-link/copy backup files to new session dir) |
+| _l6 | recordFileHistorySnapshot | chunks.174.mjs:1683-1685 | async function (write file-history-snapshot entry to session .jsonl via SessionDatabase) |
+| Jz | getSessionDatabase | chunks.174.mjs:1406-1600 | function (SessionDatabase singleton for persistence operations) |
+
+### UI Component (chunks.185.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zs8 | RewindMessageSelector | chunks.185.mjs:1179-1469 | function (React component: message list + restore options UI) |
+| g | generateRestoreOptions | chunks.185.mjs:1207-1235 | function (build restore option list; conditional on hasCodeChanges) |
+| b | handleMessageSelection | chunks.185.mjs:1248-1268 | async function (process message selection, show options or fast-path restore) |
+| p | handleRestoreOptionSelected | chunks.185.mjs:1269-1320 | async function (dispatch restore/summarize based on selected option) |
+| YI1 | isOnlyOneMessageAfterIndex | chunks.185.mjs:1704-1724 | function (check if only trivial messages exist after index; enables fast-path restore) |
+| KXz | getMessagesDiffStats | chunks.185.mjs:1659-1690 | function (compute diff stats for files changed between two messages) |
+| XV6 | isSelectableMessage | chunks.185.mjs:1692-1702 | function (filter for user messages that can be rewind targets) |
+| Ys8 | VISIBLE_MESSAGE_COUNT | chunks.185.mjs:1730 | constant (= 7; messages visible per page; scroll window centers on selected) |
 
 ### Slash Command (chunks.165.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| twq | defineRewindCommand | chunks.165.mjs:1152-1165 | function (lazy init: register /rewind slash command with alias "checkpoint") |
-| cqz | handleRewindCommand | chunks.165.mjs:1137-1141 | function (slash command handler: calls openMessageSelector, returns {type:"skip"}) |
-| lqz | rewindCommandDefinition | chunks.165.mjs:1152-1165 | object (slash command definition object for /rewind) |
-| B7A | BASE_SYSTEM_PROMPT | chunks.47.mjs:2492 | constant (default interactive CLI system prompt) |
+| _Az | rewindCommandDefinition | chunks.165.mjs:699-710 | object (name: "rewind", aliases: ["checkpoint"]) |
+| QXq | rewindCommandExport | chunks.165.mjs:710 | variable (alias for _Az, exported name) |
+| pXq | rewindCommandModule | chunks.165.mjs:685 | object (module container for command) |
+| zAz | rewindCommandHandler | chunks.165.mjs:687-691 | async function (calls openMessageSelector; returns "skip" type) |
 
-### Callbacks & Dialog Arbitration (chunks.188.mjs)
+### Summarization Pipeline (chunks.147.mjs, chunks.174.mjs, chunks.89.mjs) — Shared with /compact
 
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| f11 | dialogArbiter | chunks.188.mjs:304-317 | function (10-level priority arbiter: returns active dialog name; "message-selector" is priority #2) |
-| N11 | onCancelAndPreRestore | chunks.188.mjs:328 | function (dual-purpose: app cancel handler AND pre-restore hook; aborts LLM stream + clears tool permission queue + clears queued commands) |
-| onRestoreCode | onRestoreCode | chunks.188.mjs | function (callback: wires setFileHistory state updater into rewindHandler kP6) |
-| onRestoreMessage | onRestoreMessage | chunks.188.mjs | function (callback: slice messages at checkpoint, restore todos, reset permission, re-inject prompt text) |
-| onSummarize | onSummarize | chunks.188.mjs | function (callback: invoke Fa4 summarizationEngineFunction for targeted summarization) |
-
-### Summarization Pipeline (chunks.146.mjs) — Shared with /compact
-
-> These functions implement `Fa4` (`summarizationEngineFunction`), shared between `/rewind → Summarize` and `/compact`.
+> These functions implement the summarize functionality, shared between `/rewind → Summarize from here` and `/compact`.
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Fa4 | summarizationEngineFunction | chunks.146.mjs | function (main entry: orchestrates full summarization pipeline; partial or full compaction) |
-| mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function (run PreCompact hooks; collect custom instructions and user-facing hook messages) |
-| Gqq | generateSummaryWithLLM | chunks.147.mjs:1752 | function (LLM call for summarization; uses mainLoopModel; supports cache-sharing and streaming-retry feature flags) |
-| TmY | stripImagesFromMessages | chunks.146.mjs:2283 | function (replace image content with placeholder before sending to summarize LLM) |
-| PP | runSessionStartHooks | chunks.142.mjs:248 | function (execute SessionStart plugin hooks post-compaction; collects context messages) |
-| fqq | collectFilesToKeep | chunks.147.mjs:1862 | function (collect recently-read files for post-compact context; 5000 token/file cap, 50000 cumulative budget) |
-| Nqq | collectTasksToKeep | chunks.147.mjs:1923 | function (extract completed local agent task statuses for post-compact context) |
-| mE1 | collectPlanToKeep | chunks.147.mjs:1885 | function (extract active plan file reference for post-compact context) |
-| Tqq | getInvokedSkillsAttachment | chunks.147.mjs:1896 | function (extract invoked skills list for post-compact context) |
-| JU1 | createBoundaryMarker | chunks.173.mjs:1215 | function (create compact_boundary system message: stores trigger, preTokens, userContext, messageCount) |
-| ux1 | formatSummaryText | chunks.76.mjs:323 | function (build context-restoration text block with transcript link and continuation directives) |
-| a$ | getTranscriptFilePath | chunks.173.mjs:1658 | function (construct session transcript file path for summary footer link) |
+| Wqq | performPartialCompaction | chunks.147.mjs:1610-1707 | async function (main entry for "Summarize from here"; returns boundaryMarker + summaryMessages + attachments) |
+| Gqq | generateSummaryWithLLM | chunks.147.mjs:1752+ | async function (LLM call for summarization) |
+| Ri6 | createCompactBoundary | chunks.174.mjs:580-599 | function (create compact_boundary system message with metadata) |
+| Yp8 | attachPreservedSegment | chunks.147.mjs:1449-1463 | function (add preservedSegment to compact_boundary for message relinking) |
+| S54 | formatCompactPrompt | chunks.89.mjs:443-452 | function (build summarization prompt with optional user context) |
+| sF6 | formatSummaryContent | chunks.89.mjs:479-492 | function (format summary text with transcript link) |
+| BE1 | extractTextContent | chunks.173.mjs:2364-2369 | function (extract text from assistant message content blocks) |
+| Cz | getSessionTranscriptPath | chunks.174.mjs:1128-1131 | function (get path to session .jsonl transcript file) |
+| eW | countTokensFromMessages | chunks.84.mjs:1146-1168 | function (calculate token count from message array) |
+| sT6 | runPreCompactHooks | chunks.175.mjs:2682-2711 | async function (execute PreCompact hooks before summarization) |
+| FE1 | runPostCompactHooks | chunks.175.mjs:2713-2732 | async function (execute PostCompact hooks after summarization) |
+| na | computeDiff | chunks.56.mjs:2072-2074 | function (Myers diff algorithm - from diff library) |
+
+### Message Filtering Helpers (chunks.185.mjs, chunks.173.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Hz6 | isCompactSummaryMessage | chunks.173.mjs:1275-1277 | function (check if message is compact summary text) |
+| wl6 | isToolResultMessage | chunks.173.mjs:1587-1589 | function (check if message has toolUseResult) |
+| Yhq | isTextBlock | chunks.185.mjs:1175-1177 | function (check if content block is text type) |
+
+### Internal XML Tag Constants (chunks.14.mjs) — Used by isSelectableMessage
+
+> These constants define internal XML tags that mark messages as non-selectable for rewind.
+> Messages containing these tags are filtered out by `XV6` (isSelectableMessage).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| WP | LOCAL_COMMAND_STDOUT | chunks.14.mjs:631 | constant ("local-command-stdout") |
+| oA6 | LOCAL_COMMAND_STDERR | chunks.14.mjs:633 | constant ("local-command-stderr") |
+| rHA | BASH_STDOUT | chunks.14.mjs:627 | constant ("bash-stdout") |
+| oHA | BASH_STDERR | chunks.14.mjs:629 | constant ("bash-stderr") |
+| EH | TASK_NOTIFICATION | chunks.14.mjs:641 | constant ("task-notification") |
+| vV | TICK | chunks.14.mjs:639 | constant ("tick") |
+| fj | TEAMMATE_MESSAGE | chunks.14.mjs:663 | constant ("teammate-message") |
+
+### Compact Boundary Helpers (chunks.174.mjs) — Used for compaction markers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| RZ | isCompactBoundary | chunks.174.mjs:616-618 | function (check if message is compact_boundary system message) |
+| Szz | findLastCompactBoundaryIndex | chunks.174.mjs:620-625 | function (find last compact_boundary in message array, returns -1 if none) |
+| fN | sliceFromLastCompactBoundary | chunks.174.mjs:628-632 | function (slice messages from last compact_boundary to end) |
+
+### API Handler (chunks.187.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| thq | handleRewindRequest | chunks.187.mjs:1271-1303 | async function (API endpoint for SDK/CLI rewind requests; checks checkpointing enabled, validates snapshot exists, optionally returns diff stats or executes restore) |

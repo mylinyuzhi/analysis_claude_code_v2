@@ -14,6 +14,7 @@
 - [Auth](#module-auth)
 - [Model Selection](#module-model-selection)
 - [Telemetry](#module-telemetry)
+- [Helper/Utility Functions](#module-helperutility-functions) - **Core utilities**
 
 ---
 
@@ -335,6 +336,90 @@
 
 ---
 
+## Module: Model Selection
+
+> Full analysis: [03_llm_core/model_selection.md](../03_llm_core/model_selection.md)
+> Model resolution, deployment types, fallback logic, and fast mode integration
+
+### Model Registry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OJ6 | MODEL_REGISTRY | chunks.39.mjs:2841-2853 | object (maps model aliases to deployment-specific IDs) |
+| _3 | getModelRegistry | chunks.176.mjs:1194-1198 | function (returns model ID map for current deployment) |
+| iD_ | ALL_MODEL_IDS | chunks.39.mjs:2853 | array (list of all first-party model IDs) |
+| xK7 | MODEL_ID_TO_ALIAS | chunks.39.mjs:2853 | object (reverse map: model ID → alias) |
+
+### Model Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| H5 | resolveModelAlias | chunks.176.mjs:1404-1425 | function (converts "opus"/"sonnet"/"haiku" to canonical ID) |
+| Of | normalizeModelId | chunks.176.mjs:1301-1319 | function (extracts canonical family from partial ID) |
+| IY | extractModelFamily | chunks.176.mjs:1321-1323 | function (wraps normalizeModelId) |
+| lg | stripContextMarker | chunks.176.mjs:1469-1471 | function (removes [1m] suffix for API call) |
+| e84 | normalizeModelIdVariant | chunks.85.mjs:1807-1819 | function (similar to Of, different implementation) |
+
+### Default Model Getters
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| GN | getDefaultOpusModel | chunks.176.mjs:1263-1267 | function |
+| Ef | getDefaultSonnetModel | chunks.176.mjs:1269-1273 | function |
+| hT6 | getDefaultHaikuModel | chunks.176.mjs:1275-1278 | function |
+| Mv | getDefaultModelWithFlags | chunks.176.mjs:1291-1295 | function (considers feature flags) |
+| g0 | getDefaultModel | chunks.176.mjs:1297-1299 | function (wraps Mv) |
+| mvq | getBestAvailableModel | chunks.176.mjs:1259-1261 | function (alias for getDefaultOpusModel) |
+
+### Configuration Hierarchy
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| uR | getConfiguredModel | chunks.176.mjs:1242-1251 | function (reads env/settings) |
+| cK | getEffectiveModel | chunks.176.mjs:1253-1257 | function (config → env → default) |
+| lH | getSmallFastModel | chunks.176.mjs:1234-1236 | function (env var or Haiku default) |
+| Ivq | buildModelRegistryForDeployment | chunks.176.mjs:1196-1197 | function |
+
+### Model Fallback
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R36 | ModelFallbackError | chunks.89.mjs:260-266 | class (signals Opus overload) |
+| V36 | isOpusModel | chunks.176.mjs:1238-1240 | function (checks if model is Opus family) |
+
+### Fast Mode Model Eligibility
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Dq | isFastModeAvailable | chunks.56.mjs:2654-2656 | function |
+| yj | isFastModeEligible | chunks.56.mjs:2658-2661 | function |
+| FH | isOpus46Model | chunks.56.mjs:2711-2715 | function (fast mode only works with Opus 4.6) |
+| Jm | isInFastModeCooldown | chunks.56.mjs:2817-2819 | function |
+| Mm | getFastModeState | chunks.56.mjs:2821-2826 | function (returns "on"/"off"/"cooldown") |
+| ra | getFastModeBlockReason | chunks.56.mjs:2678-2696 | function |
+| kf7 | setFastModeCooldown | chunks.56.mjs:2736-2749 | function |
+
+### Context Window Markers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Cf | hasContextMarker | chunks.176.mjs:1495-1498 | function (detects [1m] suffix) |
+| pH | is1MContextEnabled | chunks.176.mjs:1344-1347 | function |
+| ke | is1MContextDisabled | chunks.176.mjs:1491-1493 | function |
+| gr8 | supports1MContext | chunks.176.mjs:1500-1504 | function |
+| uM | getContextWindowSize | chunks.176.mjs:1506-1510 | function |
+
+### Model Display Names
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qJ | getDisplayName | chunks.176.mjs:1392-1396 | function |
+| ei6 | getDisplayNameForModelId | chunks.176.mjs:1355-1390 | function |
+| Of6 | getDefaultModelDescription | chunks.176.mjs:1325-1331 | function |
+| cQ8 | getFullDisplayName | chunks.176.mjs:1398-1402 | function |
+
+---
+
 ## Module: System Reminders
 
 > Full analysis: [04_system_reminder/](../04_system_reminder/)
@@ -503,7 +588,7 @@
 | zJ6 | HookCallbackResponseSchema | chunks.178.mjs | Zod schema (validates hook callback response) |
 | hJz | handleSessionResume | chunks.187.mjs | function (handles --resume flag; loads previous session state) |
 | UXz | createStreamIO | chunks.187.mjs:1467 | function (creates StdioStreamIO instance based on configuration) |
-| thq | handleRewindRequest | chunks.187.mjs:1271 | function |
+| thq | handleRewindRequest | chunks.187.mjs:1271-1303 | async function (API handler for rewind; dry-run returns diff stats, actual executes rewindHandler) |
 | pXz | handleSetPermissionMode | chunks.187.mjs:1305 | function |
 | - | SDKRateLimitInfo | chunks.178.mjs | type (rate limit info object) |
 | - | SDKRateLimitEvent | chunks.178.mjs | type (rate limit event type) |
@@ -538,6 +623,53 @@
 | oi8 | SdkMcpTransport | chunks.169.mjs:1506 | class |
 | WGq | initializeSdkMcpClients | chunks.169.mjs:2437 | function |
 | qSq | updateSdkServerState | chunks.187.mjs:1518 | function |
+
+---
+
+## Module: Helper/Utility Functions
+
+> Core utility functions used across multiple modules
+
+### File System Utilities (chunks.1.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $1 | getFileSystem | chunks.1.mjs:4044-4046 | function (returns fs-like object for file operations) |
+| fz | writeFileSync | chunks.1.mjs:3878-3896 | function (write file with flush support; wraps fs.writeFileSync) |
+| Dn4 | getDirectoryPath | chunks.1.mjs | function (wraps path.dirname) |
+| Pn4 | setFilePermissions | chunks.1.mjs | function (wraps fs.chmodSync) |
+
+### Boolean/Environment Parsing (chunks.1.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| t6 | parseBoolean | chunks.1.mjs:4491-4496 | function (parse string/boolean to boolean; handles "true", "1", "yes", etc.) |
+| q7 | isSDKMode | chunks.1.mjs:2720-2722 | function (check if running in SDK mode via !v1.isInteractive) |
+
+### Logging & Telemetry (chunks.2.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k | consoleLog | chunks.2.mjs:165-180 | function (console logging with level support) |
+| d | telemetry | chunks.2.mjs:275-290 | function (record telemetry event; queues if not initialized) |
+
+### Error Handling (chunks.14.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _6 | logError | chunks.14.mjs:726-740 | function (error logging with optional error reporting integration) |
+
+### User Settings (chunks.177.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| X1 | getUserSettings | chunks.177.mjs:2046-2055 | function (get cached user configuration) |
+
+### Diff Algorithm (chunks.56.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| na | computeDiff | chunks.56.mjs:2072-2074 | function (Myers diff algorithm; wraps diff library) |
 
 ---
 

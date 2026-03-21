@@ -528,7 +528,9 @@ case "structured_output":
 
 ### autocheckpointing
 
-**Triggered when:** Auto-checkpoint system is active.
+> **Cross-reference:** [35_rewind/overview.md](../35_rewind/overview.md#no-direct-system-reminder-injection) - Rewind feature documentation
+
+**Triggered when:** Auto-checkpoint system is active (reserved for future use).
 
 ```javascript
 // Location: chunks.174.mjs:467
@@ -536,6 +538,35 @@ if (["autocheckpointing", "background_task_status", "todo", "task_progress"].inc
 ```
 
 **Why silent:** Checkpoint status is internal system state.
+
+**Detailed Analysis:**
+
+The `autocheckpointing` attachment type is a **forward-compatibility guard** in `normalizeAttachmentForAPI`. As of v2.1.76, **no code actively creates this attachment type**. The normalization switch includes a case for it that returns an empty array:
+
+**Why this type exists:**
+1. **Future extensibility** - Reserved for potential future features like auto-checkpoint notifications
+2. **Internal state tracking** - Could be used to notify the system when checkpoints are saved
+3. **Token efficiency** - Avoids wasting tokens on internal bookkeeping
+
+**Relationship to Rewind Feature:**
+- The rewind/checkpoint system operates **directly on files and messages**, not via LLM prompting
+- After a rewind, the conversation state is simply the sliced message array
+- No "you have been rewound" notification is needed — the LLM sees the truncated context
+- The `autocheckpointing` type was likely planned for notifications like "Auto-checkpoint saved at message X"
+
+**Implementation:**
+```javascript
+// Current implementation (no producer exists)
+// The type is only handled in the normalizer:
+if (["autocheckpointing", "background_task_status", "todo", "task_progress"].includes(attachment.type)) {
+    return [];  // Silent - no API messages produced
+}
+```
+
+**Future possibilities:**
+- Notify user when automatic checkpoint is saved
+- Display checkpoint status in UI
+- Enable/disable checkpoint notifications per user preference
 
 ---
 

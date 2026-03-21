@@ -1,0 +1,4 @@
+   @claude_code_v_2.1.76/  Software Reverse Engineering Deobfuscation, 逆向分析，混淆的代码目录和索引 @claude_code_v_2.1.76/source/  @claude_code_v_2.1.76/source/chunks.index.json ,
+逆向分析报告目录 @claude_code_v_2.1.76/analyze/ ，文件夹按照功能组织， @claude_code_v_2.1.76/analyze/00_overview/ ，你的任务是  完善 @claude_code_v_2.1.76/analyze/35_rewind/
+的分析。要求：1. 交叉验证symbol的准确性，只需要保留正确的symbol mapping；2. 补全代码逻辑和报告，要求源码级别还原，交叉验证代码逻辑；3. 报告越详细越好；4.分析关键的算法和逻辑； 5. 注意关联功能的联动，例如包括 04_system_reminder 和 其他功能
+

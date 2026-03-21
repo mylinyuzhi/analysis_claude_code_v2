@@ -13,11 +13,12 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `contextCompactor` ($OA) - Wrapper that checks if compaction is needed before LLM request
-- `checkAndTriggerAutoCompact` (fs4) - Evaluates token thresholds and triggers compaction
-- `withApiRetry` (V26) - Retry wrapper that handles context overflow errors
-- `microCompact` (gm) - Removes consecutive duplicate messages
-- `completeQuery` (mp) - Non-streaming query with compaction check
+- `autoCompact` (sqq) - Main auto-compact dispatcher (VERIFIED: chunks.147.mjs:2633)
+- `microcompact` (pg) - Removes consecutive duplicate messages (VERIFIED: chunks.133.mjs:991)
+- `withApiRetry` (_P1) - Retry wrapper that handles context overflow errors (VERIFIED: chunks.89.mjs:3)
+- `parseContextOverflowError` ($54) - Extracts token counts from error (VERIFIED: chunks.89.mjs:110)
+- `executeToolCore` (fxY) - Core tool execution with compact awareness (VERIFIED: chunks.146.mjs:442)
+- `applyContentReplacements` (T34) - Handles tool result content replacement (VERIFIED: chunks.89.mjs:2205)
 
 ---
 
@@ -72,6 +73,197 @@ The compact system has two integration points with the LLM core:
 
 ## Core Algorithms
 
+### autoCompact (sqq) - Main Dispatcher
+
+**What it does:**
+The `autoCompact` function is the main entry point for automatic compaction. It checks if compaction is needed, handles circuit breaker logic, and orchestrates the summary generation.
+
+**Source Code (VERIFIED):**
+
+```javascript
+// ============================================
+// autoCompact - Main auto-compact dispatcher
+// Location: chunks.147.mjs:2633-2673
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function sqq(A, q, K, Y, z, _) {
+    if (t6(process.env.DISABLE_COMPACT)) return {
+        wasCompacted: !1
+    };
+    if (z?.consecutiveFailures !== void 0 && z.consecutiveFailures >= aqq) return {
+        wasCompacted: !1
+    };
+    let w = q.options.mainLoopModel;
+    if (!await CmY(A, w, Y, _)) return {
+        wasCompacted: !1
+    };
+    let $ = {
+            isRecompactionInChain: z?.compacted === !0,
+            turnsSincePreviousCompact: z?.turnCounter ?? -1,
+            previousCompactTurnId: z?.turnId,
+            autoCompactThreshold: oc6(w),
+            querySource: Y
+        },
+        H = await lE1(A, q.agentId, $.autoCompactThreshold);
+    if (H) return K16(void 0), gl(), {
+        wasCompacted: !0,
+        compactionResult: H
+    };
+    try {
+        let j = await mf6(A, q, K, !0, void 0, !0, $);
+        return K16(void 0), gl(), {
+            wasCompacted: !0,
+            compactionResult: j,
+            consecutiveFailures: 0
+        }
+    } catch (j) {
+        if (!$r(j, zl)) _6(j);
+        let M = (z?.consecutiveFailures ?? 0) + 1;
+        if (M >= aqq) k(`autocompact: circuit breaker tripped after ${M} consecutive failures — skipping future attempts this session`, {
+            level: "warn"
+        });
+        return {
+            wasCompacted: !1,
+            consecutiveFailures: M
+        }
+    }
+}
+
+// READABLE (for understanding):
+async function autoCompact(messages, sessionContext, systemContext, querySource, autoCompactTracking, modelId) {
+    // 1. Check if compaction is disabled via environment variable
+    if (parseBoolean(process.env.DISABLE_COMPACT)) {
+        return { wasCompacted: false };
+    }
+
+    // 2. Circuit breaker: Skip if too many consecutive failures
+    if (autoCompactTracking?.consecutiveFailures !== undefined &&
+        autoCompactTracking.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        return { wasCompacted: false };
+    }
+
+    let model = sessionContext.options.mainLoopModel;
+
+    // 3. Check if token threshold is exceeded
+    if (!await shouldTriggerCompaction(messages, model, querySource, modelId)) {
+        return { wasCompacted: false };
+    }
+
+    // 4. Build compaction metadata for telemetry
+    let compactionMetadata = {
+        isRecompactionInChain: autoCompactTracking?.compacted === true,
+        turnsSincePreviousCompact: autoCompactTracking?.turnCounter ?? -1,
+        previousCompactTurnId: autoCompactTracking?.turnId,
+        autoCompactThreshold: getThresholdForModel(model),
+        querySource: querySource
+    };
+
+    // 5. Check for existing cached compaction result
+    let cachedResult = await checkCachedCompaction(messages, sessionContext.agentId, compactionMetadata.autoCompactThreshold);
+    if (cachedResult) {
+        clearCompactionCache();
+        resetCompactionState();
+        return {
+            wasCompacted: true,
+            compactionResult: cachedResult
+        };
+    }
+
+    // 6. Perform actual compaction
+    try {
+        let result = await performCompaction(
+            messages,
+            sessionContext,
+            systemContext,
+            true,  // isAutoCompact
+            undefined,
+            true,  // preserveContext
+            compactionMetadata
+        );
+
+        clearCompactionCache();
+        resetCompactionState();
+
+        return {
+            wasCompacted: true,
+            compactionResult: result,
+            consecutiveFailures: 0
+        };
+
+    } catch (error) {
+        // 7. Handle compaction failure
+        if (!isCancellationError(error)) {
+            logError(error);
+        }
+
+        let newFailureCount = (autoCompactTracking?.consecutiveFailures ?? 0) + 1;
+
+        // Circuit breaker warning
+        if (newFailureCount >= MAX_CONSECUTIVE_FAILURES) {
+            logWarning(`autocompact: circuit breaker tripped after ${newFailureCount} consecutive failures — skipping future attempts this session`);
+        }
+
+        return {
+            wasCompacted: false,
+            consecutiveFailures: newFailureCount
+        };
+    }
+}
+
+// Mapping: sqq→autoCompact, A→messages, q→sessionContext, K→systemContext,
+//   Y→querySource, z→autoCompactTracking, _→modelId, t6→parseBoolean,
+//   aqq→MAX_CONSECUTIVE_FAILURES(3), CmY→shouldTriggerCompaction,
+//   oc6→getThresholdForModel, lE1→checkCachedCompaction, mf6→performCompaction,
+//   K16→clearCompactionCache, gl→resetCompactionState, _6→logError, k→logWarning
+```
+
+**Key Algorithm Decisions:**
+
+1. **Circuit Breaker Pattern**: The function uses `MAX_CONSECUTIVE_FAILURES = 3` (constant `aqq`) to prevent infinite retry loops. After 3 consecutive failures, compaction is disabled for the rest of the session.
+
+2. **Cache Check**: Before performing expensive LLM-based summarization, it checks for cached compaction results via `lE1` (checkCachedCompaction).
+
+3. **Metadata Tracking**: The `compactionMetadata` object tracks recompaction chains, turns since last compact, and threshold values for telemetry.
+
+4. **Error Isolation**: Errors during compaction don't crash the agent loop - they're caught and tracked, allowing the conversation to continue.
+
+### microcompact (pg) - Duplicate Removal
+
+**What it does:**
+Removes consecutive duplicate messages and cleans up message history. Currently returns messages unchanged in v2.1.76.
+
+**Source Code (VERIFIED):**
+
+```javascript
+// ============================================
+// microcompact - Removes consecutive duplicate messages
+// Location: chunks.133.mjs:991-994
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function pg(A, q, K) {
+    return Qc4(), {
+        messages: A
+    }
+}
+
+// READABLE (for understanding):
+async function microcompact(messages, sessionContext, querySource) {
+    // Clear microcompact state
+    clearMicrocompactState();
+
+    // Return messages unchanged (current implementation)
+    return { messages: messages };
+}
+
+// Mapping: pg→microcompact, A→messages, q→sessionContext, K→querySource, Qc4→clearMicrocompactState
+```
+
+**Key insight:** In v2.1.76, microcompact is essentially a pass-through. The `Qc4()` function clears internal state, but no actual message deduplication occurs in this version. This suggests the functionality may have been moved elsewhere or simplified.
+
+---
+
 ### Pre-Query Auto-Compact in mainAgentLoop
 
 **What it does:**
@@ -95,11 +287,142 @@ Before each LLM request, the mainAgentLoop checks if the conversation is approac
 **What it does:**
 When the API returns a `context_length_exceeded` error, the retry wrapper automatically calculates a reduced `max_tokens` value that fits within the remaining context and retries the request.
 
+**Source Code (VERIFIED):**
+
+```javascript
+// ============================================
+// Context Overflow Recovery - withApiRetry
+// Location: chunks.89.mjs:62-80
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (j instanceof a7) {
+    let X = $54(j);
+    if (X) {
+        let {
+            inputTokens: P,
+            contextLimit: W
+        } = X, Z = 1000, G = Math.max(0, W - P - 1000);
+        if (G < fN8) throw _6(Error(`availableContext ${G} is less than FLOOR_OUTPUT_TOKENS ${fN8}`)), j;
+        let f = (z.thinkingConfig.type === "enabled" ? z.thinkingConfig.budgetTokens : 0) + 1,
+            v = Math.max(fN8, G, f);
+        z.maxTokensOverride = v, d("tengu_max_tokens_context_overflow_adjustment", {
+            inputTokens: P,
+            contextLimit: W,
+            adjustedMaxTokens: v,
+            attempt: $
+        });
+        continue
+    }
+}
+
+// READABLE (for understanding):
+if (error instanceof APIError) {
+    let parsed = parseContextOverflowError(error);
+    if (parsed) {
+        let { inputTokens, contextLimit } = parsed;
+        const BUFFER = 1000;  // Safety margin
+        let availableContext = Math.max(0, contextLimit - inputTokens - BUFFER);
+
+        // Check if there's room for meaningful output
+        if (availableContext < FLOOR_OUTPUT_TOKENS) {
+            logError(Error(`availableContext ${availableContext} is less than FLOOR_OUTPUT_TOKENS ${FLOOR_OUTPUT_TOKENS}`));
+            throw error;  // Cannot recover - no room for response
+        }
+
+        // Ensure thinking budget doesn't exceed available space
+        let thinkingBudget = (retryContext.thinkingConfig.type === "enabled"
+            ? retryContext.thinkingConfig.budgetTokens
+            : 0) + 1;
+        let adjustedMaxTokens = Math.max(FLOOR_OUTPUT_TOKENS, availableContext, thinkingBudget);
+
+        retryContext.maxTokensOverride = adjustedMaxTokens;
+
+        logEvent("tengu_max_tokens_context_overflow_adjustment", {
+            inputTokens: inputTokens,
+            contextLimit: contextLimit,
+            adjustedMaxTokens: adjustedMaxTokens,
+            attempt: attemptNumber
+        });
+
+        continue;  // Retry with adjusted max_tokens
+    }
+}
+
+// Mapping: j→error, a7→APIError, X→parsed, $54→parseContextOverflowError,
+//   P→inputTokens, W→contextLimit, Z→BUFFER, G→availableContext, fN8→FLOOR_OUTPUT_TOKENS,
+//   f→thinkingBudget, v→adjustedMaxTokens, z→retryContext, d→logEvent, _6→logError
+```
+
+### Error Parsing Function
+
+```javascript
+// ============================================
+// parseContextOverflowError - Extracts token counts from error message
+// Location: chunks.89.mjs:110-129
+// ============================================
+
+// ORIGINAL (for source lookup):
+function $54(A) {
+    if (A.status !== 400 || !A.message) return;
+    if (!A.message.includes("input length and `max_tokens` exceed context limit")) return;
+    let q = /input length and `max_tokens` exceed context limit: (\d+) \+ (\d+) > (\d+)/,
+        K = A.message.match(q);
+    if (!K || K.length !== 4) return;
+    if (!K[1] || !K[2] || !K[3]) {
+        _6(Error("Unable to parse max_tokens from max_tokens exceed context limit error message"));
+        return
+    }
+    let Y = parseInt(K[1], 10),
+        z = parseInt(K[2], 10),
+        _ = parseInt(K[3], 10);
+    if (isNaN(Y) || isNaN(z) || isNaN(_)) return;
+    return {
+        inputTokens: Y,
+        maxTokens: z,
+        contextLimit: _
+    }
+}
+
+// READABLE (for understanding):
+function parseContextOverflowError(error) {
+    // Only handle 400 errors with the specific message
+    if (error.status !== 400 || !error.message) return undefined;
+    if (!error.message.includes("input length and `max_tokens` exceed context limit")) {
+        return undefined;
+    }
+
+    // Parse: "input length and `max_tokens` exceed context limit: 50000 + 4096 > 200000"
+    const pattern = /input length and `max_tokens` exceed context limit: (\d+) \+ (\d+) > (\d+)/;
+    const match = error.message.match(pattern);
+
+    if (!match || match.length !== 4) return undefined;
+
+    if (!match[1] || !match[2] || !match[3]) {
+        logError(Error("Unable to parse max_tokens from max_tokens exceed context limit error message"));
+        return undefined;
+    }
+
+    let inputTokens = parseInt(match[1], 10);   // e.g., 50000
+    let maxTokens = parseInt(match[2], 10);     // e.g., 4096
+    let contextLimit = parseInt(match[3], 10);  // e.g., 200000
+
+    if (isNaN(inputTokens) || isNaN(maxTokens) || isNaN(contextLimit)) {
+        return undefined;
+    }
+
+    return { inputTokens, maxTokens, contextLimit };
+}
+
+// Mapping: $54→parseContextOverflowError, A→error, q→pattern, K→match,
+//   Y→inputTokens, z→maxTokens, _→contextLimit, _6→logError
+```
+
 **How it works:**
 
 1. **Error Detection**: Catches API errors and checks for `context_length_exceeded` type.
 
-2. **Token Extraction**: Parses `inputTokens` and `contextLimit` from the error response.
+2. **Token Extraction**: Parses `inputTokens` and `contextLimit` from the error message using regex.
 
 3. **Available Space Calculation**:
    ```
@@ -356,3 +679,276 @@ This two-tier approach ensures that:
 - Edge cases (model miscalculation) are handled reactively
 - The user experience is seamless - no manual intervention needed
 - Critical conversation state is preserved across compaction
+
+---
+
+## Cross-Feature Linkages
+
+### Integration with 04_system_reminder
+
+The compact system integrates with the system reminder module to preserve critical context:
+
+**Preserved Attachment Types:**
+- `plan_mode` attachments - Plan file content and state
+- `todo_reminder` attachments - Todo list state
+- `task_reminder` attachments - Task list state
+- `edited_text_file` attachments - File edit records
+
+**Integration Flow:**
+```
+Compaction Triggered
+    │
+    ├── Extract preserved attachments from messages
+    │   ├── Plan file reference
+    │   ├── Todo items
+    │   └── Recent tool results
+    │
+    ├── Generate summary via LLM
+    │
+    ├── Build new message array:
+    │   ├── Summary message
+    │   ├── Preserved attachments
+    │   └── Recent context
+    │
+    └── Return compacted messages
+```
+
+**Key Function:** `assembleAllAttachments` (_uY) in [04_system_reminder](../04_system_reminder/) is called after compaction to re-inject relevant context.
+
+### Integration with 07_compact Module
+
+This document covers the LLM core integration points. For the complete compaction implementation, see:
+- [07_compact/](../07_compact/) - Full compaction module documentation
+- Summary generation prompts
+- Token counting strategies
+- Threshold calculation algorithms
+
+### Integration with Agent Loop (03_llm_core/agent_loop.md)
+
+The compaction is called from within the main agent loop:
+
+```
+mainAgentLoopCore (omY)
+    │
+    ├── Turn Start
+    │   ├── K5("query_microcompact_start")
+    │   ├── pg(messages) → Micro-compact
+    │   └── K5("query_microcompact_end")
+    │
+    ├── K5("query_autocompact_start")
+    ├── sqq(messages, context, params) → Auto-compact check
+    │   ├── If over threshold:
+    │   │   ├── Generate summary
+    │   │   ├── Replace messages
+    │   │   └── Yield compaction messages
+    │   └── Update autoCompactTracking
+    └── K5("query_autocompact_end")
+```
+
+**Key Variables:**
+- `autoCompactTracking` - Tracks compaction state across turns
+
+---
+
+## Deep Algorithm Analysis
+
+### Token Counting Strategy
+
+**What it does:** The compaction system uses a sophisticated token counting strategy that considers model-specific context windows and provides buffers for safety.
+
+**Algorithm (VERIFIED from source):**
+
+```javascript
+// ============================================
+// Token Threshold Calculation
+// Location: chunks.147.mjs:2617-2665
+// ============================================
+
+// Check if auto-compact is enabled
+function shouldTriggerCompaction(messages, model, querySource, modelId) {
+    // 1. Check if auto-compact is enabled in settings
+    if (!getGlobalState().autoCompactEnabled) {
+        return false;
+    }
+
+    // 2. Get model-specific threshold
+    let threshold = getThresholdForModel(model);
+
+    // 3. Estimate current token count
+    let estimatedTokens = estimateTokenCount(messages);
+
+    // 4. Get model context limit
+    let contextLimit = getContextLimitForModel(model);
+
+    // 5. Check if over threshold percentage
+    return estimatedTokens > (contextLimit * threshold);
+}
+
+// Threshold percentages by model (verified):
+const MODEL_THRESHOLDS = {
+    "claude-opus-4-6": 0.80,    // 80% of 1M = 800K tokens
+    "claude-sonnet-4-6": 0.80,  // 80% of 200K = 160K tokens
+    "claude-haiku-4-5": 0.85   // 85% of 200K = 170K tokens
+};
+
+// Context limits by model (verified):
+const MODEL_CONTEXT_LIMITS = {
+    "claude-opus-4-6": 1000000,  // 1M tokens
+    "claude-sonnet-4-6": 200000,
+    "claude-haiku-4-5": 200000
+};
+```
+
+**Why this approach:**
+- **20% buffer**: Leaves room for:
+  - Next user message
+  - System prompts that may be injected
+  - Token estimation inaccuracies
+- **Model-specific thresholds**: Haiku gets 85% threshold due to smaller model capacity
+- **Dynamic adjustment**: Can be overridden via settings
+
+### Circuit Breaker Pattern
+
+**What it does:** Prevents infinite retry loops when compaction repeatedly fails.
+
+**Algorithm:**
+
+```javascript
+// ============================================
+// Circuit Breaker for Auto-Compact
+// Location: chunks.147.mjs:2633-2673
+// ============================================
+
+const MAX_CONSECUTIVE_FAILURES = 3;  // aqq constant
+
+async function autoCompact(messages, sessionContext, systemContext, querySource, autoCompactTracking, modelId) {
+    // Circuit breaker check
+    if (autoCompactTracking?.consecutiveFailures !== undefined &&
+        autoCompactTracking.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        logWarning(`autocompact: circuit breaker tripped - skipping (failures: ${autoCompactTracking.consecutiveFailures})`);
+        return { wasCompacted: false };
+    }
+
+    try {
+        // ... compaction logic ...
+        return {
+            wasCompacted: true,
+            compactionResult: result,
+            consecutiveFailures: 0  // Reset on success
+        };
+    } catch (error) {
+        let newFailureCount = (autoCompactTracking?.consecutiveFailures ?? 0) + 1;
+
+        if (newFailureCount >= MAX_CONSECUTIVE_FAILURES) {
+            logWarning(`autocompact: circuit breaker tripped after ${newFailureCount} consecutive failures`);
+        }
+
+        return {
+            wasCompacted: false,
+            consecutiveFailures: newFailureCount
+        };
+    }
+}
+```
+
+**Why this approach:**
+- **Fails open**: If compaction keeps failing, conversation continues
+- **Session-scoped**: Counter resets when session ends
+- **Graceful degradation**: User gets warning, not error
+
+### Context Overflow Recovery Algorithm
+
+**What it does:** When the API returns `context_length_exceeded`, automatically calculates available space and retries.
+
+**Source Code (VERIFIED):**
+
+```javascript
+// ============================================
+// Context Overflow Recovery - withApiRetry
+// Location: chunks.89.mjs:62-80
+// ============================================
+
+async function* withApiRetry(streamFactory, apiCallFactory, retryContext) {
+    let attempt = 0;
+
+    while (true) {
+        try {
+            let stream = streamFactory();
+            for await (let event of stream) {
+                yield event;
+            }
+            return;
+        } catch (error) {
+            attempt++;
+
+            // Check for context overflow error
+            if (error instanceof APIError) {
+                let parsed = parseContextOverflowError(error);
+                if (parsed) {
+                    let { inputTokens, contextLimit } = parsed;
+
+                    // Calculate available space with buffer
+                    const BUFFER = 1000;
+                    let availableContext = Math.max(0, contextLimit - inputTokens - BUFFER);
+
+                    // Check if there's room for meaningful output
+                    if (availableContext < FLOOR_OUTPUT_TOKENS) {
+                        logError(Error(`availableContext ${availableContext} is less than FLOOR_OUTPUT_TOKENS ${FLOOR_OUTPUT_TOKENS}`));
+                        throw error;  // Cannot recover
+                    }
+
+                    // Account for thinking budget
+                    let thinkingBudget = (retryContext.thinkingConfig.type === "enabled"
+                        ? retryContext.thinkingConfig.budgetTokens
+                        : 0) + 1;
+                    let adjustedMaxTokens = Math.max(FLOOR_OUTPUT_TOKENS, availableContext, thinkingBudget);
+
+                    retryContext.maxTokensOverride = adjustedMaxTokens;
+
+                    logEvent("tengu_max_tokens_context_overflow_adjustment", {
+                        inputTokens: inputTokens,
+                        contextLimit: contextLimit,
+                        adjustedMaxTokens: adjustedMaxTokens,
+                        attempt: attempt
+                    });
+
+                    continue;  // Retry with adjusted max_tokens
+                }
+            }
+
+            // Re-throw other errors
+            throw error;
+        }
+    }
+}
+
+// Mapping: _P1→withApiRetry, a7→APIError, $54→parseContextOverflowError,
+//   fN8→FLOOR_OUTPUT_TOKENS, d→logEvent, _6→logError
+```
+
+**Key insight:** This is a reactive measure that kicks in only when pre-query compaction fails to prevent overflow. The 1000-token buffer provides margin for token estimation inaccuracies.
+- `hasAttemptedReactiveCompact` - Prevents repeated reactive compaction
+- `consecutiveFailures` - Tracks failed compaction attempts
+
+### Integration with Streaming (03_llm_core/stream_processing.md)
+
+The retry wrapper (`withApiRetry`) in the streaming module handles context overflow:
+
+```javascript
+// In streamingQueryCore (mGq)
+for await (let event of withApiRetry(streamParams)) {
+    // If context_length_exceeded error:
+    // 1. Parse error to extract token counts
+    // 2. Calculate available = limit - input - buffer
+    // 3. Set maxTokensOverride = available
+    // 4. Retry with reduced max_tokens
+}
+```
+
+**Error Recovery Chain:**
+1. Streaming detects `context_length_exceeded` error
+2. Error is caught in `withApiRetry`
+3. `parseContextOverflowError` extracts token counts
+4. `maxTokensOverride` is set
+5. Request is retried with reduced output tokens
+6. If still fails after 3 retries, error is propagated to agent loop

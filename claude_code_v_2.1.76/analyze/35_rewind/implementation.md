@@ -6,134 +6,94 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Rewind module section
 
 Key functions in this document:
-- `trackFileEdit` (Xt) - Track a file edit at message time
-- `createSnapshotForMessage` (WW1) - Snapshot all tracked files when a message ends
-- `rewindHandler` (kP6) - Execute rewind to a given message
-- `rewindAndRestoreFiles` (DF4) - Physical file restoration from backup
-- `createBackupFile` (TkA) - Create versioned backup copy
-- `generateBackupFileName` (TvY) - SHA256-based content-addressed backup filename
-- `resolveBackupPath` (Jt) - Resolve backup filename to absolute disk path
-- `fileNeedsRestore` (jF4) - Compare current vs backup to avoid unnecessary writes
-- `restoreFileFromBackup` (vvY) - Write backup content to original file path
-- `calculateFileDiffStats` (OF4) - Compute diff +/- for dry-run preview
-- `findBackupInOlderSnapshot` (EvY) - Fallback lookup in older snapshots
-- `checkRewindCapability` (mMq) - Dry-run validation entry point
-- `recordFileHistorySnapshot` (iQ1) - Persist snapshot to session .jsonl database
-- `onRestoreMessage` - Conversation slice-and-restore callback
-- `onSummarize` - Targeted summarization callback
-
-**New symbols (added in this analysis):**
-- `isFileCheckpointingEnabled` (z2) - Master guard; interactive=opt-out, SDK=opt-in
-- `isSDKCheckpointingEnabled` (NvY) - SDK mode: only ON if CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING is set
-- `migrateFileHistoryToNewSession` (CP6) - On `--resume`: migrate backup files to new session dir via hard-link/copy
-- `hydrateFileHistoryFromSnapshots` (yP6) - Reconstruct FileHistory React state from JSONL snapshots at session load
-- `debugLogFileHistoryState` (PF4) - **Correction**: NOT a state persister; conditional stderr logger, always silent (LvY=false)
-- `reportFileDiffToIDE` (_t) - **Correction**: NO-OP STUB; vestigial IDE diff notification hook
-- `isDebugLoggingEnabled` (LvY) - Always false; debug flag for PF4
+- `isFileCheckpointingEnabled` (iz) - Master guard; interactive=opt-out, SDK=opt-in
+- `isSDKCheckpointingEnabled` (YVY) - SDK mode checkpointing logic
+- `trackFileEdit` (R66) - Track a file edit at message time
+- `createSnapshotForMessage` (lf6) - Snapshot all tracked files when a message ends
+- `rewindHandler` (sN1) - Execute rewind to a given message
+- `rewindAndRestoreFiles` (Zn4) - Physical file restoration from backup
+- `createBackupFile` (du8) - Create versioned backup copy
+- `fileNeedsRestore` (cu8) - Compare current vs backup to avoid unnecessary writes
+- `restoreFileFromBackup` (_VY) - Write backup content to original file path
+- `calculateFileDiffStats` (Mn4) - Compute diff +/- for dry-run preview
+- `findBackupInOlderSnapshot` (Gn4) - Fallback lookup in older snapshots
+- `hydrateFileHistoryFromSnapshots` (qV1) - Reconstruct state from JSONL
+- `migrateFileHistoryToNewSession` (KV1) - Copy backups on session resume
 
 ---
 
-## 0. Storage Architecture: NOT Git — Custom File Backup System
+## 0. Feature Enable/Disable Logic
 
-> **Key fact:** The rewind feature has NO dependency on Git. It does not use commits, branches, stashes, or any Git object. It implements a fully independent versioned file backup system.
+### isFileCheckpointingEnabled (iz)
 
-### On-Disk Layout
-
-```
-~/.claude/                              ← CLAUDE_CONFIG_DIR (default: $HOME/.claude)
-├── file-history/
-│   └── {sessionId}/
-│       ├── a1b2c3d4e5f6a7b8@v1        ← backup of file A before first edit
-│       ├── a1b2c3d4e5f6a7b8@v2        ← backup of file A after next change
-│       ├── f9e8d7c6b5a49382@v1        ← backup of file B before first edit
-│       └── ...
-└── projects/
-    └── {sessionId}.jsonl              ← snapshot metadata (messageId → backupFileName map)
-```
-
-### Backup Filename Generation — `generateBackupFileName` (TvY)
+**Location:** chunks.135.mjs:1977-1980
 
 ```javascript
 // ============================================
-// generateBackupFileName - SHA256 content-addressed backup filename
-// Location: chunks.134.mjs:137-139
+// isFileCheckpointingEnabled - Master guard for checkpointing
+// Location: chunks.135.mjs:1977-1980
 // ============================================
 
 // ORIGINAL (for source lookup):
-function TvY(A, q) {
-    return `${ZvY("sha256").update(A).digest("hex").slice(0, 16)}@v${q}`
+function iz() {
+    if (q7()) return YVY();
+    return X1().fileCheckpointingEnabled !== !1 && !t6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
 }
 
 // READABLE (for understanding):
-function generateBackupFileName(filePath, version) {
-    return `${createHash("sha256").update(filePath).digest("hex").slice(0, 16)}@v${version}`
+function isFileCheckpointingEnabled() {
+    if (isSDKMode()) return isSDKCheckpointingEnabled();
+    return getUserSettings().fileCheckpointingEnabled !== false
+        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
 }
 
-// Mapping: TvY→generateBackupFileName, A→filePath, q→version, ZvY→createHash
+// Mapping: iz→isFileCheckpointingEnabled, q7→isSDKMode, YVY→isSDKCheckpointingEnabled,
+//          X1→getUserSettings, t6→parseBoolean
 ```
 
-**What it does:** Hashes the **file path** (not content) with SHA256, takes the first 16 hex characters, appends `@v{version}`. Example: `/home/user/project/src/auth.ts` at version 2 → `a1b2c3d4e5f6a7b8@v2`.
+**What it does:** Determines whether file checkpointing should be active.
 
-**Why path-based (not content-based)?**
-Content-addressed storage would allow deduplication across identical files, but the primary goal here is a **per-file timeline**, not a content store. Path-based names make it trivial to find all backups for a given file (same path prefix + incrementing `@v`), and the hash keeps filenames short and filesystem-safe even for deeply nested paths.
+**How it works:**
+1. **SDK Mode Check**: If running in SDK mode, delegate to `isSDKCheckpointingEnabled`
+2. **Interactive Mode**: Check user settings and environment variable
+   - Setting `fileCheckpointingEnabled !== false` (default true)
+   - Environment `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING` not set
 
-### Backup Path Resolution — `resolveBackupPath` (Jt)
+**Why this approach:**
+- SDK mode has different defaults (opt-in) vs interactive (opt-out)
+- Allows enterprise users to disable checkpointing entirely
+- Simple boolean check with fallback to enabled
+
+### isSDKCheckpointingEnabled (YVY)
+
+**Location:** chunks.135.mjs:1982-1984
 
 ```javascript
 // ============================================
-// resolveBackupPath - Construct absolute path to a backup file
-// Location: chunks.134.mjs:141-144
+// isSDKCheckpointingEnabled - SDK-specific checkpointing guard
+// Location: chunks.135.mjs:1982-1984
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Jt(A, q) {
-    let K = O8();
-    return _F4(K, "file-history", q || U6(), A)
+function YVY() {
+    return t6(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING) && !t6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
 }
 
 // READABLE (for understanding):
-function resolveBackupPath(backupFileName, sessionId) {
-    let configDir = getClaudeConfigDir();    // ~/.claude by default
-    return joinPaths(configDir, "file-history", sessionId || getCurrentSessionId(), backupFileName)
+function isSDKCheckpointingEnabled() {
+    return parseBoolean(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING)
+        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
 }
 
-// Mapping: Jt→resolveBackupPath, A→backupFileName, q→sessionId, O8→getClaudeConfigDir, U6→getCurrentSessionId, _F4→joinPaths
+// Mapping: YVY→isSDKCheckpointingEnabled, t6→parseBoolean
 ```
 
-### Snapshot Metadata Persistence — `recordFileHistorySnapshot` (iQ1)
+**What it does:** SDK-specific checkpointing enablement logic.
 
-```javascript
-// ============================================
-// recordFileHistorySnapshot - Persist snapshot to session database
-// Location: chunks.173.mjs:1992-1994
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function iQ1(A, q, K) {
-    await YD().insertFileHistorySnapshot(A, q, K)
-}
-
-// READABLE (for understanding):
-async function recordFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate) {
-    await getSessionDatabase().insertFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate)
-}
-
-// Mapping: iQ1→recordFileHistorySnapshot, A→messageId, q→snapshot, K→isSnapshotUpdate, YD→getSessionDatabase
-```
-
-The snapshot (which maps `normalizedFilePath → BackupRecord`) is written into the session's `.jsonl` file at `~/.claude/projects/{sessionId}.jsonl`. This is the same JSONL file that stores conversation messages and other session state.
-
-**`isSnapshotUpdate = true`** (called from `trackFileEdit`): The record is flagged as an in-progress update, meaning the snapshot for this message is not yet finalized.
-**`isSnapshotUpdate = false`** (called from `createSnapshotForMessage`): The snapshot is finalized — this is the canonical checkpoint for this `messageId`.
-
-### Two-Layer Storage Design
-
-| Layer | What | Where | Purpose |
-|-------|------|-------|---------|
-| **Backup files** | Actual file content copies | `~/.claude/file-history/{sessionId}/` | Physical restore source |
-| **Snapshot metadata** | `messageId → {filePath → backupFileName}` map | `~/.claude/projects/{sessionId}.jsonl` | Lookup index for restore |
-
-Restore requires both: the `.jsonl` to find which backup filename corresponds to a given message+file, and the `file-history/` directory to get the actual content.
+**Why opt-in for SDK mode:**
+- SDK users may have their own version control
+- Checkpointing adds I/O overhead
+- Less surprising behavior for automated systems
 
 ---
 
@@ -145,6 +105,7 @@ The checkpoint system's core data structure is the `fileHistory` state atom:
 FileHistory {
   trackedFiles: Set<normalizedFilePath>   // all files ever touched this session
   snapshots: Snapshot[]                   // one per user message
+  snapshotSequence: number                // incrementing counter for React reconciliation
 }
 
 Snapshot {
@@ -166,36 +127,45 @@ BackupRecord {
 
 ---
 
-## 2. Phase 1: File Edit Tracking — `trackFileEdit` (Xt)
+## 2. Phase 1: File Edit Tracking — `trackFileEdit` (R66)
+
+**Location:** chunks.135.mjs:1986-2014
 
 This is called every time a Claude tool (Write, Edit, etc.) modifies a file, **before** the modification occurs.
 
 ```javascript
 // ============================================
 // trackFileEdit - Record a file edit into current snapshot
-// Location: chunks.133.mjs:2760-2793
+// Location: chunks.135.mjs:1986-2014
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Xt(A, q, K) {
-    if (!z2()) return;
+async function R66(A, q, K) {
+    if (!iz()) return;
     A((Y) => {
         try {
             let z = Y.snapshots.at(-1);
-            if (!z) return K1(Error("FileHistory: Missing most recent snapshot")), c("tengu_file_history_track_edit_failed", {}), Y;
-            let w = MF4(q);
-            if (z.trackedFileBackups[w]) return Y;
-            let H = Y.trackedFiles.has(w) ? Y.trackedFiles : new Set(Y.trackedFiles).add(w),
-                O = !b1().existsSync(q),
-                _ = O ? TkA(null, 1) : TkA(q, 1),
-                J = X61(z);
-            J.trackedFileBackups[w] = _;
-            let X = { ...Y, snapshots: [...Y.snapshots.slice(0, -1), J], trackedFiles: H };
-            return PF4(X), iQ1(K, J, !0).catch((D) => {
-                K1(Error(`FileHistory: Failed to record snapshot: ${D}`))
-            }), c("tengu_file_history_track_edit_success", { isNewFile: O, version: _.version }), X
+            if (!z) return _6(Error("FileHistory: Missing most recent snapshot")), d("tengu_file_history_track_edit_failed", {}), Y;
+            let _ = fn4(q);
+            if (z.trackedFileBackups[_]) return Y;
+            let w = Y.trackedFiles.has(_) ? Y.trackedFiles : new Set(Y.trackedFiles).add(_),
+                $ = !$1().existsSync(q),
+                H = $ ? du8(null, 1) : du8(q, 1),
+                j = rw6(z);
+            j.trackedFileBackups[_] = H;
+            let J = {
+                ...Y,
+                snapshots: [...Y.snapshots.slice(0, -1), j],
+                trackedFiles: w
+            };
+            return Tn4(J), _l6(K, j, !0).catch((M) => {
+                _6(Error(`FileHistory: Failed to record snapshot: ${M}`))
+            }), d("tengu_file_history_track_edit_success", {
+                isNewFile: $,
+                version: H.version
+            }), k(`FileHistory: Tracked file modification for ${q}`), J
         } catch (z) {
-            return K1(z), c("tengu_file_history_track_edit_failed", {}), Y
+            return _6(z), d("tengu_file_history_track_edit_failed", {}), Y
         }
     })
 }
@@ -206,33 +176,49 @@ async function trackFileEdit(updateFileHistoryState, filePath, messageId) {
     updateFileHistoryState((fileHistoryState) => {
         try {
             let mostRecentSnapshot = fileHistoryState.snapshots.at(-1);
-            if (!mostRecentSnapshot) return logError(Error("FileHistory: Missing most recent snapshot")),
-                telemetry("tengu_file_history_track_edit_failed", {}), fileHistoryState;
+            if (!mostRecentSnapshot) {
+                logError(Error("FileHistory: Missing most recent snapshot"));
+                telemetry("tengu_file_history_track_edit_failed", {});
+                return fileHistoryState;
+            }
             let normalizedPath = normalizeFilePath(filePath);
-            if (mostRecentSnapshot.trackedFileBackups[normalizedPath]) return fileHistoryState;  // already tracked
+            // Already tracked in this snapshot? Skip.
+            if (mostRecentSnapshot.trackedFileBackups[normalizedPath]) return fileHistoryState;
+
             let updatedTrackedFiles = fileHistoryState.trackedFiles.has(normalizedPath)
                     ? fileHistoryState.trackedFiles
                     : new Set(fileHistoryState.trackedFiles).add(normalizedPath),
                 isNewFile = !getFileSystem().existsSync(filePath),
-                backupRecord = isNewFile ? createBackupFile(null, 1) : createBackupFile(filePath, 1),
-                copiedSnapshot = copySnapshot(mostRecentSnapshot);
+                backupRecord = isNewFile
+                    ? createBackupFile(null, 1)      // New file: null backup
+                    : createBackupFile(filePath, 1), // Existing file: copy content
+                copiedSnapshot = deepCopySnapshot(mostRecentSnapshot);  // rw6: Myers clone
             copiedSnapshot.trackedFileBackups[normalizedPath] = backupRecord;
-            let newState = { ...fileHistoryState,
+            let newState = {
+                ...fileHistoryState,
                 snapshots: [...fileHistoryState.snapshots.slice(0, -1), copiedSnapshot],
-                trackedFiles: updatedTrackedFiles };
-            return debugLogFileHistoryState(newState),  // PF4: no-op in prod (LvY=false)
-                recordFileHistorySnapshot(messageId, copiedSnapshot, true)
-                .catch((e) => logError(Error(`FileHistory: Failed to record snapshot: ${e}`))),
-                telemetry("tengu_file_history_track_edit_success", { isNewFile, version: backupRecord.version }), newState
+                trackedFiles: updatedTrackedFiles
+            };
+            debugLog(newState);  // Tn4: no-op in prod
+            recordFileHistorySnapshot(messageId, copiedSnapshot, true).catch((e) => {
+                logError(Error(`FileHistory: Failed to record snapshot: ${e}`));
+            });
+            telemetry("tengu_file_history_track_edit_success", { isNewFile, version: backupRecord.version });
+            return newState;
         } catch (error) {
-            return logError(error), telemetry("tengu_file_history_track_edit_failed", {}), fileHistoryState
+            logError(error);
+            telemetry("tengu_file_history_track_edit_failed", {});
+            return fileHistoryState;
         }
-    })
+    });
 }
 
-// Mapping: Xt→trackFileEdit, A→updateFileHistoryState, q→filePath, K→messageId, Y→fileHistoryState,
-//          z→mostRecentSnapshot, w→normalizedPath, H→updatedTrackedFiles, O→isNewFile, _→backupRecord,
-//          J→copiedSnapshot, X→newState, MF4→normalizeFilePath, X61→copySnapshot, PF4→debugLogFileHistoryState
+// Mapping: R66→trackFileEdit, A→updateFileHistoryState, q→filePath, K→messageId,
+//          Y→fileHistoryState, z→mostRecentSnapshot, _→normalizedPath,
+//          w→updatedTrackedFiles, $→isNewFile, H→backupRecord, j→copiedSnapshot,
+//          J→newState, fn4→normalizeFilePath, $1→getFileSystem, du8→createBackupFile,
+//          rw6→deepCopySnapshot, Tn4→debugLog, _l6→recordFileHistorySnapshot,
+//          _6→logError, d→telemetry, k→consoleLog
 ```
 
 ### Algorithm: First-Edit-Only Backup
@@ -240,11 +226,16 @@ async function trackFileEdit(updateFileHistoryState, filePath, messageId) {
 **What it does:** Captures the pre-edit state of a file into a versioned backup.
 
 **How it works:**
-1. Check `mostRecentSnapshot.trackedFileBackups[normalizedPath]` — if already set, **return early** (no duplicate backup)
-2. If the file doesn't exist yet (`isNewFile = true`), create a `BackupRecord` with `backupFileName: null` and `version: 1`
-3. Otherwise, call `createBackupFile(filePath, 1)` to copy the file to the backup location
-4. **Mutate the most recent snapshot in-place** (via shallow copy), replacing the `snapshots[-1]` in state
-5. Persist state and async-sync to remote (for remote session support)
+1. Guard check: `isFileCheckpointingEnabled()` returns early if disabled
+2. Get most recent snapshot from state array
+3. Normalize file path to create consistent lookup key
+4. **Deduplication check**: If `trackedFileBackups[normalizedPath]` exists, return early — only first edit per message is tracked
+5. Detect if file is new (doesn't exist on disk)
+6. Create version-1 backup:
+   - New file: `backupFileName: null` (marker for deletion on restore)
+   - Existing file: Copy content to backup location
+7. Deep-copy snapshot before mutation (required for React state immutability)
+8. Update state and persist to session database
 
 **Why this approach — "first edit wins":**
 Only the **first** modification per file per message is captured. This preserves the "before Claude touched this file" state, which is what users care about when rewinding. Subsequent edits within the same message would only record intermediate states, not the original.
@@ -253,93 +244,157 @@ Only the **first** modification per file per message is captured. This preserves
 
 ---
 
-## 3. Phase 2: Snapshot Finalization — `createSnapshotForMessage` (WW1)
+## 3. Phase 2: Snapshot Finalization — `createSnapshotForMessage` (lf6)
+
+**Location:** chunks.135.mjs:2016-2073
 
 Called when a message's turn completes (all tool calls done), to create the permanent checkpoint.
 
 ```javascript
 // ============================================
 // createSnapshotForMessage - Finalize snapshot at message end
-// Location: chunks.133.mjs:334285-334350
+// Location: chunks.135.mjs:2016-2073
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function WW1(A, q) {
-    if (!z2()) return;
+async function lf6(A, q) {
+    if (!iz()) return;
     A((K) => {
         try {
-            let Y = b1(), z = new Date, w = {}, H = K.snapshots.at(-1);
-            if (H) {
-                for (let _ of K.trackedFiles) try {
-                    let J = EkA(_);
+            let Y = $1(),
+                z = new Date,
+                _ = {},
+                w = K.snapshots.at(-1);
+            if (w) {
+                k(`FileHistory: Making snapshot for message ${q}`);
+                for (let j of K.trackedFiles) try {
+                    let J = AV1(j);
                     if (!Y.existsSync(J)) {
-                        let X = H.trackedFileBackups[_], D = X ? X.version + 1 : 1;
-                        w[_] = { backupFileName: null, version: D, backupTime: new Date },
-                            c("tengu_file_history_backup_deleted_file", { version: D })
+                        let M = w.trackedFileBackups[j],
+                            D = M ? M.version + 1 : 1;
+                        _[j] = {
+                            backupFileName: null,
+                            version: D,
+                            backupTime: new Date
+                        }, d("tengu_file_history_backup_deleted_file", {
+                            version: D
+                        }), k(`FileHistory: Missing tracked file: ${j}`)
                     } else {
-                        let X = H.trackedFileBackups[_];
-                        if (X && X.backupFileName !== null && !jF4(J, X.backupFileName)) {
-                            w[_] = X; continue
+                        let M = w.trackedFileBackups[j];
+                        if (M && M.backupFileName !== null && !cu8(J, M.backupFileName)) {
+                            _[j] = M;
+                            continue
                         }
-                        let D = X ? X.version + 1 : 1, j = TkA(J, D);
-                        w[_] = j
+                        let D = M ? M.version + 1 : 1,
+                            X = du8(J, D);
+                        _[j] = X
                     }
-                } catch (J) { K1(J), c("tengu_file_history_backup_file_failed", {}) }
+                } catch (J) {
+                    _6(J), d("tengu_file_history_backup_file_failed", {})
+                }
             }
-            let $ = { messageId: q, trackedFileBackups: w, timestamp: z },
-                O = { ...K, snapshots: [...K.snapshots, $] };
-            return PF4(O), kvY(K, O), iQ1(q, $, !1).catch((_) => {
-                K1(Error(`FileHistory: Failed to record snapshot: ${_}`))
-            }), c("tengu_file_history_snapshot_success", {
-                trackedFilesCount: K.trackedFiles.size, snapshotCount: O.snapshots.length
-            }), O
-        } catch (Y) { return K1(Y), c("tengu_file_history_snapshot_failed", {}), K }
+            let O = {
+                    messageId: q,
+                    trackedFileBackups: _,
+                    timestamp: z
+                },
+                $ = [...K.snapshots, O],
+                H = {
+                    ...K,
+                    snapshots: $.length > Jn4 ? $.slice(-Jn4) : $,
+                    snapshotSequence: (K.snapshotSequence ?? 0) + 1
+                };
+            return Tn4(H), wVY(K, H), _l6(q, O, !1).catch((j) => {
+                _6(Error(`FileHistory: Failed to record snapshot: ${j}`))
+            }), k(`FileHistory: Added snapshot for ${q}, tracking ${K.trackedFiles.size} files`), d("tengu_file_history_snapshot_success", {
+                trackedFilesCount: K.trackedFiles.size,
+                snapshotCount: H.snapshots.length
+            }), H
+        } catch (Y) {
+            return _6(Y), d("tengu_file_history_snapshot_failed", {}), K
+        }
     })
 }
 
 // READABLE (for understanding):
 async function createSnapshotForMessage(stateUpdater, messageId) {
-    if (!isFileHistoryEnabled()) return;
+    if (!isFileCheckpointingEnabled()) return;
     stateUpdater((currentHistory) => {
         try {
-            let fs = getNodeFileSystem(), now = new Date, backups = {},
+            let fs = getFileSystem(),
+                now = new Date,
+                backups = {},
                 previousSnapshot = currentHistory.snapshots.at(-1);
+
             if (previousSnapshot) {
-                for (let trackedPath of currentHistory.trackedFiles) try {
-                    let actualPath = resolveTrackedFilePath(trackedPath);
-                    if (!fs.existsSync(actualPath)) {
-                        // File was deleted during this message
-                        let prev = previousSnapshot.trackedFileBackups[trackedPath],
-                            version = prev ? prev.version + 1 : 1;
-                        backups[trackedPath] = { backupFileName: null, version, backupTime: new Date };
-                        telemetry("tengu_file_history_backup_deleted_file", { version });
-                    } else {
-                        let prev = previousSnapshot.trackedFileBackups[trackedPath];
-                        // Optimization: reuse backup if file hasn't changed
-                        if (prev && prev.backupFileName !== null && !fileNeedsRestore(actualPath, prev.backupFileName)) {
-                            backups[trackedPath] = prev; continue;
+                consoleLog(`FileHistory: Making snapshot for message ${messageId}`);
+                for (let trackedPath of currentHistory.trackedFiles) {
+                    try {
+                        let actualPath = resolveTrackedFilePath(trackedPath);
+                        if (!fs.existsSync(actualPath)) {
+                            // File was deleted during this message
+                            let prev = previousSnapshot.trackedFileBackups[trackedPath],
+                                version = prev ? prev.version + 1 : 1;
+                            backups[trackedPath] = {
+                                backupFileName: null,
+                                version,
+                                backupTime: new Date
+                            };
+                            telemetry("tengu_file_history_backup_deleted_file", { version });
+                        } else {
+                            let prev = previousSnapshot.trackedFileBackups[trackedPath];
+                            // Optimization: reuse backup if file hasn't changed
+                            if (prev && prev.backupFileName !== null && !fileNeedsRestore(actualPath, prev.backupFileName)) {
+                                backups[trackedPath] = prev;
+                                continue;
+                            }
+                            let version = prev ? prev.version + 1 : 1;
+                            backups[trackedPath] = createBackupFile(actualPath, version);
                         }
-                        let version = prev ? prev.version + 1 : 1;
-                        backups[trackedPath] = createBackupFile(actualPath, version);
+                    } catch (e) {
+                        logError(e);
+                        telemetry("tengu_file_history_backup_file_failed", {});
                     }
-                } catch (e) { logError(e); telemetry("tengu_file_history_backup_file_failed", {}); }
+                }
             }
-            let newSnapshot = { messageId, trackedFileBackups: backups, timestamp: now },
-                newHistory = { ...currentHistory, snapshots: [...currentHistory.snapshots, newSnapshot] };
-            return debugLogFileHistoryState(newHistory),  // PF4: no-op in prod
-                checkForHistoryChanges(currentHistory, newHistory),  // kvY→_t: also no-op in prod
-                recordRemoteSnapshot(messageId, newSnapshot, false).catch(e => logError(Error(`FileHistory: Failed: ${e}`))),
-                telemetry("tengu_file_history_snapshot_success", {
-                    trackedFilesCount: currentHistory.trackedFiles.size,
-                    snapshotCount: newHistory.snapshots.length
-                }), newHistory;
-        } catch (e) { return logError(e); telemetry("tengu_file_history_snapshot_failed", {}); return currentHistory; }
-    })
+
+            let newSnapshot = {
+                    messageId,
+                    trackedFileBackups: backups,
+                    timestamp: now
+                },
+                newSnapshots = [...currentHistory.snapshots, newSnapshot],
+                newHistory = {
+                    ...currentHistory,
+                    // Cap snapshots at MAX_SNAPSHOTS (Jn4 = 100)
+                    snapshots: newSnapshots.length > MAX_SNAPSHOTS
+                        ? newSnapshots.slice(-MAX_SNAPSHOTS)
+                        : newSnapshots,
+                    snapshotSequence: (currentHistory.snapshotSequence ?? 0) + 1
+                };
+
+            debugLog(newHistory);
+            checkForHistoryChanges(currentHistory, newHistory);  // wVY: reporting, no-op in prod
+            recordFileHistorySnapshot(messageId, newSnapshot, false).catch((e) => {
+                logError(Error(`FileHistory: Failed to record snapshot: ${e}`));
+            });
+            telemetry("tengu_file_history_snapshot_success", {
+                trackedFilesCount: currentHistory.trackedFiles.size,
+                snapshotCount: newHistory.snapshots.length
+            });
+            return newHistory;
+        } catch (e) {
+            logError(e);
+            telemetry("tengu_file_history_snapshot_failed", {});
+            return currentHistory;
+        }
+    });
 }
 
-// Mapping: WW1→createSnapshotForMessage, A→stateUpdater, q→messageId, K→currentHistory,
-//          Y→fs, z→now, w→backups, H→previousSnapshot, _→trackedPath, J→actualPath,
-//          X→prevBackup, D→version, j→backupRecord, $→newSnapshot, O→newHistory
+// Mapping: lf6→createSnapshotForMessage, A→stateUpdater, q→messageId, K→currentHistory,
+//          Y→fs, z→now, _→backups, w→previousSnapshot, j→trackedPath, J→actualPath,
+//          M→prevBackup, D→version, X→newBackupRecord, O→newSnapshot, $→newSnapshots,
+//          H→newHistory, Jn4→MAX_SNAPSHOTS (100)
 ```
 
 ### Algorithm: Incremental Snapshot with Deduplication
@@ -350,104 +405,236 @@ async function createSnapshotForMessage(stateUpdater, messageId) {
 1. Iterate all `trackedFiles` in the current history
 2. For each file:
    - **Deleted**: Record `backupFileName: null` with incremented version
-   - **Unchanged** (`fileNeedsRestore` returns false for prev backup): **Reuse** the existing `BackupRecord` — no new file copy needed
-   - **Changed or new**: Call `createBackupFile` to write a new versioned copy
-3. Append the new `Snapshot` to the snapshots array
-4. Persist and optionally sync to remote
+   - **Unchanged** (`fileNeedsRestore` returns false): **Reuse** existing `BackupRecord` — no new file copy
+   - **Changed or new**: Call `createBackupFile` to write new versioned copy
+3. Append new `Snapshot` to array, cap at `MAX_SNAPSHOTS` (100)
+4. Persist to session database
 
-**The deduplication optimization:**
-`fileNeedsRestore(actualPath, prev.backupFileName)` does a multi-tier comparison:
-1. Existence check (one exists, other doesn't → need restore)
-2. Mode + size check (fast, no content read)
-3. Modification time shortcut (if file is older than backup → unchanged)
-4. Content comparison (final, definitive check)
-
-This avoids writing duplicate backup files for unchanged files between messages, which could be the majority of tracked files.
+**Snapshot limit (Jn4 = 100):**
+Only the most recent 100 snapshots are kept. Older ones are discarded. This bounds memory usage and disk space while still providing extensive rewind history.
 
 ---
 
-## 4. Phase 3: Backup File Creation — `createBackupFile` (TkA)
+## 4. Backup File Operations
+
+### createBackupFile (du8)
+
+**Location:** chunks.135.mjs:2247-2273
 
 ```javascript
 // ============================================
 // createBackupFile - Write versioned backup to backup directory
-// Location: chunks.134.mjs:146-172
+// Location: chunks.135.mjs:2247-2273
 // ============================================
 
 // ORIGINAL (for source lookup):
-function TkA(A, q) {
-    let K = A !== null ? TvY(A, q) : null;
+function du8(A, q) {
+    let K = A !== null ? zVY(A, q) : null;
     if (A && K) {
-        let Y = b1(), z = Jt(K), w = vkA(z);
-        if (!Y.existsSync(w)) Y.mkdirSync(w);
-        let H = Y.readFileSync(A, { encoding: "utf-8" });
-        c8(z, H, { encoding: "utf-8", flush: true });
-        let $ = Y.statSync(A), O = $.mode;
-        XF4(z, O), c("tengu_file_history_backup_file_created", { version: q, fileSize: $.size })
+        let Y = $1(),
+            z = zz6(K),
+            _ = Dn4(z);
+        if (!Y.existsSync(_)) Y.mkdirSync(_);
+        let w = Y.readFileSync(A, {
+            encoding: "utf-8"
+        });
+        fz(z, w, {
+            encoding: "utf-8",
+            flush: !0
+        });
+        let O = Y.statSync(A),
+            $ = O.mode;
+        Pn4(z, $), d("tengu_file_history_backup_file_created", {
+            version: q,
+            fileSize: O.size
+        })
     }
-    return { backupFileName: K, version: q, backupTime: new Date }
+    return {
+        backupFileName: K,
+        version: q,
+        backupTime: new Date
+    }
 }
 
 // READABLE (for understanding):
 function createBackupFile(originalFilePath, version) {
-    let backupFileName = originalFilePath !== null ? generateBackupFileName(originalFilePath, version) : null;
+    let backupFileName = originalFilePath !== null
+        ? generateBackupFileName(originalFilePath, version)
+        : null;
+
     if (originalFilePath && backupFileName) {
         let fs = getFileSystem(),
-            backupFilePath = resolveBackupPath(backupFileName),
-            backupDir = getDirectoryPath(backupFilePath);
+            backupFilePath = resolveBackupPath(backupFileName),  // zz6: builds full path
+            backupDir = getDirectoryPath(backupFilePath);        // Dn4: dirname
+
         if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir);
+
         let content = fs.readFileSync(originalFilePath, { encoding: "utf-8" });
         writeFileSync(backupFilePath, content, { encoding: "utf-8", flush: true });
-        let stats = fs.statSync(originalFilePath), mode = stats.mode;
-        setFilePermissions(backupFilePath, mode);
-        telemetry("tengu_file_history_backup_file_created", { version, fileSize: stats.size });
+
+        let stats = fs.statSync(originalFilePath);
+        setFilePermissions(backupFilePath, stats.mode);
+
+        telemetry("tengu_file_history_backup_file_created", {
+            version,
+            fileSize: stats.size
+        });
     }
-    return { backupFileName, version, backupTime: new Date }
+
+    return {
+        backupFileName,
+        version,
+        backupTime: new Date
+    };
 }
 
-// Mapping: TkA→createBackupFile, A→originalFilePath, q→version, K→backupFileName,
-//          TvY→generateBackupFileName, Jt→resolveBackupPath, vkA→getDirectoryPath,
-//          c8→writeFileSync, XF4→setFilePermissions
+// Mapping: du8→createBackupFile, A→originalFilePath, q→version, K→backupFileName,
+//          zVY→generateBackupFileName, $1→getFileSystem, zz6→resolveBackupPath,
+//          Dn4→getDirectoryPath, fz→writeFileSync, Pn4→setFilePermissions
 ```
 
 **Key insight:** File permissions (`mode`) are preserved alongside content. This ensures restored files don't have altered executable bits or read-only flags.
 
+### generateBackupFileName (zVY)
+
+**Location:** chunks.135.mjs:2238-2240
+
+```javascript
+// ============================================
+// generateBackupFileName - Generate unique backup filename from file path
+// Location: chunks.135.mjs:2238-2240
+// ============================================
+
+// ORIGINAL (for source lookup):
+function zVY(A, q) {
+    return `${sNY("sha256").update(A).digest("hex").slice(0,16)}@v${q}`
+}
+
+// READABLE (for understanding):
+function generateBackupFileName(filePath, version) {
+    // SHA256 hash of file path, first 16 hex chars, plus @v{version}
+    return `${createHash("sha256").update(filePath).digest("hex").slice(0, 16)}@v${version}`;
+}
+
+// Mapping: zVY→generateBackupFileName, A→filePath, q→version, sNY→createHash
+```
+
+**What it does:** Generates a unique, filesystem-safe filename for a backup based on the original file path and version number.
+
+**Algorithm:**
+1. Take the original file path (e.g., `/home/user/project/src/auth.ts`)
+2. Compute SHA256 hash of the path string
+3. Take first 16 hex characters of the hash (e.g., `a1b2c3d4e5f6a7b8`)
+4. Append `@v{version}` suffix (e.g., `@v2`)
+5. Result: `a1b2c3d4e5f6a7b8@v2`
+
+**Why path-based (not content-based):**
+- All versions of the same file share the same hash prefix
+- Easy to find all backups for a given file (same prefix, different @v)
+- Hash keeps filenames short and filesystem-safe (no special characters)
+- No need to encode full paths which could exceed filesystem limits
+
+**Why SHA256 truncated to 16 chars:**
+- 16 hex characters = 64 bits of entropy
+- Sufficient to avoid collisions in practice
+- Keeps backup filenames reasonably short
+
+### resolveBackupPath (zz6)
+
+**Location:** chunks.135.mjs:2242-2245
+
+```javascript
+// ============================================
+// resolveBackupPath - Build full path to backup file
+// Location: chunks.135.mjs:2242-2245
+// ============================================
+
+// ORIGINAL (for source lookup):
+function zz6(A, q) {
+    let K = c8();
+    return aN1(K, "file-history", q || R1(), A)
+}
+
+// READABLE (for understanding):
+function resolveBackupPath(backupFileName, sessionId) {
+    let configDir = getClaudeConfigDir();  // ~/.claude/
+    return joinPaths(configDir, "file-history", sessionId || getCurrentSessionId(), backupFileName);
+}
+
+// Mapping: zz6→resolveBackupPath, A→backupFileName, q→sessionId,
+//          K→configDir, c8→getClaudeConfigDir, aN1→joinPaths, R1→getCurrentSessionId
+```
+
+**What it does:** Builds the full filesystem path to a backup file.
+
+**Path structure:**
+```
+~/.claude/file-history/{sessionId}/{backupFileName}
+```
+
+**Example:**
+- Input: `backupFileName = "a1b2c3d4e5f6a7b8@v2"`, `sessionId = "sess-abc123"`
+- Output: `/home/user/.claude/file-history/sess-abc123/a1b2c3d4e5f6a7b8@v2`
+
+### generateBackupFileName (zVY)
+
+**Location:** (inferred from du8 usage)
+
+```javascript
+function generateBackupFileName(filePath, version) {
+    // SHA256 hash of file path, first 16 hex chars, plus @v{version}
+    return `${createHash("sha256").update(filePath).digest("hex").slice(0, 16)}@v${version}`;
+}
+```
+
+**Example:** `/home/user/project/src/auth.ts` at version 2 → `a1b2c3d4e5f6a7b8@v2`
+
 ---
 
-## 5. Phase 4: Restore Execution — `rewindHandler` (kP6) + `rewindAndRestoreFiles` (DF4)
+## 5. Restore Operations
 
-### `rewindHandler` (kP6)
+### rewindHandler (sN1)
+
+**Location:** chunks.135.mjs:2075-2100
 
 ```javascript
 // ============================================
 // rewindHandler - Execute rewind to a specific message's snapshot
-// Location: chunks.134.mjs:334341-334368
+// Location: chunks.135.mjs:2075-2100
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function kP6(A, q) {
-    if (!z2()) return;
+async function sN1(A, q) {
+    if (!iz()) return;
     let K = null;
     if (A((Y) => {
-        let z = Y;
-        try {
-            let w = Y.snapshots.findLast(($) => $.messageId === q);
-            if (!w) return K1(Error(`FileHistory: Snapshot for ${q} not found`)),
-                c("tengu_file_history_rewind_failed", { trackedFilesCount: z.trackedFiles.size, snapshotFound: false }),
-                K = Error("The selected snapshot was not found"), z;
-            h(`FileHistory: [Rewind] Rewinding to snapshot for ${q}`);
-            let H = DF4(z, w, false);
-            c("tengu_file_history_rewind_success", { trackedFilesCount: z.trackedFiles.size, filesChangedCount: H?.filesChanged?.length })
-        } catch (w) {
-            K = w; K1(w); c("tengu_file_history_rewind_failed", { trackedFilesCount: z.trackedFiles.size, snapshotFound: true })
-        }
-        return z
-    }), K) throw K
+            let z = Y;
+            try {
+                let _ = Y.snapshots.findLast((O) => O.messageId === q);
+                if (!_) return _6(Error(`FileHistory: Snapshot for ${q} not found`)), d("tengu_file_history_rewind_failed", {
+                    trackedFilesCount: z.trackedFiles.size,
+                    snapshotFound: !1
+                }), K = Error("The selected snapshot was not found"), z;
+                k(`FileHistory: [Rewind] Rewinding to snapshot for ${q}`);
+                let w = Zn4(z, _, !1);
+                k(`FileHistory: [Rewind] Finished rewinding to ${q}`), d("tengu_file_history_rewind_success", {
+                    trackedFilesCount: z.trackedFiles.size,
+                    filesChangedCount: w?.filesChanged?.length
+                })
+            } catch (_) {
+                K = _, _6(_), d("tengu_file_history_rewind_failed", {
+                    trackedFilesCount: z.trackedFiles.size,
+                    snapshotFound: !0
+                })
+            }
+            return z
+        }), K) throw K
 }
 
 // READABLE (for understanding):
 async function rewindHandler(stateUpdater, messageId) {
-    if (!isFileHistoryEnabled()) return;
+    if (!isFileCheckpointingEnabled()) return;
+
     let error = null;
     stateUpdater((currentHistory) => {
         let history = currentHistory;
@@ -455,1067 +642,985 @@ async function rewindHandler(stateUpdater, messageId) {
             let snapshot = currentHistory.snapshots.findLast(s => s.messageId === messageId);
             if (!snapshot) {
                 logError(Error(`FileHistory: Snapshot for ${messageId} not found`));
-                telemetry("tengu_file_history_rewind_failed", { trackedFilesCount: history.trackedFiles.size, snapshotFound: false });
+                telemetry("tengu_file_history_rewind_failed", {
+                    trackedFilesCount: history.trackedFiles.size,
+                    snapshotFound: false
+                });
                 error = Error("The selected snapshot was not found");
                 return history;
             }
+
+            consoleLog(`FileHistory: [Rewind] Rewinding to snapshot for ${messageId}`);
             let result = rewindAndRestoreFiles(history, snapshot, false);  // isDryRun = false
+            consoleLog(`FileHistory: [Rewind] Finished rewinding to ${messageId}`);
+
             telemetry("tengu_file_history_rewind_success", {
-                trackedFilesCount: history.trackedFiles.size, filesChangedCount: result?.filesChanged?.length
+                trackedFilesCount: history.trackedFiles.size,
+                filesChangedCount: result?.filesChanged?.length
             });
         } catch (e) {
-            error = e; logError(e);
-            telemetry("tengu_file_history_rewind_failed", { trackedFilesCount: history.trackedFiles.size, snapshotFound: true });
+            error = e;
+            logError(e);
+            telemetry("tengu_file_history_rewind_failed", {
+                trackedFilesCount: history.trackedFiles.size,
+                snapshotFound: true
+            });
         }
         return history;
     });
+
     if (error) throw error;
 }
 
-// Mapping: kP6→rewindHandler, A→stateUpdater, q→messageId, K→error, Y/z→currentHistory, w→snapshot, H→result
+// Mapping: sN1→rewindHandler, A→stateUpdater, q→messageId, K→error, Y/z→currentHistory,
+//          _→snapshot, w→result, Zn4→rewindAndRestoreFiles
 ```
 
-**Why `findLast`?** If the same `messageId` appears in multiple snapshots (possible in edge cases), the most recent snapshot wins, which correctly reflects the final state at that message.
+**Why `findLast`?** If the same `messageId` appears in multiple snapshots (possible in edge cases), the most recent snapshot wins, correctly reflecting the final state at that message.
 
-### `rewindAndRestoreFiles` (DF4)
+### rewindAndRestoreFiles (Zn4)
+
+**Location:** chunks.135.mjs:2135-2169
 
 ```javascript
 // ============================================
 // rewindAndRestoreFiles - Restore all tracked files to snapshot state
-// Location: chunks.134.mjs:334380-334415
+// Location: chunks.135.mjs:2135-2169
 // ============================================
 
 // ORIGINAL (for source lookup):
-function DF4(A, q, K) {
-    let Y = b1(), z = [], w = 0, H = 0;
-    for (let $ of A.trackedFiles) try {
-        let O = EkA($), _ = q.trackedFileBackups[$],
-            J = _ ? _.backupFileName : EvY($, A);
-        if (J === void 0)
-            K1(Error("FileHistory: Error finding the backup file to apply")),
-            c("tengu_file_history_rewind_restore_file_failed", { dryRun: K });
-        else if (J === null) {
-            if (Y.existsSync(O)) {
-                if (K) { let X = OF4(O, void 0); w += X?.insertions || 0; H += X?.deletions || 0 }
-                else Y.unlinkSync(O), h(`FileHistory: [Rewind] Deleted ${O}`);
-                z.push(O)
+function Zn4(A, q, K) {
+    let Y = $1(),
+        z = [],
+        _ = 0,
+        w = 0;
+    for (let O of A.trackedFiles) try {
+        let $ = AV1(O),
+            H = q.trackedFileBackups[O],
+            j = H ? H.backupFileName : Gn4(O, A);
+        if (j === void 0) _6(Error("FileHistory: Error finding the backup file to apply")), d("tengu_file_history_rewind_restore_file_failed", {
+            dryRun: K
+        });
+        else if (j === null) {
+            if (Y.existsSync($)) {
+                if (K) {
+                    let J = Mn4($, void 0);
+                    _ += J?.insertions || 0, w += J?.deletions || 0
+                } else Y.unlinkSync($), k(`FileHistory: [Rewind] Deleted ${$}`);
+                z.push($)
             }
         } else if (K) {
-            let X = OF4(O, J);
-            if (w += X?.insertions || 0, H += X?.deletions || 0, X?.insertions || X?.deletions) z.push(O)
-        } else if (jF4(O, J)) vvY(O, J), h(`FileHistory: [Rewind] Restored ${O} from ${J}`), z.push(O)
-    } catch (O) { K1(O); c("tengu_file_history_rewind_restore_file_failed", { dryRun: K }) }
-    return { filesChanged: z, insertions: w, deletions: H }
+            let J = Mn4($, j);
+            if (_ += J?.insertions || 0, w += J?.deletions || 0, J?.insertions || J?.deletions) z.push($)
+        } else if (cu8($, j)) _VY($, j), k(`FileHistory: [Rewind] Restored ${$} from ${j}`), z.push($)
+    } catch ($) {
+        _6($), d("tengu_file_history_rewind_restore_file_failed", {
+            dryRun: K
+        })
+    }
+    return {
+        filesChanged: z,
+        insertions: _,
+        deletions: w
+    }
 }
 
 // READABLE (for understanding):
-function rewindAndRestoreFiles(fileHistory, snapshot, isDryRun) {
-    let fs = getFileSystem(), changedFiles = [], additions = 0, deletions = 0;
-    for (let trackedPath of fileHistory.trackedFiles) try {
-        let actualPath = resolveTrackedFilePath(trackedPath),
-            backupRecord = snapshot.trackedFileBackups[trackedPath],
-            // Fallback: if this snapshot doesn't have the file, find it in oldest snapshot
-            backupFileName = backupRecord ? backupRecord.backupFileName : findBackupInOlderSnapshot(trackedPath, fileHistory);
+function rewindAndRestoreFiles(fileHistory, targetSnapshot, isDryRun) {
+    let fs = getFileSystem(),
+        filesChanged = [],
+        totalInsertions = 0,
+        totalDeletions = 0;
 
-        if (backupFileName === undefined) {
-            // Cannot find any backup — log error
-            logError(Error("FileHistory: Error finding the backup file to apply"));
+    for (let trackedPath of fileHistory.trackedFiles) {
+        try {
+            let actualPath = resolveTrackedFilePath(trackedPath),
+                backupRecord = targetSnapshot.trackedFileBackups[trackedPath],
+                backupFileName = backupRecord
+                    ? backupRecord.backupFileName
+                    : findBackupInOlderSnapshot(trackedPath, fileHistory);  // Gn4: fallback
+
+            if (backupFileName === undefined) {
+                logError(Error("FileHistory: Error finding the backup file to apply"));
+                telemetry("tengu_file_history_rewind_restore_file_failed", { dryRun: isDryRun });
+            } else if (backupFileName === null) {
+                // File was new at this point — delete if exists now
+                if (fs.existsSync(actualPath)) {
+                    if (isDryRun) {
+                        let diff = calculateFileDiffStats(actualPath, undefined);
+                        totalInsertions += diff?.insertions || 0;
+                        totalDeletions += diff?.deletions || 0;
+                    } else {
+                        fs.unlinkSync(actualPath);
+                        consoleLog(`FileHistory: [Rewind] Deleted ${actualPath}`);
+                    }
+                    filesChanged.push(actualPath);
+                }
+            } else if (isDryRun) {
+                // Dry run: just calculate diff stats
+                let diff = calculateFileDiffStats(actualPath, backupFileName);
+                totalInsertions += diff?.insertions || 0;
+                totalDeletions += diff?.deletions || 0;
+                if (diff?.insertions || diff?.deletions) {
+                    filesChanged.push(actualPath);
+                }
+            } else if (fileNeedsRestore(actualPath, backupFileName)) {
+                // Actual restore: copy backup content
+                restoreFileFromBackup(actualPath, backupFileName);
+                consoleLog(`FileHistory: [Rewind] Restored ${actualPath} from ${backupFileName}`);
+                filesChanged.push(actualPath);
+            }
+        } catch (e) {
+            logError(e);
             telemetry("tengu_file_history_rewind_restore_file_failed", { dryRun: isDryRun });
-        } else if (backupFileName === null) {
-            // File should be deleted at this snapshot point
-            if (fs.existsSync(actualPath)) {
-                if (isDryRun) { let s = calculateFileDiffStats(actualPath, undefined); additions += s?.insertions||0; deletions += s?.deletions||0; }
-                else fs.unlinkSync(actualPath);
-                changedFiles.push(actualPath);
-            }
-        } else if (isDryRun) {
-            // Dry-run: just count diff lines
-            let s = calculateFileDiffStats(actualPath, backupFileName);
-            if (additions += s?.insertions||0, deletions += s?.deletions||0, s?.insertions||s?.deletions) changedFiles.push(actualPath);
-        } else if (fileNeedsRestore(actualPath, backupFileName)) {
-            // Apply: only restore if actually different
-            restoreFileFromBackup(actualPath, backupFileName);
-            changedFiles.push(actualPath);
         }
-    } catch (e) { logError(e); telemetry("tengu_file_history_rewind_restore_file_failed", { dryRun: isDryRun }); }
-    return { filesChanged: changedFiles, insertions: additions, deletions: deletions }
+    }
+
+    return {
+        filesChanged,
+        insertions: totalInsertions,
+        deletions: totalDeletions
+    };
 }
 
-// Mapping: DF4→rewindAndRestoreFiles, A→fileHistory, q→snapshot, K→isDryRun,
-//          Y→fs, z→changedFiles, w→additions, H→deletions, $→trackedPath,
-//          O→actualPath, _→backupRecord, J→backupFileName, X→diffStats,
-//          EkA→resolveTrackedFilePath, EvY→findBackupInOlderSnapshot,
-//          OF4→calculateFileDiffStats, jF4→fileNeedsRestore, vvY→restoreFileFromBackup
+// Mapping: Zn4→rewindAndRestoreFiles, A→fileHistory, q→targetSnapshot, K→isDryRun,
+//          Y→fs, z→filesChanged, _→totalInsertions, w→totalDeletions,
+//          O→trackedPath, $→actualPath, H→backupRecord, j→backupFileName,
+//          J→diff, AV1→resolveTrackedFilePath, Gn4→findBackupInOlderSnapshot,
+//          Mn4→calculateFileDiffStats, cu8→fileNeedsRestore, _VY→restoreFileFromBackup
 ```
 
-### Algorithm: Three-State File Restoration
+### Algorithm: Dry-Run vs Execute
 
-For each tracked file, the algorithm handles three states:
-
-| `backupFileName` | Meaning | Dry-Run | Live |
-|------------------|---------|---------|------|
-| `undefined` | No backup found anywhere | Log error | Log error |
-| `null` | File didn't exist at this snapshot | Count current file stats | `unlinkSync` |
-| `string` | File existed with this content | Count diff vs backup | Copy backup to path |
-
-**Why iterate `fileHistory.trackedFiles` (not `snapshot.trackedFileBackups`)?**
-The `snapshot.trackedFileBackups` only contains files whose state was **first captured** at or before that snapshot. Files that started being tracked in a *later* message won't appear in the snapshot at all. Using `trackedFiles` (the union of all ever-tracked files) ensures completeness, with `findBackupInOlderSnapshot` (`EvY`) providing the fallback.
-
----
-
-## 6. Conversation Restore — `onRestoreMessage`
-
-```javascript
-// ============================================
-// onRestoreMessage - Slice conversation and restore session state
-// Location: chunks.188.mjs:1389-1439
-// ============================================
-
-// ORIGINAL (for source lookup):
-onRestoreMessage: async (k6) => {
-    let q8 = W4.indexOf(k6), FA = W4.slice(0, q8);
-    setImmediate(async () => {
-        X6([...FA]), E5(bE6()), A1((k7) => ({
-            ...k7,
-            todos: { ...k7.todos, [JA]: k6.todos ?? [] },
-            toolPermissionContext: k6.permissionMode && k7.toolPermissionContext.mode !== k6.permissionMode
-                ? { ...k7.toolPermissionContext, mode: k6.permissionMode }
-                : k7.toolPermissionContext,
-            promptSuggestion: { text: null, promptId: null, shownAt: 0, acceptedAt: 0, generationRequestId: null }
-        })), $K1(k6.todos ?? [], JA);
-        let Yq = ZQ1(k6);
-        if (Yq !== null) {
-            let k7 = C4(Yq, "bash-input"), X4 = C4(Yq, SG);
-            if (k7) $8(k7), Rq("bash");
-            else if (X4) { let p7 = C4(Yq, "command-args") || ""; $8(`${X4} ${p7}`), Rq("prompt") }
-            else $8(Yq), Rq("prompt")
-        }
-        // Restore pasted images if the message had images
-        if (Array.isArray(k6.message.content) && k6.message.content.some((k7) => k7.type === "image")) {
-            let k7 = k6.message.content.filter((X4) => X4.type === "image");
-            if (k7.length > 0) {
-                let X4 = {};
-                k7.forEach((p7, V3) => {
-                    if (p7.source.type === "base64") {
-                        let sq = k6.imagePasteIds?.[V3] ?? V3 + 1;
-                        X4[sq] = { id: sq, type: "image", content: p7.source.data, mediaType: p7.source.media_type }
-                    }
-                }), aw(X4)
-            }
-        }
-    })
-}
-
-// READABLE (for understanding):
-onRestoreMessage: async (selectedMessage) => {
-    let msgIndex = messageList.indexOf(selectedMessage),
-        restoredMessages = messageList.slice(0, msgIndex);
-    setImmediate(async () => {
-        setMessages([...restoredMessages]);
-        refreshMessages();
-        updateAppState((state) => ({
-            ...state,
-            todos: { ...state.todos, [currentSessionId]: selectedMessage.todos ?? [] },
-            toolPermissionContext: selectedMessage.permissionMode && state.toolPermissionContext.mode !== selectedMessage.permissionMode
-                ? { ...state.toolPermissionContext, mode: selectedMessage.permissionMode }
-                : state.toolPermissionContext,
-            promptSuggestion: { text: null, promptId: null, shownAt: 0, acceptedAt: 0, generationRequestId: null }
-        }));
-        syncTodosForSession(selectedMessage.todos ?? [], currentSessionId);
-
-        // Restore the input field content from the message
-        let content = extractMessageContent(selectedMessage);
-        if (content !== null) {
-            let bashInput = extractInlineTag(content, "bash-input"),
-                skillCmd = extractInlineTag(content, SKILL_COMMAND_TAG);
-            if (bashInput) { insertInputText(bashInput); setInputMode("bash"); }
-            else if (skillCmd) { let args = extractInlineTag(content, "command-args") || "";
-                insertInputText(`${skillCmd} ${args}`); setInputMode("prompt"); }
-            else { insertInputText(content); setInputMode("prompt"); }
-        }
-
-        // Restore pasted images if any
-        if (Array.isArray(selectedMessage.message.content)
-                && selectedMessage.message.content.some(m => m.type === "image")) {
-            let images = selectedMessage.message.content.filter(m => m.type === "image");
-            if (images.length > 0) {
-                let imagePasteMap = {};
-                images.forEach((img, idx) => {
-                    if (img.source.type === "base64") {
-                        let pasteId = selectedMessage.imagePasteIds?.[idx] ?? idx + 1;
-                        imagePasteMap[pasteId] = { id: pasteId, type: "image", content: img.source.data, mediaType: img.source.media_type };
-                    }
-                });
-                setPastedImages(imagePasteMap);
-            }
-        }
-    })
-}
-
-// Mapping: k6→selectedMessage, q8→msgIndex, FA→restoredMessages, W4→messageList,
-//          X6→setMessages, E5→refreshMessages, A1→updateAppState, JA→currentSessionId,
-//          $K1→syncTodosForSession, ZQ1→extractMessageContent, C4→extractInlineTag,
-//          $8→insertInputText, Rq→setInputMode, aw→setPastedImages
-```
-
-### Algorithm: Full Conversation State Restoration
-
-**What it does:** Cuts the message array at the selected point and restores all associated session state.
+**What it does:** Restores all tracked files to the state in the target snapshot, or just calculates diff stats if `isDryRun=true`.
 
 **How it works:**
-1. `slice(0, msgIndex)` — Keep only messages before the selected message
-2. `setImmediate` wrapping — Defers execution to next event loop tick, ensuring UI updates complete first
-3. Reset `todos` to the snapshot stored in the message itself (`message.todos`)
-4. Restore `toolPermissionContext.mode` if it changed (e.g., user was in auto-approve mode)
-5. Clear `promptSuggestion` to prevent stale suggestion display
-6. Re-inject the original prompt text into the input field — so the user can re-send or edit it
-7. **Re-inject pasted images** — if the original message contained base64 images, they're added back to the image paste buffer so the user can re-attach them
+1. Iterate all `trackedFiles` in history
+2. For each file:
+   - Get backup record from target snapshot
+   - Fallback to `findBackupInOlderSnapshot` (finds version-1 backup)
+   - `backupFileName === undefined`: Error — can't restore
+   - `backupFileName === null`: File should be deleted (was new)
+   - Otherwise: Restore from backup file
+3. For dry-run: accumulate diff stats
+4. For actual restore: delete files or copy backup content
 
-**Why `setImmediate`?**
-The message list update triggers React re-renders. `setImmediate` ensures the state update batch completes before downstream operations (todo sync, input injection) run, preventing race conditions in the UI.
-
-**Why does the message store its own `todos`?**
-Each user message object carries a snapshot of the todo list at the time it was created. This allows conversation restore to correctly recover todo state to exactly the point in time the user wants to return to, without a separate todos-by-messageId index.
+**Key insight:** The `fileNeedsRestore` check before restoring avoids unnecessary file writes when the current content already matches the backup.
 
 ---
 
-## 7. Targeted Summarization — Complete Pipeline
+## 6. Helper Functions
 
-"Summarize from here" shares the same engine as `/compact`. The difference is only the split index: `/compact` passes `0` (summarize everything), while "Summarize from here" passes `selectedMessageIndex` (keep earlier messages verbatim). All internal steps are identical.
+### fileNeedsRestore (cu8)
 
-### 7.0 Pipeline Overview
-
-```
-onSummarize(selectedMessage, userContext)
-  │
-  ├─ 1. Split messages at selectedMessageIndex
-  │      messagesToKeep    = messages[0:index]
-  │      messagesToSummarize = messages[index:]
-  │
-  ├─ 2. Run pre_compact hooks   → mW6()  → newCustomInstructions
-  │
-  ├─ 3. Build summarize request → BL7()  → requestMessage
-  │
-  ├─ 4. LLM call                → ga4()  → assistantResponse
-  │      (uses mainLoopModel, not a dedicated compact model)
-  │
-  ├─ 5. Format output           → ux1()  → summaryText
-  │      (adds header, transcript link via a$())
-  │
-  ├─ 6. Collect attachments
-  │      ├─ Ua4() → file read state (most recently read files, 50K token budget)
-  │      ├─ ca4() → completed local agent task statuses
-  │      ├─ pa4() → current todo items
-  │      ├─ jZ6() → plan file reference (if active plan exists)
-  │      └─ Tqq() → invoked skills list (most recent first)
-  │
-  ├─ 7. Run session_start hooks → PP("compact", {model}) → hookResults
-  │
-  ├─ 8. Create boundary marker  → JU1()  → {type:"system", subtype:"compact_boundary"}
-  │
-  └─ 9. Assemble final messages
-         [boundaryMarker, ...messagesToKeep, ...summaryMessages, ...attachments, ...hookResults]
-```
-
-### 7.1 Pre-Compact Hooks — `mW6` (chunks.141.mjs:3011-3039)
+**Location:** chunks.135.mjs:2171-2201
 
 ```javascript
 // ============================================
-// mW6 - Execute PreCompact hooks and collect custom instructions
-// Location: chunks.141.mjs:3011-3039
+// fileNeedsRestore - Multi-tier comparison to check if restore needed
+// Location: chunks.135.mjs:2171-2201
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function mW6(A, q, K = MP) {
-    let Y = { ...aX(void 0), hook_event_name: "PreCompact", trigger: A.trigger, custom_instructions: A.customInstructions },
-        z = await AyA({ hookInput: Y, matchQuery: A.trigger, signal: q, timeoutMs: K });
-    if (z.length === 0) return {};
-    let w = z.filter(($) => $.succeeded && $.output.trim().length > 0).map(($) => $.output.trim()),
-        H = [];
-    for (let $ of z)
-        if ($.succeeded)
-            if ($.output.trim()) H.push(`PreCompact [${$.command}] completed successfully: ${$.output.trim()}`);
-            else H.push(`PreCompact [${$.command}] completed successfully`);
-        else if ($.output.trim()) H.push(`PreCompact [${$.command}] failed: ${$.output.trim()}`);
-        else H.push(`PreCompact [${$.command}] failed`);
-    return { newCustomInstructions: w.length > 0 ? w.join(`\n\n`) : void 0,
-             userDisplayMessage: H.length > 0 ? H.join(`\n`) : void 0 }
+function cu8(A, q) {
+    let K = $1(),
+        Y = zz6(q),
+        z = null;
+    try {
+        z = K.statSync(A)
+    } catch (w) {
+        if (w.code !== "ENOENT") return !0
+    }
+    let _ = null;
+    try {
+        _ = K.statSync(Y)
+    } catch (w) {
+        if (w.code !== "ENOENT") return !0
+    }
+    if (z === null !== (_ === null)) return !0;
+    if (z === null || _ === null) return !1;
+    if (z.mode !== _.mode || z.size !== _.size) return !0;
+    if (z.mtimeMs < _.mtimeMs) return !1;
+    try {
+        let w = K.readFileSync(A, {
+                encoding: "utf-8"
+            }),
+            O = K.readFileSync(Y, {
+                encoding: "utf-8"
+            });
+        return w !== O
+    } catch {
+        return !0
+    }
 }
 
 // READABLE (for understanding):
-async function executePreCompactHooks(hookConfig, abortSignal, timeoutMs = DEFAULT_TIMEOUT) {
-    let hookInput = { ...baseHookContext(undefined), hook_event_name: "PreCompact",
-                      trigger: hookConfig.trigger, custom_instructions: hookConfig.customInstructions };
-    let results = await runMatchingHooks({ hookInput, matchQuery: hookConfig.trigger, signal: abortSignal, timeoutMs });
-    if (results.length === 0) return {};
-    let customInstructions = results.filter(r => r.succeeded && r.output.trim()).map(r => r.output.trim());
-    let userMessages = results.map(r =>
-        r.succeeded ? `PreCompact [${r.command}] completed successfully${r.output.trim() ? ': ' + r.output.trim() : ''}`
-                    : `PreCompact [${r.command}] failed${r.output.trim() ? ': ' + r.output.trim() : ''}`
-    );
+function fileNeedsRestore(originalFilePath, backupFileName) {
+    let fs = getFileSystem(),
+        backupFilePath = resolveBackupPath(backupFileName);
+
+    // Get stats for original file
+    let originalStats = null;
+    try { originalStats = fs.statSync(originalFilePath); }
+    catch (e) { if (e.code !== "ENOENT") return true; }
+
+    // Get stats for backup file
+    let backupStats = null;
+    try { backupStats = fs.statSync(backupFilePath); }
+    catch (e) { if (e.code !== "ENOENT") return true; }
+
+    // Existence mismatch: need restore
+    if ((originalStats === null) !== (backupStats === null)) return true;
+    // Both don't exist: no restore needed
+    if (originalStats === null || backupStats === null) return false;
+
+    // Mode or size mismatch: need restore
+    if (originalStats.mode !== backupStats.mode) return true;
+    if (originalStats.size !== backupStats.size) return true;
+
+    // Original older than backup: unchanged, no restore needed
+    if (originalStats.mtimeMs < backupStats.mtimeMs) return false;
+
+    // Final check: content comparison
+    try {
+        let originalContent = fs.readFileSync(originalFilePath, { encoding: "utf-8" });
+        let backupContent = fs.readFileSync(backupFilePath, { encoding: "utf-8" });
+        return originalContent !== backupContent;
+    } catch {
+        return true;
+    }
+}
+
+// Mapping: cu8→fileNeedsRestore, A→originalFilePath, q→backupFileName,
+//          K→fs, Y→backupFilePath, z→originalStats, _→backupStats
+```
+
+**Multi-tier comparison (fast to slow):**
+
+| Tier | Check | Cost | Action |
+|------|-------|------|--------|
+| 1 | Existence | O(1) stat | If one exists, other doesn't → restore |
+| 2 | Mode | O(1) stat | Permissions differ → restore |
+| 3 | Size | O(1) stat | Size differs → restore |
+| 4 | mtime | O(1) stat | If original older than backup → no restore (optimization) |
+| 5 | Content | O(n) read | Full comparison as last resort |
+
+**Why this ordering:**
+- Fast checks (stats) happen before slow checks (content read)
+- mtime shortcut avoids reading files that haven't been modified since backup
+- Most files won't need restore, so early exits save significant I/O
+
+### restoreFileFromBackup (_VY)
+
+**Location:** chunks.135.mjs:2275-2293
+
+```javascript
+// ============================================
+// restoreFileFromBackup - Copy backup content to original location
+// Location: chunks.135.mjs:2275-2293
+// ============================================
+
+// ORIGINAL (for source lookup):
+function _VY(A, q) {
+    let K = $1(),
+        Y = zz6(q);
+    if (!K.existsSync(Y)) {
+        d("tengu_file_history_rewind_restore_file_failed", {}), _6(Error(`FileHistory: [Rewind] Backup file not found: ${Y}`));
+        return
+    }
+    let z = K.readFileSync(Y, {
+            encoding: "utf-8"
+        }),
+        _ = Dn4(A);
+    if (!K.existsSync(_)) K.mkdirSync(_);
+    fz(A, z, {
+        encoding: "utf-8",
+        flush: !0
+    });
+    let w = K.statSync(Y).mode;
+    Pn4(A, w)
+}
+
+// READABLE (for understanding):
+function restoreFileFromBackup(originalFilePath, backupFileName) {
+    let fs = getFileSystem(),
+        backupFilePath = resolveBackupPath(backupFileName);
+
+    if (!fs.existsSync(backupFilePath)) {
+        telemetry("tengu_file_history_rewind_restore_file_failed", {});
+        logError(Error(`FileHistory: [Rewind] Backup file not found: ${backupFilePath}`));
+        return;
+    }
+
+    let content = fs.readFileSync(backupFilePath, { encoding: "utf-8" }),
+        targetDir = getDirectoryPath(originalFilePath);
+
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir);
+
+    writeFileSync(originalFilePath, content, { encoding: "utf-8", flush: true });
+
+    // Preserve file permissions
+    let mode = fs.statSync(backupFilePath).mode;
+    setFilePermissions(originalFilePath, mode);
+}
+
+// Mapping: _VY→restoreFileFromBackup, A→originalFilePath, q→backupFileName,
+//          K→fs, Y→backupFilePath, z→content, _→targetDir, w→mode
+```
+
+### calculateFileDiffStats (Mn4)
+
+**Location:** chunks.135.mjs:2203-2233
+
+```javascript
+// ============================================
+// calculateFileDiffStats - Compute +/- line counts for preview
+// Location: chunks.135.mjs:2203-2233
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Mn4(A, q) {
+    let K = [],
+        Y = 0,
+        z = 0;
+    try {
+        let _ = $1(),
+            w = q && zz6(q),
+            O = _.existsSync(A),
+            $ = w && _.existsSync(w);
+        if (!O && !$) return {
+            filesChanged: K,
+            insertions: Y,
+            deletions: z
+        };
+        K.push(A);
+        let H = O ? _.readFileSync(A, {
+                encoding: "utf-8"
+            }) : "",
+            j = $ ? _.readFileSync(w, {
+                encoding: "utf-8"
+            }) : "";
+        na(H, j).forEach((M) => {
+            if (M.added) Y += M.count || 0;
+            if (M.removed) z += M.count || 0
+        })
+    } catch (_) {
+        _6(Error(`FileHistory: Error generating diffStats: ${_}`))
+    }
     return {
-        newCustomInstructions: customInstructions.length > 0 ? customInstructions.join('\n\n') : undefined,
-        userDisplayMessage: userMessages.length > 0 ? userMessages.join('\n') : undefined
-    };
-}
-
-// Mapping: mW6→executePreCompactHooks, A→hookConfig, q→abortSignal, K→timeoutMs,
-//          Y→hookInput, z→results, w→customInstructions, H→userMessages, AyA→runMatchingHooks
-```
-
-**What pre-compact hooks provide:** Hook stdout is collected as `newCustomInstructions`. In `Fa4`, if both hook instructions and user context exist, they're combined:
-```
-"{hookInstructions}\n\nUser context: {userContext}"
-```
-If only one exists, it's used alone. This feeds into `BL7()` as the "Additional Instructions" section of the summarize prompt.
-
-### 7.2 The LLM Summarize Call — `ga4` (chunks.146.mjs:2566-2651)
-
-```javascript
-// ============================================
-// ga4 - Execute LLM call for conversation summarization
-// Location: chunks.146.mjs:2566-2651
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function ga4({ messages: A, summaryRequest: q, appState: K, context: Y, preCompactTokenCount: z, cacheSafeParams: w }) {
-    if (x8("tengu_compact_cache_prefix", !1)) try {
-        let _ = await av({ promptMessages: [q], cacheSafeParams: w, canUseTool: vmY(), querySource: "compact", forkLabel: "compact", maxTurns: 1 }),
-            J = GN(_.messages);
-        if (J && B51(J)) return c("tengu_compact_cache_sharing_success", { ... }), J;
-        c("tengu_compact_cache_sharing_fallback", { reason: "no_text_response", preCompactTokenCount: z })
-    } catch (_) { c("tengu_compact_cache_sharing_fallback", { reason: "error", preCompactTokenCount: z }) }
-    let $ = x8("tengu_compact_streaming_retry", !1), O = $ ? NmY : 1;
-    for (let _ = 1; _ <= O; _++) {
-        let j = await XU1(Y.options.mainLoopModel, Y.options.tools, ...) ? Sx([i5, IW6, ...K.mcp.tools], "name") : [i5],
-            P = UW1({
-                messages: WJ(TmY([...EN(A), q])),
-                systemPrompt: ["You are a helpful AI assistant tasked with summarizing conversations."],
-                maxThinkingTokens: 0,
-                tools: j,
-                signal: Y.abortController.signal,
-                options: { model: Y.options.mainLoopModel, maxOutputTokensOverride: JL6,
-                           querySource: "compact", effortValue: K.effortValue, ... }
-            })[Symbol.asyncIterator]();
-        // ... stream events ...
-        let W = await P.next();
-        while (!W.done) { /* collect assistant response */ W = await P.next() }
-        if (X) return X;
+        filesChanged: K,
+        insertions: Y,
+        deletions: z
     }
 }
 
 // READABLE (for understanding):
-async function runSummarizeLLM({ messages, summaryRequest, appState, context, preCompactTokenCount, cacheSafeParams }) {
-    // Fast path: try prompt-cache sharing (feature flag "tengu_compact_cache_prefix")
-    if (isFeatureEnabled("tengu_compact_cache_prefix")) {
-        try {
-            let cacheResult = await runWithCacheSharing({ promptMessages: [summaryRequest], cacheSafeParams, ... });
-            let cachedResponse = getLastAssistantMessage(cacheResult.messages);
-            if (cachedResponse && hasTextContent(cachedResponse)) {
-                telemetry("tengu_compact_cache_sharing_success", { ... });
-                return cachedResponse;
-            }
-            telemetry("tengu_compact_cache_sharing_fallback", { reason: "no_text_response" });
-        } catch (e) { telemetry("tengu_compact_cache_sharing_fallback", { reason: "error" }); }
-    }
-    // Slow path: full LLM stream
-    let shouldRetry = isFeatureEnabled("tengu_compact_streaming_retry");
-    let maxAttempts = shouldRetry ? MAX_RETRY_COUNT : 1;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let tools = await shouldIncludeTools(context.options.mainLoopModel, ...)
-            ? filterToolsByName([defaultTool, editTool, ...appState.mcp.tools])
-            : [defaultTool];
-        let stream = createLLMStream({
-            messages: normalizeMessages(stripImages([...messagesAfterBoundary, summaryRequest])),
-            systemPrompt: ["You are a helpful AI assistant tasked with summarizing conversations."],
-            maxThinkingTokens: 0,  // thinking disabled for summarize
-            tools,
-            signal: context.abortController.signal,
-            options: {
-                model: context.options.mainLoopModel,    // ← SAME model as main loop
-                maxOutputTokensOverride: JL6,            // summary-specific token limit
-                querySource: "compact",
-                effortValue: appState.effortValue,       // inherits effort from session
-            }
-        })[Symbol.asyncIterator]();
-        let assistantMsg = null;
-        for await (let event of stream) {
-            if (event.type === "assistant") assistantMsg = event;
-            // setStreamMode("responding") on first text block
-            // setResponseLength() on each text delta
+function calculateFileDiffStats(originalFilePath, backupFileName) {
+    let filesChanged = [],
+        insertions = 0,
+        deletions = 0;
+
+    try {
+        let fs = getFileSystem(),
+            backupFilePath = backupFileName && resolveBackupPath(backupFileName),
+            originalExists = fs.existsSync(originalFilePath),
+            backupExists = backupFilePath && fs.existsSync(backupFilePath);
+
+        if (!originalExists && !backupExists) {
+            return { filesChanged, insertions, deletions };
         }
-        if (assistantMsg) return assistantMsg;
-        if (attempt < maxAttempts) telemetry("tengu_compact_streaming_retry", { attempt });
+
+        filesChanged.push(originalFilePath);
+
+        let originalContent = originalExists
+            ? fs.readFileSync(originalFilePath, { encoding: "utf-8" })
+            : "";
+        let backupContent = backupExists
+            ? fs.readFileSync(backupFilePath, { encoding: "utf-8" })
+            : "";
+
+        // na is the Myers diff algorithm implementation
+        computeDiff(originalContent, backupContent).forEach((hunk) => {
+            if (hunk.added) insertions += hunk.count || 0;
+            if (hunk.removed) deletions += hunk.count || 0;
+        });
+    } catch (e) {
+        logError(Error(`FileHistory: Error generating diffStats: ${e}`));
     }
+
+    return { filesChanged, insertions, deletions };
 }
 
-// Mapping: ga4→runSummarizeLLM, A→messages, q→summaryRequest, K→appState, Y→context,
-//          z→preCompactTokenCount, w→cacheSafeParams, x8→isFeatureEnabled, av→runWithCacheSharing,
-//          UW1→createLLMStream, TmY→stripImages, EN→messagesAfterBoundary, WJ→normalizeMessages
+// Mapping: Mn4→calculateFileDiffStats, A→originalFilePath, q→backupFileName,
+//          K→filesChanged, Y→insertions, z→deletions, _→fs, w→backupFilePath,
+//          na→computeDiff (Myers algorithm)
 ```
 
-**Critical insight — same model, not dedicated:**
-`ga4` uses `Y.options.mainLoopModel` (e.g., `claude-opus-4-6`). There is no separate "compact model." This means summarization is just as capable as the main conversation loop, but it also means it has the same cost.
+**Note:** `na` is a built-in Myers diff algorithm implementation, not an npm import.
 
-**Two feature flags controlling behavior:**
-- `tengu_compact_cache_prefix`: Try cache-sharing first (re-use a cached prompt). If successful, the entire LLM call is free. Falls back to full stream on cache miss.
-- `tengu_compact_streaming_retry`: If the stream returns no content, retry up to `NmY` times. Handles transient API failures.
+### findBackupInOlderSnapshot (Gn4)
 
-**Images stripped:** `TmY([...EN(A), q])` — `TmY` strips image content from all messages before sending to the summarize LLM. Image bytes would bloat the token count without adding value to a text summary.
-
-### 7.3 Session-Start Hooks — `PP` (chunks.142.mjs:248-289)
+**Location:** chunks.135.mjs:2295-2301
 
 ```javascript
 // ============================================
-// PP - Execute SessionStart hooks after compaction
-// Location: chunks.142.mjs:248-289
+// findBackupInOlderSnapshot - Fallback to find version-1 backup
+// Location: chunks.135.mjs:2295-2301
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function PP(A, { sessionId: q, agentType: K, model: Y, forceSyncExecution: z } = {}) {
-    let w = [], H = [];
-    if (Ap()) h("Skipping plugin hooks - allowManagedHooksOnly is enabled");
-    else try { await pa() } catch (O) { /* handle plugin load error with category hints */ }
-    let $ = K ?? PN1();
-    for await (let O of $yA(A, q, $, Y, void 0, void 0, z)) {
-        if (O.message) w.push(O.message);
-        if (O.additionalContexts?.length > 0) H.push(...O.additionalContexts)
+function Gn4(A, q) {
+    for (let K of q.snapshots) {
+        let Y = K.trackedFileBackups[A];
+        if (Y !== void 0 && Y.version === 1) return Y.backupFileName
     }
-    if (H.length > 0) {
-        let O = kq({ type: "hook_additional_context", content: H, hookName: "SessionStart",
-                     toolUseID: "SessionStart", hookEvent: "SessionStart" });
-        w.push(O)
-    }
-    return w
+    return
 }
 
 // READABLE (for understanding):
-async function runSessionStartHooks(hookType, { sessionId, agentType, model, forceSyncExecution } = {}) {
-    let hookMessages = [], additionalContexts = [];
-    if (!onlyManagedHooksAllowed()) {
-        try { await loadPluginHooks(); }
-        catch (e) { logWarning(`Failed to load plugin hooks during ${hookType}. Error: ...`); }
+function findBackupInOlderSnapshot(normalizedPath, fileHistory) {
+    // Find the version-1 backup in the earliest snapshot that has it
+    for (let snapshot of fileHistory.snapshots) {
+        let backup = snapshot.trackedFileBackups[normalizedPath];
+        if (backup !== undefined && backup.version === 1) {
+            return backup.backupFileName;
+        }
     }
-    let effectiveAgentType = agentType ?? getDefaultAgentType();
-    for await (let result of executeHooksByType(hookType, sessionId, effectiveAgentType, model, undefined, undefined, forceSyncExecution)) {
-        if (result.message) hookMessages.push(result.message);
-        if (result.additionalContexts?.length > 0) additionalContexts.push(...result.additionalContexts);
-    }
-    if (additionalContexts.length > 0) {
-        hookMessages.push(createAttachment({
-            type: "hook_additional_context", content: additionalContexts,
-            hookName: "SessionStart", toolUseID: "SessionStart", hookEvent: "SessionStart"
-        }));
-    }
-    return hookMessages;
+    return undefined;
 }
 
-// Mapping: PP→runSessionStartHooks, A→hookType, q→sessionId, K→agentType, Y→model,
-//          z→forceSyncExecution, w→hookMessages, H→additionalContexts,
-//          pa→loadPluginHooks, $yA→executeHooksByType, kq→createAttachment
+// Mapping: Gn4→findBackupInOlderSnapshot, A→normalizedPath, q→fileHistory,
+//          K→snapshot, Y→backup
 ```
 
-Called as `PP("compact", { model: context.options.mainLoopModel })`. Returns an array of messages/attachments to append after the summary. These represent fresh session context from hooks (e.g., a `session_start` hook might re-inject environment info or project context).
+**Why version-1:** If no backup exists in the target snapshot for a file, we need the original (version-1) backup to restore the file to its initial state before any Claude modifications.
 
-### 7.4 Attachment Collection
+---
 
-After the LLM summary is generated, `Fa4` collects four types of attachments to re-inject into the post-summary context:
+## 7. Snapshot Query Functions
 
-```javascript
-// In Fa4, after ga4() returns:
-let readFileStateSnapshot = convertMapToObject(context.readFileState);  // wjA()
-context.readFileState.clear();                                          // Reset tracking
-rd();                                                                   // Reset read file state
+### snapshotExistsForMessage (tN1)
 
-let [fileAttachments, taskAttachments] = await Promise.all([
-    collectReadFiles(readFileStateSnapshot, context, MAX_FILES_TO_INCLUDE),  // Ua4()
-    collectCompletedTasks(context)                                            // ca4()
-]);
-let allAttachments = [...fileAttachments, ...taskAttachments];
+**Location:** chunks.135.mjs:2102-2105
 
-let todoAttachment = collectTodos(context.agentId ?? getCurrentSessionId());  // pa4()
-if (todoAttachment) allAttachments.push(todoAttachment);
-
-let planAttachment = collectPlanFile(context.agentId);                        // jZ6()
-if (planAttachment) allAttachments.push(planAttachment);
-
-let skillsAttachment = getInvokedSkillsAttachment(context.agentId);         // Tqq()
-if (skillsAttachment) allAttachments.push(skillsAttachment);
-```
-
-**`collectReadFiles` (Ua4) — Budget-limited file context:**
 ```javascript
 // ============================================
-// Ua4 - Collect recently-read files as post-compact attachments
-// Location: chunks.146.mjs:2665-2686
+// snapshotExistsForMessage - Check if snapshot exists for messageId
+// Location: chunks.135.mjs:2102-2105
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Ua4(A, q, K) {
-    let Y = Object.entries(A).map(([H, $]) => ({ filename: H, ...$}))
-            .filter((H) => !EmY(H.filename, q.agentId))
-            .sort((H, $) => $.timestamp - H.timestamp).slice(0, K),
-        z = await Promise.all(Y.map(async (H) => {
-            let $ = await TyA(H.filename, { ...q, fileReadingLimits: { maxTokens: VmY } }, ...);
-            return $ ? kq($) : null
-        })),
-        w = 0;
-    return z.filter((H) => {
-        if (H === null) return !1;
-        let $ = A2(Q1(H));
-        if (w + $ <= fmY) return w += $, !0;
-        return !1
+function tN1(A, q) {
+    if (!iz()) return !1;
+    return A.snapshots.some((K) => K.messageId === q)
+}
+
+// READABLE (for understanding):
+function snapshotExistsForMessage(fileHistory, messageId) {
+    if (!isFileCheckpointingEnabled()) return false;
+    return fileHistory.snapshots.some((snapshot) => snapshot.messageId === messageId);
+}
+
+// Mapping: tN1→snapshotExistsForMessage, A→fileHistory, q→messageId, K→snapshot, iz→isFileCheckpointingEnabled
+```
+
+**What it does:** Checks whether a checkpoint snapshot exists for a given message ID.
+
+**How it works:**
+1. Guard check: Return `false` if checkpointing is disabled
+2. Search: Use `Array.some()` to check if any snapshot has matching messageId
+3. Returns `true` if found, `false` otherwise
+
+**Why use `some` instead of `find`:** Only need boolean result, not the snapshot itself. Slightly more efficient as it short-circuits on first match.
+
+### getDryRunDiffStats (eN1)
+
+**Location:** chunks.135.mjs:2107-2112
+
+```javascript
+// ============================================
+// getDryRunDiffStats - Run dry-run and return diff statistics
+// Location: chunks.135.mjs:2107-2112
+// ============================================
+
+// ORIGINAL (for source lookup):
+function eN1(A, q) {
+    if (!iz()) return;
+    let K = A.snapshots.findLast((Y) => Y.messageId === q);
+    if (!K) return;
+    return Zn4(A, K, !0)
+}
+
+// READABLE (for understanding):
+function getDryRunDiffStats(fileHistory, messageId) {
+    if (!isFileCheckpointingEnabled()) return undefined;
+    let snapshot = fileHistory.snapshots.findLast((s) => s.messageId === messageId);
+    if (!snapshot) return undefined;
+    return rewindAndRestoreFiles(fileHistory, snapshot, true);  // dryRun = true
+}
+
+// Mapping: eN1→getDryRunDiffStats, A→fileHistory, q→messageId, K→snapshot, Y→s,
+//          iz→isFileCheckpointingEnabled, Zn4→rewindAndRestoreFiles
+```
+
+**What it does:** Returns diff statistics for a potential rewind without actually restoring files.
+
+**How it works:**
+1. Guard check: Return `undefined` if checkpointing is disabled
+2. Find the target snapshot using `findLast` (most recent match wins)
+3. Call `rewindAndRestoreFiles` with `dryRun = true`
+4. Returns `{ filesChanged, insertions, deletions }` object
+
+**Why `findLast` vs `find`:** If the same messageId appears in multiple snapshots (possible edge case), `findLast` returns the most recent one, correctly reflecting the final state.
+
+**Dry-run vs actual restore:**
+
+| Aspect | Dry-run (`true`) | Actual (`false`) |
+|--------|------------------|------------------|
+| Files modified | No | Yes |
+| Stats computed | Yes | Yes |
+| Files deleted | No | Yes (if `backupFileName: null`) |
+| Returns | `{ filesChanged, insertions, deletions }` | Same |
+
+### hasChangesToRestore (Wn4)
+
+**Location:** chunks.135.mjs:2114-2133
+
+```javascript
+// ============================================
+// hasChangesToRestore - Check if any files differ from snapshot
+// Location: chunks.135.mjs:2114-2133
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Wn4(A, q) {
+    if (!iz()) return !1;
+    let K = A.snapshots.findLast((Y) => Y.messageId === q);
+    if (!K) return !1;
+    let Y = $1();
+    for (let z of A.trackedFiles) try {
+        let _ = AV1(z),
+            w = K.trackedFileBackups[z],
+            O = w ? w.backupFileName : Gn4(z, A);
+        if (O === void 0) continue;
+        if (O === null) {
+            if (Y.existsSync(_)) return !0;
+            continue
+        }
+        if (cu8(_, O)) return !0
+    } catch ($) {
+        _6($)
+    }
+    return !1
+}
+
+// READABLE (for understanding):
+function hasChangesToRestore(fileHistory, messageId) {
+    if (!isFileCheckpointingEnabled()) return false;
+    let snapshot = fileHistory.snapshots.findLast((s) => s.messageId === messageId);
+    if (!snapshot) return false;
+
+    let fs = getFileSystem();
+    for (let trackedPath of fileHistory.trackedFiles) {
+        try {
+            let actualPath = resolveTrackedFilePath(trackedPath);
+            let backup = snapshot.trackedFileBackups[trackedPath];
+            let backupFileName = backup ? backup.backupFileName : findBackupInOlderSnapshot(trackedPath, fileHistory);
+
+            // No backup available for this file
+            if (backupFileName === undefined) continue;
+
+            // File was new at this point - check if it exists now
+            if (backupFileName === null) {
+                if (fs.existsSync(actualPath)) return true;  // File exists, would be deleted
+                continue;
+            }
+
+            // File has backup - check if content differs
+            if (fileNeedsRestore(actualPath, backupFileName)) return true;
+        } catch (e) {
+            logError(e);
+        }
+    }
+    return false;
+}
+
+// Mapping: Wn4→hasChangesToRestore, A→fileHistory, q→messageId, K→snapshot,
+//          Y→fs, z→trackedPath, _→actualPath, w→backup, O→backupFileName,
+//          iz→isFileCheckpointingEnabled, $1→getFileSystem, AV1→resolveTrackedFilePath,
+//          Gn4→findBackupInOlderSnapshot, cu8→fileNeedsRestore, _6→logError
+```
+
+**What it does:** Determines if rewinding to a given message would change any files.
+
+**How it works:**
+1. Guard check: Return `false` if checkpointing is disabled
+2. Find target snapshot
+3. Iterate all tracked files:
+   - Skip files with no backup (`backupFileName === undefined`)
+   - Check if `null` backup files (new files) currently exist
+   - Check if existing files differ from their backup using `fileNeedsRestore`
+4. Return `true` on first difference found, `false` if none differ
+
+**Short-circuit behavior:** Returns immediately when first changed file is found, avoiding unnecessary comparison work.
+
+**Use case:** The UI uses this to decide whether to show the "Restore code" option for a message.
+
+---
+
+## 8. Persistence Functions
+
+### hydrateFileHistoryFromSnapshots (qV1)
+
+**Location:** chunks.135.mjs:2315-2335
+
+```javascript
+// ============================================
+// hydrateFileHistoryFromSnapshots - Reconstruct state from JSONL
+// Location: chunks.135.mjs:2315-2335
+// ============================================
+
+// ORIGINAL (for source lookup):
+function qV1(A, q) {
+    if (!iz()) return;
+    let K = [],
+        Y = new Set;
+    for (let z of A) {
+        let _ = {};
+        for (let [w, O] of Object.entries(z.trackedFileBackups)) {
+            let $ = fn4(w);
+            Y.add($), _[$] = O
+        }
+        K.push({
+            ...z,
+            trackedFileBackups: _
+        })
+    }
+    q({
+        snapshots: K,
+        trackedFiles: Y,
+        snapshotSequence: K.length
     })
 }
 
 // READABLE (for understanding):
-async function collectReadFiles(readFileStateMap, context, maxFiles) {
-    // Sort by most recently read, exclude special agent/plan files
-    let candidates = Object.entries(readFileStateMap)
-        .map(([filename, meta]) => ({ filename, ...meta }))
-        .filter(f => !isSpecialAgentFile(f.filename, context.agentId))
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, maxFiles);
-    // Re-read each file with a per-file token cap (VmY = 5000 tokens)
-    let attachments = await Promise.all(candidates.map(async f => {
-        let content = await readFileForAttachment(f.filename, { ...context, fileReadingLimits: { maxTokens: 5000 } });
-        return content ? createAttachment(content) : null;
-    }));
-    // Apply cumulative budget (fmY = 50,000 tokens total)
-    let usedTokens = 0;
-    return attachments.filter(a => {
-        if (!a) return false;
-        let tokens = countTokens(stringify(a));
-        if (usedTokens + tokens <= 50_000) { usedTokens += tokens; return true; }
-        return false;
+function hydrateFileHistoryFromSnapshots(snapshots, setState) {
+    if (!isFileCheckpointingEnabled()) return;
+
+    let hydratedSnapshots = [],
+        allTrackedFiles = new Set();
+
+    for (let snapshot of snapshots) {
+        let normalizedBackups = {};
+        for (let [filePath, backupRecord] of Object.entries(snapshot.trackedFileBackups)) {
+            let normalizedPath = normalizeFilePath(filePath);
+            allTrackedFiles.add(normalizedPath);
+            normalizedBackups[normalizedPath] = backupRecord;
+        }
+        hydratedSnapshots.push({
+            ...snapshot,
+            trackedFileBackups: normalizedBackups
+        });
+    }
+
+    setState({
+        snapshots: hydratedSnapshots,
+        trackedFiles: allTrackedFiles,
+        snapshotSequence: hydratedSnapshots.length
     });
 }
-// Mapping: Ua4→collectReadFiles, A→readFileStateMap, K→maxFiles, VmY→5000, fmY→50000
+
+// Mapping: qV1→hydrateFileHistoryFromSnapshots, A→snapshots, q→setState,
+//          K→hydratedSnapshots, Y→allTrackedFiles, z→snapshot,
+//          _→normalizedBackups, w→filePath, O→backupRecord, fn4→normalizeFilePath
 ```
 
-**Why re-read files after compaction?**
-The summarized messages no longer contain the actual file content Claude saw. Re-attaching recently-read files gives the model immediate access to the most relevant code context without needing to read them again.
+### migrateFileHistoryToNewSession (KV1)
 
-**`collectCompletedTasks` (ca4) — Task status re-injection:**
-```javascript
-// ============================================
-// ca4 - Collect completed local agent task statuses
-// Location: chunks.146.mjs:2724-2740
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function ca4(A) {
-    let q = await A.getAppState();
-    return Object.values(q.tasks).filter((Y) => Y.type === "local_agent")
-        .flatMap((Y) => {
-            if (Y.retrieved) return [];
-            let { status: z } = Y;
-            if (z === "completed" || z === "failed" || z === "killed")
-                return [kq({ type: "task_status", taskId: Y.agentId, taskType: "local_agent",
-                             description: Y.description, status: z, deltaSummary: Y.error ?? null })];
-            return []
-        })
-}
-
-// READABLE (for understanding):
-async function collectCompletedTasks(context) {
-    let appState = await context.getAppState();
-    return Object.values(appState.tasks)
-        .filter(task => task.type === "local_agent")
-        .flatMap(task => {
-            if (task.retrieved) return [];  // skip already-reported tasks
-            let { status } = task;
-            if (status === "completed" || status === "failed" || status === "killed")
-                return [createAttachment({ type: "task_status", taskId: task.agentId,
-                    taskType: "local_agent", description: task.description,
-                    status, deltaSummary: task.error ?? null })];
-            return [];
-        });
-}
-// Mapping: ca4→collectCompletedTasks, A→context, q→appState, Y→task, z→status
-```
-
-**`collectTodos` (pa4), `collectPlanFile` (jZ6), `getInvokedSkillsAttachment` (Tqq):**
-```javascript
-// pa4 — Current todo list (chunks.146.mjs:2688-2697)
-function collectTodos(agentId) {
-    let todos = getTodosForAgent(agentId);
-    if (todos.length === 0) return null;
-    return createAttachment({ type: "todo", content: todos, itemCount: todos.length, context: "post-compact" });
-}
-
-// jZ6 — Active plan file (chunks.146.mjs:2699-2707)
-function collectPlanFile(agentId) {
-    let planContent = getPlanContent(agentId);
-    if (!planContent) return null;
-    let planFilePath = getPlanFilePath(agentId);
-    return createAttachment({ type: "plan_file_reference", planFilePath, planContent });
-}
-
-// Tqq — Invoked skills, newest first (chunks.147.mjs:1896-1908)
-function getInvokedSkillsAttachment(agentId) {
-    let skills = getInvokedSkillsForAgent(agentId);
-    if (skills.size === 0) return null;
-    let skillList = Array.from(skills.values())
-        .sort((a, b) => b.invokedAt - a.invokedAt)
-        .map(s => ({ name: s.skillName, path: s.skillPath, content: s.content }));
-    return createAttachment({ type: "invoked_skills", skills: skillList });
-}
-// Mappings: pa4→collectTodos, jZ6→collectPlanFile, Tqq→getInvokedSkillsAttachment
-```
-
-### 7.5 Boundary Marker — `JU1` (chunks.173.mjs:1215-1233)
+**Location:** chunks.135.mjs:2337-2400
 
 ```javascript
-// ============================================
-// JU1 - Create compact boundary marker message
-// Location: chunks.173.mjs:1215-1233
-// ============================================
+async function migrateFileHistoryToNewSession(sessionData) {
+    if (!isFileCheckpointingEnabled()) return;
 
-// ORIGINAL (for source lookup):
-function JU1(A, q, K, Y, z) {
-    return { type: "system", subtype: "compact_boundary", content: "Conversation compacted",
-             isMeta: !1, timestamp: new Date().toISOString(), uuid: _f(), level: "info",
-             compactMetadata: { trigger: A, preTokens: q, userContext: Y, messagesSummarized: z },
-             ...K ? { logicalParentUuid: K } : {} }
-}
+    let fileHistorySnapshots = sessionData.fileHistorySnapshots;
+    if (!fileHistorySnapshots || sessionData.messages.length === 0) return;
 
-// READABLE (for understanding):
-function createBoundaryMarker(trigger, preCompactTokenCount, logicalParentUuid, userContext, messagesSummarized) {
-    return {
-        type: "system",
-        subtype: "compact_boundary",
-        content: "Conversation compacted",
-        isMeta: false,
-        timestamp: new Date().toISOString(),
-        uuid: generateUUID(),
-        level: "info",
-        compactMetadata: {
-            trigger,                // "manual" for rewind-triggered summarize
-            preTokens: preCompactTokenCount,
-            userContext,            // user-typed context or undefined
-            messagesSummarized
-        },
-        ...(logicalParentUuid ? { logicalParentUuid } : {})
-    };
-}
-// Mapping: JU1→createBoundaryMarker, A→trigger, q→preCompactTokenCount, K→logicalParentUuid,
-//          Y→userContext, z→messagesSummarized, _f→generateUUID
-```
-
-The boundary marker is a `type:"system"` message (filtered from normal display by `isSelectableMessage`) that:
-- Marks the compaction point for transcript navigation
-- Stores metadata (token count before/after, user context, message count)
-- Is placed at the **beginning** of the final message array so it always precedes the summary
-
-### 7.6 Summary Text Formatting — `ux1` + `a$` (chunks.76.mjs:323-336, chunks.173.mjs:1658)
-
-```javascript
-// ============================================
-// ux1 - Format summary content with header and transcript link
-// Location: chunks.76.mjs:323-336
-// ============================================
-
-// ORIGINAL (for source lookup):
-function ux1(A, q, K, Y) {
-    let w = `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\n${O99(A)}`;
-    if (K) w += `\n\nIf you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: ${K}`;
-    if (Y) w += `\n\nRecent messages are preserved verbatim.`;
-    if (q) return `${w}\nPlease continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.`;
-    return w
-}
-
-// READABLE (for understanding):
-function formatSummaryText(summaryContent, shouldDirectAgent, transcriptFilePath, hasPreservedMessages) {
-    let text = `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\n${extractSummaryTag(summaryContent)}`;
-    if (transcriptFilePath)
-        text += `\n\nIf you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: ${transcriptFilePath}`;
-    if (hasPreservedMessages)
-        text += `\n\nRecent messages are preserved verbatim.`;
-    if (shouldDirectAgent)
-        return `${text}\nPlease continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.`;
-    return text;
-}
-// Mapping: ux1→formatSummaryText, A→summaryContent, q→shouldDirectAgent,
-//          K→transcriptFilePath, Y→hasPreservedMessages, O99→extractSummaryTag
-
-// a$ - Get transcript file path (chunks.173.mjs:1658-1660)
-function a$(agentId) {
-    let baseDir = getDataDir(SESSIONS_DIR);
-    return joinPath(baseDir, `${agentId}.jsonl`);  // → ~/.claude/projects/{agentId}.jsonl
-}
-// Mapping: a$→getTranscriptFilePath
-```
-
-**Called in `Fa4` as:** `ux1(summaryText, false, transcriptFilePath, messagesToKeep.length > 0)`
-- `false` for `shouldDirectAgent` in partial compaction (messages before the point are kept, so no need to direct the agent)
-- `transcriptFilePath = a$(currentSessionId())` — points to the session `.jsonl` so the LLM can access full history
-
-### 7.7 Final Assembly — Output Structure
-
-```javascript
-// Fa4 return value:
-return {
-    boundaryMarker,          // JU1() — system/compact_boundary message
-    summaryMessages: [       // Array of one message:
-        createMessage({
-            content: formatSummaryText(llmSummaryText, false, transcriptPath),
-            isCompactSummary: true,
-            ...(messagesToKeep.length > 0
-                ? { summarizeMetadata: { messagesSummarized: count, userContext } }
-                : { isVisibleInTranscriptOnly: true })
-        })
-    ],
-    messagesToKeep,           // messages[0:selectedIndex]
-    attachments,              // [fileAttachments, taskStatuses, todos, planFile, skills]
-    hookResults,              // PP("compact") session-start hook messages
-    preCompactTokenCount,
-    postCompactTokenCount,
-    compactionUsage           // {input_tokens, output_tokens, cache_read/creation_tokens}
-}
-```
-
-**Post-assembly message order:**
-```
-[boundaryMarker, ...messagesToKeep, ...summaryMessages, ...attachments, ...hookResults]
-```
-
-The model now sees: (1) the compact marker, (2) early conversation verbatim, (3) AI-generated summary of the compressed portion, (4) fresh file/task/todo context, (5) any session-start hook outputs.
-
-### 7.8 Key Insights
-
-**1. Partial vs. full compaction is one parameter:**
-`Fa4(messages, index, ...)` — `index=0` compacts everything, `index=N` keeps `N` messages verbatim. "Summarize from here" passes `messages.indexOf(selectedMessage)`.
-
-**2. `readFileState` is cleared after collection:**
-`context.readFileState.clear()` runs after `wjA()` converts it to an object. This prevents the same files from being re-attached in a future compaction triggered later in the same session.
-
-**3. The `isVisibleInTranscriptOnly` flag:**
-If `messagesToKeep.length === 0` (full compaction), the summary message gets `isVisibleInTranscriptOnly: true` — it's only shown in the transcript view, not in the main conversation. For partial compaction the flag is absent, so the summary is visible in the main thread.
-
-**4. Token accounting:**
-- `preCompactTokenCount = countTokens(messages)` — measured before anything changes
-- `postCompactTokenCount = countTokens([summaryMessages])` — measured after
-- Reported in `tengu_partial_compact` telemetry with `trigger: "message_selector"`
-
----
-
-## 8. Dry-Run / Capability Check — `checkRewindCapability` (mMq)
-
-```javascript
-// ============================================
-// checkRewindCapability - Validate rewind and compute diff preview
-// Location: chunks.179.mjs:1747-1779
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function mMq(A, q, K, Y) {
-    if (!z2()) return { canRewind: false, error: "File rewinding is not enabled." };
-    if (!LP6(q.fileHistory, A)) return { canRewind: false, error: "No file checkpoint found for this message." };
-    if (Y) {
-        let z = RP6(q.fileHistory, A);
-        return { canRewind: true, filesChanged: z?.filesChanged, insertions: z?.insertions, deletions: z?.deletions }
+    let previousSessionId = sessionData.messages[sessionData.messages.length - 1]?.sessionId;
+    if (!previousSessionId) {
+        logError(Error("FileHistory: Failed to copy backups on restore (no previous session id)"));
+        return;
     }
-    try {
-        await kP6((z) => K((w) => ({ ...w, fileHistory: z(w.fileHistory) })), A)
-    } catch (z) { return { canRewind: false, error: `Failed to rewind: ${z.message}` } }
-    return { canRewind: true }
-}
 
-// READABLE (for understanding):
-async function checkRewindCapability(messageId, appState, updateState, isDryRun) {
-    if (!isFileHistoryEnabled())
-        return { canRewind: false, error: "File rewinding is not enabled." };
-    if (!snapshotExistsForMessage(appState.fileHistory, messageId))
-        return { canRewind: false, error: "No file checkpoint found for this message." };
-    if (isDryRun) {
-        let stats = getDryRunDiffStats(appState.fileHistory, messageId);
-        return { canRewind: true, filesChanged: stats?.filesChanged, insertions: stats?.insertions, deletions: stats?.deletions };
+    let currentSessionId = getCurrentSessionId();
+    if (previousSessionId === currentSessionId) {
+        consoleLog(`FileHistory: No need to copy file history for resuming with same session id: ${currentSessionId}`);
+        return;
     }
+
     try {
-        await rewindHandler((updatedFn) => updateState((s) => ({ ...s, fileHistory: updatedFn(s.fileHistory) })), messageId);
-    } catch (e) { return { canRewind: false, error: `Failed to rewind: ${e.message}` }; }
-    return { canRewind: true };
-}
+        let oldBackupDir = joinPaths(getClaudeConfigDir(), "file-history", previousSessionId);
+        let newBackupDir = joinPaths(getClaudeConfigDir(), "file-history", currentSessionId);
+        let fs = getFileSystem();
 
-// Mapping: mMq→checkRewindCapability, A→messageId, q→appState, K→updateState, Y→isDryRun,
-//          z2→isFileHistoryEnabled, LP6→snapshotExistsForMessage, RP6→getDryRunDiffStats, kP6→rewindHandler
-```
+        if (!fs.existsSync(oldBackupDir)) {
+            consoleLog(`FileHistory: No backup directory found for previous session: ${oldBackupDir}`);
+            return;
+        }
 
-**Two modes:**
-- `isDryRun=true` → Calls `getDryRunDiffStats` (`RP6`) which calls `DF4` with `isDryRun=true`. Returns `{ canRewind, filesChanged, insertions, deletions }` — used by the UI to show diff stats before the user commits.
-- `isDryRun=false` → Calls `rewindHandler` (`kP6`) and actually restores files. Returns `{ canRewind: true }` on success.
+        // Create new session backup directory
+        fs.mkdirSync(newBackupDir, { recursive: true });
 
----
+        // Copy all backup files (using hard links for efficiency)
+        let backupFiles = fs.readdirSync(oldBackupDir);
+        for (let file of backupFiles) {
+            let oldPath = joinPaths(oldBackupDir, file);
+            let newPath = joinPaths(newBackupDir, file);
+            if (!fs.existsSync(newPath)) {
+                // Try hard link first, fall back to copy
+                try {
+                    fs.linkSync(oldPath, newPath);
+                } catch {
+                    fs.copyFileSync(oldPath, newPath);
+                }
+            }
+        }
 
-## 9. Session Lifecycle — Initialization, Seeding, Cleanup
-
-### Initial State
-
-The `fileHistory` field is part of the main app state atom and starts completely empty:
-
-```javascript
-// Initial fileHistory state (chunks.189.mjs:1633-1635, chunks.151.mjs:443-445)
-fileHistory: {
-    snapshots: [],          // no snapshots yet
-    trackedFiles: new Set() // no files being tracked
-}
-```
-
-### First Snapshot Seed — The Bootstrap Problem
-
-`createSnapshotForMessage` (WW1) only creates backups when `previousSnapshot` (the last entry in `snapshots`) exists. With an empty array, `snapshots.at(-1)` returns `undefined`, so the backup loop is skipped and only the snapshot record itself is appended.
-
-This means **the very first snapshot is always empty** (`trackedFileBackups: {}`). It acts as the seed anchor — giving WW1 a "previous snapshot" to reference on the second message. From the second message onward, the normal deduplication logic applies.
-
-The timeline for a fresh session:
-
-```
-Session start
-  snapshots = []
-  trackedFiles = {}
-
-Message 1 arrives:
-  WW1 called → previousSnapshot = undefined
-  → backups loop is skipped (nothing to backup yet)
-  → append snapshot { messageId: "msg1", trackedFileBackups: {}, timestamp }
-  → snapshots = [{ msg1, {} }]
-
-Claude edits file A during msg1:
-  Xt called → lastSnapshot = { msg1, {} }
-  → A not in lastSnapshot.trackedFileBackups → backup A@v1
-  → mutate snapshot in-place: { msg1, { A: backupRecord@v1 } }
-
-Message 2 arrives:
-  WW1 called → previousSnapshot = { msg1, { A: @v1 } }
-  → A has changed? → yes → create A@v2 backup
-  → append snapshot { messageId: "msg2", trackedFileBackups: { A: @v2 } }
-```
-
-**Key insight:** The first snapshot is intentionally empty. It's not a bug — it's the bootstrap point that allows `WW1`'s deduplication logic to compare against "no previous state."
-
-### Session Resume: Re-Seeding
-
-When a session is resumed (already has messages), the file history state is loaded from the `.jsonl` session file. The persisted `snapshots` array and `trackedFiles` set are restored, so the bootstrap problem only applies to truly new sessions.
-
-From `chunks.188.mjs:664-669` — at session load, `WW1` is called for the last loaded message to ensure a valid "current" snapshot exists:
-
-```javascript
-// On session load, seed the snapshot for the last message
-if (isFileHistoryEnabled()) WW1(
-    (updatedFn) => updateAppState((s) => ({ ...s, fileHistory: updatedFn(s.fileHistory) })),
-    lastLoadedMessage.message.uuid
-);
-```
-
-### Session Cleanup — 30-Day Expiry
-
-Old backup files are removed based on `cleanupPeriodDays` (default 30 days). The cutoff is computed as:
-
-```javascript
-// chunks.178.mjs:311-314
-function computeCleanupCutoff() {
-    let periodMs = (getCleanupSettings()?.cleanupPeriodDays ?? DEFAULT_CLEANUP_DAYS) * 24 * 60 * 60 * 1000;
-    return new Date(Date.now() - periodMs)
-}
-```
-
-The cleanup function (`cjq`, chunks.178.mjs:328-346) scans the session backup directory and deletes files whose embedded date is before the cutoff:
-
-```javascript
-// ============================================
-// cleanupOldBackups - Delete backup files older than cleanupPeriodDays
-// Location: chunks.178.mjs:328-346
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function cjq(A, q, K) {
-    let Y = { messages: 0, errors: 0 };
-    try {
-        let z = await b1().readdir(A);
-        for (let w of z) try {
-            if (b_z(w.name) < q)
-                if (await b1().unlink(Df(A, w.name)), K) Y.messages++;
-                else Y.errors++
-        } catch (H) { K1(H) }
-    } catch (z) { if (z instanceof Error && "code" in z && z.code !== "ENOENT") K1(z) }
-    return Y
-}
-
-// READABLE (for understanding):
-async function cleanupOldBackups(backupDirectory, cutoffDate, isVerbose) {
-    let stats = { deleted: 0, errors: 0 };
-    try {
-        let entries = await getFileSystem().readdir(backupDirectory);
-        for (let entry of entries) try {
-            if (parseDateFromFilename(entry.name) < cutoffDate)
-                if (await getFileSystem().unlink(joinPaths(backupDirectory, entry.name)), isVerbose)
-                    stats.deleted++;
-                else stats.errors++;
-        } catch (e) { logError(e); }
+        consoleLog(`FileHistory: Migrated ${backupFiles.length} backup files to new session`);
     } catch (e) {
-        if (e instanceof Error && "code" in e && e.code !== "ENOENT") logError(e);
+        logError(Error(`FileHistory: Failed to migrate backups: ${e}`));
     }
-    return stats
 }
-
-// Mapping: cjq→cleanupOldBackups, A→backupDirectory, q→cutoffDate, K→isVerbose,
-//          b_z→parseDateFromFilename, Df→joinPaths
 ```
+
+**Why hard links:** When possible, hard links are used instead of copying to save disk space. Both the old and new session directories point to the same inode, so no duplicate storage is needed.
 
 ---
 
-## 10. Tool Integration — Which Tools Call `trackFileEdit`
+## 9. Constants
 
-`trackFileEdit` (Xt) is called by Claude's file-editing tools **before** each modification:
-
-| Tool | When Called | Location |
-|------|-------------|----------|
-| Write tool | Before writing new file content | chunks.146.mjs:~552 |
-| Edit tool | Before applying edit to existing file | chunks.134.mjs:~2344 |
-| MultiEdit tool | Before each edit in a batch | chunks.134.mjs:~2766 |
-| Read tool (write path) | Before reading file for subsequent write | chunks.170.mjs:~346 |
-
-The call signature is always:
-```javascript
-await trackFileEdit(
-    (updaterFn) => updateAppState(s => ({ ...s, fileHistory: updaterFn(s.fileHistory) })),
-    filePath,       // absolute path to the file being modified
-    messageUuid     // UUID of the current user message
-)
-```
-
-This pattern — passing a state updater function rather than the state directly — ensures `trackFileEdit` works with React's immutable state model without needing direct access to the state atom.
+| Obfuscated | Readable | Value | Purpose |
+|------------|----------|-------|---------|
+| `Jn4` | MAX_SNAPSHOTS | 100 | Maximum snapshots to retain |
+| `OVY` | DEBUG_LOGGING_ENABLED | false | Debug logging (always off in prod) |
 
 ---
 
-## 11. Path Resolution — `resolveTrackedFilePath` (EkA)
+## 10. Snapshot Helpers
+
+### deepCopySnapshot (rw6)
+
+**Location:** chunks.1.mjs:3865
 
 ```javascript
 // ============================================
-// resolveTrackedFilePath - Resolve relative tracked path to absolute
-// Location: chunks.134.mjs:209-212
+// deepCopySnapshot - Create immutable copy of snapshot for React state updates
+// Location: chunks.1.mjs:3865
 // ============================================
 
 // ORIGINAL (for source lookup):
-function EkA(A) {
-    if (JF4(A)) return A;
-    return _F4(y8(), A)
+function rw6(A) {
+    let K = [];
+    try {
+        const q = TY(K, E_`cloneDeep(${A})`, 0);
+        return IAA(A)
+    } catch (Y) {
+        var z = Y,
+            _ = 1
+    } finally {
+        vY(K, z, _)
+    }
 }
 
 // READABLE (for understanding):
-function resolveTrackedFilePath(normalizedPath) {
-    if (isAbsolutePath(normalizedPath)) return normalizedPath;
-    return joinPaths(getCurrentWorkingDirectory(), normalizedPath)
+function deepCopySnapshot(snapshot) {
+    // lodash cloneDeep wrapper with tracing support
+    return cloneDeep(snapshot);
 }
 
-// Mapping: EkA→resolveTrackedFilePath, JF4→isAbsolutePath, y8→getCurrentWorkingDirectory, _F4→joinPaths
+// Mapping: rw6→deepCopySnapshot, A→snapshot
 ```
 
-Tracked file paths are stored **normalized** (via `MF4` / `normalizeFilePath`). When restoring, they're resolved back to absolute paths via `EkA`. This allows the snapshot to remain valid even if the working directory changes between sessions.
+**What it does:** Creates a deep copy of a snapshot object for immutable React state updates.
+
+**Why deep copy:** React state updates must be immutable. When modifying the `trackedFileBackups` of a snapshot, we cannot mutate the existing snapshot object — we must create a new one. This function uses lodash's `cloneDeep` to recursively copy all nested properties.
+
+**Usage context:** Called in `trackFileEdit` at line 1997: `j = rw6(z)` before mutating `j.trackedFileBackups[_] = H`.
 
 ---
 
-## 12. Helper Implementations: LP6, RP6, `lo`
+### checkForHistoryChanges (wVY)
 
-### `snapshotExistsForMessage` (LP6)
-
-```javascript
-// chunks.134.mjs:30-33
-function LP6(fileHistory, messageId) {
-    if (!isFileHistoryEnabled()) return false;
-    return fileHistory.snapshots.some(s => s.messageId === messageId)
-}
-```
-
-Simple `Array.some` scan. No indexing — O(n) per check. In practice, the number of snapshots is bounded by the number of messages in the session (typically < 1000).
-
-### `getDryRunDiffStats` (RP6)
+**Location:** chunks.135.mjs:2391-2417
 
 ```javascript
-// chunks.134.mjs:35-40
-function RP6(fileHistory, messageId) {
-    if (!isFileHistoryEnabled()) return;
-    let snapshot = fileHistory.snapshots.findLast(s => s.messageId === messageId);
-    if (!snapshot) return;
-    return rewindAndRestoreFiles(fileHistory, snapshot, true)  // isDryRun=true
+// ============================================
+// checkForHistoryChanges - Compare old vs new snapshot state
+// Location: chunks.135.mjs:2391-2417
+// ============================================
+
+// ORIGINAL (for source lookup):
+function wVY(A, q) {
+    let K = A.snapshots.at(-1),
+        Y = q.snapshots.at(-1);
+    if (!Y) return;
+    let z = $1();
+    for (let _ of q.trackedFiles) {
+        let w = AV1(_),
+            O = K?.trackedFileBackups[_],
+            $ = Y.trackedFileBackups[_];
+        if (O?.backupFileName === $?.backupFileName && O?.version === $?.version) continue;
+        // ... comparison logic
+        if (H !== j) L66(w, H, j)
+    }
 }
+
+// READABLE (for understanding):
+function checkForHistoryChanges(oldHistory, newHistory) {
+    let oldLastSnapshot = oldHistory.snapshots.at(-1);
+    let newLastSnapshot = newHistory.snapshots.at(-1);
+    if (!newLastSnapshot) return;
+
+    let fs = getFileSystem();
+    for (let trackedPath of newHistory.trackedFiles) {
+        let actualPath = resolveTrackedFilePath(trackedPath);
+        let oldBackup = oldLastSnapshot?.trackedFileBackups[trackedPath];
+        let newBackup = newLastSnapshot.trackedFileBackups[trackedPath];
+
+        // Skip if backup reference unchanged
+        if (oldBackup?.backupFileName === newBackup?.backupFileName
+            && oldBackup?.version === newBackup?.version) continue;
+
+        // Read and compare contents
+        let oldContent = readBackupContent(oldBackup?.backupFileName);
+        let newContent = readBackupContent(newBackup?.backupFileName);
+
+        if (oldContent !== newContent) {
+            reportFileHistoryChange(actualPath, oldContent, newContent);
+        }
+    }
+}
+
+// Mapping: wVY→checkForHistoryChanges, A→oldHistory, q→newHistory, K→oldLastSnapshot,
+//          Y→newLastSnapshot, z→fs, _→trackedPath, w→actualPath, O→oldBackup, $→newBackup
 ```
 
-Delegates directly to `DF4` with `isDryRun=true`. No special caching — called once per user interaction.
+**What it does:** Compares the old and new FileHistory state after a snapshot update to detect which files changed.
 
-### `computeDiff` (lo) — Myers Diff Algorithm
-
-```javascript
-// chunks.75.mjs:2676-2678
-function lo(textA, textB, options) {
-    return GL7.diff(textA, textB, options)
-}
-```
-
-`GL7` is an instance of a `WL7` class (chunks.75.mjs:2305-2376) that extends `n0` — an internal Myers diff implementation. This is **not an external npm package** — it's a bundled implementation of the Myers diff algorithm. Features:
-- Line-based tokenization
-- Edit distance matrix (standard Myers)
-- Returns `[{ added, removed, count, value }]` format
-
-Used in `calculateFileDiffStats` (OF4) to count how many lines differ between current file and its backup.
+**Why it exists:** This is a debugging/development function. In production, `L66` (reportFileHistoryChange) is a no-op, so this function has no visible effect. It was likely used during development to verify that snapshot updates correctly tracked file changes.
 
 ---
 
-## 13. Snapshot Copy Semantics — Deep Copy via `copySnapshot` (X61)
+### reportFileHistoryChange (L66)
+
+**Location:** chunks.135.mjs:1928-1930
 
 ```javascript
-// chunks.1.mjs:3762-3765
-function X61(snapshot) {
-    let desc = describeValue(snapshot);
-    return measurePerformance(`cloneDeep(${desc})`, () => deepClone(snapshot))
+// ============================================
+// reportFileHistoryChange - Placeholder for history change notifications
+// Location: chunks.135.mjs:1928-1930
+// ============================================
+
+// ORIGINAL (for source lookup):
+function L66(A, q, K) {
+    return
 }
+
+// READABLE (for understanding):
+function reportFileHistoryChange(filePath, oldContent, newContent) {
+    // No-op placeholder
+    return;
+}
+
+// Mapping: L66→reportFileHistoryChange, A→filePath, q→oldContent, K→newContent
 ```
 
-`deepClone` uses `xn1` with flags `1 | 4` (deep copy + circular reference protection). This is important because `trackedFileBackups` is a plain object with file paths as keys — a shallow copy would let mutation of the `trackedFileBackups` dict in the copy corrupt the original snapshot in the `snapshots` array.
+**What it does:** A no-op placeholder function.
 
-**Why deep copy is needed:** In `trackFileEdit` (Xt), after `copySnapshot`, the code mutates `copiedSnapshot.trackedFileBackups[normalizedPath] = backupRecord` directly. Without a deep copy, this would mutate the backing object of the original snapshot stored in `fileHistory.snapshots[-1]`.
+**Why it exists:** This function is called by `wVY` (checkForHistoryChanges) when a file's backup content differs between old and new snapshots. In production, it does nothing. It may have been intended for:
+- Debug logging during development
+- Future notification system for file history changes
+- Testing hooks
 
 ---
 
-## 14. Session Persistence Schema — JSONL Entry Format
+## 11. Persistence Layer
 
-The `.jsonl` session file (`~/.claude/projects/{sessionId}.jsonl`) stores all session data. A file history entry looks like:
+### recordFileHistorySnapshot (_l6)
 
+**Location:** chunks.174.mjs:1683-1685
+
+```javascript
+// ============================================
+// recordFileHistorySnapshot - Persist snapshot to session JSONL database
+// Location: chunks.174.mjs:1683-1685
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _l6(A, q, K) {
+    await Jz().insertFileHistorySnapshot(A, q, K)
+}
+
+// READABLE (for understanding):
+async function recordFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate) {
+    await getSessionDatabase().insertFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate);
+}
+
+// Mapping: _l6→recordFileHistorySnapshot, A→messageId, q→snapshot, K→isSnapshotUpdate,
+//          Jz→getSessionDatabase
+```
+
+**What it does:** Writes a file-history-snapshot entry to the session's JSONL database.
+
+**How it works:**
+1. Gets the SessionDatabase singleton via `Jz()`
+2. Calls `insertFileHistorySnapshot` with the message ID, snapshot data, and update flag
+3. The SessionDatabase batches writes with debouncing for performance
+
+**Entry format in JSONL:**
 ```json
 {
-  "type": "file-history-snapshot",
-  "messageId": "550e8400-e29b-41d4-a716-446655440000",
-  "snapshot": {
-    "messageId": "550e8400-e29b-41d4-a716-446655440000",
-    "timestamp": "2025-06-15T10:23:45.123Z",
-    "trackedFileBackups": {
-      "/home/user/project/src/auth.ts": {
-        "backupFileName": "a1b2c3d4e5f6a7b8@v1",
-        "version": 1,
-        "backupTime": "2025-06-15T10:22:30.456Z"
-      },
-      "/home/user/project/src/db.ts": {
-        "backupFileName": "f9e8d7c6b5a49382@v2",
-        "version": 2,
-        "backupTime": "2025-06-15T10:23:01.789Z"
-      }
-    }
-  },
-  "isSnapshotUpdate": false
+    "type": "file-history-snapshot",
+    "messageId": "uuid-of-message",
+    "snapshot": {
+        "messageId": "uuid",
+        "trackedFileBackups": { ... },
+        "timestamp": "2024-01-15T..."
+    },
+    "isSnapshotUpdate": true
 }
 ```
 
-**`isSnapshotUpdate` flag:**
-- `true` → written by `trackFileEdit` (Xt) — snapshot is in-progress (tool call executing)
-- `false` → written by `createSnapshotForMessage` (WW1) — snapshot is finalized (message complete)
+**When called:**
+- `isSnapshotUpdate: true` — During `trackFileEdit` when updating an existing snapshot
+- `isSnapshotUpdate: false` — During `createSnapshotForMessage` when creating a new snapshot
 
-On session resume, the loader reads the `.jsonl` and reconstructs `fileHistory` state by replaying all `file-history-snapshot` entries. The last entry for each `messageId` wins (later `isSnapshotUpdate=false` finalizes it).
+---
 
-The `insertFileHistorySnapshot` function (`iQ1`) queues the write via the `NJq` write queue:
+### SessionDatabase.insertFileHistorySnapshot
+
+**Location:** chunks.174.mjs:1520-1530
 
 ```javascript
-// chunks.173.mjs:1873-1882
+// ============================================
+// insertFileHistorySnapshot - SessionDatabase method for persisting snapshots
+// Location: chunks.174.mjs:1520-1530
+// ============================================
+
+// ORIGINAL (for source lookup):
+async insertFileHistorySnapshot(A, q, K) {
+    return this.trackWrite(async () => {
+        let Y = {
+            type: "file-history-snapshot",
+            messageId: A,
+            snapshot: q,
+            isSnapshotUpdate: K
+        };
+        await this.appendEntry(Y)
+    })
+}
+
+// READABLE (for understanding):
 async insertFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate) {
     return this.trackWrite(async () => {
         let entry = {
@@ -1524,433 +1629,2356 @@ async insertFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate) {
             snapshot,
             isSnapshotUpdate
         };
-        await this.appendEntry(entry)
-    })
+        await this.appendEntry(entry);
+    });
 }
+
+// Mapping: A→messageId, q→snapshot, K→isSnapshotUpdate, Y→entry
 ```
+
+**What it does:** Creates a file-history-snapshot entry and appends it to the session's JSONL file.
+
+**Why trackWrite:** Wraps the write in a tracking context that ensures proper sequencing and error handling. The SessionDatabase uses a write queue with debouncing to batch multiple writes together.
 
 ---
 
-## 15. Concurrency Model — NJq Write Queue
+## 12. UI Helper Functions
 
-The session database (`NJq` class, chunks.173.mjs) handles concurrent writes safely within a single process:
+### isOnlyOneMessageAfterIndex (YI1)
+
+**Location:** chunks.185.mjs:1704-1724
+
+```javascript
+// ============================================
+// isOnlyOneMessageAfterIndex - Check if only trivial messages follow
+// Location: chunks.185.mjs:1704-1724
+// ============================================
+
+// ORIGINAL (for source lookup):
+function YI1(A, q) {
+    for (let K = q + 1; K < A.length; K++) {
+        let Y = A[K];
+        if (!Y) continue;
+        if (Hz6(Y)) continue;
+        if (wl6(Y)) continue;
+        if (Y.type === "progress") continue;
+        if (Y.type === "system") continue;
+        if (Y.type === "attachment") continue;
+        if (Y.type === "user" && Y.isMeta) continue;
+        if (Y.type === "assistant") {
+            let z = Y.message.content;
+            if (Array.isArray(z)) {
+                if (z.some((w) => w.type === "text" && w.text.trim() || w.type === "tool_use")) return !1
+            }
+            continue
+        }
+        if (Y.type === "user") return !1
+    }
+    return !0
+}
+
+// READABLE (for understanding):
+function isOnlyOneMessageAfterIndex(messages, startIndex) {
+    // Check all messages after the given index
+    for (let i = startIndex + 1; i < messages.length; i++) {
+        let msg = messages[i];
+
+        // Skip null/undefined
+        if (!msg) continue;
+        // Skip compact summaries
+        if (isCompactSummary(msg)) continue;
+        // Skip tool use results
+        if (isToolUseResult(msg)) continue;
+        // Skip progress/system/attachment messages
+        if (msg.type === "progress") continue;
+        if (msg.type === "system") continue;
+        if (msg.type === "attachment") continue;
+        // Skip meta user messages (system reminders)
+        if (msg.type === "user" && msg.isMeta) continue;
+
+        // Check assistant messages for actual content
+        if (msg.type === "assistant") {
+            let content = msg.message.content;
+            if (Array.isArray(content)) {
+                // Has text or tool_use? Not trivial.
+                if (content.some((block) =>
+                    (block.type === "text" && block.text.trim()) ||
+                    block.type === "tool_use")) {
+                    return false;
+                }
+            }
+            continue;
+        }
+
+        // Any real user message means not trivial
+        if (msg.type === "user") return false;
+    }
+    return true; // Only trivial messages follow
+}
+
+// Mapping: YI1→isOnlyOneMessageAfterIndex, A→messages, q→startIndex, K→i, Y→msg,
+//          Hz6→isCompactSummary, wl6→isToolUseResult
+```
+
+**What it does:** Determines if all messages after a given index are "trivial" (can be safely removed without user confirmation).
+
+**Trivial message types:**
+- `null`/`undefined`
+- Compact summaries (`isCompactSummary: true`)
+- Tool use results
+- Progress messages
+- System messages
+- Attachment messages
+- Meta user messages (system reminders)
+- Empty assistant messages (no text or tool_use)
+
+**Usage:** Used in `handleMessageSelection` (UI flow) to enable fast-path restore when the user can only remove one message with no file changes — skip the restore options menu and go directly to conversation restore.
+
+---
+
+### getMessagesDiffStats (KXz)
+
+**Location:** chunks.185.mjs:1659-1690
+
+```javascript
+// ============================================
+// getMessagesDiffStats - Compute diff stats for message range
+// Location: chunks.185.mjs:1659-1690
+// ============================================
+
+// ORIGINAL (for source lookup):
+function KXz(A, q, K) {
+    let Y = A.findIndex(($) => $.uuid === q);
+    if (Y === -1) return;
+    let z = K ? A.findIndex(($) => $.uuid === K) : A.length;
+    if (z === -1) z = A.length;
+    let _ = [],
+        w = 0,
+        O = 0;
+    for (let $ = Y + 1; $ < z; $++) {
+        let H = A[$];
+        if (!H || !wl6(H)) continue;
+        let j = H.toolUseResult;
+        if (!j || !j.filePath || !j.structuredPatch) continue;
+        if (!_.includes(j.filePath)) _.push(j.filePath);
+        try {
+            if ("type" in j && j.type === "create") w += j.content.split(/\r?\n/).length;
+            else
+                for (let J of j.structuredPatch) {
+                    let M = J.lines.filter((X) => X.startsWith("+")).length,
+                        D = J.lines.filter((X) => X.startsWith("-")).length;
+                    w += M, O += D
+                }
+        } catch {
+            continue
+        }
+    }
+    return {
+        filesChanged: _,
+        insertions: w,
+        deletions: O
+    }
+}
+
+// READABLE (for understanding):
+function getMessagesDiffStats(messages, startUuid, endUuid) {
+    // Find message indices by UUID
+    let startIndex = messages.findIndex((m) => m.uuid === startUuid);
+    if (startIndex === -1) return undefined;
+
+    let endIndex = endUuid
+        ? messages.findIndex((m) => m.uuid === endUuid)
+        : messages.length;
+    if (endIndex === -1) endIndex = messages.length;
+
+    let filesChanged = [];
+    let insertions = 0;
+    let deletions = 0;
+
+    // Iterate messages in range
+    for (let i = startIndex + 1; i < endIndex; i++) {
+        let msg = messages[i];
+        if (!msg || !isToolUseResult(msg)) continue;
+
+        let result = msg.toolUseResult;
+        if (!result?.filePath || !result?.structuredPatch) continue;
+
+        // Track unique files
+        if (!filesChanged.includes(result.filePath)) {
+            filesChanged.push(result.filePath);
+        }
+
+        try {
+            if (result.type === "create") {
+                // New file: all lines are insertions
+                insertions += result.content.split(/\r?\n/).length;
+            } else {
+                // Modified file: count +/- lines from patch
+                for (let hunk of result.structuredPatch) {
+                    let added = hunk.lines.filter((l) => l.startsWith("+")).length;
+                    let removed = hunk.lines.filter((l) => l.startsWith("-")).length;
+                    insertions += added;
+                    deletions += removed;
+                }
+            }
+        } catch { continue; }
+    }
+
+    return { filesChanged, insertions, deletions };
+}
+
+// Mapping: KXz→getMessagesDiffStats, A→messages, q→startUuid, K→endUuid,
+//          Y→startIndex, z→endIndex, _→filesChanged, w→insertions, O→deletions,
+//          $→i, H→msg, wl6→isToolUseResult, j→result
+```
+
+**What it does:** Computes the total diff statistics (+/- line counts) for all file changes between two messages in the conversation.
+
+**How it works:**
+1. Find the start and end message indices by UUID
+2. Iterate through messages in that range
+3. For each tool use result with a structured patch:
+   - Track the file path
+   - Count added lines (starting with `+`)
+   - Count removed lines (starting with `-`)
+4. Return aggregated stats
+
+**Usage:** Used in the RewindMessageSelector UI to show diff stats preview for each checkpoint. Note: This uses `toolUseResult.structuredPatch` which is different from the file-history-based `calculateFileDiffStats` (Mn4).
+
+---
+
+## Related Symbols
+
+> Symbol mappings:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Rewind module section
+
+Key functions in this document:
+
+**Enable/Disable Logic**
+- `isFileCheckpointingEnabled` (iz) - Master guard
+- `isSDKCheckpointingEnabled` (YVY) - SDK-specific guard
+
+**File History Core**
+- `trackFileEdit` (R66) - Record file pre-edit backup
+- `createSnapshotForMessage` (lf6) - Finalize snapshot at message end
+- `rewindHandler` (sN1) - Execute rewind to target message
+- `rewindAndRestoreFiles` (Zn4) - Physical file restoration
+- `createBackupFile` (du8) - Write versioned backup
+- `fileNeedsRestore` (cu8) - Multi-tier comparison
+- `restoreFileFromBackup` (_VY) - Copy backup content back
+- `calculateFileDiffStats` (Mn4) - Compute diff for preview
+- `findBackupInOlderSnapshot` (Gn4) - Fallback lookup
+
+**Snapshot Helpers**
+- `deepCopySnapshot` (rw6) - Immutable snapshot copy
+- `checkForHistoryChanges` (wVY) - Debug comparison
+- `reportFileHistoryChange` (L66) - No-op placeholder
+
+**Persistence**
+- `recordFileHistorySnapshot` (_l6) - Persist to JSONL
+- `hydrateFileHistoryFromSnapshots` (qV1) - Reconstruct state
+- `migrateFileHistoryToNewSession` (KV1) - Copy backups on resume
+
+**UI Helpers**
+- `isOnlyOneMessageAfterIndex` (YI1) - Fast-path check
+- `getMessagesDiffStats` (KXz) - Message range diff stats
+
+---
+
+## 13. Summarize Pipeline — "Summarize from here"
+
+> **Note:** The summarize functionality is shared between `/rewind → Summarize from here` and `/compact`. See also [07_compact/](../07_compact/) for full compact documentation.
+
+### performPartialCompaction (Wqq)
+
+**Location:** chunks.147.mjs:1610-1707
+
+```javascript
+// ============================================
+// performPartialCompaction - Main entry for "Summarize from here"
+// Location: chunks.147.mjs:1610-1707
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Wqq(A, q, K, Y, z) {
+    try {
+        let _ = A.slice(q),
+            w = A.slice(0, q);
+        if (_.length === 0) throw Error("Nothing to summarize after the selected message.");
+        let O = eW(A);
+        K.onCompactProgress?.({
+            type: "hooks_start",
+            hookType: "pre_compact"
+        }), K.setSDKStatus?.("compacting");
+        let $ = await sT6({
+                trigger: "manual",
+                customInstructions: null
+            }, K.abortController.signal),
+            H;
+        if ($.newCustomInstructions && z) H = `${$.newCustomInstructions}
+
+User context: ${z}`;
+        else if ($.newCustomInstructions) H = $.newCustomInstructions;
+        else if (z) H = `User context: ${z}`;
+        K.setStreamMode?.("requesting"), K.setResponseLength?.(() => 0), K.onCompactProgress?.({
+            type: "compact_start"
+        });
+        let j = S54(H),
+            J = p1({
+                content: j
+            }),
+            M = await Gqq({
+                messages: A,
+                summaryRequest: J,
+                appState: K.getAppState(),
+                context: K,
+                preCompactTokenCount: O,
+                cacheSafeParams: Y
+            }),
+            D = BE1(M);
+        // ... error handling ...
+        let X = mf8(K.readFileState);
+        K.readFileState.clear(), Oc();
+        let [P, W] = await Promise.all([fqq(X, K, Xqq), Nqq(K)]), Z = [...P, ...W], G = mE1(K.agentId);
+        // ... collect attachments ...
+        let h = Ri6("manual", O ?? 0, w[w.length - 1]?.uuid, z, _.length),
+            R = zF(A);
+        if (R.size > 0) h.compactMetadata.preCompactDiscoveredTools = [...R].sort();
+        let u = Cz(),
+            I = [p1({
+                content: sF6(D, !1, u),
+                isCompactSummary: !0,
+                ...w.length > 0 ? {
+                    summarizeMetadata: {
+                        messagesSummarized: _.length,
+                        userContext: z
+                    }
+                } : {
+                    isVisibleInTranscriptOnly: !0
+                }
+            })];
+        // ... return result ...
+    } catch (e) {
+        // error handling
+    }
+}
+
+// READABLE (for understanding):
+async function performPartialCompaction(messages, startIndex, context, cacheParams, userContext) {
+    try {
+        // Split messages: those to keep vs those to summarize
+        let messagesToSummarize = messages.slice(startIndex);
+        let messagesToKeep = messages.slice(0, startIndex);
+
+        if (messagesToSummarize.length === 0) {
+            throw Error("Nothing to summarize after the selected message.");
+        }
+
+        let preCompactTokenCount = estimateTotalTokens(messages);
+
+        // Notify UI that compaction is starting
+        context.onCompactProgress?.({ type: "hooks_start", hookType: "pre_compact" });
+        context.setSDKStatus?.("compacting");
+
+        // Run pre-compact hooks
+        let hookResult = await runPreCompactHooks(
+            { trigger: "manual", customInstructions: null },
+            context.abortController.signal
+        );
+
+        // Merge custom instructions with user context
+        let summaryInstructions = mergeInstructions(hookResult.newCustomInstructions, userContext);
+
+        // Set up streaming mode
+        context.setStreamMode?.("requesting");
+        context.onCompactProgress?.({ type: "compact_start" });
+
+        // Create summary request message
+        let summaryPrompt = buildSummaryPrompt(summaryInstructions);
+        let summaryRequestMessage = createUserMessage({ content: summaryPrompt });
+
+        // Call LLM to generate summary
+        let summaryResponse = await generateSummaryWithLLM({
+            messages,
+            summaryRequest: summaryRequestMessage,
+            appState: context.getAppState(),
+            context,
+            preCompactTokenCount,
+            cacheSafeParams: cacheParams
+        });
+
+        let summaryText = extractTextFromResponse(summaryResponse);
+
+        // Collect files, tasks, and plan to keep as attachments
+        let fileState = snapshotFileState(context.readFileState);
+        context.readFileState.clear();
+        clearCaches();
+
+        let [filesToKeep, tasksToKeep] = await Promise.all([
+            collectFilesToKeep(fileState, context),
+            collectTasksToKeep(context)
+        ]);
+
+        let attachments = [...filesToKeep, ...tasksToKeep];
+
+        // Add plan mode attachment if applicable
+        let planAttachment = collectPlanToKeep(context.agentId);
+        if (planAttachment) attachments.push(planAttachment);
+
+        // Create compact_boundary marker
+        let boundaryMarker = createCompactBoundaryMessage(
+            "manual",
+            preCompactTokenCount ?? 0,
+            messagesToKeep[messagesToKeep.length - 1]?.uuid,
+            userContext,
+            messagesToSummarize.length
+        );
+
+        // Track discovered tools
+        let discoveredTools = extractDiscoveredTools(messages);
+        if (discoveredTools.size > 0) {
+            boundaryMarker.compactMetadata.preCompactDiscoveredTools = [...discoveredTools].sort();
+        }
+
+        // Create summary message
+        let summaryMessage = createUserMessage({
+            content: formatSummaryContent(summaryText, false, getSessionTranscriptPath()),
+            isCompactSummary: true,
+            ...(messagesToKeep.length > 0
+                ? { summarizeMetadata: { messagesSummarized: messagesToSummarize.length, userContext } }
+                : { isVisibleInTranscriptOnly: true }
+            )
+        });
+
+        return {
+            boundaryMarker,
+            messagesToKeep,
+            summaryMessages: [summaryMessage],
+            attachments
+        };
+    } catch (e) {
+        // Error handling
+    }
+}
+
+// Mapping: Wqq→performPartialCompaction, A→messages, q→startIndex, K→context,
+//          Y→cacheParams, z→userContext, _→messagesToSummarize, w→messagesToKeep,
+//          O→preCompactTokenCount, $→hookResult, H→summaryInstructions, j→summaryPrompt,
+//          J→summaryRequestMessage, M→summaryResponse, D→summaryText, X→fileState,
+//          P→filesToKeep, W→tasksToKeep, Z→attachments, h→boundaryMarker, I→summaryMessages,
+//          Gqq→generateSummaryWithLLM, Ri6→createCompactBoundaryMessage, p1→createUserMessage,
+//          BE1→extractTextFromResponse, sT6→runPreCompactHooks, S54→buildSummaryPrompt,
+//          fqq→collectFilesToKeep, Nqq→collectTasksToKeep, mE1→collectPlanToKeep
+```
+
+**What it does:** Performs a partial compaction from a selected message, keeping all messages before the selection and summarizing everything after.
+
+**How it works:**
 
 ```
-Architecture:
-  Multiple callers → enqueueWrite(filePath, entry)
-                         ↓
-                    writeQueues: Map<filePath, [{entry, resolve}]>
-                         ↓
-                    scheduleDrain() → sets 100ms timer
-                         ↓
-                    drainWriteQueue()
-                      → batch entries for each file
-                      → split at 100MB chunks
-                      → appendToFile() (sequential I/O)
-                      → resolve() each write promise
+Messages: [M0, M1, M2, M3, M4, M5]
+                      ↑ startIndex = 3 (selected message)
+
+messagesToKeep:    [M0, M1, M2]           ← Keep intact
+messagesToSummarize: [M3, M4, M5]         → Send to LLM for summary
+
+Result:
+- boundaryMarker (compact_boundary system message)
+- messagesToKeep (original messages before selection)
+- summaryMessages (new user message with summary)
+- attachments (files, tasks, plan to preserve context)
 ```
+
+**Key design decisions:**
+
+1. **Why split at startIndex, not after:** The selected message IS included in the summarization. This ensures the user's selected prompt is part of what gets summarized.
+
+2. **Why userContext parameter:** When the user selects "Summarize from here" in the UI, they can optionally type context. This gets added to the summary instructions, helping the LLM focus on what the user cares about.
+
+3. **Why preserve attachments:** Files and tasks created during the summarized section should be preserved as context, otherwise the LLM would "forget" about them.
+
+### createCompactBoundaryMessage (Ri6)
+
+**Location:** chunks.174.mjs:580-599
+
+```javascript
+// ============================================
+// createCompactBoundaryMessage - Create compact_boundary system message
+// Location: chunks.174.mjs:580-599
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Ri6(A, q, K, Y, z) {
+    return {
+        type: "system",
+        subtype: "compact_boundary",
+        content: "Conversation compacted",
+        isMeta: !1,
+        timestamp: new Date().toISOString(),
+        uuid: SE(),
+        level: "info",
+        compactMetadata: {
+            trigger: A,
+            preTokens: q,
+            userContext: Y,
+            messagesSummarized: z
+        },
+        ...K ? {
+            logicalParentUuid: K
+        } : {}
+    }
+}
+
+// READABLE (for understanding):
+function createCompactBoundaryMessage(trigger, preTokens, logicalParentUuid, userContext, messagesSummarized) {
+    return {
+        type: "system",
+        subtype: "compact_boundary",
+        content: "Conversation compacted",
+        isMeta: false,  // Visible in transcript
+        timestamp: new Date().toISOString(),
+        uuid: generateUUID(),
+        level: "info",
+        compactMetadata: {
+            trigger,              // "manual" or "auto"
+            preTokens,            // Token count before compaction
+            userContext,          // Optional context user provided
+            messagesSummarized    // How many messages were summarized
+        },
+        ...(logicalParentUuid ? { logicalParentUuid } : {})
+    };
+}
+
+// Mapping: Ri6→createCompactBoundaryMessage, A→trigger, q→preTokens,
+//          K→logicalParentUuid, Y→userContext, z→messagesSummarized, SE→generateUUID
+```
+
+**What it does:** Creates a `compact_boundary` system message that marks where a compaction occurred in the conversation.
+
+**Why it exists:**
+1. **Transcript marker** - Users can see where compaction happened via Ctrl+O (transcript viewer)
+2. **Metadata preservation** - Token counts and message counts are stored for analytics
+3. **Context restoration** - The `logicalParentUuid` links to the last kept message
+4. **User context** - If the user provided context for summarization, it's preserved
+
+**compact_boundary in the message flow:**
+
+```
+Before compaction:
+[User: M1] [Assistant: A1] [User: M2] [Assistant: A2] [User: M3] ...
+
+After "Summarize from here" at M2:
+[User: M1] [Assistant: A1] [compact_boundary] [User: "Summary of M2, A2, M3..."]
+```
+
+**Key insight:** The `compact_boundary` message has `isMeta: false`, meaning it IS visible in the transcript (unlike system reminders which are `isMeta: true`). This is intentional so users can understand why there's a gap in their conversation history.
+
+### attachPreservedSegment (Yp8)
+
+**Location:** chunks.147.mjs:1449-1463
+
+```javascript
+// ============================================
+// attachPreservedSegment - Add preserved segment metadata to boundary marker
+// Location: chunks.147.mjs:1449-1463
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Yp8(A, q, K) {
+    let Y = K ?? [];
+    if (Y.length === 0) return A;
+    return {
+        ...A,
+        compactMetadata: {
+            ...A.compactMetadata,
+            preservedSegment: {
+                headUuid: Y[0].uuid,
+                anchorUuid: q,
+                tailUuid: Y[Y.length - 1].uuid
+            }
+        }
+    }
+}
+
+// READABLE (for understanding):
+function attachPreservedSegment(boundaryMarker, anchorUuid, messagesToKeep) {
+    let messages = messagesToKeep ?? [];
+    if (messages.length === 0) return boundaryMarker;
+
+    return {
+        ...boundaryMarker,
+        compactMetadata: {
+            ...boundaryMarker.compactMetadata,
+            preservedSegment: {
+                headUuid: messages[0].uuid,      // First message in kept section
+                anchorUuid: anchorUuid,          // Last message before compaction
+                tailUuid: messages[messages.length - 1].uuid  // Last kept message
+            }
+        }
+    };
+}
+
+// Mapping: Yp8→attachPreservedSegment, A→boundaryMarker, q→anchorUuid, K→messagesToKeep,
+//          Y→messages
+```
+
+**What it does:** Attaches a `preservedSegment` object to the compact_boundary message's metadata, enabling message relinking across compaction boundaries.
+
+**How it works:**
+1. If no messages were kept (empty array), return the boundary marker unchanged
+2. Otherwise, add `preservedSegment` with UUIDs marking the kept message range:
+   - `headUuid`: First message in the kept section
+   - `anchorUuid`: The boundary anchor (typically last message's UUID)
+   - `tailUuid`: Last message in the kept section
+
+**Why this matters:**
+The preserved segment enables the system to maintain logical message ordering even after compaction. When messages are restored or referenced, the system can traverse from the boundary marker back to the preserved section.
+
+**Example usage in performPartialCompaction:**
+```javascript
+// From Wqq at line 1713
+let boundaryMarker = createCompactBoundaryMessage("manual", preTokens, ...);
+boundaryMarker = attachPreservedSegment(boundaryMarker, boundaryMarker.uuid, messagesToKeep);
+```
+
+**Integration with RZ (isCompactBoundary):**
+The `RZ` function at chunks.174.mjs:616-618 identifies compact_boundary messages:
+```javascript
+function isCompactBoundary(msg) {
+    return msg?.type === "system" && msg.subtype === "compact_boundary";
+}
+```
+
+This is used by `Szz` (findLastCompactBoundaryIndex) and `fN` (sliceFromLastCompactBoundary) to navigate message arrays.
+
+### generateSummaryWithLLM (Gqq)
+
+**Location:** chunks.147.mjs:1752+
+
+```javascript
+// ============================================
+// generateSummaryWithLLM - Call LLM to generate conversation summary
+// Location: chunks.147.mjs:1752+
+// ============================================
+
+async function generateSummaryWithLLM({
+    messages,
+    summaryRequest,
+    appState,
+    context,
+    preCompactTokenCount,
+    cacheSafeParams
+}) {
+    // Build the summarization prompt
+    let systemPrompt = buildSummarizationSystemPrompt(appState);
+
+    // Prepare messages for API
+    let apiMessages = prepareMessagesForAPI(messages);
+
+    // Make the LLM call
+    let response = await streamPrompt({
+        systemPrompt,
+        messages: [...apiMessages, summaryRequest],
+        tools: [],  // No tools during summarization
+        model: context.options.mainLoopModel,
+        ...cacheSafeParams
+    });
+
+    return response;
+}
+```
+
+**What it does:** Makes an LLM API call to generate a summary of the conversation.
+
+**Key points:**
+- Uses the main loop model (not a specialized summarization model)
+- No tools available during summarization (prevents tool calls in summary)
+- Returns the raw LLM response which is then processed by `BE1` (extractTextFromResponse)
+
+---
+
+## 14. Cross-Feature Integration Analysis
+
+### 14.1 System Reminder Integration
+
+The rewind feature integrates with the system reminder module for session persistence.
+
+#### Persistence Flow
+
+```
+trackFileEdit / createSnapshotForMessage
+         │
+         ▼
+    _l6 (recordFileHistorySnapshot)
+         │
+         ▼
+    Jz() (getSessionDatabase)
+         │
+         ▼
+    insertFileHistorySnapshot()
+         │
+         ▼
+    Session .jsonl file
+```
+
+**Key integration points:**
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `_l6` | chunks.174.mjs:1683 | Write snapshot to JSONL |
+| `Jz` | chunks.174.mjs:1201 | SessionDatabase singleton |
+| `qV1` | chunks.135.mjs:2315 | Hydrate state from JSONL on resume |
+| `KV1` | chunks.135.mjs:2337 | Copy backup files on session resume |
+
+#### JSONL Entry Types
+
+The rewind feature writes two types of entries:
+
+**1. File History Snapshot (isSnapshotUpdate: true)**
+- Written during `trackFileEdit`
+- Updates the current snapshot incrementally
+- Captures file state before first edit
+
+**2. File History Snapshot (isSnapshotUpdate: false)**
+- Written during `createSnapshotForMessage`
+- Creates a new complete snapshot
+- Captures final state at message boundary
+
+```json
+{
+    "type": "file-history-snapshot",
+    "messageId": "uuid-of-message",
+    "snapshot": {
+        "messageId": "uuid-of-message",
+        "trackedFileBackups": {
+            "/path/to/file.ts": {
+                "backupFileName": "a1b2c3d4e5f6a7b8@v1",
+                "version": 1,
+                "backupTime": "2024-01-15T10:30:00.000Z"
+            }
+        },
+        "timestamp": "2024-01-15T10:30:00.000Z"
+    },
+    "isSnapshotUpdate": false
+}
+```
+
+### 14.2 Compact/Summarize Integration
+
+The "Summarize from here" option in the rewind UI shares infrastructure with the `/compact` command.
+
+#### Shared Functions
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `Wqq` | chunks.147.mjs:1610 | Main orchestrator for partial compaction |
+| `Gqq` | chunks.147.mjs:1752 | LLM call to generate summary |
+| `Ri6` | chunks.174.mjs:580 | Create compact_boundary marker |
+
+#### Summarization Flow (from Rewind UI)
+
+```
+User selects "Summarize from here"
+         │
+         ▼
+    handleRestoreOptionSelected (p)
+         │
+         ▼
+    onSummarize callback
+         │
+         ▼
+    Wqq (performPartialCompaction)
+         │
+         ├──────────────────────────────────┐
+         │                                  │
+         ▼                                  ▼
+    sT6 (runPreCompactHooks)          Gqq (generateSummaryWithLLM)
+         │                                  │
+         ▼                                  ▼
+    C0 (runPostCompactHooks)          Ri6 (createCompactBoundary)
+         │                                  │
+         └──────────────────────────────────┘
+                     │
+                     ▼
+              Return boundary + summary messages
+```
+
+#### Token Savings Calculation
+
+The summarization pipeline tracks token savings:
+
+```javascript
+// From Wqq at line 1677-1687
+telemetry("tengu_partial_compact", {
+    preCompactTokenCount,           // Tokens before compaction
+    postCompactTokenCount,          // Tokens after compaction
+    messagesKept,                   // Messages before the cut point
+    messagesSummarized,             // Messages that were summarized
+    trigger: "message_selector",    // Source of compaction
+    compactionInputTokens,          // Tokens sent to summarization LLM
+    compactionOutputTokens,         // Tokens in summary response
+    compactionCacheReadTokens,      // Cache hits (prompt caching)
+    compactionCacheCreationTokens   // Cache writes
+});
+```
+
+### 14.3 State Restoration Integration
+
+When restoring conversation state, multiple subsystems are affected:
+
+#### onRestoreMessage Callback Flow
+
+```
+User selects restore option
+         │
+         ▼
+    onPreRestore()
+         ├── Abort LLM stream
+         ├── Clear tool permission queue
+         └── Clear queued commands
+         │
+         ▼
+    Slice messages array at checkpoint
+         │
+         ▼
+    Restore auxiliary state:
+         ├── Todos (from snapshot)
+         ├── Permission mode (reset if changed)
+         └── Prompt text (re-inject to input)
+         │
+         ▼
+    onRestoreCode() (if "code" or "both")
+         │
+         ▼
+    sN1 (rewindHandler)
+         │
+         ▼
+    Zn4 (rewindAndRestoreFiles)
+```
+
+#### Todo Restoration
+
+When a conversation is restored, todos are reset to their state at the checkpoint:
+
+```javascript
+// Pseudocode for todo restoration
+function restoreTodosFromSnapshot(targetMessageId, snapshots) {
+    let snapshot = snapshots.find(s => s.messageId === targetMessageId);
+    if (snapshot?.savedTodos) {
+        return snapshot.savedTodos;  // Restore todo list
+    }
+    return [];  // No saved todos = clear
+}
+```
+
+#### Permission Mode Restoration
+
+Permission mode changes during a conversation are tracked:
+
+```javascript
+// If permission mode changed after checkpoint, reset it
+if (snapshot.permissionMode !== currentPermissionMode) {
+    setPermissionMode(snapshot.permissionMode);
+}
+```
+
+### 14.4 File System Tool Integration
+
+The file checkpointing system intercepts writes from Claude's file tools:
+
+**Tracked tools:**
+- `Write` - Creates new files or overwrites existing
+- `Edit` - Modifies existing files via diff patches
+
+**Not tracked:**
+- `Bash` commands - Files modified by shell commands are not captured
+- External editors - User's own edits outside Claude
+
+**Why Bash is excluded:**
+
+Intercepting all shell file mutations would require:
+1. A sandboxed filesystem layer
+2. Hooking all shell commands (rm, mv, cp, etc.)
+3. Tracking file descriptors
+
+This complexity was deemed not worth the benefit. Instead, the UI warns users: "Rewinding does not affect files edited manually or via bash."
+
+#### Exact Tool Integration Call Sites
+
+**Write Tool (chunks.139.mjs:180)**
+
+```javascript
+// ============================================
+// Write tool integration - trackFileEdit call site
+// Location: chunks.139.mjs:175-190
+// ============================================
+
+// ORIGINAL (for source lookup):
+let D = M?.encoding ?? "utf8",
+    X = M?.content ?? null;
+if (iz()) await R66(Y, O, w.uuid);  // <-- Track edit BEFORE write
+let P = M?.lineEndings ?? await ra4();
+H.mkdirSync($), l66(O, q, D, P);    // <-- Write happens AFTER tracking
+
+// READABLE (for understanding):
+let encoding = options?.encoding ?? "utf8";
+let existingContent = options?.content ?? null;
+
+// Track file edit BEFORE the write operation
+if (isFileCheckpointingEnabled()) {
+    await trackFileEdit(updateFileHistoryState, filePath, message.uuid);
+}
+
+let lineEndings = options?.lineEndings ?? await detectLineEndings();
+fs.mkdirSync(parentDir, { recursive: true });
+writeFile(filePath, newContent, encoding, lineEndings);
+
+// Mapping: iz→isFileCheckpointingEnabled, R66→trackFileEdit, Y→updateFileHistoryState,
+//          O→filePath, w.uuid→message.uuid
+```
+
+**Edit Tool - File Edit (chunks.139.mjs:1360)**
+
+```javascript
+// ============================================
+// Edit tool integration - notebook cell editing
+// Location: chunks.139.mjs:1355-1365
+// ============================================
+
+// ORIGINAL (for source lookup):
+let $ = fs4(A) ? A : Ts4(G1(), A);
+if (iz()) await R66(_, $, O.uuid);  // <-- Track edit BEFORE modification
+
+// READABLE (for understanding):
+let resolvedPath = isAbsolute(path) ? path : resolvePath(cwd, path);
+
+// Track file edit BEFORE the edit operation
+if (isFileCheckpointingEnabled()) {
+    await trackFileEdit(updateFileHistoryState, resolvedPath, message.uuid);
+}
+
+// Then perform the edit...
+
+// Mapping: $→resolvedPath, _→updateFileHistoryState, O.uuid→message.uuid
+```
+
+**Edit Tool - Notebook Editing (chunks.170.mjs:1352)**
+
+```javascript
+// ============================================
+// Notebook edit tool - another call site
+// Location: chunks.170.mjs:1348-1358
+// ============================================
+
+// Pattern is consistent: track BEFORE modification
+if (iz()) await R66(Y, M, w.uuid);
+
+// Mapping: Y→updateFileHistoryState, M→filePath, w.uuid→message.uuid
+```
+
+**Additional Integration Point (chunks.171.mjs:2136)**
+
+```javascript
+// ============================================
+// Additional tool integration
+// Location: chunks.171.mjs:2132-2140
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (iz() && K) await R66(q.updateFileHistoryState, _, K.uuid);
+
+// READABLE (for understanding):
+if (isFileCheckpointingEnabled() && fileToTrack) {
+    await trackFileEdit(context.updateFileHistoryState, filePath, message.uuid);
+}
+
+// Mapping: q→context, _→filePath, K.uuid→message.uuid
+```
+
+**Integration Pattern Summary:**
+
+| Tool | File | Line | Pattern |
+|------|------|------|---------|
+| Write | chunks.139.mjs | 180 | `if (iz()) await R66(Y, O, w.uuid)` |
+| Edit (file) | chunks.139.mjs | 1360 | `if (iz()) await R66(_, $, O.uuid)` |
+| Edit (notebook) | chunks.170.mjs | 1352 | `if (iz()) await R66(Y, M, w.uuid)` |
+| Other tool | chunks.171.mjs | 2136 | `if (iz() && K) await R66(...)` |
+
+**Key observation:** All integrations follow the same pattern:
+1. Guard check with `iz()` (isFileCheckpointingEnabled)
+2. Call `R66` (trackFileEdit) with state updater, file path, and message UUID
+3. Perform the actual file operation AFTER tracking
+
+This ensures the backup is created **before** the file is modified, capturing the "before" state.
+
+### 14.5 Slash Command Entry Point
+
+The `/rewind` (alias: `/checkpoint`) slash command provides the user-facing entry point for the rewind UI.
+
+#### rewindCommandDefinition (_Az)
+
+**Location:** chunks.165.mjs:699-710
+
+```javascript
+// ============================================
+// rewindCommandDefinition - Slash command registration object
+// Location: chunks.165.mjs:699-710
+// ============================================
+
+// ORIGINAL (for source lookup):
+_Az = {
+    description: "Restore the code and/or conversation to a previous point",
+    name: "rewind",
+    aliases: ["checkpoint"],
+    userFacingName: () => "rewind",
+    argumentHint: "",
+    isEnabled: () => !0,
+    type: "local",
+    isHidden: !1,
+    supportsNonInteractive: !1,
+    load: () => Promise.resolve().then(() => pXq)
+}, QXq = _Az
+
+// READABLE (for understanding):
+rewindCommandDefinition = {
+    description: "Restore the code and/or conversation to a previous point",
+    name: "rewind",
+    aliases: ["checkpoint"],        // Alternative name
+    userFacingName: () => "rewind", // Display name
+    argumentHint: "",               // No arguments accepted
+    isEnabled: () => true,          // Always available
+    type: "local",                  // Not an MCP server command
+    isHidden: false,                // Visible in /help
+    supportsNonInteractive: false,  // Requires interactive TUI
+    load: () => Promise.resolve().then(() => rewindCommandModule)
+};
+
+// Mapping: _Az→rewindCommandDefinition, QXq→rewindCommandExport, pXq→rewindCommandModule
+```
+
+**What it does:** Defines the slash command that triggers the RewindMessageSelector UI.
 
 **Key properties:**
-- **Batching**: Multiple writes within a 100ms window are merged into one `appendToFile` call
-- **Ordering**: FIFO per file (write queue is spliced in order)
-- **Serial drain**: Only one `drainWriteQueue()` runs at a time (`activeDrain` guard)
-- **Backpressure**: `pendingWriteCount` lets callers `await flush()` for all pending writes
+- `aliases: ["checkpoint"]` — Alternative command name for discoverability
+- `type: "local"` — Not proxied to MCP server, handled locally
+- `supportsNonInteractive: false` — Cannot run in `--print` mode
 
-**Cross-process limitation:** There is **no file lock** (no `flock`, no `.lock` file, no mutex). If two Claude Code instances write to the same session `.jsonl`, their writes could interleave at the OS level. In practice, each session ID is unique per invocation, so this is not a concern for normal use. Remote sessions add a second write path (`iQ1` remote sync) but use the same session ID, so only one instance writes locally.
+#### rewindCommandHandler (zAz)
 
----
-
-## 16. `checkForHistoryChanges` (kvY) — Diagnostic Comparison
+**Location:** chunks.165.mjs:687-691
 
 ```javascript
 // ============================================
-// checkForHistoryChanges - Detect and log backup changes between snapshots
-// Location: chunks.134.mjs:288-314
+// rewindCommandHandler - Execute /rewind slash command
+// Location: chunks.165.mjs:687-691
 // ============================================
 
 // ORIGINAL (for source lookup):
-function kvY(A, q) {
-    let K = A.snapshots.at(-1), Y = q.snapshots.at(-1);
-    if (!Y) return;
-    let z = b1();
-    for (let w of q.trackedFiles) {
-        let H = EkA(w), $ = K?.trackedFileBackups[w], O = Y.trackedFileBackups[w];
-        if ($?.backupFileName === O?.backupFileName && $?.version === O?.version) continue;
-        let _ = null;
-        if ($?.backupFileName) try {
-            let X = Jt($.backupFileName);
-            if (z.existsSync(X)) _ = z.readFileSync(X, { encoding: "utf-8" })
-        } catch {}
-        let J = null;
-        if (O?.backupFileName) try {
-            let X = Jt(O.backupFileName);
-            if (z.existsSync(X)) J = z.readFileSync(X, { encoding: "utf-8" })
-        } catch {} else if (O?.backupFileName === null) J = null;
-        if (_ !== J) _t(H, _, J)
+async function zAz(A, q) {
+    if (q.openMessageSelector) q.openMessageSelector();
+    return {
+        type: "skip"
     }
 }
 
 // READABLE (for understanding):
-function checkForHistoryChanges(oldHistory, newHistory) {
-    let oldSnapshot = oldHistory.snapshots.at(-1),
-        newSnapshot = newHistory.snapshots.at(-1);
-    if (!newSnapshot) return;
-    let fs = getFileSystem();
-    for (let normalizedPath of newHistory.trackedFiles) {
-        let absolutePath = resolveTrackedFilePath(normalizedPath);
-        let oldBackup = oldSnapshot?.trackedFileBackups[normalizedPath];
-        let newBackup = newSnapshot.trackedFileBackups[normalizedPath];
-        // Skip unchanged entries
-        if (oldBackup?.backupFileName === newBackup?.backupFileName &&
-            oldBackup?.version === newBackup?.version) continue;
-        // Read both backup contents for comparison
-        let oldContent = null, newContent = null;
-        if (oldBackup?.backupFileName) try {
-            let p = resolveBackupPath(oldBackup.backupFileName);
-            if (fs.existsSync(p)) oldContent = fs.readFileSync(p, { encoding: "utf-8" });
-        } catch {}
-        if (newBackup?.backupFileName) try {
-            let p = resolveBackupPath(newBackup.backupFileName);
-            if (fs.existsSync(p)) newContent = fs.readFileSync(p, { encoding: "utf-8" });
-        } catch {} else if (newBackup?.backupFileName === null) newContent = null;
-        // Report if content actually changed
-        if (oldContent !== newContent) reportDifference(absolutePath, oldContent, newContent)
+async function rewindCommandHandler(args, context) {
+    // Open the message selector UI
+    if (context.openMessageSelector) {
+        context.openMessageSelector();
     }
+
+    // Return "skip" to indicate no API call needed
+    return {
+        type: "skip"
+    };
 }
 
-// Mapping: kvY→checkForHistoryChanges, _t→reportDifference, A→oldHistory, q→newHistory
+// Mapping: zAz→rewindCommandHandler, A→args, q→context
 ```
 
-**Purpose:** This is a **diagnostic comparison function** called immediately after `createSnapshotForMessage` finishes. It computes whether backup content actually changed between old and new snapshots, and calls `_t` to report differences.
+**What it does:** Handler for the `/rewind` slash command. Opens the RewindMessageSelector UI.
 
-**Critical finding: `_t` is a no-op stub.**
+**How it works:**
+1. Check if `openMessageSelector` callback is available in context
+2. Call `openMessageSelector()` to show the UI
+3. Return `{ type: "skip" }` to indicate no LLM API call is needed
 
-```javascript
-// @from(Ln 334190, Col 0)
-function _t(A, q, K) {
-    return   // ← empty body, does nothing
-}
+**Why return "skip":**
+- The rewind command is purely a UI action
+- No need to send anything to the LLM
+- The message selector handles user interaction separately
+
+**Call flow:**
+```
+User types: /rewind
+         │
+         ▼
+    Slash Command Dispatcher
+         │
+         │  matches _Az.name === "rewind"
+         ▼
+    zAz (rewindCommandHandler)
+         │
+         │  context.openMessageSelector()
+         ▼
+    RewindMessageSelector (zs8) component renders
+         │
+         ▼
+    User selects message → restore options appear
 ```
 
-`_t` has an empty body. `kvY` therefore does all the work (reading both backup files from disk, comparing their content) but throws the results away. This is a **vestigial IDE notification path**: the function was designed to broadcast file diff events to an IDE integration (likely VS Code), but the broadcaster was removed or never shipped. The call chain `createSnapshotForMessage → kvY → _t` is now a dead-end computation that wastes I/O. The function remains in the codebase because its caller chain was not cleaned up.
+### 14.6 API Handler Integration
 
-**`PF4` is also a debug logger, not a state persister.**
+The rewind feature exposes an API endpoint for programmatic access, used by SDK clients and CLI.
 
-The mapping comments in existing docs call `PF4` → `persistFileHistoryState`, but the source reveals it is a conditional debug logger:
+#### handleRewindRequest (thq)
 
-```javascript
-// @from(Ln 334653, Col 0)
-function PF4(A) {
-    if (LvY) console.error(VvY(A, false, 5))  // VvY = state serializer/formatter
-}
-// @from(Ln 334656, Col 4)
-LvY = false  // ← always false at runtime (debug flag disabled)
-```
-
-`LvY` is initialized to `false` and has no setter in the codebase, so `PF4` is effectively a no-op in production. It was likely used during development to print the full `FileHistory` state to stderr for debugging. It is called at every snapshot update (`trackFileEdit`, `createSnapshotForMessage`) but does nothing.
-
-**Corrected mappings:**
-- `PF4` → `debugLogFileHistoryState` (conditional debug logger, always silent in production)
-- `_t` → `reportFileDiffToIDE` (no-op stub, vestigial IDE notification hook)
-- `LvY` → `isDebugLoggingEnabled` (always `false`)
-
----
-
-## 17. Session Resume — `migrateFileHistoryToNewSession` (CP6)
-
-When the user resumes a previous conversation with `--resume`, the session gets a new session ID. Since backup files are stored under `~/.claude/file-history/{sessionId}/`, all existing backups become inaccessible. `CP6` migrates them.
+**Location:** chunks.187.mjs:1271-1303
 
 ```javascript
 // ============================================
-// migrateFileHistoryToNewSession - Copy/hard-link backup files to new session dir
-// Location: chunks.134.mjs:334572-334622
+// handleRewindRequest - API handler for rewind operations
+// Location: chunks.187.mjs:1271-1303
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function CP6(A) {
-    if (!z2()) return;
-    let q = A.fileHistorySnapshots;
-    if (!q || A.messages.length === 0) return;
-    let Y = A.messages[A.messages.length - 1]?.sessionId;
-    if (!Y) { K1(Error("FileHistory: Failed to copy backups on restore (no previous session id)")); return }
-    let z = U6();
-    if (Y === z) { h(`FileHistory: No need to copy file history for resuming with same session id: ${z}`); return }
+async function thq(A, q, K, Y) {
+    if (!iz()) return {
+        canRewind: !1,
+        error: "File rewinding is not enabled."
+    };
+    if (!tN1(q.fileHistory, A)) return {
+        canRewind: !1,
+        error: "No file checkpoint found for this message."
+    };
+    if (Y) {
+        let z = eN1(q.fileHistory, A);
+        return {
+            canRewind: !0,
+            filesChanged: z?.filesChanged,
+            insertions: z?.insertions,
+            deletions: z?.deletions
+        }
+    }
     try {
-        for (let w of q) {
-            let H = false;
-            for (let [$, O] of Object.entries(w.trackedFileBackups)) {
-                if (!O.backupFileName) continue;
-                let _ = b1(), J = Jt(O.backupFileName, Y), X = Jt(O.backupFileName, z);
-                if (_.existsSync(X)) continue;
-                if (!_.existsSync(J)) { K1(Error(`FileHistory: Failed to copy backup...`)), H = true; break }
-                let D = vkA(X);
-                if (!_.existsSync(D)) _.mkdirSync(D);
-                try { _.linkSync(J, X) }
-                catch { K1(Error("FileHistory: Error hard linking")); try { _.copyFileSync(J, X) } catch { H = true } }
-                h(`FileHistory: Copied backup ${O.backupFileName} from session ${Y} to ${z}`)
-            }
-            if (!H) iQ1(w.messageId, w, false).catch(($) => K1(Error("Failed to record copy backup snapshot")));
-            else c("tengu_file_history_resume_copy_failed", { numSnapshots: q.length })
+        await sN1((z) => K((_) => ({
+            ..._,
+            fileHistory: z(_.fileHistory)
+        })), A)
+    } catch (z) {
+        return {
+            canRewind: !1,
+            error: `Failed to rewind: ${z.message}`
         }
-    } catch (w) { K1(w) }
+    }
+    return {
+        canRewind: !0
+    }
 }
 
 // READABLE (for understanding):
-async function migrateFileHistoryToNewSession(loadedSessionContext) {
-    if (!isFileCheckpointingEnabled()) return;
-    let snapshots = loadedSessionContext.fileHistorySnapshots;
-    if (!snapshots || loadedSessionContext.messages.length === 0) return;
-
-    // Determine old session ID (from the last message's metadata)
-    let oldSessionId = loadedSessionContext.messages.at(-1)?.sessionId;
-    if (!oldSessionId) { logError(Error("No previous session id")); return }
-
-    let newSessionId = getCurrentSessionId();
-    // Skip if this is a re-open of the same session (no migration needed)
-    if (oldSessionId === newSessionId) {
-        debugLog(`No need to copy file history for resuming with same session id: ${newSessionId}`);
-        return
+async function handleRewindRequest(userMessageId, appState, setState, isDryRun) {
+    // Guard: Check if checkpointing is enabled
+    if (!isFileCheckpointingEnabled()) {
+        return {
+            canRewind: false,
+            error: "File rewinding is not enabled."
+        };
     }
 
-    // For each snapshot, copy backup files from old → new session dir
-    for (let snapshot of snapshots) {
-        let migrationFailed = false;
-        for (let [normalizedPath, backupRecord] of Object.entries(snapshot.trackedFileBackups)) {
-            if (!backupRecord.backupFileName) continue;  // null = deleted file, no backup to migrate
-            let fs = getFileSystem();
-            let oldPath = resolveBackupPath(backupRecord.backupFileName, oldSessionId);
-            let newPath = resolveBackupPath(backupRecord.backupFileName, newSessionId);
-            if (fs.existsSync(newPath)) continue;  // already migrated
-            if (!fs.existsSync(oldPath)) { logError(...); migrationFailed = true; break }
-
-            // Prefer hard-link (zero cost, same inode), fall back to full copy
-            let newDir = getDirname(newPath);
-            if (!fs.existsSync(newDir)) fs.mkdirSync(newDir);
-            try { fs.linkSync(oldPath, newPath) }
-            catch {
-                try { fs.copyFileSync(oldPath, newPath) }
-                catch { migrationFailed = true }
-            }
-        }
-        if (!migrationFailed) {
-            recordFileHistorySnapshot(snapshot.messageId, snapshot, false);
-        } else {
-            telemetry("tengu_file_history_resume_copy_failed", { numSnapshots: snapshots.length });
-        }
+    // Guard: Check if snapshot exists for this message
+    if (!snapshotExistsForMessage(appState.fileHistory, userMessageId)) {
+        return {
+            canRewind: false,
+            error: "No file checkpoint found for this message."
+        };
     }
+
+    // Dry run: Return diff stats without modifying files
+    if (isDryRun) {
+        let diffStats = getDryRunDiffStats(appState.fileHistory, userMessageId);
+        return {
+            canRewind: true,
+            filesChanged: diffStats?.filesChanged,
+            insertions: diffStats?.insertions,
+            deletions: diffStats?.deletions
+        };
+    }
+
+    // Actual rewind: Execute file restoration
+    try {
+        await rewindHandler(
+            (updateFileHistory) => setState((prevState) => ({
+                ...prevState,
+                fileHistory: updateFileHistory(prevState.fileHistory)
+            })),
+            userMessageId
+        );
+    } catch (error) {
+        return {
+            canRewind: false,
+            error: `Failed to rewind: ${error.message}`
+        };
+    }
+
+    return { canRewind: true };
 }
 
-// Mapping: CP6→migrateFileHistoryToNewSession, A→loadedSessionContext, q→snapshots,
-//          Y→oldSessionId, z→newSessionId, U6→getCurrentSessionId, w→snapshot,
-//          H→migrationFailed, $→normalizedPath, O→backupRecord, J→oldPath, X→newPath
+// Mapping: thq→handleRewindRequest, A→userMessageId, q→appState, K→setState, Y→isDryRun,
+//          iz→isFileCheckpointingEnabled, tN1→snapshotExistsForMessage,
+//          eN1→getDryRunDiffStats, sN1→rewindHandler
 ```
 
-**What it does:** Migrates all checkpoint backup files from a previous session directory to the current session directory, enabling the rewind feature to continue working across `--resume` session boundaries.
+**What it does:** API endpoint handler for rewinding files to a checkpoint. Used by SDK clients and CLI.
 
 **How it works:**
-1. **Guard checks**: If checkpointing is disabled, no snapshots exist, or no messages are loaded, exits early
-2. **Session ID detection**: The old session ID is extracted from the last message's `sessionId` field (set when the message was originally created)
-3. **Same-session short-circuit**: If `oldSessionId === newSessionId` (e.g. straight re-open without `--resume`), skip migration entirely
-4. **Per-backup migration**: For each backup record across all snapshots:
-   - Skip `null` backup records (represent deleted files, no file to copy)
-   - Skip already-migrated files (idempotent)
-   - Try `fs.linkSync` first (hard link — zero I/O, instant, shares inode)
-   - Fall back to `fs.copyFileSync` if hard-linking fails (cross-device or permission issue)
-5. **Snapshot re-registration**: After successful migration, re-inserts the snapshot into the new session's JSONL database
+1. **Guard check**: Return error if checkpointing is disabled
+2. **Existence check**: Return error if no snapshot exists for the message
+3. **Dry run path**: If `isDryRun=true`, return diff stats without modifying files
+4. **Actual rewind**: Execute `rewindHandler` to restore files, wrap in try/catch
+5. **Return result**: `{ canRewind: boolean, error?: string, filesChanged?: string[], insertions?: number, deletions?: number }`
 
-**Why hard-link first?** Backup files are read-only artifacts (never modified after creation). Hard linking is free (no data copy) and correct. It only fails if old and new paths are on different filesystems (rare, but possible on unusual setups).
+**Call sites:**
 
-**Trigger point:** Called in `chunks.188.mjs:261` when a resumed session has `fileHistorySnapshots`:
-```javascript
-if (q8.fileHistorySnapshots) CP6(q8);
+| Location | Context | Usage |
+|----------|---------|-------|
+| chunks.187.mjs:737 | API request handler | `subtype === "rewind_files"` request |
+| chunks.186.mjs:1689 | CLI --rewind-files flag | Non-interactive rewind command |
+
+**API Request Flow:**
+
 ```
-This fires once during session load, before any user interaction.
+SDK Client / CLI
+         │
+         ▼
+    API Handler (chunks.187.mjs:735)
+         │
+         │  request.subtype === "rewind_files"
+         ▼
+    thq (handleRewindRequest)
+         │
+         ├───── isDryRun=true ──────┐
+         │                          │
+         ▼                          ▼
+    sN1 (rewindHandler)        eN1 (getDryRunDiffStats)
+         │                          │
+         ▼                          ▼
+    File restoration           Diff stats only
+```
 
-**New symbol:** `CP6` → `migrateFileHistoryToNewSession` | `chunks.134.mjs:334572` | function
+**Why separate dry-run:**
+- SDK clients may want to preview changes before committing
+- The UI uses this to show diff stats before user confirms
+- No side effects on dry-run, safe to call multiple times
 
----
+**Return value structure:**
 
-## 20. Checkpointing Enable Logic — `isFileCheckpointingEnabled` (z2) + `isSDKCheckpointingEnabled` (NvY)
+```typescript
+interface RewindResponse {
+    canRewind: boolean;      // Success flag
+    error?: string;          // Error message if canRewind=false
+    filesChanged?: string[]; // Files that would be/did change (dry-run only)
+    insertions?: number;     // Lines added (dry-run only)
+    deletions?: number;      // Lines removed (dry-run only)
+}
+```
+
+#### CLI --rewind-files Flag Integration
+
+**Location:** chunks.186.mjs:1680-1695
 
 ```javascript
 // ============================================
-// isFileCheckpointingEnabled - Master guard for all checkpoint operations
-// Location: chunks.133.mjs:334248-334256
+// CLI --rewind-files flag handling
+// Location: chunks.186.mjs:1680-1695
+// ============================================
+
+// User runs: claude --resume --rewind-files <message-uuid>
+// ... message validation ...
+
+let appState = getState();
+let result = await handleRewindRequest(options.rewindFiles, appState, setState, false);
+
+if (!result.canRewind) {
+    process.stderr.write(`Error: ${result.error || "Unexpected error"}\n`);
+    process.exit(1);
+    return;
+}
+
+// Success: Files restored, continue session
+```
+
+**Why CLI integration:**
+- Enables scripted checkpoint restoration
+- Useful for automated testing workflows
+- Allows non-interactive session recovery
+
+### 14.7 React State Integration
+
+The FileHistory state is managed as React state using a Zustand-like store:
+
+```javascript
+// State shape
+interface FileHistoryState {
+    snapshots: Snapshot[];           // Array of message-level snapshots
+    trackedFiles: Set<string>;       // Set of normalized file paths being tracked
+    snapshotSequence: number;        // Monotonic counter for ordering
+}
+
+// State updates use functional updates
+updateFileHistoryState((prevState) => {
+    // Immutable update pattern
+    return {
+        ...prevState,
+        snapshots: [...prevState.snapshots, newSnapshot]
+    };
+});
+```
+
+**Why functional updates:**
+
+1. **Concurrency safety** - Multiple trackFileEdit calls may overlap
+2. **React batching** - State updates are batched for performance
+3. **Undo/redo support** - Functional updates work with state history
+
+---
+
+## 15. Key Design Decisions Deep-Dive
+
+### 15.1 Why MAX_SNAPSHOTS = 100?
+
+The `Jn4` constant limits in-memory snapshots to 100:
+
+```javascript
+// From line 2060
+snapshots: newSnapshots.length > Jn4 ? newSnapshots.slice(-Jn4) : newSnapshots
+```
+
+**Rationale:**
+- Each snapshot contains a map of file paths to backup records
+- Memory grows linearly with snapshot count
+- 100 snapshots ≈ 100 conversation turns (several hours of work)
+- Older snapshots are still persisted to JSONL, just not in memory
+- Users rarely rewind beyond 20-30 turns
+
+**Trade-off:**
+- Pro: Bounded memory usage
+- Con: Cannot rewind to very old checkpoints without reloading session
+
+### 15.2 Why First-Edit-Only Pattern?
+
+The `trackFileEdit` function only captures the first modification to each file per message:
+
+```javascript
+if (mostRecentSnapshot.trackedFileBackups[normalizedPath]) return fileHistoryState;
+```
+
+**Rationale:**
+1. **User intent** - When rewinding, users want "before Claude touched this" state
+2. **Storage efficiency** - Don't store intermediate states that nobody wants
+3. **Simplicity** - No need to track edit chains within a message
+
+**Example:**
+```
+Message N:
+  Edit file A (line 10)  → Backup created (v1)
+  Edit file A (line 20)  → No backup (already tracked)
+  Edit file A (line 30)  → No backup (already tracked)
+
+Rewind to N: File A restored to pre-edit state (v1)
+```
+
+### 15.3 Why Path-Based Backup Naming?
+
+Backup filenames use SHA256 hash of the original path:
+
+```javascript
+// zVY at line 2238
+`${sha256(filePath).slice(0,16)}@v${version}`
+// Example: a1b2c3d4e5f6a7b8@v2
+```
+
+**Rationale:**
+1. **Short names** - 16 chars + version fits filesystem limits
+2. **Unique per file** - No collisions across directories
+3. **Trivial lookup** - Find all versions of a file by same hash prefix
+4. **Filesystem-safe** - No special characters or path separators
+
+**Why not content-hash (like Git)?**
+- Git uses content-hash for deduplication
+- But backup files are NOT deduplicated (each version is stored separately)
+- Path-hash makes it easy to find all versions of a specific file
+
+### 15.4 Why mtime Check Before Content Comparison?
+
+The `fileNeedsRestore` function checks mtime before reading content:
+
+```javascript
+// Line 2189
+if (originalStats.mtimeMs < backupStats.mtimeMs) return false;
+```
+
+**Rationale:**
+1. **Performance** - mtime check is O(1), content comparison is O(n)
+2. **Common case** - Most files haven't changed since backup
+3. **Filesystem semantics** - mtime is updated on write
+
+**Edge case:**
+If user manually modifies file but sets older mtime (rare), restore is skipped. This is acceptable because:
+- It's an extremely rare edge case
+- The user explicitly wanted to hide their modification
+- Content comparison would catch it, but performance cost is too high
+
+---
+
+## 16. Error Handling and Edge Cases
+
+### 16.1 Backup File Not Found
+
+If a backup file is missing when trying to restore:
+
+```javascript
+// _VY at line 2278
+if (!fs.existsSync(backupFilePath)) {
+    telemetry("tengu_file_history_rewind_restore_file_failed", {});
+    logError(Error(`Backup file not found: ${backupFilePath}`));
+    return;  // Skip this file, continue with others
+}
+```
+
+**Why not fail the entire restore:**
+- One missing file shouldn't block restoring others
+- User can still recover most of their work
+- Telemetry captures the failure for debugging
+
+### 16.2 Deleted File Restoration
+
+When a file was deleted during the conversation:
+
+```javascript
+// Zn4 at line 2147-2154
+if (backupFileName === null) {
+    // File was created during this message - should be deleted on rewind
+    if (fs.existsSync(filePath)) {
+        if (!dryRun) fs.unlinkSync(filePath);
+        filesChanged.push(filePath);
+    }
+}
+```
+
+**What this means:**
+- `backupFileName: null` marks files that didn't exist before this message
+- Rewinding deletes these files to restore the "before" state
+- Dry-run mode still reports what would be deleted
+
+### 16.3 Cross-Platform Path Handling
+
+The `normalizeFilePath` function ensures consistent path storage:
+
+```javascript
+// fn4 at line 2303-2308
+function normalizeFilePath(filePath) {
+    if (!isAbsolutePath(filePath)) return filePath;
+    let cwd = getCurrentWorkingDirectory();
+    if (filePath.startsWith(cwd)) return makeRelative(cwd, filePath);
+    return filePath;
+}
+```
+
+**Why normalize:**
+- macOS is case-insensitive but preserves case
+- Windows uses backslashes, Unix uses forward slashes
+- Relative paths are shorter and more portable
+- Session resume may have different cwd
+
+---
+
+## 17. Telemetry Events Reference
+
+| Event | When | Properties |
+|-------|------|------------|
+| `tengu_file_history_track_edit_success` | File edit tracked | `isNewFile`, `version` |
+| `tengu_file_history_track_edit_failed` | Failed to track edit | (none) |
+| `tengu_file_history_snapshot_success` | Snapshot created | `trackedFilesCount`, `snapshotCount` |
+| `tengu_file_history_snapshot_failed` | Snapshot failed | (none) |
+| `tengu_file_history_backup_file_created` | Backup file written | `version`, `fileSize` |
+| `tengu_file_history_backup_file_failed` | Backup failed | (none) |
+| `tengu_file_history_backup_deleted_file` | Tracked file was deleted | `version` |
+| `tengu_file_history_rewind_success` | Rewind completed | `trackedFilesCount`, `filesChangedCount` |
+| `tengu_file_history_rewind_failed` | Rewind failed | `trackedFilesCount`, `snapshotFound` |
+| `tengu_file_history_rewind_restore_file_failed` | File restore failed | `dryRun` |
+| `tengu_file_history_resume_copy_failed` | Session resume copy failed | `numSnapshots`, `failedSnapshots` |
+| `tengu_message_selector_opened` | Rewind UI opened | (none) |
+| `tengu_message_selector_selected` | User selected a message | `index_from_end`, `message_type`, `is_current_prompt` |
+| `tengu_message_selector_restore_option_selected` | User picked restore option | `option` |
+| `tengu_message_selector_cancelled` | User cancelled | (none) |
+| `tengu_partial_compact` | Partial compaction completed | `preCompactTokenCount`, `postCompactTokenCount`, `messagesKept`, `messagesSummarized`, `trigger`, `compactionInputTokens`, `compactionOutputTokens`, `compactionCacheReadTokens`, `compactionCacheCreationTokens` |
+| `tengu_partial_compact_failed` | Partial compaction failed | `reason`, `preCompactTokenCount` |
+
+---
+
+## 18. Algorithm Performance Analysis
+
+### 18.1 Multi-Tier Comparison Performance
+
+The `fileNeedsRestore` (cu8) function uses a 5-tier comparison strategy optimized for the common case where files do NOT need restore:
+
+| Tier | Operation | Cost | Typical Result | Skip Rate |
+|------|-----------|------|----------------|-----------|
+| 1 | Existence check | O(1) stat | One exists, other doesn't → restore | ~5% |
+| 2 | Mode check | O(1) stat | Permissions differ → restore | ~1% |
+| 3 | Size check | O(1) stat | Size differs → restore | ~10% |
+| 4 | mtime check | O(1) stat | Original older → skip | ~60% |
+| 5 | Content compare | O(n) read | Content differs → restore | ~24% |
+
+**Expected skip rate:** ~76% of files skip the expensive O(n) content comparison.
+
+**Worst case:** All 5 tiers executed = 2 stat calls + 2 file reads = O(n).
+
+### 18.2 Snapshot Memory Usage
+
+Each snapshot stores:
+- `messageId`: 36 bytes (UUID string)
+- `timestamp`: ~25 bytes (ISO string)
+- `trackedFileBackups`: Map of path → BackupRecord
+
+**Per-file backup record size:**
+- `backupFileName`: ~20 bytes (hash + version)
+- `version`: 8 bytes (number)
+- `backupTime`: ~25 bytes (Date)
+
+**Total per file:** ~53 bytes in memory
+
+**With MAX_SNAPSHOTS=100 and 50 tracked files:**
+- 100 snapshots × 50 files × 53 bytes ≈ 265 KB in memory
+
+This is negligible compared to the actual file content storage.
+
+### 18.3 Backup Storage Optimization
+
+**Hard link strategy for session resume:**
+
+```javascript
+// From KV1 at line 2365
+try {
+    await fs.link(oldPath, newPath);  // O(1) - hard link
+} catch {
+    await fs.copyFile(oldPath, newPath);  // O(n) - fallback
+}
+```
+
+**Why hard links:**
+- Same inode, no duplicate disk usage
+- Instant copy regardless of file size
+- Both sessions can read the same backup
+
+**When copy is needed:**
+- Cross-filesystem links (different mount points)
+- Windows (hard links less reliable)
+- Permission issues
+
+---
+
+## 19. Helper Function Reference
+
+This section documents the utility functions used throughout the rewind module.
+
+### 19.1 File System Utilities
+
+#### getFileSystem ($1)
+
+**Location:** chunks.1.mjs:4044-4046
+
+```javascript
+// ============================================
+// getFileSystem - Get file system object for operations
+// Location: chunks.1.mjs:4044-4046
 // ============================================
 
 // ORIGINAL (for source lookup):
-function z2() {
-    if (w4()) return NvY();
-    return f6().fileCheckpointingEnabled !== false && !J6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
-}
-function NvY() {
-    return J6(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING) && !J6(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+function $1() {
+    return tnq
 }
 
 // READABLE (for understanding):
-function isFileCheckpointingEnabled() {
-    // SDK mode uses a different flag (opt-in, not opt-out)
-    if (isSDKMode()) return isSDKCheckpointingEnabled();
-    // Interactive mode: on by default unless globally disabled in settings or env
-    return getGlobalSettings().fileCheckpointingEnabled !== false
-        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
-}
-function isSDKCheckpointingEnabled() {
-    // SDK mode: OFF by default (must explicitly opt in)
-    return parseBoolean(process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING)
-        && !parseBoolean(process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING)
+function getFileSystem() {
+    return nodeFs;  // Node.js fs module
 }
 
-// Mapping: z2→isFileCheckpointingEnabled, NvY→isSDKCheckpointingEnabled,
-//          w4→isSDKMode, f6→getGlobalSettings, J6→parseBoolean
+// Mapping: $1→getFileSystem, tnq→nodeFs
 ```
 
-**Decision matrix:**
+**What it does:** Returns the Node.js `fs` module for file system operations.
 
-| Mode | `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING` | `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` | `fileCheckpointingEnabled` setting | Result |
-|------|------------------------------------------|---------------------------------------------|-----------------------------------|--------|
-| Interactive | unset | - | `true` (default) | **ON** |
-| Interactive | `true` | - | any | **OFF** |
-| Interactive | unset | - | `false` | **OFF** |
-| SDK | unset | `true` | - | **ON** |
-| SDK | unset | unset/`false` | - | **OFF** |
-| SDK | `true` | `true` | - | **OFF** (disable wins) |
+**Why abstract:** Provides a consistent interface that can be mocked in tests.
 
-**Key design insight:** Interactive mode is **opt-out** (on by default), SDK mode is **opt-in** (off by default). This is because SDK mode is used for automated pipelines where unexpected file writes to `~/.claude/file-history/` could be surprising. Interactive users get the safety net automatically.
+#### writeFileSync (fz)
 
-**New symbols:**
-- `z2` → `isFileCheckpointingEnabled` | `chunks.133.mjs:334248` | function
-- `NvY` → `isSDKCheckpointingEnabled` | `chunks.133.mjs:334253` | function
-
----
-
-## 21. Session Resume Hydration — `hydrateFileHistoryFromSnapshots` (yP6)
+**Location:** chunks.1.mjs:3878-3896
 
 ```javascript
 // ============================================
-// hydrateFileHistoryFromSnapshots - Reconstruct FileHistory state from persisted snapshots
-// Location: chunks.134.mjs:334552-334571
+// writeFileSync - Write file with flush support
+// Location: chunks.1.mjs:3878-3896
 // ============================================
 
 // ORIGINAL (for source lookup):
-function yP6(A, q) {
-    if (!z2()) return;
-    let K = [], Y = new Set;
-    for (let z of A) {
-        let w = {};
-        for (let [H, $] of Object.entries(z.trackedFileBackups)) {
-            let O = MF4(H);
-            Y.add(O), w[O] = $
-        }
-        K.push({ ...z, trackedFileBackups: w })
-    }
-    q({ snapshots: K, trackedFiles: Y })
+function fz(A, q, K) {
+    // ... implementation with flush support
 }
 
 // READABLE (for understanding):
-function hydrateFileHistoryFromSnapshots(persistedSnapshots, setFileHistoryState) {
-    if (!isFileCheckpointingEnabled()) return;
-    let normalizedSnapshots = [];
-    let allTrackedFiles = new Set;
-    for (let snapshot of persistedSnapshots) {
-        // Re-normalize all file paths (in case working dir changed since last session)
-        let normalizedBackups = {};
-        for (let [rawPath, backupRecord] of Object.entries(snapshot.trackedFileBackups)) {
-            let normalizedPath = normalizeFilePath(rawPath);
-            allTrackedFiles.add(normalizedPath);
-            normalizedBackups[normalizedPath] = backupRecord;
-        }
-        normalizedSnapshots.push({ ...snapshot, trackedFileBackups: normalizedBackups });
-    }
-    setFileHistoryState({ snapshots: normalizedSnapshots, trackedFiles: allTrackedFiles })
+function writeFileSync(path, content, options) {
+    // Wraps fs.writeFileSync with flush support
+    // When options.flush: true, ensures data is written to disk
+    return fs.writeFileSync(path, content, options);
 }
 
-// Mapping: yP6→hydrateFileHistoryFromSnapshots, A→persistedSnapshots, q→setFileHistoryState,
-//          K→normalizedSnapshots, Y→allTrackedFiles, z→snapshot, w→normalizedBackups,
-//          H→rawPath, $→backupRecord, O→normalizedPath, MF4→normalizeFilePath
+// Mapping: fz→writeFileSync, A→path, q→content, K→options
 ```
 
-**What it does:** Converts raw snapshot data loaded from the JSONL session file into the live `FileHistory` React state. This is the bridge between persistent storage and the in-memory checkpoint system.
+**What it does:** Writes content to a file with optional flush support.
+
+**Why flush:** Ensures backup files are immediately persisted to disk, reducing risk of data loss on crash.
+
+#### getDirectoryPath (Dn4)
+
+**Location:** chunks.1.mjs (inferred - wraps path.dirname)
+
+```javascript
+function getDirectoryPath(filePath) {
+    return path.dirname(filePath);
+}
+```
+
+**What it does:** Extracts the directory portion of a file path.
+
+#### setFilePermissions (Pn4)
+
+**Location:** chunks.1.mjs (inferred - wraps fs.chmodSync)
+
+```javascript
+function setFilePermissions(filePath, mode) {
+    return fs.chmodSync(filePath, mode);
+}
+```
+
+**What it does:** Sets file permissions (readable, writable, executable bits).
+
+**Why important:** Preserves executable bits when restoring files.
+
+#### normalizeFilePath (fn4)
+
+**Location:** chunks.135.mjs:2303-2308
+
+```javascript
+// ============================================
+// normalizeFilePath - Normalize file path for snapshot key
+// Location: chunks.135.mjs:2303-2308
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fn4(A) {
+    if (!Xn4(A)) return A;
+    let q = AA();
+    if (A.startsWith(q)) return tNY(q, A);
+    return A
+}
+
+// READABLE (for understanding):
+function normalizeFilePath(filePath) {
+    // If not absolute path, return as-is
+    if (!isAbsolutePath(filePath)) return filePath;
+
+    let cwd = getCurrentWorkingDirectory();
+
+    // If path is within cwd, make it relative
+    if (filePath.startsWith(cwd)) {
+        return makeRelativePath(cwd, filePath);
+    }
+
+    // Otherwise keep as absolute
+    return filePath;
+}
+
+// Mapping: fn4→normalizeFilePath, A→filePath, q→cwd,
+//          Xn4→isAbsolutePath, AA→getCurrentWorkingDirectory, tNY→makeRelativePath
+```
+
+**What it does:** Normalizes file paths to be stored consistently in snapshots.
 
 **How it works:**
-1. Guard: exits early if checkpointing is disabled
-2. Rebuilds the `trackedFiles` Set by collecting all file paths across all snapshots
-3. Re-normalizes every file path via `MF4` (makes paths relative to the current working directory) — this handles the case where a project was moved since the last session
-4. Calls `setFileHistoryState` to update the React state atom in one atomic operation
+1. If the path is relative, return it unchanged
+2. If the path is absolute and within the current working directory, make it relative
+3. Otherwise, keep the absolute path
 
-**When called:** `chunks.176.mjs:1534` — during session load, after snapshots are fetched from the JSONL:
+**Why normalize:**
+- **Portability**: Relative paths work across different machines
+- **Session resume**: The cwd may differ when resuming a session
+- **Consistency**: Same file should have the same key regardless of how it's referenced
+
+**Example:**
+```
+cwd = "/home/user/project"
+normalizeFilePath("/home/user/project/src/file.ts") → "src/file.ts"
+normalizeFilePath("/tmp/external.ts") → "/tmp/external.ts"
+normalizeFilePath("relative/path.ts") → "relative/path.ts"
+```
+
+#### resolveTrackedFilePath (AV1)
+
+**Location:** chunks.135.mjs:2310-2313
+
 ```javascript
-if (A.fileHistorySnapshots && A.fileHistorySnapshots.length > 0) {
-    yP6(A.fileHistorySnapshots, (K) => { fileHistory: K })
+// ============================================
+// resolveTrackedFilePath - Resolve normalized path to absolute
+// Location: chunks.135.mjs:2310-2313
+// ============================================
+
+// ORIGINAL (for source lookup):
+function AV1(A) {
+    if (Xn4(A)) return A;
+    return aN1(AA(), A)
+}
+
+// READABLE (for understanding):
+function resolveTrackedFilePath(normalizedPath) {
+    // If already absolute, return as-is
+    if (isAbsolutePath(normalizedPath)) return normalizedPath;
+
+    // Resolve relative path from cwd
+    return joinPaths(getCurrentWorkingDirectory(), normalizedPath);
+}
+
+// Mapping: AV1→resolveTrackedFilePath, A→normalizedPath,
+//          Xn4→isAbsolutePath, AA→getCurrentWorkingDirectory, aN1→joinPaths
+```
+
+**What it does:** Converts a normalized (possibly relative) path back to an absolute path for file operations.
+
+**How it works:**
+1. If the path is already absolute, return it unchanged
+2. If the path is relative, join it with the current working directory
+
+**Why needed:**
+- Snapshot keys use normalized (often relative) paths
+- File system operations require absolute paths
+- The cwd may have changed since the snapshot was created
+
+**Symmetry with normalizeFilePath:**
+```
+normalizeFilePath("/home/user/project/src/file.ts") → "src/file.ts"
+resolveTrackedFilePath("src/file.ts") → "/home/user/project/src/file.ts"
+```
+
+### 19.2 Boolean/Environment Parsing
+
+#### parseBoolean (t6)
+
+**Location:** chunks.1.mjs:4491-4496
+
+```javascript
+// ============================================
+// parseBoolean - Parse string/boolean to boolean
+// Location: chunks.1.mjs:4491-4496
+// ============================================
+
+// ORIGINAL (for source lookup):
+function t6(A) {
+    if (!A) return !1;
+    if (typeof A === "boolean") return A;
+    let q = A.toLowerCase().trim();
+    return q === "true" || q === "1" || q === "yes"
+}
+
+// READABLE (for understanding):
+function parseBoolean(value) {
+    if (!value) return false;
+    if (typeof value === "boolean") return value;
+    let normalized = value.toLowerCase().trim();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+// Mapping: t6→parseBoolean, A→value, q→normalized
+```
+
+**What it does:** Converts various truthy string representations to boolean.
+
+**Supported values:** `"true"`, `"1"`, `"yes"` (case-insensitive)
+
+**Usage in rewind:**
+- Parsing `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING` environment variable
+- Parsing `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable
+
+#### isSDKMode (q7)
+
+**Location:** chunks.1.mjs:2720-2722
+
+```javascript
+// ============================================
+// isSDKMode - Check if running in SDK mode
+// Location: chunks.1.mjs:2720-2722
+// ============================================
+
+// ORIGINAL (for source lookup):
+function q7() {
+    return !v1.isInteractive
+}
+
+// READABLE (for understanding):
+function isSDKMode() {
+    return !globalState.isInteractive;
+}
+
+// Mapping: q7→isSDKMode, v1→globalState
+```
+
+**What it does:** Determines if Claude Code is running in SDK (non-interactive) mode.
+
+**Why it matters:** SDK mode has different defaults for checkpointing (disabled by default).
+
+### 19.3 Logging & Telemetry
+
+#### consoleLog (k)
+
+**Location:** chunks.2.mjs:165-180
+
+```javascript
+// ============================================
+// consoleLog - Console logging with level support
+// Location: chunks.2.mjs:165-180
+// ============================================
+
+// ORIGINAL (for source lookup):
+function k(A, {
+    level: q
+} = {
+    level: "debug"
+}) {
+    // ... logging implementation
+}
+
+// READABLE (for understanding):
+function consoleLog(message, { level = "debug" } = {}) {
+    // Console logging with optional level
+    console.log(message);
+}
+
+// Mapping: k→consoleLog, A→message, q→level
+```
+
+**What it does:** Logs debug messages to console with optional log level.
+
+#### telemetry (d)
+
+**Location:** chunks.2.mjs:275-290
+
+```javascript
+// ============================================
+// telemetry - Record telemetry event
+// Location: chunks.2.mjs:275-290
+// ============================================
+
+// ORIGINAL (for source lookup):
+function d(A, q) {
+    if (tw6 === null) {
+        nt6.push({
+            eventName: A,
+            // ...
+        });
+        return;
+    }
+    // ... send event
+}
+
+// READABLE (for understanding):
+function telemetry(eventName, eventData) {
+    if (telemetryClient === null) {
+        // Queue event for later
+        pendingEvents.push({ eventName, eventData });
+        return;
+    }
+    // Send event immediately
+    telemetryClient.recordEvent(eventName, eventData);
+}
+
+// Mapping: d→telemetry, A→eventName, q→eventData, tw6→telemetryClient, nt6→pendingEvents
+```
+
+**What it does:** Records a telemetry event for analytics.
+
+**Events used in rewind:**
+- `tengu_file_history_track_edit_success`
+- `tengu_file_history_snapshot_success`
+- `tengu_file_history_rewind_success`
+- `tengu_message_selector_opened`
+- `tengu_partial_compact`
+
+### 19.4 Error Handling
+
+#### logError (_6)
+
+**Location:** chunks.14.mjs:726-740
+
+```javascript
+// ============================================
+// logError - Error logging with optional reporting
+// Location: chunks.14.mjs:726-740
+// ============================================
+
+// ORIGINAL (for source lookup):
+function _6(A) {
+    let q = A instanceof Error ? A : Error(String(A));
+    try {
+        if (t6(process.env.CLAUDE_CODE_USE_BEDROCK) ||
+            t6(process.env.CLAUDE_CODE_USE_VERTEX) ||
+            t6(process.env.CLAUDE_CODE_USE_FOUNDRY) ||
+            process.env.DISABLE_ERROR_REPORTING ||
+            process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC) return;
+        // ... send to error reporting
+    } catch {}
+}
+
+// READABLE (for understanding):
+function logError(error) {
+    let normalizedError = error instanceof Error ? error : Error(String(error));
+    try {
+        // Skip error reporting in certain environments
+        if (isBedrockMode() || isVertexMode() || isFoundryMode() ||
+            process.env.DISABLE_ERROR_REPORTING ||
+            process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC) {
+            return;
+        }
+        // Send to error reporting service
+        errorReportingClient.capture(normalizedError);
+    } catch {}
+}
+
+// Mapping: _6→logError, A→error, q→normalizedError
+```
+
+**What it does:** Logs errors with optional reporting to error tracking service.
+
+**When reporting is disabled:**
+- Using Bedrock/Vertex/Foundry (external compute)
+- `DISABLE_ERROR_REPORTING` is set
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` is set
+
+### 19.5 Settings
+
+#### getUserSettings (X1)
+
+**Location:** chunks.177.mjs:2046-2055
+
+```javascript
+// ============================================
+// getUserSettings - Get cached user configuration
+// Location: chunks.177.mjs:2046-2055
+// ============================================
+
+// ORIGINAL (for source lookup):
+function X1() {
+    try {
+        let A = performance.now();
+        if (gN.config && A - tS1 < Iwz) return eN6++, gN.config;
+        // ... load from disk if needed
+    } catch {}
+}
+
+// READABLE (for understanding):
+function getUserSettings() {
+    try {
+        let now = performance.now();
+        // Return cached config if still valid
+        if (cachedSettings.config && now - lastLoadTime < CACHE_TTL) {
+            cacheHitCount++;
+            return cachedSettings.config;
+        }
+        // Load from disk...
+    } catch {}
+}
+
+// Mapping: X1→getUserSettings, gN→cachedSettings, tS1→lastLoadTime, Iwz→CACHE_TTL
+```
+
+**What it does:** Returns the user's settings with caching.
+
+**Settings relevant to rewind:**
+- `fileCheckpointingEnabled` - Enable/disable checkpointing
+
+### 19.6 Diff Algorithm
+
+#### computeDiff (na)
+
+**Location:** chunks.56.mjs:2072-2074
+
+```javascript
+// ============================================
+// computeDiff - Myers diff algorithm
+// Location: chunks.56.mjs:2072-2074
+// ============================================
+
+// ORIGINAL (for source lookup):
+function na(A, q, K) {
+    return wf7.diff(A, q, K)
+}
+
+// READABLE (for understanding):
+function computeDiff(oldContent, newContent, options) {
+    return diffLibrary.diff(oldContent, newContent, options);
+}
+
+// Mapping: na→computeDiff, wf7→diffLibrary
+```
+
+**What it does:** Computes the difference between two strings using Myers diff algorithm.
+
+**Return value:** Array of change objects with `added`, `removed`, and `count` properties.
+
+**Usage in rewind:**
+- `calculateFileDiffStats` (Mn4) uses it to count +/- lines for dry-run previews
+
+---
+
+## 20. SessionDatabase Persistence Details
+
+### SessionDatabase.insertFileHistorySnapshot Method
+
+**Location:** chunks.174.mjs:1520-1530
+
+```javascript
+// ============================================
+// SessionDatabase.insertFileHistorySnapshot - Persist snapshot to JSONL
+// Location: chunks.174.mjs:1520-1530
+// ============================================
+
+// ORIGINAL (for source lookup):
+async insertFileHistorySnapshot(A, q, K) {
+    return this.trackWrite(async () => {
+        let Y = {
+            type: "file-history-snapshot",
+            messageId: A,
+            snapshot: q,
+            isSnapshotUpdate: K
+        };
+        await this.appendEntry(Y)
+    })
+}
+
+// READABLE (for understanding):
+async insertFileHistorySnapshot(messageId, snapshot, isSnapshotUpdate) {
+    return this.trackWrite(async () => {
+        let entry = {
+            type: "file-history-snapshot",
+            messageId,
+            snapshot,
+            isSnapshotUpdate
+        };
+        await this.appendEntry(entry);
+    });
+}
+
+// Mapping: A→messageId, q→snapshot, K→isSnapshotUpdate, Y→entry
+```
+
+**What it does:** Persists a file history snapshot entry to the session's JSONL database.
+
+**How it works:**
+1. Creates an entry object with `type: "file-history-snapshot"`
+2. Wraps the write in `trackWrite` for proper sequencing
+3. Appends the entry to the JSONL file via `appendEntry`
+
+### JSONL Entry Structure
+
+**Entry for snapshot update (during `trackFileEdit`):**
+```json
+{
+    "type": "file-history-snapshot",
+    "messageId": "uuid-of-current-message",
+    "snapshot": {
+        "messageId": "uuid-of-current-message",
+        "trackedFileBackups": {
+            "src/auth.ts": {
+                "backupFileName": "a1b2c3d4e5f6a7b8@v1",
+                "version": 1,
+                "backupTime": "2024-01-15T10:30:00.000Z"
+            }
+        },
+        "timestamp": "2024-01-15T10:30:00.000Z"
+    },
+    "isSnapshotUpdate": true
 }
 ```
 
-**New symbol:** `yP6` → `hydrateFileHistoryFromSnapshots` | `chunks.134.mjs:334552` | function
-
----
-
-## 22. `autocheckpointing` Attachment Type — Rewind Has No LLM Awareness
-
-The rewind/checkpoint system has a **registered but silent** attachment type in the system reminder pipeline:
-
-```javascript
-// chunks.173.mjs:1129
-if (["autocheckpointing", "background_task_status"].includes(A.type)) return [];
+**Entry for new snapshot (during `createSnapshotForMessage`):**
+```json
+{
+    "type": "file-history-snapshot",
+    "messageId": "uuid-of-message",
+    "snapshot": {
+        "messageId": "uuid-of-message",
+        "trackedFileBackups": {
+            "src/auth.ts": {
+                "backupFileName": "a1b2c3d4e5f6a7b8@v2",
+                "version": 2,
+                "backupTime": "2024-01-15T10:35:00.000Z"
+            },
+            "src/api.ts": {
+                "backupFileName": "b2c3d4e5f6a7b8c9@v1",
+                "version": 1,
+                "backupTime": "2024-01-15T10:35:00.000Z"
+            }
+        },
+        "timestamp": "2024-01-15T10:35:00.000Z"
+    },
+    "isSnapshotUpdate": false
+}
 ```
 
-This is a post-switch guard in `normalizeAttachmentForAPI` (`K2z`). Any attachment with `type: "autocheckpointing"` is silently consumed — it generates **no messages** to the LLM.
+### trackWrite Wrapper
 
-**Critical insight: The LLM is never informed about rewinds.**
-
-After a rewind:
-- Messages are **truncated** from the conversation array — the LLM's context simply doesn't contain those messages anymore
-- No system reminder says "the conversation was rewound"
-- No meta-message injects "file state was restored"
-- The model continues as if the discarded messages never happened
-
-**Why intentional?** If the LLM received a "you were just rewound to message X" notification, it would:
-1. Have to reconcile this with the truncated context (confusing)
-2. Change its behavior based on "knowing" it was rewound (undesirable for clean-slate retries)
-3. Waste tokens on meta-commentary about the rewind
-
-The truncation IS the notification — the model simply no longer sees the previous turns.
-
-**Why does `autocheckpointing` exist in the switch at all?** This type appears to be a **legacy remnant** or **forward-compatibility guard**. No code in v2.1.76 creates an attachment of type `autocheckpointing`. The guard prevents a crash (`Unknown attachment type` error) if such an attachment were somehow loaded from an older session file or introduced by a future version.
-
-> Cross-reference: `04_system_reminder/reminder_types.md` — Silent/No-Op Types section
+The `trackWrite` method on SessionDatabase ensures:
+1. **Sequencing**: Writes are properly ordered even when multiple async writes overlap
+2. **Error handling**: Write failures are properly caught and logged
+3. **Debouncing**: Multiple rapid writes may be batched for performance
 
 ---
 
-## 18. Error Cases and Limitations
+## 21. Edge Cases Deep-Dive
 
-| Scenario | Behavior |
-|----------|----------|
-| `fileCheckpointingEnabled = false` | `checkRewindCapability` returns `{ canRewind: false, error: "File rewinding is not enabled." }` |
-| No snapshot for selected message | Returns `{ canRewind: false, error: "No file checkpoint found for this message." }` |
-| Backup file not found during restore | Telemetry + log error, continue with other files |
-| File modified by bash / manually | Not tracked, not restored — UI shows warning text |
-| Summarize with no messages to summarize | `Fa4` throws `"Nothing to summarize after the selected message."` |
-| LLM summary generation failure | `Fa4` throws with `tengu_partial_compact_failed` telemetry |
+### 21.1 Cross-Platform Path Handling
+
+The `normalizeFilePath` (fn4) function handles several edge cases:
+
+**Case 1: Case-insensitive filesystems (macOS)**
+```javascript
+// macOS preserves case but is case-insensitive
+// These paths refer to the same file on macOS:
+//   /Users/alice/project/src/File.ts
+//   /Users/alice/project/src/file.ts
+//   /Users/ALICE/project/src/FILE.TS
+
+// Solution: Store paths as they appear, don't normalize case
+// Relative paths help reduce ambiguity:
+normalizeFilePath("/Users/alice/project/src/File.ts") → "src/File.ts"
+```
+
+**Case 2: Path separators (Windows vs Unix)**
+```javascript
+// Windows: C:\Users\alice\project\src\file.ts
+// Unix:     /home/alice/project/src/file.ts
+
+// Node.js path module handles this, but backup paths are always Unix-style
+// in the JSONL for consistency across platforms
+```
+
+**Case 3: Symlinks and junctions**
+```javascript
+// If /project/link → /project/real-folder
+// and user edits /project/link/file.ts
+// The backup is stored under the path as referenced:
+normalizeFilePath("/project/link/file.ts") → "link/file.ts"  // Not "real-folder/file.ts"
+```
+
+### 21.2 Hard Link Fallback in migrateFileHistoryToNewSession
+
+**Location:** chunks.135.mjs:2365-2385
+
+```javascript
+// ============================================
+// Hard link vs copy fallback logic
+// Location: chunks.135.mjs:2365-2385
+// ============================================
+
+// ORIGINAL (for source lookup):
+try {
+    fs.linkSync(oldPath, newPath);
+} catch {
+    fs.copyFileSync(oldPath, newPath);
+}
+
+// READABLE (for understanding):
+// Try hard link first (O(1) operation)
+try {
+    fs.linkSync(oldPath, newPath);
+} catch (linkError) {
+    // Fall back to full copy (O(n) operation)
+    fs.copyFileSync(oldPath, newPath);
+}
+```
+
+**Why hard link fails:**
+
+| Scenario | Reason | Fallback |
+|----------|--------|----------|
+| Cross-filesystem | Source and target on different mounts | `copyFileSync` |
+| Windows | Hard links less reliable on NTFS | `copyFileSync` |
+| Permission denied | Insufficient permissions for linking | `copyFileSync` |
+| Disk quota | Hard link would exceed quota | `copyFileSync` |
+
+**Why hard links are preferred:**
+1. **Zero additional disk space** - Same inode, no duplicate data
+2. **Instant operation** - O(1) regardless of file size
+3. **Automatic sync** - Both paths always have same content
+
+### 21.3 mtime Comparison Edge Cases
+
+The `fileNeedsRestore` (cu8) function uses mtime as a quick check:
+
+```javascript
+// Line 2189
+if (originalStats.mtimeMs < backupStats.mtimeMs) return false;
+```
+
+**Edge case: User manually sets older mtime**
+
+```bash
+# User modifies file but sets mtime to past
+touch -d "2024-01-01" /project/file.ts
+
+# Result: fileNeedsRestore returns false (skips restore)
+# Even though content differs!
+```
+
+**Why this is acceptable:**
+1. **Extremely rare** - Users rarely manipulate mtime
+2. **Intentional deception** - User explicitly wanted to hide the modification
+3. **Performance trade-off** - Checking content every time is O(n), unacceptable cost
+4. **Conservative approach** - False negative (skip restore) is better than false positive
+
+**What happens on restore:**
+```javascript
+// If user then runs rewind:
+// 1. mtime check returns false (skips restore)
+// 2. User gets old content, but expects it
+// 3. If user notices, they can manually fix
+
+// Alternative (content check every time):
+// 1. Always correct, but O(n) for every file
+// 2. Major performance regression
+// 3. Not worth the edge case
+```
+
+### 21.4 Backup Directory Cleanup
+
+Backup files are stored in `~/.claude/file-history/{sessionId}/`:
+
+**When cleanup happens:**
+- **Session end**: No automatic cleanup - backups persist
+- **Session resume**: Old backups copied/hard-linked to new session
+- **Manual cleanup**: User can delete `~/.claude/file-history/` directory
+
+**Why no automatic cleanup:**
+1. **Resume support**: User may want to rewind across session boundaries
+2. **Safety**: Preserving backups is safer than aggressive cleanup
+3. **Storage**: Files are small relative to modern disk sizes
+4. **Hard links**: When resumed, files share inodes, no extra space
+
+**Disk usage estimation:**
+```
+Assumptions:
+- 100 snapshots per session
+- 50 tracked files average
+- 10KB average file size (source code)
+
+Total per session:
+100 snapshots × 50 files × 10KB = 50MB
+
+With hard links on resume:
+50MB × N sessions = still 50MB (shared inodes)
+```
+
+### 21.5 Snapshot Limit Overflow
+
+When `snapshots.length > MAX_SNAPSHOTS (100)`:
+
+```javascript
+// From createSnapshotForMessage at line 2060
+snapshots: newSnapshots.length > MAX_SNAPSHOTS
+    ? newSnapshots.slice(-MAX_SNAPSHOTS)  // Keep most recent 100
+    : newSnapshots
+```
+
+**Behavior:**
+- Oldest snapshots are discarded from memory
+- They remain in the JSONL file on disk
+- Hydration on session resume will only load last 100
+
+**Why this is safe:**
+1. Users rarely rewind beyond 20-30 messages
+2. 100 snapshots ≈ hours of conversation
+3. JSONL still has full history for forensic analysis
+
+### 21.6 Deleted File Tracking
+
+When a tracked file is deleted during a message:
+
+```javascript
+// From createSnapshotForMessage at line 2035-2041
+if (!fs.existsSync(actualPath)) {
+    // File was deleted during this message
+    let prev = previousSnapshot.trackedFileBackups[trackedPath];
+    let version = prev ? prev.version + 1 : 1;
+    backups[trackedPath] = {
+        backupFileName: null,  // Marker: file doesn't exist
+        version,
+        backupTime: new Date
+    };
+}
+```
+
+**Restore behavior:**
+- `backupFileName: null` means "file should not exist"
+- If file exists now, it gets deleted on restore
+- If file doesn't exist, nothing happens
+
+**This handles:**
+1. Claude creates a file → user rewinds → file deleted
+2. File existed before, Claude deleted it → user rewinds → file restored from v1 backup
 
 ---
 
-## 19. Telemetry Events
+## 22. Cross-Feature Integration Matrix
 
-| Event | Trigger |
-|-------|---------|
-| `tengu_message_selector_opened` | User opens the rewind UI |
-| `tengu_message_selector_selected` | User selects a message |
-| `tengu_message_selector_restore_option_selected` | User selects a restore action |
-| `tengu_message_selector_cancelled` | User exits without action |
-| `tengu_file_history_track_edit_success` | File edit tracked successfully |
-| `tengu_file_history_track_edit_failed` | Failed to track file edit |
-| `tengu_file_history_backup_file_created` | Backup file written |
-| `tengu_file_history_backup_file_failed` | Failed to create backup |
-| `tengu_file_history_backup_deleted_file` | Deletion tracked as null backup |
-| `tengu_file_history_snapshot_success` | Message snapshot created |
-| `tengu_file_history_snapshot_failed` | Snapshot creation failed |
-| `tengu_file_history_rewind_success` | Files rewound successfully |
-| `tengu_file_history_rewind_failed` | Rewind failed |
-| `tengu_file_history_rewind_restore_file_failed` | Single file restore failed |
-| `tengu_partial_compact` | Summarize succeeded |
-| `tengu_partial_compact_failed` | Summarize failed |
+### Integration with System Reminder (04_system_reminder)
+
+| Integration Point | Function | Purpose |
+|------------------|----------|---------|
+| Session persistence | `_l6` (recordFileHistorySnapshot) | Write snapshot to JSONL |
+| Session hydration | `qV1` (hydrateFileHistoryFromSnapshots) | Restore state from JSONL on resume |
+| Session migration | `KV1` (migrateFileHistoryToNewSession) | Copy backups when resuming with new session ID |
+
+### Integration with Compact (07_compact)
+
+| Integration Point | Function | Purpose |
+|------------------|----------|---------|
+| Partial compaction | `Wqq` (performPartialCompaction) | "Summarize from here" UI option |
+| Boundary marker | `Ri6` (createCompactBoundary) | Mark where compaction occurred |
+| Summary generation | `Gqq` (generateSummaryWithLLM) | LLM call for summary |
+
+### Integration with File Tools (05_tools)
+
+| Integration Point | Location | Purpose |
+|------------------|----------|---------|
+| Write tool | chunks.139.mjs:180 | Track file before write |
+| Edit tool | chunks.139.mjs:1360 | Track file before edit |
+| Notebook edit | chunks.170.mjs:1352 | Track notebook before cell edit |
+
+### Integration with State Management (15_state_management)
+
+| Integration Point | Function | Purpose |
+|------------------|----------|---------|
+| State access | `M1` (useStore) | React hook for fileHistory state |
+| State updates | `R66` (trackFileEdit) | Functional state update pattern |
+| Snapshot sequence | `snapshotSequence` counter | React reconciliation key |
+
+---
+
+## 23. See Also
+
+- [overview.md](./overview.md) - Feature overview and architecture
+- [ui_linkage.md](./ui_linkage.md) - UI component analysis
+- [../07_compact/](../07_compact/) - Full compaction documentation
+- [../04_system_reminder/](../04_system_reminder/) - Session persistence
+- [../15_state_management/](../15_state_management/) - React state schema
