@@ -1,6 +1,11 @@
 # UI Module - Claude Code v2.1.76
 
 > Terminal UI architecture for Claude Code CLI using Ink (React for CLI)
+>
+> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
+> **Analysis Status**: ✅ COMPLETE - Deep algorithm analysis, cross-module integration, and source-level restoration done.
+>
+> **Symbol Correction (2026-03-22)**: `WJ` was incorrectly mapped to `normalizeMessages`. The correct symbol is `cM` at chunks.173.mjs:1999. `WJ` at chunks.5.mjs:945 is a Zod schema builder function, not related to message normalization.
 
 ---
 
@@ -222,6 +227,33 @@ REPL (ot8) - chunks.196.mjs:3
 
 ---
 
+## Symbol Validation Status
+
+All key symbols in this module have been cross-validated against source code on 2026-03-22.
+
+### Validated Core Symbols
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| `ot8` | REPL | chunks.196.mjs:3 | ✅ Verified |
+| `ra6` | getInputDialogType | chunks.196.mjs:387 | ✅ Verified |
+| `TM` | handleCancel | chunks.196.mjs:420 | ✅ Verified |
+| `xN6` | handleToolUseStream | chunks.173.mjs:2384 | ✅ Verified |
+| `veY` | MessageList | chunks.161.mjs:3 | ✅ Verified |
+| `G_6` | memoizedMessageList | chunks.161.mjs:355 | ✅ Verified |
+| `cM` | normalizeMessages | chunks.173.mjs:1999 | ✅ CORRECTED (was WJ) |
+| `JM` | flattenMessages | chunks.173.mjs:1516 | ✅ Verified |
+| `Gi6` | filterEmptyMessages | chunks.173.mjs:1502 | ✅ Verified |
+| `HIq` | ToolPermissionDialog | chunks.190.mjs:899 | ✅ Verified |
+| `ct8` | SandboxPermissionDialog | chunks.194.mjs:2899 | ✅ Verified |
+| `ZIq` | ElicitationRouter | chunks.190.mjs:1242 | ✅ Verified |
+| `BWz` | ElicitationFormDialog | chunks.190.mjs:1268 | ✅ Verified |
+| `gWz` | ElicitationUrlDialog | chunks.190.mjs:1943 | ✅ Verified |
+| `fIq` | PromptDialog | chunks.190.mjs:2125 | ✅ Verified |
+| `jSq` | CostWarningDialog | chunks.187.mjs:1852 | ✅ Verified |
+
+---
+
 ## Related Symbols
 
 > Symbol mappings:
@@ -314,6 +346,8 @@ Key components in this module (validated against source):
 | `Cb1` | Blocked items | Paused with pending dialogs (line 406) |
 | `QV6` | showSpinner | Spinner visibility calculation (line 305) |
 | `UV6` | hasActiveDialogs | Any dialog queue has items (line 306) |
+| `oi` | `BR($6).some(t => t.status === "running")` | Has running background tasks (line 262) ✅ |
+| `C2` | All pending tools are permission-only | Tool-only execution mode (line 304) |
 
 ---
 
@@ -873,51 +907,89 @@ All integration points confirmed operational:
 
 ---
 
-**Last Updated**: 2026-03-22 (Session 8 - Final validation and completion)
+**Last Updated**: 2026-03-22 (Session 9 - Comprehensive state variable verification)
 **Version**: Claude Code 2.1.76
-**Status**: Complete - All 5 phases completed successfully
+**Status**: Complete - All symbols validated, all state variables verified against source code
 
-## Enhancements Made (2026-03-22 - Session 8)
+## Enhancements Made (2026-03-22 - Session 9)
 
-### Phase 1: Symbol Validation Complete
+### Comprehensive State Variable Verification
 
-All 25+ UI symbols cross-validated against source code:
+All REPL state variables have been verified against chunks.196.mjs source code:
 
-**Core REPL (chunks.196.mjs):**
-- `ot8` → REPL (line 3) ✅
-- `ra6` → getInputDialogType (lines 387-404) ✅
-- `TM` → handleCancel (lines 420-432) ✅
-- `d7`/`W4` → streamMode state ✅
-- `JK`/`F3` → streamingToolUses state ✅
-- `MK`/`k3` → streamingThinking state ✅
+#### Loading State Variables (Verified)
+| Obfuscated | Readable | Source Line | Purpose |
+|------------|----------|-------------|---------|
+| `Bq` | isLoading | 115 | Combined: `sw \|\| UY` |
+| `sw` | isLoadingFromStore | 113 | useSyncExternalStore |
+| `UY` | isLoadingLocal | 114 | Local loading state |
+| `YA` | userInputOnProcessing | 116 | Input being processed |
+| `Wz` | isBriefOnly | 237 | Brief mode active |
 
-**Streaming Functions (chunks.173.mjs):**
-- `xN6` → handleToolUseStream (lines 2384-2488) ✅
-- `af` → wrapInXmlTag (lines 2490-2494) ✅
-- `b5` → wrapWithSystemReminderTags (lines 2496-2523) ✅
-- `Wzz` → planModeReminderDispatcher (lines 2525-2530) ✅
-- `Hz6` → isSpecialMessageType (lines 1275-1277) ✅
-- `pjq` → groupToolsWithHooks (lines 1591-1669) ✅
-- `rr6` → isHookAttachmentMessage (lines 1671-1673) ✅
+#### Queue State Variables (Verified)
+| Obfuscated | Readable | Source Line | Purpose |
+|------------|----------|-------------|---------|
+| `a8` | toolUseConfirmQueue | 167 | Tool permissions |
+| `G7` | sandboxPermissionQueue | 167 | Sandbox permissions |
+| `zA` | promptQueue | 167 | Tool prompts |
 
-**Special Message Types (chunks.174.mjs):**
-- `TF6` → SPECIAL_MESSAGE_TYPES (line 1099) ✅
+#### Derived State Variables (Verified)
+| Obfuscated | Readable | Source Line | Calculation |
+|------------|----------|-------------|-------------|
+| `QV6` | showSpinner | 305 | Compound boolean with 7 conditions |
+| `UV6` | hasActiveDialogs | 306 | OR of 5 queue lengths |
+| `C2` | isToolOnlyMode | 304 | All tools are permission-only |
 
-**Visibility Functions (chunks.185.mjs):**
-- `XV6` → shouldShowMessageInChat (lines 1692-1702) ✅
-- `zs8` → MessageSelector (line 1179) ✅
+### Key Algorithms Documented
 
-**All 13 Dialog Components Validated:**
-- `HIq` (ToolPermissionDialog) ✅
-- `ct8` (SandboxPermissionDialog) ✅
-- `ZIq` (ElicitationRouter) ✅
-- `BWz` (ElicitationFormDialog) ✅
-- `gWz` (ElicitationUrlDialog) ✅
-- `zs8` (MessageSelector) ✅
-- `fIq` (PromptDialog) ✅
-- `jSq` (CostWarningDialog) ✅
-- `dj8` (IDEOnboardingDialog) ✅
-- `gmq` (EffortCalloutDialog) ✅
+#### showSpinner (QV6) Algorithm
+```javascript
+// Location: chunks.196.mjs:305
+const showSpinner =
+    (!toolJSX || toolJSX.showSpinner === true)
+    && toolUseConfirmQueue.length === 0
+    && promptQueue.length === 0
+    && (isLoading || userInputOnProcessing || hasRunningTasks || hasQueuedCommands() > 0)
+    && !pendingWorkerRequest
+    && !isToolOnlyMode
+    && (!streamingText || isBriefOnly);
+```
+
+#### hasActiveDialogs (UV6) Algorithm
+```javascript
+// Location: chunks.196.mjs:306
+const hasActiveDialogs =
+    toolUseConfirmQueue.length > 0
+    || promptQueue.length > 0
+    || sandboxPermissionQueue.length > 0
+    || elicitationState.queue.length > 0
+    || workerSandboxPermissions.queue.length > 0;
+```
+
+### Symbol Index Updates
+
+Updated `symbol_index_infra_integration.md` with:
+- All loading state variables with source line references
+- All queue state variables with setter functions
+- All derived state variables with complete calculations
+- New symbols: `Bq`, `sw`, `UY`, `YA`, `Wz`, `QV6`, `UV6`, `C2`, `X6`, `z6`, `E5`
+
+### Integration Summary Updates
+
+Updated `integration_summary.md` with:
+- Comprehensive REPL state variable reference table
+- Source-verified showSpinner algorithm
+- Source-verified hasActiveDialogs algorithm
+- Complete mapping comments for all variables
+
+---
+
+### Cross-Module Integration Verified
+
+All integration points confirmed operational:
+- 04_system_reminder → `isMeta` filtering via `XV6`, `wrapWithSystemReminderTags` (b5)
+- 05_tools → Permission dialogs (`HIq`, `ct8`), tool tracking (`inProgressToolUseIDs`)
+- 11_hooks → `groupToolsWithHooks` (`pjq`), `isHookAttachmentMessage` (`rr6`)
 - `pWq` (RemoteCalloutDialog) ✅
 - `uBq` (LSPRecommendationDialog) ✅
 - `zyq` (DesktopUpsellDialog) ✅

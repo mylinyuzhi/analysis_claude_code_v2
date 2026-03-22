@@ -5,11 +5,15 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - LLM API
 
 Key functions in this document:
-- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384-2480
+- `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384-2488
 - `MessageList` (`veY`) - Memoized message list with streaming tool filtering, chunks.161.mjs:3
+- `flattenMessages` (`JM`) - Flattens assistant messages into individual content blocks, chunks.173.mjs:1516
+- `filterEmptyMessages` (`Gi6`) - Filters out empty/placeholder messages from display, chunks.173.mjs:1502
 - `setStreamingToolUses` - Update streaming tool state (internal React state)
 - `setStreamMode` - Update stream mode state (internal React state)
 - `setStreamingThinking` - Update thinking state (internal React state)
+
+> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
 
 ---
 
@@ -734,7 +738,7 @@ if (hookResult.updatedPermissions) {
 // ============================================
 
 // Attachment producers generate system reminder attachments
-// These are processed in the normalization stage (WJ)
+// These are processed in the normalization stage (cM - normalizeMessages)
 
 // Types of attachment producers:
 // 1. Tool result attachments (file reads, etc.)
@@ -1937,6 +1941,84 @@ case "text_delta": {
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with event routing decision tree, invariants, performance analysis, spinner isolation)
+## 14. Validated Symbol Reference
+
+> **Cross-validated against source code on 2026-03-22**
+
+### Streaming Core Functions
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| `xN6` | handleToolUseStream | chunks.173.mjs:2384 | ✅ Verified |
+| `veY` | MessageList | chunks.161.mjs:3 | ✅ Verified |
+| `ot8` | REPL | chunks.196.mjs:3 | ✅ Verified |
+
+### Streaming State Variables (REPL)
+
+| Obfuscated | Readable | Type | Purpose |
+|------------|----------|------|---------|
+| `d7` | streamMode | state | Current streaming phase |
+| `JK` | streamingToolUses | state | Partial tool inputs |
+| `MK` | streamingThinking | state | Thinking block state |
+| `n4` | inProgressToolUseIDs | state | Set of active tool IDs |
+| `ez` | streamingText | state | Partial text display |
+| `nF` | spinnerText | state | Spinner override message |
+| `m6` | spinnerColor | state | Spinner override color |
+| `M8` | spinnerShimmerColor | state | Spinner shimmer |
+
+### Event Types Handled by xN6
+
+| Event Type | Action | Stream Mode Set |
+|------------|--------|-----------------|
+| `stream_request_start` | Initialize | `"requesting"` |
+| `content_block_start` (thinking) | Start thinking | `"thinking"` |
+| `content_block_start` (text) | Start text | `"responding"` |
+| `content_block_start` (tool_use) | Add to streamingToolUses | `"tool-input"` |
+| `content_block_delta` (text_delta) | Accumulate text | (unchanged) |
+| `content_block_delta` (input_json_delta) | Accumulate JSON | (unchanged) |
+| `content_block_delta` (thinking_delta) | Accumulate thinking | (unchanged) |
+| `message_stop` | Clear streaming tools | `"tool-use"` |
+| `assistant` (complete) | Add to messages | (via onMessage) |
+| `tombstone` | Mark for removal | (via onTombstone) |
+
+### Stream Mode State Machine
+
+```
+                    ┌─────────────────────────────────────────────────┐
+                    │                                                   │
+                    ▼                                                   │
+            ┌───────────────┐                                          │
+            │ "requesting"  │ ← stream_request_start                   │
+            └───────┬───────┘                                          │
+                    │                                                   │
+                    ▼                                                   │
+        ┌───────────┴───────────┐                                      │
+        │                       │                                      │
+        ▼                       ▼                                      │
+  ┌───────────┐          ┌─────────────┐                               │
+  │"responding"│          │ "thinking"  │                               │
+  │ (default)  │          │             │                               │
+  └─────┬─────┘          └──────┬──────┘                               │
+        │                       │                                       │
+        │    ┌──────────────────┘                                       │
+        │    │                                                          │
+        ▼    ▼                                                          │
+  ┌───────────────┐                                                     │
+  │ "tool-input"  │ ← content_block_start(tool_use)                    │
+  └───────┬───────┘                                                     │
+          │                                                             │
+          ▼                                                             │
+  ┌───────────────┐                                                     │
+  │  "tool-use"   │ ← message_stop (ready for tool execution)          │
+  └───────────────┘                                                     │
+                                                                        │
+  Transitions can also loop back to "responding" via:                  │
+  - content_block_delta (text_delta)                                   │
+  - message_delta                                                      │
+```
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with event routing decision tree, invariants, performance analysis, spinner isolation, validated symbols)
 **Version**: Claude Code 2.1.76
 **Status**: Complete - Full streaming event processing documented

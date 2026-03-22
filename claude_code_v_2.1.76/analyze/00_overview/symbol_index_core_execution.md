@@ -807,7 +807,7 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | u9z | wrapAssistantMessageWithCache | chunks.169.mjs:1385 | function |
 | US | createLlmClient | chunks.169.mjs:100 | function |
 | UW1 | streamingQuery | chunks.169.mjs:691 | function (generator) |
-| WJ | normalizeMessages | chunks.169.mjs:600 | function |
+| cM | normalizeMessages | chunks.173.mjs:1999 | function ✅ (Note: cM is the correct symbol; WJ at chunks.5.mjs is a different function) |
 | x9z | applyEffortToRequest | chunks.169.mjs:566 | function |
 | yd1 | abortStream | chunks.169.mjs:1336 | function |
 

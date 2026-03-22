@@ -14,11 +14,15 @@ Key functions in this document:
 - `CostWarningDialog` (`jSq`) - API cost threshold warning, chunks.187.mjs:1852
 - `IDEOnboardingDialog` (`dj8`) - IDE extension setup, chunks.65.mjs:1381
 - `LSPRecommendationDialog` (`uBq`) - LSP plugin suggestion, chunks.195.mjs:544
-- `EffortCalloutDialog` (`gmq`) - Extended thinking effort selector, chunks.194.mjs (referenced)
-- `RemoteCalloutDialog` (`pWq`) - Remote session options, chunks.168.mjs (referenced)
-- `DesktopUpsellDialog` (`zyq`) - Desktop app promotion, chunks.196.mjs:1635 (referenced)
+- `EffortCalloutDialog` (`gmq`) - Extended thinking effort selector, chunks.194.mjs:1755
+- `RemoteCalloutDialog` (`pWq`) - Remote session options, chunks.168.mjs:381
+- `DesktopUpsellDialog` (`zyq`) - Desktop app promotion, chunks.180.mjs:1836
 - `MessageSelectorDialog` (`zs8`) - Conversation history browser, chunks.185.mjs:1179
+- `PromptDialog` (`fIq`) - Tool prompt selection dialog, chunks.190.mjs:2125
+- `ElicitationFormDialog` (`BWz`) - JSON Schema form for MCP elicitation, chunks.190.mjs:1268
 - `REPL` (`ot8`) - Main REPL component containing dialog logic, chunks.196.mjs:3
+
+> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
 
 ---
 
@@ -1116,7 +1120,7 @@ Aborting a tool permission does NOT cancel the entire agent loop. The agent rece
 
 ### 5.1 Tool Permission Queue
 
-**Storage:** Local React state `F7` / `setToolUseConfirmQueue` (`f8`)
+**Storage:** Local React state `a8` / `setToolUseConfirmQueue` (`$A`)
 
 **How items are added:**
 ```javascript
@@ -1138,15 +1142,15 @@ The `gb4` function stores the `setToolUseConfirmQueue` callback in a module-leve
 ```
 
 **Processing:**
-- Display: `F7[0]` (head of queue)
-- On approve: `f8(([head, ...rest]) => rest)` (dequeue head)
-- On abort: `F7[0].onAbort(); f8([])` (abort + clear all)
+- Display: `a8[0]` (head of queue)
+- On approve: `$A(([head, ...rest]) => rest)` (dequeue head)
+- On abort: `a8[0].onAbort(); $A([])` (abort + clear all)
 
 **`recheckPermission`:** After the user changes permission settings (e.g., grants "always allow" for a tool), the agent loop calls `recheckPermission` on all queued items. If a queued tool is now auto-approved, it removes itself from the queue without requiring further user interaction.
 
 ### 5.2 Sandbox Permission Queue
 
-**Storage:** Local React state `oq` / `setSandboxPermissionQueue` (`j5`)
+**Storage:** Local React state `G7` / `setSandboxPermissionQueue` (`Q1`)
 
 **How items are added:**
 ```javascript
@@ -1158,7 +1162,7 @@ setSandboxPermissionQueue(prev => [...prev, {
 ```
 
 **Processing:**
-- Display: `oq[0]` (head of queue)
+- Display: `G7[0]` (head of queue)
 - On response: Filter out all entries with matching host, resolve their Promises
 - Never clears the whole queue at once (only resolved entries are removed)
 
@@ -1166,22 +1170,22 @@ setSandboxPermissionQueue(prev => [...prev, {
 
 See [elicitation_system.md](./elicitation_system.md) for full detail.
 
-**Storage:** Zustand store `elicitation.queue`
+**Storage:** Zustand store `elicitation.queue` (accessed as `o` from M1 store)
 
 **How items are added:** Via `registerElicitationHandler` on MCP client connection.
 
 **Processing:**
-- Display: `E1.queue[0]`
+- Display: `o.queue[0]`
 - On response: `queue.slice(1)` (remove head) + `currentEvent.respond({action, content})`
 
 ### 5.4 Worker Sandbox Permission Queue
 
-**Storage:** Zustand store `workerSandboxPermissions.queue`
+**Storage:** Zustand store `workerSandboxPermissions.queue` (accessed as `n` from M1 store)
 
 **How items are added:** Worker processes send sandbox requests via the team coordination protocol, which pushes to the Zustand store.
 
 **Processing:**
-- Display: `Z1.queue[0]`
+- Display: `n.queue[0]`
 - On response: `queue.slice(1)` + `teamWorkerSandboxResponse(...)`
 
 ---
@@ -1215,11 +1219,11 @@ The dialog state is tightly linked to the spinner display:
 
 ```javascript
 // PG (showSpinner) calculation:
-PG = (!vK || vK.showSpinner === !0)     // Not blocked by local JSX
-  && F7.length === 0                     // No tool permission queued
-  && (_4 || Wz || L9 || xp7() > 0)     // Is loading, has user input, has running tasks, or has queued commands
-  && !q1                                // No pending worker request
-  && !MG                                // Not in "tool-only" mode
+PG = (!j8 || j8.showSpinner === !0)     // Not blocked by local JSX
+  && a8.length === 0                     // No tool permission queued
+  && (Bq || Wz || L9 || xp7() > 0)       // Is loading, has user input, has running tasks, or has queued commands
+  && !q1                                 // No pending worker request
+  && !MG                                 // Not in "tool-only" mode
 ```
 
 **Dialog → spinner interaction summary:**
@@ -1243,14 +1247,15 @@ PG = (!vK || vK.showSpinner === !0)     // Not blocked by local JSX
 
 **`Gw` (hasActiveDialogs):**
 ```javascript
-Gw = F7.length > 0 || oq.length > 0 || E1.queue.length > 0 || Z1.queue.length > 0
+// Location: chunks.196.mjs:306
+Gw = a8.length > 0 || G7.length > 0 || o.queue.length > 0 || n.queue.length > 0
 ```
 This flag tracks whether ANY queue has items. It's used in:
 1. `RP` (session feedback) - suppress feedback prompt while dialogs are active
 2. `I1` (turn tracking) - don't count turns while waiting for user input
 3. `PG` (spinner visibility) - only tool permissions suppress spinner
 
-The distinction between `Gw` (any dialog) and `F7.length > 0` (tool permission only) in the spinner calculation is intentional and meaningful.
+The distinction between `Gw` (any dialog) and `a8.length > 0` (tool permission only) in the spinner calculation is intentional and meaningful.
 
 ---
 
@@ -1822,6 +1827,156 @@ The `/color` command (v2.1.76) affects the prompt bar accent color but does not 
 
 // Usage: Visual differentiation between multiple Claude Code windows
 // Dialogs use standard theme colors regardless of session color
+```
+
+---
+
+## 17. Validated Symbol Reference
+
+> **Cross-validated against source code on 2026-03-22**
+
+### Core Dialog Functions
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| `ot8` | REPL | chunks.196.mjs:3 | ✅ Verified |
+| `ra6` | getInputDialogType | chunks.196.mjs:387 | ✅ Verified |
+| `TM` | handleCancel | chunks.196.mjs:420 | ✅ Verified |
+| `HIq` | ToolPermissionDialog | chunks.190.mjs:899 | ✅ Verified |
+| `ZIq` | ElicitationRouter | chunks.190.mjs:1242 | ✅ Verified |
+| `BWz` | ElicitationFormDialog | chunks.190.mjs:1268 | ✅ Verified |
+
+### Source Code Validation: getInputDialogType (ra6)
+
+```javascript
+// ============================================
+// getInputDialogType - Priority dispatcher (VALIDATED)
+// Location: chunks.196.mjs:387-404
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ra6() {
+    if (lV6 || na6) return;
+    if (W7) return "message-selector";
+    if (y2) return;
+    if (G7[0]) return "sandbox-permission";
+    let P1 = !j8 || j8.shouldContinueAnimation;
+    if (P1 && a8[0]) return "tool-permission";
+    if (P1 && zA[0]) return "prompt";
+    if (P1 && n.queue[0]) return "worker-sandbox-permission";
+    if (P1 && o.queue[0]) return "elicitation";
+    if (P1 && m26) return "cost";
+    if (P1 && W6) return "ide-onboarding";
+    if (P1 && g6) return "effort-callout";
+    if (P1 && J1) return "remote-callout";
+    if (P1 && e8) return "lsp-recommendation";
+    if (P1 && E1) return "desktop-upsell";
+    return
+}
+
+// READABLE (for understanding):
+function getInputDialogType() {
+    // Guard: Searching history or full-screen overlay blocks all
+    if (isSearchingInputHistory || fullScreenOverlay) return;
+
+    // Tier 1 (above animation gate):
+    if (isMessageSelectorVisible) return "message-selector";
+
+    // Paused state blocks lower-priority dialogs
+    if (isPaused) return;
+
+    if (sandboxPermissionQueue[0]) return "sandbox-permission";
+
+    // Animation gate:
+    const canShowLowerPriority = !toolJSX || toolJSX.shouldContinueAnimation;
+
+    // Tier 2 (below animation gate):
+    if (canShowLowerPriority && toolUseConfirmQueue[0]) return "tool-permission";
+    if (canShowLowerPriority && promptQueue[0]) return "prompt";
+    if (canShowLowerPriority && workerSandboxPermissions.queue[0]) return "worker-sandbox-permission";
+    if (canShowLowerPriority && elicitationState.queue[0]) return "elicitation";
+    if (canShowLowerPriority && showCostWarning) return "cost";
+    if (canShowLowerPriority && showIdeOnboarding) return "ide-onboarding";
+    if (canShowLowerPriority && showEffortCallout) return "effort-callout";
+    if (canShowLowerPriority && showRemoteCallout) return "remote-callout";
+    if (canShowLowerPriority && lspRecommendation) return "lsp-recommendation";
+    if (canShowLowerPriority && desktopUpsell) return "desktop-upsell";
+
+    return;
+}
+
+// Mapping: ra6→getInputDialogType, lV6→isSearchingInputHistory, na6→fullScreenOverlay,
+//          W7→isMessageSelectorVisible, y2→isPaused, G7→sandboxPermissionQueue,
+//          j8→toolJSX, a8→toolUseConfirmQueue, zA→promptQueue, n→workerSandboxPermissions,
+//          o→elicitationState, m26→showCostWarning, W6→showIdeOnboarding, g6→showEffortCallout,
+//          J1→showRemoteCallout, e8→lspRecommendation, E1→desktopUpsell
+```
+
+### Source Code Validation: handleCancel (TM)
+
+```javascript
+// ============================================
+// handleCancel - Cancel handler (VALIDATED)
+// Location: chunks.196.mjs:420-432
+// ============================================
+
+// ORIGINAL (for source lookup):
+function TM() {
+    if (K2 === "elicitation") return;
+    if (k(`[onCancel] focusedInputDialog=${K2} streamMode=${d7}`), J9.forceEnd(), ez?.trim()) gq((P1) => [...P1, $Z({
+        content: ez
+    })]);
+    if (dE(), K2 === "tool-permission") a8[0]?.onAbort(), $A([]);
+    else if (K2 === "prompt") {
+        for (let P1 of zA) P1.reject(Error("Prompt cancelled by user"));
+        gA([]), M5?.abort()
+    } else if (B5.isRemoteMode) B5.cancelRequest();
+    else M5?.abort();
+    x5(null)
+}
+
+// READABLE (for understanding):
+function handleCancel() {
+    // Elicitation blocks cancel (MCP Promise must be resolved)
+    if (focusedInputDialog === "elicitation") return;
+
+    debug(`[onCancel] focusedInputDialog=${focusedInputDialog} streamMode=${streamMode}`);
+
+    // Force end streaming
+    streamController.forceEnd();
+
+    // Save pending streaming text if any
+    if (streamingText?.trim()) {
+        setMessages(prev => [...prev, createInterruptedMessage({ content: streamingText })]);
+    }
+
+    // Reset deferred updates
+    resetDeferredUpdates();
+
+    // Dialog-specific handling:
+    if (focusedInputDialog === "tool-permission") {
+        toolUseConfirmQueue[0]?.onAbort();
+        setToolUseConfirmQueue([]);
+    } else if (focusedInputDialog === "prompt") {
+        for (let prompt of promptQueue) {
+            prompt.reject(Error("Prompt cancelled by user"));
+        }
+        setPromptQueue([]);
+        abortController?.abort();
+    } else if (remoteSession.isRemoteMode) {
+        remoteSession.cancelRequest();
+    } else {
+        abortController?.abort();
+    }
+
+    setAbortController(null);
+}
+
+// Mapping: TM→handleCancel, K2→focusedInputDialog, J9→streamController,
+//          ez→streamingText, gq→setMessages, dE→resetDeferredUpdates,
+//          a8→toolUseConfirmQueue, $A→setToolUseConfirmQueue, zA→promptQueue,
+//          gA→setPromptQueue, M5→abortController, x5→setAbortController,
+//          B5→remoteSession, $Z→createInterruptedMessage
 ```
 
 ---

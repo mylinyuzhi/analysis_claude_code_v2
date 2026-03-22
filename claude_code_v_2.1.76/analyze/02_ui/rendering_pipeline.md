@@ -7,7 +7,7 @@ Key functions in this document:
 - `MessageList` (`veY`/`G_6`) - Memoized message list component, chunks.161.mjs:3/355
 - `handleToolUseStream` (`xN6`) - Core streaming event processor, chunks.173.mjs:2384-2488
 - `shouldShowMessageInChat` (`XV6`) - Core UI visibility filter, chunks.185.mjs:1692-1702
-- `normalizeMessages` (`WJ`) - Transforms raw messages to render format, chunks.173.mjs
+- `normalizeMessages` (`cM`) - Transforms raw messages to render format, chunks.173.mjs:1999
 - `reorderAttachments` (`dzz`) - Reorder attachments before user messages, chunks.173.mjs
 - Compact boundary detection - Inline pattern at chunks.150.mjs:2523
 
@@ -132,37 +132,40 @@ When streaming ends, these entries are removed from `streamingToolUses` and the 
 
 ```javascript
 // ============================================
-// normalizeMessages - Transform raw messages for display
-// Location: chunks.173.mjs:89-206
+// normalizeMessages (cM) - Transform raw messages for display
+// Location: chunks.173.mjs:1999-2150
+//
+// IMPORTANT CORRECTION: Previous documentation incorrectly mapped WJ to normalizeMessages.
+// WJ at chunks.5.mjs:945 is a Zod schema builder function, NOT normalizeMessages.
+// The correct symbol is cM at chunks.173.mjs:1999.
 // ============================================
 
 // ORIGINAL (for source lookup):
-function WJ(A, q = []) {
-    let K = new Set(q.map((J) => J.name)),
-        Y = dzz(A),
-        z = { ... },
-        w = new Map;
-    // ... attachment type mapping
-    let H = [];
-    Y.filter((J) => {
-        if (J.type === "progress" || J.type === "system" || pmA(J)) return !1;
+function cM(A, q = []) {
+    let K = new Set(q.map((M) => M.name)),
+        Y = wzz(A),
+        z = {
+            [kv8()]: new Set(["document"]),
+            [Ev8()]: new Set(["document"]),
+            [yv8()]: new Set(["document"]),
+            [dX1()]: new Set(["image"]),
+            [Lv8()]: new Set(["document", "image"])
+        },
+        _ = new Map;
+    // ... tool type mapping for attachments
+    let w = [];
+    Y.filter((M) => {
+        if (M.type === "progress" || M.type === "system" && !gx8(M) || rn8(M)) return !1;
         return !0
-    }).forEach((J) => {
-        switch (J.type) {
-            case "user": { ... H.push(X); return }
-            case "assistant": { ... H.push(D); return }
-            case "attachment": {
-                let X = K2z(J.attachment),
-                    D = gP(H);
-                if (D?.type === "user") {
-                    H[H.indexOf(D)] = X.reduce((j, M) => lzz(j, M), D);
-                    return
-                }
-                H.push(...X); return
-            }
+    }).forEach((M) => {
+        switch (M.type) {
+            case "system": { /* handle compact_boundary */ }
+            case "user": { /* filter tool references, merge consecutive */ }
+            case "assistant": { /* normalize tool inputs */ }
+            case "attachment": { /* convert to user message format */ }
         }
     });
-    return H
+    return w
 }
 
 // READABLE (for understanding):
@@ -236,9 +239,9 @@ function normalizeMessages(messages, availableTools = []) {
     return normalized;
 }
 
-// Mapping: WJ→normalizeMessages, A→messages, q→availableTools, K→toolNames,
-// Y→reorderedMessages, dzz→reorderAttachments, K2z→normalizeAttachmentForAPI,
-// H→normalized, lzz→mergeUserMessages, gP→getLastMessage
+// Mapping: cM→normalizeMessages, A→messages, q→availableTools, K→toolNames,
+//          Y→reorderedMessages, wzz→reorderAttachments, w→normalized
+// VALIDATED: cM at chunks.173.mjs:1999 is the correct normalizeMessages function.
 ```
 
 ### 3.1 Attachment Reordering (dzz)
@@ -578,6 +581,182 @@ function filterEmptyMessages(message) {
 - Prevents empty user messages from cluttering the UI
 - Preserves special types (progress, attachment, system) that have display meaning even without text content
 - Handles edge cases like single-block text with only whitespace
+
+### 5.4.1 flattenMessages (JM) Complete Analysis
+
+The `flattenMessages` function is a critical preprocessing step that splits multi-block messages into individual renderable units:
+
+```javascript
+// ============================================
+// flattenMessages (JM) - Split messages into individual content blocks
+// Location: chunks.173.mjs:1516-1581
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JM(A) {
+    let q = !1;
+    return A.flatMap((K) => {
+        switch (K.type) {
+            case "assistant":
+                return q = q || K.message.content.length > 1, K.message.content.map((Y, z) => {
+                    let _ = q ? qr6(K.uuid, z) : K.uuid;
+                    return {
+                        type: "assistant",
+                        timestamp: K.timestamp,
+                        message: {
+                            ...K.message,
+                            content: [Y],
+                            context_management: K.message.context_management ?? null
+                        },
+                        isMeta: K.isMeta,
+                        requestId: K.requestId,
+                        uuid: _,
+                        error: K.error,
+                        isApiErrorMessage: K.isApiErrorMessage
+                    }
+                });
+            case "attachment":
+                return [K];
+            case "progress":
+                return [K];
+            case "system":
+                return [K];
+            case "user": {
+                if (typeof K.message.content === "string") {
+                    let z = q ? qr6(K.uuid, 0) : K.uuid;
+                    return [{
+                        ...K,
+                        uuid: z,
+                        message: {
+                            ...K.message,
+                            content: [{
+                                type: "text",
+                                text: K.message.content
+                            }]
+                        }
+                    }]
+                }
+                q = q || K.message.content.length > 1;
+                let Y = 0;
+                return K.message.content.map((z, _) => {
+                    let w = z.type === "image",
+                        O = w && K.imagePasteIds ? K.imagePasteIds[Y] : void 0;
+                    if (w) Y++;
+                    return {
+                        ...p1({
+                            content: [z],
+                            toolUseResult: K.toolUseResult,
+                            mcpMeta: K.mcpMeta,
+                            isMeta: K.isMeta,
+                            isVisibleInTranscriptOnly: K.isVisibleInTranscriptOnly,
+                            timestamp: K.timestamp,
+                            imagePasteIds: O !== void 0 ? [O] : void 0
+                        }),
+                        uuid: q ? qr6(K.uuid, _) : K.uuid
+                    }
+                })
+            }
+        }
+    })
+}
+
+// READABLE (for understanding):
+function flattenMessages(messages) {
+    let needsUniqueUuids = false;
+
+    return messages.flatMap((msg) => {
+        switch (msg.type) {
+            case "assistant":
+                // Mark if multi-block (needs UUID suffix for React keys)
+                needsUniqueUuids = needsUniqueUuids || msg.message.content.length > 1;
+
+                // Split each content block into its own message object
+                return msg.message.content.map((block, index) => {
+                    const uuid = needsUniqueUuids
+                        ? appendUuidSuffix(msg.uuid, index)  // e.g., "abc123000000000001"
+                        : msg.uuid;
+                    return {
+                        type: "assistant",
+                        timestamp: msg.timestamp,
+                        message: {
+                            ...msg.message,
+                            content: [block],  // Single block, not array
+                            context_management: msg.message.context_management ?? null
+                        },
+                        isMeta: msg.isMeta,
+                        requestId: msg.requestId,
+                        uuid,
+                        error: msg.error,
+                        isApiErrorMessage: msg.isApiErrorMessage
+                    };
+                });
+
+            case "attachment":
+            case "progress":
+            case "system":
+                // These types pass through unchanged
+                return [msg];
+
+            case "user":
+                // Handle string content (legacy format)
+                if (typeof msg.message.content === "string") {
+                    const uuid = needsUniqueUuids ? appendUuidSuffix(msg.uuid, 0) : msg.uuid;
+                    return [{
+                        ...msg,
+                        uuid,
+                        message: {
+                            ...msg.message,
+                            content: [{ type: "text", text: msg.message.content }]
+                        }
+                    }];
+                }
+
+                // Handle array content
+                needsUniqueUuids = needsUniqueUuids || msg.message.content.length > 1;
+                let imageIndex = 0;
+
+                return msg.message.content.map((block, index) => {
+                    const isImage = block.type === "image";
+                    const imagePasteId = isImage && msg.imagePasteIds
+                        ? msg.imagePasteIds[imageIndex++]
+                        : undefined;
+
+                    return {
+                        ...createUserMessage({
+                            content: [block],
+                            toolUseResult: msg.toolUseResult,
+                            mcpMeta: msg.mcpMeta,
+                            isMeta: msg.isMeta,
+                            isVisibleInTranscriptOnly: msg.isVisibleInTranscriptOnly,
+                            timestamp: msg.timestamp,
+                            imagePasteIds: imagePasteId !== undefined ? [imagePasteId] : undefined
+                        }),
+                        uuid: needsUniqueUuids ? appendUuidSuffix(msg.uuid, index) : msg.uuid
+                    };
+                });
+        }
+    });
+}
+
+// Mapping: JM→flattenMessages, qr6→appendUuidSuffix, p1→createUserMessage
+```
+
+**What it does:** Transforms a message list where each message may contain multiple content blocks into a flat list where each item has exactly one content block. This enables React to render each block independently with proper keying.
+
+**How it works:**
+1. **Type-based branching** - Switch on message type to handle each appropriately
+2. **UUID disambiguation** - When a message has multiple blocks, append a suffix to the UUID so each block has a unique React key
+3. **String normalization** - Convert legacy string content to `[{type: "text", text: ...}]` format
+4. **Image paste ID tracking** - Preserve image paste IDs for image blocks during flattening
+5. **Pass-through for special types** - attachment, progress, system messages pass unchanged
+
+**Why this approach:**
+- **React key stability** - Each content block needs a unique key for React's reconciliation
+- **Independent rendering** - Each block type (text, tool_use, image) renders differently
+- **UUID suffix strategy** - `qr6(uuid, index)` appends a 12-digit hex suffix, e.g., `"abc123000000000001"`
+- **Lazy UUID generation** - Only generates suffixes when there are actually multi-block messages
+
+**Key insight:** The `needsUniqueUuids` flag is set globally across the entire message list, not per-message. This means once ANY message has multiple blocks, ALL subsequent message blocks get suffixed UUIDs. This ensures consistency and prevents React key collisions across the entire rendered list.
 
 ### 5.5 groupToolsWithHooks (pjq) Deep Analysis
 
@@ -1606,7 +1785,7 @@ function handleStreamEvent(event, onMessage, onResponseLength, setStreamMode,
 │                                                                       │
 │  02_ui (this module)                                                  │
 │  ├── Stage 0: handleStreamEvent (xN6) → streaming state              │
-│  ├── Stage 1: normalizeMessages (WJ) → format conversion             │
+│  ├── Stage 1: normalizeMessages (cM) → format conversion             │
 │  ├── Stage 2: getVisibleAfterCompact (EN) → compaction filter        │
 │  ├── Stage 3: shouldShowMessageInChat → isMeta filter                │
 │  ├── Stage 4: normalizeDisplayMessages (t9q) → hook grouping         │
@@ -1614,7 +1793,7 @@ function handleStreamEvent(event, onMessage, onResponseLength, setStreamMode,
 │  └── Stage 6-7: MessageList (G_6) → React render                     │
 │                                                                       │
 │  05_tools                                                              │
-│  ├── Permission checks → toolUseConfirmQueue (F7)                    │
+│  ├── Permission checks → toolUseConfirmQueue (a8)                    │
 │  └── Tool results → user messages with tool_result                   │
 │                                                                       │
 │  06_compact                                                            │
@@ -2239,6 +2418,355 @@ isBriefOnly: zS ? !1 : Wz,             // Brief mode flag
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with XV6 deep analysis, streamingText feature, cross-module integration)
+## 18. Validated Symbol Reference
+
+> **Cross-validated against source code on 2026-03-22**
+
+### Core Rendering Functions
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| `veY` | MessageList | chunks.161.mjs:3 | ✅ Verified |
+| `xN6` | handleToolUseStream | chunks.173.mjs:2384 | ✅ Verified |
+| `XV6` | shouldShowMessageInChat | chunks.185.mjs:1692 | ✅ Verified |
+| `Gi6` | filterEmptyMessages | chunks.173.mjs:1502 | ✅ Verified |
+| `JM` | flattenMessageContent | chunks.173.mjs:1516 | ✅ Verified |
+| `p1` | createUserMessage | chunks.173.mjs:1378 | ✅ Verified |
+| `b5` | wrapWithSystemReminderTags | chunks.173.mjs:2496 | ✅ Verified |
+
+### Source Code Validation: MessageList (veY)
+
+```javascript
+// ============================================
+// MessageList component structure (VALIDATED)
+// Location: chunks.161.mjs:3-100
+// ============================================
+
+// ORIGINAL (for source lookup):
+veY = (A) => {
+    let q = A6(111),  // 111-slot memoization cache
+        {
+            messages: K,
+            tools: Y,
+            commands: z,
+            verbose: _,
+            toolJSX: w,
+            toolUseConfirmQueue: O,
+            inProgressToolUseIDs: $,
+            isMessageSelectorVisible: H,
+            conversationId: j,
+            screen: J,
+            streamingToolUses: M,
+            showAllInTranscript: D,
+            agentDefinitions: X,
+            onOpenRateLimitOptions: P,
+            hideLogo: W,
+            isLoading: Z,
+            hidePastThinking: G,
+            streamingThinking: f,
+            streamingText: v,
+            isBriefOnly: N,
+            unseenDivider: V,
+            scrollRef: L,
+            disableRenderCap: h
+        } = A,
+        // ...
+    if (q[0] !== K) Q = JM(K).filter(Gi6), q[0] = K, q[1] = Q;
+    else Q = q[1];
+    let U = Q,
+    // ...
+}
+
+// READABLE (for understanding):
+function MessageList(props) {
+    // 111-slot memoization cache from React Compiler
+    const cache = useMemoCache(111);
+
+    const {
+        messages,
+        tools,
+        commands,
+        verbose,
+        toolJSX,
+        toolUseConfirmQueue,
+        inProgressToolUseIDs,
+        isMessageSelectorVisible,
+        conversationId,
+        screen,
+        streamingToolUses,
+        showAllInTranscript,
+        agentDefinitions,
+        onOpenRateLimitOptions,
+        hideLogo,
+        isLoading,
+        hidePastThinking,
+        streamingThinking,
+        streamingText,
+        isBriefOnly,
+        unseenDivider,
+        scrollRef,
+        disableRenderCap
+    } = props;
+
+    // Stage 1: Flatten and filter empty messages (memoized)
+    let flattened;
+    if (cache[0] !== messages) {
+        flattened = flattenMessageContent(messages).filter(filterEmptyMessages);
+        cache[0] = messages;
+        cache[1] = flattened;
+    } else {
+        flattened = cache[1];
+    }
+
+    // ... rest of pipeline
+}
+
+// Mapping: veY→MessageList, A6→useMemoCache, JM→flattenMessageContent,
+//          Gi6→filterEmptyMessages, K→messages, Y→tools, z→commands,
+//          _→verbose, w→toolJSX, O→toolUseConfirmQueue, $→inProgressToolUseIDs
+```
+
+### Source Code Validation: handleToolUseStream (xN6)
+
+```javascript
+// ============================================
+// handleToolUseStream - Streaming event processor (VALIDATED)
+// Location: chunks.173.mjs:2384-2488
+// ============================================
+
+// ORIGINAL (for source lookup):
+function xN6(A, q, K, Y, z, _, w, O, $) {
+    if (A.type !== "stream-event" && A.type !== "stream_request_start") {
+        if (A.type === "tombstone") {
+            _?.(A.message);
+            return
+        }
+        if (A.type === "tool_use_summary") return;
+        if (A.type === "assistant") {
+            let H = A.message.content.find((j) => j.type === "thinking");
+            if (H && H.type === "thinking") w?.(() => ({
+                thinking: H.thinking,
+                isStreaming: !1,
+                streamingEndedAt: Date.now()
+            }))
+        }
+        $?.(() => null), q(A);
+        return
+    }
+    if (A.type === "stream_request_start") {
+        Y("requesting");
+        return
+    }
+    if (A.event.type === "message_start") {
+        if (A.ttftMs != null) O?.({
+            ttftMs: A.ttftMs
+        })
+    }
+    if (A.event.type === "message_stop") {
+        Y("tool-use"), z(() => []);
+        return
+    }
+    switch (A.event.type) {
+        case "content_block_start":
+            switch ($?.(() => null), A.event.content_block.type) {
+                case "thinking":
+                case "redacted_thinking":
+                    Y("thinking");
+                    return;
+                case "text":
+                    Y("responding");
+                    return;
+                case "tool_use": {
+                    Y("tool-input");
+                    let H = A.event.content_block, j = A.event.index;
+                    z((J) => [...J, {
+                        index: j,
+                        contentBlock: H,
+                        unparsedToolInput: ""
+                    }]);
+                    return
+                }
+                // ... other cases
+            }
+            break;
+        case "content_block_delta":
+            // ... delta handling
+        // ... other cases
+    }
+}
+
+// READABLE (for understanding):
+function handleToolUseStream(
+    event,                     // A - Stream event
+    onMessage,                 // q - Add message to list
+    onResponseDelta,           // K - Update response length
+    setStreamMode,             // Y - Set stream mode state
+    setStreamingToolUses,      // z - Update streaming tools
+    onTombstone,               // _ - Handle tombstone
+    setStreamingThinking,      // w - Update thinking state
+    onTTFT,                    // O - Report time to first token
+    setStreamingText           // $ - Update streaming text display
+) {
+    // Phase 1: Non-streaming events
+    if (event.type !== "stream-event" && event.type !== "stream_request_start") {
+        if (event.type === "tombstone") {
+            onTombstone?.(event.message);
+            return;
+        }
+        if (event.type === "tool_use_summary") return;
+        if (event.type === "assistant") {
+            // Extract thinking block from complete assistant message
+            let thinking = event.message.content.find((block) => block.type === "thinking");
+            if (thinking && thinking.type === "thinking") {
+                setStreamingThinking?.(() => ({
+                    thinking: thinking.thinking,
+                    isStreaming: false,
+                    streamingEndedAt: Date.now()
+                }));
+            }
+        }
+        setStreamingText?.(() => null);
+        onMessage(event);
+        return;
+    }
+
+    // Phase 2: Request lifecycle
+    if (event.type === "stream_request_start") {
+        setStreamMode("requesting");
+        return;
+    }
+
+    // Phase 3: Message lifecycle
+    if (event.event.type === "message_start") {
+        if (event.ttftMs != null) {
+            onTTFT?.({ ttftMs: event.ttftMs });
+        }
+    }
+
+    if (event.event.type === "message_stop") {
+        setStreamMode("tool-use");
+        setStreamingToolUses(() => []);  // Clear streaming tools
+        return;
+    }
+
+    // Phase 4: Content block handling
+    switch (event.event.type) {
+        case "content_block_start":
+            setStreamingText?.(() => null);
+
+            switch (event.event.content_block.type) {
+                case "thinking":
+                case "redacted_thinking":
+                    setStreamMode("thinking");
+                    return;
+
+                case "text":
+                    setStreamMode("responding");
+                    return;
+
+                case "tool_use": {
+                    setStreamMode("tool-input");
+                    const toolBlock = event.event.content_block;
+                    const index = event.event.index;
+
+                    setStreamingToolUses((prev) => [...prev, {
+                        index: index,
+                        contentBlock: toolBlock,
+                        unparsedToolInput: ""
+                    }]);
+                    return;
+                }
+                // Additional cases for server_tool_use, mcp_tool_use, etc.
+            }
+            break;
+
+        case "content_block_delta":
+            // Handle text_delta, input_json_delta, thinking_delta
+            // ...
+            break;
+
+        case "content_block_stop":
+            return;
+
+        case "message_delta":
+            setStreamMode("responding");
+            return;
+
+        default:
+            setStreamMode("responding");
+            return;
+    }
+}
+
+// Mapping: xN6→handleToolUseStream, A→event, q→onMessage, K→onResponseDelta,
+//          Y→setStreamMode, z→setStreamingToolUses, _→onTombstone,
+//          w→setStreamingThinking, O→onTTFT, $→setStreamingText
+```
+
+### Source Code Validation: filterEmptyMessages (Gi6)
+
+```javascript
+// ============================================
+// filterEmptyMessages - Empty message filter (VALIDATED)
+// Location: chunks.173.mjs:1502-1509
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Gi6(A) {
+    if (A.type === "progress" || A.type === "attachment" || A.type === "system") return !0;
+    if (typeof A.message.content === "string") return A.message.content.trim().length > 0;
+    if (A.message.content.length === 0) return !1;
+    if (A.message.content.length > 1) return !0;
+    if (A.message.content[0].type !== "text") return !0;
+    return A.message.content[0].text.trim().length > 0 &&
+           A.message.content[0].text !== wE &&
+           A.message.content[0].text !== P0
+}
+
+// READABLE (for understanding):
+function filterEmptyMessages(message) {
+    // Always include: progress indicators, attachments, system messages
+    if (message.type === "progress" ||
+        message.type === "attachment" ||
+        message.type === "system") {
+        return true;
+    }
+
+    // String content: check if non-empty
+    if (typeof message.message.content === "string") {
+        return message.message.content.trim().length > 0;
+    }
+
+    // Empty array: exclude
+    if (message.message.content.length === 0) {
+        return false;
+    }
+
+    // Multiple content blocks: include
+    if (message.message.content.length > 1) {
+        return true;
+    }
+
+    // Single non-text block: include
+    if (message.message.content[0].type !== "text") {
+        return true;
+    }
+
+    // Single text block: check content
+    const text = message.message.content[0].text.trim();
+    return text.length > 0 &&
+           text !== EMPTY_CONTENT_PLACEHOLDER &&    // wE
+           text !== INTERRUPTED_FOR_TOOL_USE;       // P0
+}
+
+// Mapping: Gi6→filterEmptyMessages, wE→EMPTY_CONTENT_PLACEHOLDER,
+//          P0→INTERRUPTED_FOR_TOOL_USE
+```
+
+**Key insight:** The `filterEmptyMessages` function does NOT filter `isMeta: true` messages. The `isMeta` filtering happens at a different stage - specifically in the `XV6` (shouldShowMessageInChat) function for message selection, and through rendering omission in the component tree for display.
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with XV6 deep analysis, streamingText feature, cross-module integration, validated symbols)
 **Version**: Claude Code 2.1.76
 **Status**: Complete - All rendering stages documented with source validation

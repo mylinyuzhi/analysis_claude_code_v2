@@ -75,7 +75,9 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iW1 | handleStreamEvent | chunks.173.mjs:390-488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) |
+| xN6 | handleToolUseStream | chunks.173.mjs:2384-2488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) ✅ |
+
+> **Correction (2026-03-22):** The symbol `iW1` was previously incorrectly mapped here. `iW1` at chunks.110.mjs:1656 is a different function. The correct streaming event handler is `xN6` (handleToolUseStream).
 
 ### Outbound Queue Classes (chunks.145.mjs, chunks.184.mjs)
 
@@ -1147,7 +1149,7 @@
 | yzz | subAgentPlanReminder | chunks.173.mjs:2701-2712 | function (subagent plan mode reminder) |
 | Zzz | ultraplanCompleteReminder | chunks.173.mjs:2532-2538 | function (ultraplan complete notification) |
 | Lzz | autoModeReminder | chunks.173.mjs:2714-2739 | function (auto mode instructions dispatcher) |
-| WJ | normalizeMessages | chunks.173.mjs:89 | function (raw messages → render-ready format) |
+| cM | normalizeMessages | chunks.173.mjs:1999 | function (raw messages → render-ready format) ✅ CORRECTED |
 | - | findCompactBoundaryIndex | chunks.150.mjs:2523 | pattern (inline: `messages.findLastIndex(m => m.type === "system" && m.subtype === "compact_boundary")`) |
 | - | getVisibleMessagesAfterCompact | chunks.150.mjs:2523 | pattern (inline: `messages.slice(boundaryIndex)` after findLastIndex) |
 | XV6 | shouldShowMessageInChat | chunks.185.mjs:1692-1702 | function (filters isMeta, tool_result, and visibility tier; VALIDATED) ✅ |
@@ -1184,7 +1186,7 @@
 | h96 | USER_DECLINED_TOOL_USE | chunks.174.mjs:990 | constant ("The user doesn't want to proceed with this tool use...") ✅ |
 | N36 | NO_RESPONSE_REQUESTED | chunks.174.mjs:1007 | constant ("No response requested.") ✅ |
 
-### REPL State Variables (chunks.196.mjs)
+### REPL State Variables (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | Setter | Line | Description |
 |------------|----------|--------|------|-------------|
@@ -1195,14 +1197,14 @@
 | MK | streamingThinking | k3 | 98 | Thinking block state with isStreaming, streamingEndedAt |
 | M5 | abortController | x5 | 108 | AbortController for in-flight API requests |
 | n4 | inProgressToolUseIDs | iK | 200 | Set of tool use IDs currently executing |
-| a8 | toolUseConfirmQueue | $A | 167 | Array of pending tool permission requests |
-| G7 | sandboxPermissionQueue | Q1 | 167 | Array of pending sandbox permission requests |
-| zA | promptQueue | gA | 167 | Array of pending prompt requests from tools |
+| a8 | toolUseConfirmQueue | $A | 167 | Array of pending tool permission requests ✅ |
+| G7 | sandboxPermissionQueue | Q1 | 167 | Array of pending sandbox permission requests ✅ |
+| zA | promptQueue | gA | 167 | Array of pending prompt requests from tools ✅ |
 | n.queue | workerSandboxPermissions.queue | Zustand | 34 | Worker sandbox requests store |
 | o.queue | elicitationState.queue | Zustand | 34 | MCP elicitation requests store |
 | j8 | toolJSX | l8 | 143 | Local JSX command state (for /help, /clear, etc.) |
 | K2 | focusedInputDialog | - | 405 | Current dialog type from getInputDialogType (derived) |
-| y2 | isPaused | s6 | 130 | Streaming paused state (user typing) |
+| y2 | isPaused | s6 | 130 | Streaming paused state (user typing) ✅ |
 | ZH | inputMode | ZY | 197 | "prompt" \| "shift-enter" (multi-line mode) |
 | sZ | vimMode | rF | 235 | "INSERT" \| "NORMAL" |
 | k6 | screenMode | Z6 | 47 | "chat" \| "transcript" (view mode toggle) |
@@ -1215,6 +1217,16 @@
 | J1 | showRemoteCallout | - | 34 | Remote callout dialog should show (from Zustand) |
 | e8 | lspRecommendation | - | 62 | LSP recommendation object |
 | E1 | showDesktopUpsell | K8 | 51 | Desktop upsell dialog should show |
+| oi | hasRunningTasks | - | 262 | Derived: `tasks.some(t => t.status === "running")` ✅ |
+| $6 | tasks | M1 | 34 | Zustand: `M1((P1) => P1.tasks)` - tasks store ✅ |
+| BR | getTaskValues | - | - | Function: extracts task values from store for status check |
+| Bq | isLoading | dY | 115 | Combined loading state: `sw \|\| UY` ✅ |
+| sw | isLoadingFromStore | - | 113 | Loading from zustand store (useSyncExternalStore) ✅ |
+| UY | isLoadingLocal | dY | 114 | Local loading state ✅ |
+| YA | userInputOnProcessing | E3 | 116 | User input being processed ✅ |
+| Wz | isBriefOnly | - | 237 | Brief mode active: `M1((P1) => P1.isBriefOnly)` ✅ |
+| X6 | pendingWorkerRequest | - | 34 | Worker waiting for leader response ✅ |
+| z6 | pendingSandboxRequest | - | 34 | Sandbox request pending ✅ |
 
 ### REPL Core Functions (chunks.196.mjs)
 
@@ -1225,15 +1237,16 @@
 | P5 | setInputValue | chunks.196.mjs:188 | function (updates input + triggers pause state) |
 | gq | setMessages | chunks.196.mjs:173 | function (useCallback wrapper with ref sync) |
 
-### Derived State Variables (chunks.196.mjs)
+### Derived State Variables (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | Line | Calculation | Purpose |
 |------------|----------|------|-------------|---------|
-| QV6 | showSpinner | 305 | `(!toolJSX \|\| toolJSX.showSpinner) && toolUseConfirmQueue.length === 0 && ...` | Spinner visibility |
-| UV6 | hasActiveDialogs | 306 | `toolUseConfirmQueue.length > 0 \|\| sandboxPermissionQueue.length > 0 \|\| ...` | Any dialog pending |
+| QV6 | showSpinner | 305 | `(!toolJSX \|\| toolJSX.showSpinner) && toolUseConfirmQueue.length === 0 && promptQueue.length === 0 && (isLoading \|\| userInputOnProcessing \|\| hasRunningTasks \|\| hasQueuedCommands() > 0) && !pendingWorkerRequest && !isToolOnlyMode && (!streamingText \|\| isBriefOnly)` | Spinner visibility ✅ |
+| UV6 | hasActiveDialogs | 306 | `toolUseConfirmQueue.length > 0 \|\| promptQueue.length > 0 \|\| sandboxPermissionQueue.length > 0 \|\| elicitationState.queue.length > 0 \|\| workerSandboxPermissions.queue.length > 0` | Any dialog pending ✅ |
 | K2 | focusedInputDialog | 405 | `getInputDialogType()` | Current dialog type |
 | Cb1 | blockedItems | 406 | `isPaused && (queue[0] \|\| ...)` | Blocked items indicator |
-| C2 | isToolOnlyMode | 304 | All pending tools are permission-only | Tool-only execution mode |
+| C2 | isToolOnlyMode | 304 | All pending tools are permission-only: `ai.length > 0 && ai.every(t => t.name === gz6)` | Tool-only execution mode ✅ |
+| E5 | hasBlockingQueue | 167 | `toolUseConfirmQueue.length > 0 \|\| promptQueue.length > 0 \|\| pendingWorkerRequest \|\| pendingSandboxRequest` | Any blocking state |
 
 ### Dialog Component Props (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
 

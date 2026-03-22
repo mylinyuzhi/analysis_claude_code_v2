@@ -1708,7 +1708,9 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iW1 | processStreamEvent | chunks.173.mjs:390-450 | function |
+| xN6 | handleToolUseStream | chunks.173.mjs:2384-2488 | function ✅ |
+
+> **Correction (2026-03-22):** Previously `iW1` was incorrectly mapped. The correct stream event handler is `xN6`.
 
 ### Remote Steering
 
@@ -1796,7 +1798,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | Ui8 | normalizeAttachmentForAPI | chunks.174.mjs:1-469 | function |
-| WJ | normalizeMessages | chunks.173.mjs:89 | function |
+| cM | normalizeMessages | chunks.173.mjs:1999 | function ✅ CORRECTED (was incorrectly mapped to WJ) |
 | hMA | extractSystemReminderContent | chunks.90.mjs:517 | function |
 | EL9 | SYSTEM_REMINDER_REGEX | chunks.90.mjs:730 | constant (regex) |
 | Wzz | planModeReminderDispatcher | chunks.173.mjs:2525-2530 | function |

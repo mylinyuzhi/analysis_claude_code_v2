@@ -12,6 +12,10 @@ Key functions in this document:
 - `ToolPermissionDialog` (`HIq`) - Tool use approval dialog, chunks.190.mjs:899
 - `PromptDialog` (`fIq`) - Tool prompt selection dialog, chunks.190.mjs:2125
 - `MessageList` (`veY`) - Memoized message list component, chunks.161.mjs:3
+- `flattenMessages` (`JM`) - Flattens assistant messages for rendering, chunks.173.mjs:1516
+- `filterEmptyMessages` (`Gi6`) - Filters empty messages from display, chunks.173.mjs:1502
+
+> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
 
 ---
 
@@ -291,57 +295,136 @@ if (autocompleteVisible && autocompleteSelectedItem) {
 
 ## 6. Vim Mode Integration
 
-Vim mode provides modal editing for power users.
+Vim mode provides modal editing for power users. This feature is enabled via the `/vim` slash command.
 
 ### Mode States
 
 ```javascript
-// From REPL state:
-[cJ, lJ] = dA.useState("INSERT");  // vimMode, setVimMode
+// ============================================
+// Vim Mode State Management
+// Location: chunks.196.mjs:235 (via hooks from chunks.162.mjs)
+// ============================================
+
+// ORIGINAL (for source lookup):
+[sZ, rF] = dA.useState("INSERT");  // vimMode, setVimMode
+
+// READABLE (for understanding):
+[vimMode, setVimMode] = useState("INSERT");  // Default: INSERT mode
 
 // Values: "INSERT" | "NORMAL"
 ```
 
 ### Mode Behaviors
 
-| Mode | Key Behaviors |
-|------|---------------|
-| INSERT | Normal typing, Enter submits |
-| NORMAL | Navigation keys, `i` enters INSERT, `:` for commands |
+| Mode | Key Behaviors | Cursor Style |
+|------|---------------|--------------|
+| INSERT | Normal typing, Enter submits, Escape → NORMAL | Line cursor |
+| NORMAL | Navigation keys (`h`, `j`, `k`, `l`), `i` enters INSERT, `a` append | Block cursor |
 
-### Mode Switching
+### Mode Switching Algorithm
 
 ```javascript
-// In key handler:
-if (vimMode === "NORMAL") {
-    switch (key) {
-        case 'i':
-            setVimMode("INSERT");
-            break;
-        case 'Escape':
-            // Already in NORMAL, no action
-            break;
-        case ':':
-            // Command mode (if implemented)
-            break;
-        // Navigation keys...
+// ============================================
+// Vim Mode Key Handling
+// Location: chunks.162.mjs:1614-1680
+// ============================================
+
+// READABLE (for understanding):
+function handleVimKey(key, vimMode, setVimMode, inputHelpers) {
+    if (vimMode === "NORMAL") {
+        switch (key) {
+            case 'i':
+                setVimMode("INSERT");
+                break;
+            case 'a':
+                // Append: move cursor right, then enter INSERT
+                inputHelpers.setCursorOffset(offset => offset + 1);
+                setVimMode("INSERT");
+                break;
+            case 'A':
+                // Append at end of line
+                inputHelpers.setCursorOffset(inputValue.length);
+                setVimMode("INSERT");
+                break;
+            case 'I':
+                // Insert at beginning of line
+                inputHelpers.setCursorOffset(0);
+                setVimMode("INSERT");
+                break;
+            case 'Escape':
+                // Already in NORMAL, no action
+                break;
+            case ':':
+                // Command mode not implemented in v2.1.76
+                break;
+            // Navigation keys (h, j, k, l, w, b, e, 0, $, etc.)
+            case 'h':
+                inputHelpers.setCursorOffset(Math.max(0, offset - 1));
+                break;
+            case 'l':
+                inputHelpers.setCursorOffset(Math.min(inputValue.length, offset + 1));
+                break;
+            // ... more navigation
+        }
+    } else if (vimMode === "INSERT") {
+        if (key === 'Escape') {
+            setVimMode("NORMAL");
+            // Move cursor back one position (vim behavior)
+            inputHelpers.setCursorOffset(Math.max(0, offset - 1));
+        }
+        // Normal insert handling continues
     }
-} else if (vimMode === "INSERT") {
-    if (key === 'Escape') {
-        setVimMode("NORMAL");
-    }
-    // Normal insert handling...
 }
 ```
 
-### Mode Indicator
+### Mode Indicator Display
 
-The input component displays the current vim mode:
+The input component displays the current vim mode in the prompt:
 
 ```
 [INSERT] > user input here...
-[NORMAL] > _ (cursor on last char)
+[NORMAL] > _ (block cursor on last char)
 ```
+
+### Vim Mode Toggle Command
+
+```javascript
+// ============================================
+// /vim command definition
+// Location: chunks.162.mjs:1614
+// ============================================
+
+// READABLE (for understanding):
+const vimCommand = {
+    name: "vim",
+    description: "Toggle vim mode for input editing",
+    type: "local-jsx",
+    execute: async (context, args) => {
+        const currentMode = context.vimMode;
+        const newMode = currentMode === "INSERT" ? "NORMAL" : "INSERT";
+        context.setVimMode(newMode);
+        return `Vim mode: ${newMode}`;
+    }
+};
+```
+
+### Vim Mode Deep Analysis
+
+**What it does:** Provides modal editing familiar to vim users, allowing power users to navigate and edit input more efficiently.
+
+**How it works:**
+1. **State tracking** - `vimMode` state variable tracks current mode ("INSERT" or "NORMAL")
+2. **Key interception** - All keypresses are routed through vim mode handler before normal processing
+3. **Mode-specific behavior** - Keys have different meanings based on current mode
+4. **Visual feedback** - Mode indicator shown in prompt bar
+
+**Why this approach:**
+- **Non-intrusive default** - INSERT mode is default, so new users aren't confused
+- **Opt-in** - Users must explicitly enable via `/vim` command
+- **Stateless key handling** - Each keypress is independent, no complex state machine
+- **Visual feedback** - Mode indicator provides clear current state
+
+**Key insight:** The vim mode implementation is intentionally minimal, focusing on the most useful navigation commands rather than full vim compatibility. This reduces implementation complexity while providing the most valuable power-user features.
 
 ---
 
@@ -1079,35 +1162,232 @@ if (toolPermission === "rejected") {
    - Sets session-scoped prompt bar accent color
    - Valid values: "default", "blue", "green", "red", "purple", "orange"
    - Does not persist to settings
+   - Implementation: chunks.150.mjs contains color command logic
 
 2. **Ctrl+F agent filter:**
    - Opens panel to show/filter active background agents
    - Useful for multi-agent workflows
+   - Filters agents by name/agentType
 
 3. **Escape key improvements:**
    - Double-Escape reliably opens message selector
    - Fixed race conditions after dialog dismissals
 
-### Voice Mode Improvements
+### Voice Mode Implementation
 
-v2.1.76 improves voice mode handling:
+v2.1.76 improves voice mode handling with graceful fallback:
 
 ```javascript
-// Microphone access gracefully falls back when permissions are denied
-async function initVoiceMode() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Voice mode enabled
-    } catch (permissionDenied) {
-        // Graceful fallback - no crash
-        showNotification("Voice mode unavailable - microphone access denied");
-        // Continue with text input only
+// ============================================
+// Voice Mode Availability Check (cKz)
+// Location: chunks.168.mjs:1166-1205
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function cKz() {
+    if (zG() || t6(process.env.CLAUDE_CODE_REMOTE)) return {
+        available: !1,
+        reason: `Voice mode requires microphone access, but no audio device is available in this environment.
+
+To use voice mode, run Claude Code locally instead.`
+    };
+    if ((await Rr6()).isNativeAudioAvailable()) return {
+        available: !0,
+        reason: null
+    };
+    if (y8() === "wsl") return {
+        available: !1,
+        reason: `Voice mode is not supported in WSL (Windows Subsystem for Linux) because audio devices are not available.
+
+To use voice mode, run Claude Code in native Windows instead.`
+    };
+    if (process.platform === "win32") return {
+        available: !1,
+        reason: "Voice recording requires the native audio module, which could not be loaded."
+    };
+    if (process.platform === "linux" && Wi("arecord")) return {
+        available: !0,
+        reason: null
+    };
+    if (!Wi("rec")) {
+        let q = OZq();
+        return {
+            available: !1,
+            reason: q ? `Voice mode requires SoX for audio recording. Install it with: ${q.displayCommand}` : `Voice mode requires SoX for audio recording. Install SoX manually:
+  macOS: brew install sox
+  Ubuntu/Debian: sudo apt-get install sox
+  Fedora: sudo dnf install sox`
+        }
+    }
+    return {
+        available: !0,
+        reason: null
     }
 }
+
+// READABLE (for understanding):
+async function checkVoiceAvailability() {
+    // Remote/headless environments: not available
+    if (isHeadless() || isRemoteEnv()) {
+        return {
+            available: false,
+            reason: "Voice mode requires microphone access, but no audio device is available in this environment.\n\nTo use voice mode, run Claude Code locally instead."
+        };
+    }
+
+    // Native audio module (Windows desktop app)
+    if (await getNativeAudio().isNativeAudioAvailable()) {
+        return { available: true, reason: null };
+    }
+
+    // WSL: not supported
+    if (getPlatform() === "wsl") {
+        return {
+            available: false,
+            reason: "Voice mode is not supported in WSL (Windows Subsystem for Linux) because audio devices are not available.\n\nTo use voice mode, run Claude Code in native Windows instead."
+        };
+    }
+
+    // Windows without native module
+    if (process.platform === "win32") {
+        return {
+            available: false,
+            reason: "Voice recording requires the native audio module, which could not be loaded."
+        };
+    }
+
+    // Linux with arecord
+    if (process.platform === "linux" && commandExists("arecord")) {
+        return { available: true, reason: null };
+    }
+
+    // macOS/Linux with SoX
+    if (!commandExists("rec")) {
+        return {
+            available: false,
+            reason: getSoxInstallInstructions()
+        };
+    }
+
+    return { available: true, reason: null };
+}
+
+// Mapping: cKz→checkVoiceAvailability, zG→isHeadless, t6→parseBoolean,
+// Rr6→getNativeAudio, y8→getPlatform, Wi→commandExists
 ```
+
+### Voice Mode Slash Command (WZq)
+
+```javascript
+// ============================================
+// Voice Command Definition
+// Location: chunks.168.mjs:1797-1813
+// ============================================
+
+// ORIGINAL (for source lookup):
+WZq = E(() => {
+    Id();
+    A5z = {
+        type: "local",
+        name: "voice",
+        description: "Toggle voice mode",
+        isEnabled: () => GI(),
+        get isHidden() {
+            return !m06()
+        },
+        supportsNonInteractive: !1,
+        load: () => Promise.resolve().then(() => (XZq(), DZq)),
+        userFacingName() {
+            return "voice"
+        }
+    }, q5z = A5z
+})
+
+// READABLE (for understanding):
+const voiceCommand = defineCommand(() => {
+    return {
+        type: "local",
+        name: "voice",
+        description: "Toggle voice mode",
+        isEnabled: () => isVoiceFeatureEnabled(),
+        get isHidden() {
+            return !isVoiceAvailable(); // Hide if not available
+        },
+        supportsNonInteractive: false,
+        load: () => importVoiceModule(),
+        userFacingName() {
+            return "voice"
+        }
+    };
+});
+
+// Mapping: WZq→voiceCommandDefinition, A5z→voiceCommand, GI→isVoiceFeatureEnabled,
+// m06→isVoiceAvailable
+```
+
+### Voice Mode State Management
+
+The voice mode state is stored in Zustand:
+
+```javascript
+// State keys (chunks.144.mjs:2685, chunks.195.mjs:1735)
+voiceEnabled: boolean;      // Voice mode toggle
+voiceState: "idle" | "recording" | "processing";  // Current state
+voiceInterimTranscript: string;  // Partial speech-to-text
+voiceFocusMode: boolean;    // Focus mode during recording
+```
+
+**Why graceful fallback:**
+- Voice mode depends on platform-specific audio tools (SoX, arecord, native module)
+- Users may not have these installed
+- Remote/WSL environments lack audio devices entirely
+- The system must continue with text input when voice is unavailable
 
 ---
 
-**Last Updated**: 2026-03-22 (Added prompt dialog system documentation, enhanced with concurrency guard analysis, submit flow state machine)
+## 14. Validated Symbol Reference
+
+> **Cross-validated against source code on 2026-03-22**
+
+### Input Handling Core Symbols
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| `YUA` | PromptInput | chunks.28.mjs:2207 | ✅ Verified |
+| `fIq` | PromptDialog | chunks.190.mjs:2125 | ✅ Verified |
+| `ot8` | REPL | chunks.196.mjs:3 | ✅ Verified |
+| `TM` | handleCancel | chunks.196.mjs:420 | ✅ Verified |
+
+### Input State Variables
+
+| Obfuscated | Readable | Type | Purpose |
+|------------|----------|------|---------|
+| `m5` | inputValue | state | Current input text |
+| `y2` | isPaused | state | Input typing state |
+| `ZH` | inputMode | state | "prompt" / "multimodal" |
+| `H4` | isSearchingHistory | state | History search active |
+| `fH` | isHelpOpen | state | Help overlay visible |
+| `sZ` | vimMode | state | Vim mode setting |
+
+### Submit Flow Symbols
+
+| Obfuscated | Readable | Purpose |
+|------------|----------|---------|
+| `iV6` | popCommandFromQueue | Execute queued slash command |
+| `sF` | executeQuery | Main query execution |
+| `B4` | setIsLoading | Set loading state |
+| `gq` | setMessages | Update message list |
+
+### History Navigation
+
+| Obfuscated | Readable | Purpose |
+|------------|----------|---------|
+| `lV6` | isSearchingInputHistory | History search mode |
+| `na6` | fullScreenOverlay | Overlay blocking dialogs |
+| `W7` | isMessageSelectorVisible | Message selector active |
+
+---
+
+**Last Updated**: 2026-03-22 (Added voice mode implementation details, v2.1.76 features, validated symbols)
 **Version**: Claude Code 2.1.76
 **Status**: Complete - Full input handling flow documented including prompt dialog system

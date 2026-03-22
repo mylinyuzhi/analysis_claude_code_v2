@@ -1,6 +1,21 @@
 # UI Integration Summary
 
 > Cross-module integration points between UI and other systems
+>
+> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
+
+Key symbols in this document:
+- `REPL` (`ot8`) - Main session orchestrator, chunks.196.mjs:3
+- `getInputDialogType` (`ra6`) - Priority dispatcher, chunks.196.mjs:387-404
+- `handleCancel` (`TM`) - Cancel handler, chunks.196.mjs:420-432
+- `handleToolUseStream` (`xN6`) - Streaming event processor, chunks.173.mjs:2384
+- `MessageList` (`veY`) - Message rendering, chunks.161.mjs:3
+- `normalizeMessages` (`cM`) - Message normalization, chunks.173.mjs:1999 (CORRECTED: was WJ)
+- `flattenMessages` (`JM`) - Message flattening, chunks.173.mjs:1516
+- `filterEmptyMessages` (`Gi6`) - Empty message filter, chunks.173.mjs:1502
+- `shouldShowMessageInChat` (`XV6`) - Visibility filter, chunks.185.mjs:1692
+- `wrapWithSystemReminderTags` (`b5`) - XML wrapper, chunks.173.mjs:2496
+- `createSystemReminderTag` (`af`) - Tag creator, chunks.173.mjs:2490
 
 ---
 
@@ -62,7 +77,7 @@ Tool Execution Request
                 ▼
         ┌───────────────┐
         │ addToQueue    │
-        │ (F7)          │
+        │ (a8)          │
         └───────────────┘
                 │
                 ▼
@@ -122,9 +137,9 @@ dA.useEffect(() => {
 
 ```javascript
 // Tool permissions hide the spinner:
-PG = (!vK || vK.showSpinner) && F7.length === 0 && ...
+PG = (!j8 || j8.showSpinner) && a8.length === 0 && ...
 
-// F7.length > 0 means tool permission queued
+// a8.length > 0 means tool permission queued
 // Spinner is hidden because user action is required
 ```
 
@@ -178,32 +193,87 @@ System Reminder Message
 // Location: chunks.185.mjs:1692-1702
 // ============================================
 
+// ORIGINAL (for source lookup):
 function XV6(A) {
     if (A.type !== "user") return !1;
     if (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result") return !1;
     if (Hz6(A)) return !1;
-    if (A.isMeta) return !1;  // System reminders always hidden
-    // ... additional XML tag checks
+    if (A.isMeta) return !1;
+    let q = A.message.content,
+        K = typeof q === "string" ? null : q[q.length - 1],
+        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
+    if (Y.indexOf(`<${WP}>`) !== -1 || Y.indexOf(`<${oA6}>`) !== -1 ||
+        Y.indexOf(`<${rHA}>`) !== -1 || Y.indexOf(`<${oHA}>`) !== -1 ||
+        Y.indexOf(`<${EH}>`) !== -1 || Y.indexOf(`<${vV}>`) !== -1 ||
+        Y.indexOf(`<${fj}`) !== -1) return !1;
     return !0
 }
+
+// READABLE (for understanding):
+function shouldShowMessageInChat(message) {
+    // Phase 1: Type check - only process user messages
+    if (message.type !== "user") return false;
+
+    // Phase 2: Content type filter - hide tool_result messages
+    if (Array.isArray(message.message.content) &&
+        message.message.content[0]?.type === "tool_result") return false;
+
+    // Phase 3: Special type detection
+    if (isSpecialMessageType(message)) return false;
+
+    // Phase 4: isMeta filter - CRITICAL for system reminders
+    if (message.isMeta) return false;  // System reminders always hidden
+
+    // Phase 5: XML tag detection - hide system-reminder tagged content
+    let lastContent = extractLastTextContent(message.message.content);
+    if (containsSystemXmlTags(lastContent)) return false;
+
+    return true;
+}
+
+// Mapping: XV6→shouldShowMessageInChat, Hz6→isSpecialMessageType,
+//          WP/oA6/rHA/oHA/EH/vV/fj→XML tag constants
 ```
 
 ### Attachment Message Flow
 
 ```javascript
-// Attachment messages are processed in normalization:
-// chunks.173.mjs:191-199
+// ============================================
+// Attachment message normalization
+// Location: chunks.173.mjs:191-199
+// ============================================
+
+// ORIGINAL (for source lookup):
 case "attachment": {
-    let X = K2z(J.attachment),  // Convert to user message content
-        D = gP(H);               // Get last message
+    let X = K2z(J.attachment),
+        D = gP(H);
     if (D?.type === "user") {
-        // Merge into preceding user message
         H[H.indexOf(D)] = X.reduce((j, M) => lzz(j, M), D);
         return
     }
     H.push(...X);
     return
 }
+
+// READABLE (for understanding):
+case "attachment": {
+    // Convert attachment to user message content
+    const convertedContent = normalizeAttachmentForAPI(message.attachment);
+    const lastMessage = getLastMessage(normalizedMessages);
+
+    if (lastMessage?.type === "user") {
+        // Merge into preceding user message
+        normalizedMessages[normalizedMessages.indexOf(lastMessage)] =
+            convertedContent.reduce(mergeUserMessages, lastMessage);
+        return;
+    }
+    // Otherwise push as new message(s)
+    normalizedMessages.push(...convertedContent);
+    return;
+}
+
+// Mapping: K2z→normalizeAttachmentForAPI, gP→getLastMessage,
+//          lzz→mergeUserMessages, H→normalizedMessages
 ```
 
 ### System Reminder Tag Wrapping
@@ -486,12 +556,12 @@ if (!FA && k6.trim().startsWith("/")) {
 
 ```javascript
 // Local JSX commands block lower-priority dialogs:
-// chunks.188.mjs:309
-let k6 = !vK || vK.shouldContinueAnimation;
-// k6 is false when local JSX is active
+// chunks.196.mjs:392
+let P1 = !j8 || j8.shouldContinueAnimation;
+// P1 is false when local JSX is active
 
 // This gates dialogs like tool-permission, elicitation:
-if (k6 && F7[0]) return "tool-permission";
+if (P1 && a8[0]) return "tool-permission";
 ```
 
 ### /color Command (v2.1.76)
@@ -643,7 +713,7 @@ MCP Server calls elicitInput()
             ▼
     ┌───────────────┐
     │ Push to       │
-    │ E1.queue      │
+    │ o.queue       │
     └───────────────┘
             │
             ▼
@@ -748,7 +818,7 @@ For detailed analysis of each integration point:
 │  └── Add to messages array                                           │
 │                                                                       │
 │  3. UI PIPELINE PROCESSING (02_ui)                                    │
-│  ├── normalizeMessages (WJ)                                           │
+│  ├── normalizeMessages (cM)                                           │
 │  │   └── Pass isMeta through unchanged                                │
 │  ├── shouldShowMessageInChat (XV6)                                    │
 │  │   └── Filter: isMeta === true → HIDDEN                            │
@@ -917,6 +987,124 @@ function reorderAttachments(messages) {
 
 ---
 
+## REPL State Variables (Verified Cross-Reference)
+
+> **Source Verification Date**: 2026-03-22
+> All state variables verified against chunks.196.mjs source code.
+
+### Core Loading State Variables
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `Bq` | isLoading | chunks.196.mjs:115 | Combined loading state (sw \|\| UY) |
+| `sw` | isLoadingFromStore | chunks.196.mjs:113 | Loading from zustand store |
+| `UY` | isLoadingLocal | chunks.196.mjs:114 | Local loading state |
+| `dY` | setIsLoading | chunks.196.mjs:114 | Setter for isLoading |
+| `YA` | userInputOnProcessing | chunks.196.mjs:116 | User input being processed |
+| `E3` | setUserInputOnProcessing | chunks.196.mjs:116 | Setter for YA |
+
+### Spinner State Variables
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `QV6` | showSpinner | chunks.196.mjs:305 | Derived spinner visibility |
+| `UV6` | hasActiveDialogs | chunks.196.mjs:306 | Any dialog queue has items |
+| `j8` | toolJSX | chunks.196.mjs:143 | Local JSX command state |
+| `l8` | setToolJSX | chunks.196.mjs:143 | Setter for toolJSX |
+
+### Dialog Queue State Variables
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `a8` | toolUseConfirmQueue | chunks.196.mjs:167 | Tool permission queue |
+| `$A` | setToolUseConfirmQueue | chunks.196.mjs:167 | Setter for a8 |
+| `G7` | sandboxPermissionQueue | chunks.196.mjs:167 | Sandbox permission queue |
+| `Q1` | setSandboxPermissionQueue | chunks.196.mjs:167 | Setter for G7 |
+| `zA` | promptQueue | chunks.196.mjs:167 | Tool prompt queue |
+| `gA` | setPromptQueue | chunks.196.mjs:167 | Setter for zA |
+
+### Input State Variables
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `y2` | isPaused | chunks.196.mjs:130 | Input paused (typing) |
+| `s6` | setIsPaused | chunks.196.mjs:130 | Setter for y2 |
+| `m5` | inputValue | chunks.196.mjs:185 | Current input text |
+| `ew` | setInputValue | chunks.196.mjs:185 | Setter for m5 |
+| `W7` | isMessageSelectorVisible | chunks.196.mjs:235 | Message selector active |
+| `Hq` | setMessageSelectorVisible | chunks.196.mjs:235 | Setter for W7 |
+
+### Mode Detection Variables
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `C2` | isToolOnlyMode | chunks.196.mjs:304 | All tools are permission-only |
+| `X6` | pendingWorkerRequest | chunks.196.mjs:34 | Worker waiting for leader |
+| `z6` | pendingSandboxRequest | chunks.196.mjs:34 | Sandbox request pending |
+| `Wz` | isBriefOnly | chunks.196.mjs:237 | Brief mode active |
+
+### Key Algorithm: showSpinner (QV6)
+
+```javascript
+// ============================================
+// showSpinner calculation (QV6) - Spinner visibility
+// Location: chunks.196.mjs:305
+// ============================================
+
+// ORIGINAL (for source lookup):
+let QV6 = (!j8 || j8.showSpinner === !0) && a8.length === 0 && zA.length === 0 && (Bq || YA || oi || qY4() > 0) && !X6 && !C2 && (!aZ || Wz);
+
+// READABLE (for understanding):
+const showSpinner =
+    // Condition 1: Not blocked by local JSX command
+    (!toolJSX || toolJSX.showSpinner === true)
+    &&
+    // Condition 2: No tool permission or prompt queue
+    toolUseConfirmQueue.length === 0 && promptQueue.length === 0
+    &&
+    // Condition 3: At least one active operation
+    (isLoading || userInputOnProcessing || hasRunningTasks || hasQueuedCommands() > 0)
+    &&
+    // Condition 4: No pending worker request
+    !pendingWorkerRequest
+    &&
+    // Condition 5: Not in tool-only mode
+    !isToolOnlyMode
+    &&
+    // Condition 6: Streaming text check (brief mode)
+    (!streamingText || isBriefOnly);
+
+// Mapping: QV6→showSpinner, j8→toolJSX, a8→toolUseConfirmQueue, zA→promptQueue,
+//          Bq→isLoading, YA→userInputOnProcessing, oi→hasRunningTasks, X6→pendingWorkerRequest,
+//          C2→isToolOnlyMode, aZ→streamingText, Wz→isBriefOnly
+```
+
+### Key Algorithm: hasActiveDialogs (UV6)
+
+```javascript
+// ============================================
+// hasActiveDialogs calculation (UV6) - Any dialog queued
+// Location: chunks.196.mjs:306
+// ============================================
+
+// ORIGINAL (for source lookup):
+let UV6 = a8.length > 0 || zA.length > 0 || G7.length > 0 || o.queue.length > 0 || n.queue.length > 0;
+
+// READABLE (for understanding):
+const hasActiveDialogs =
+    toolUseConfirmQueue.length > 0 ||           // Tool permissions waiting
+    promptQueue.length > 0 ||                   // Tool prompts waiting
+    sandboxPermissionQueue.length > 0 ||        // Sandbox permissions waiting
+    elicitationState.queue.length > 0 ||        // MCP elicitation waiting
+    workerSandboxPermissions.queue.length > 0;  // Worker sandbox waiting
+
+// Mapping: UV6→hasActiveDialogs, a8→toolUseConfirmQueue, zA→promptQueue,
+//          G7→sandboxPermissionQueue, o.queue→elicitationState.queue,
+//          n.queue→workerSandboxPermissions.queue
+```
+
+---
+
 ## Performance Considerations
 
 ### Message Update Optimization
@@ -981,7 +1169,7 @@ createUserMessage({
 The `isMeta` flag passes through the normalization pipeline unchanged:
 
 ```javascript
-// In normalizeMessages (WJ):
+// In normalizeMessages (cM):
 // isMeta is NOT modified - it passes through as-is
 // The flag is preserved on the message object
 ```
@@ -1069,9 +1257,9 @@ To understand why a message is hidden:
 To understand which dialog is shown:
 
 1. Call `getInputDialogType()` in debugger
-2. Check queue lengths: F7, oq, E1.queue, Z1.queue
+2. Check queue lengths: a8, G7, o.queue, n.queue
 3. Check animation gate: `!toolJSX || toolJSX.shouldContinueAnimation`
-4. Check pause state: `W$` (isPaused)
+4. Check pause state: `y2` (isPaused)
 
 ### Common Issues
 
@@ -1079,7 +1267,7 @@ To understand which dialog is shown:
 |-------|--------------|----------|
 | Message not showing | `isMeta: true` | Check message creation in 04_system_reminder |
 | Dialog not showing | Animation gate blocked | Check `toolJSX.shouldContinueAnimation` |
-| Spinner showing when shouldn't | Wrong queue state | Check `F7.length` for tool permissions |
+| Spinner showing when shouldn't | Wrong queue state | Check `a8.length` for tool permissions |
 | Elicitation hanging | MCP server timeout | Check elicitationState.queue |
 
 ---
@@ -1498,6 +1686,8 @@ if (focusedInputDialog === "elicitation") return;  // NO-OP
 | 09_mcp | Elicitation forms | ZIq, BWz, o.queue | MCP → Form → Response |
 | 07_compact | Auto-compact | chunks.150.mjs | Token threshold → Compact |
 | 16_file_system | File context | attachments, file reads | File → Attachment message |
+| 11_plan_mode | Plan mode activation | Wzz, KIq, szz, Ezz | Plan → Interview → Plan file |
+| 26_background_agents | Task status display | oi, GVq, vIY | Task → Progress attachment |
 
 ---
 
@@ -1536,7 +1726,7 @@ if (focusedInputDialog === "elicitation") return;  // NO-OP
 │  │  │              MessageList (veY) - chunks.161.mjs:3                │     │ │
 │  │  │                                                                  │     │ │
 │  │  │  Pipeline:                                                       │     │ │
-│  │  │  1. normalizeMessages (WJ) - Format conversion                   │     │ │
+│  │  │  1. normalizeMessages (cM) - Format conversion                   │     │ │
 │  │  │  2. Compaction filter - Hide pre-compact                         │     │ │
 │  │  │  3. Visibility filter (XV6/qYq) - isMeta removal                 │     │ │
 │  │  │  4. Display normalization (pjq) - Hook grouping                  │     │ │
@@ -1562,6 +1752,444 @@ if (focusedInputDialog === "elicitation") return;  // NO-OP
 
 ---
 
+## Plan Mode-UI Integration
+
+> Related: [04_system_reminder/types_mode_control.md](../04_system_reminder/types_mode_control.md), [11_plan_mode/](../11_plan_mode/)
+
+### Overview
+
+Plan mode is a special operational state where the LLM operates in planning-only mode, with all edit tools disabled. The UI integration handles plan mode activation indicators, the plan mode interview component, and mode transitions.
+
+### Plan Mode UI Components
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    PLAN MODE UI INTEGRATION                          │
+│                                                                       │
+│  1. ACTIVATION (via /plan command)                                   │
+│     ├── /plan                        → plan_mode attachment          │
+│     ├── /plan "description"          → plan_mode with taskDescription│
+│     └── EnterPlanMode tool approval  → Permission dialog             │
+│                                                                       │
+│  2. INDICATOR DISPLAY                                                 │
+│     ├── Plan mode header             → Shows plan mode active        │
+│     ├── Plan file path               → Location of plan.md           │
+│     └── Tool restrictions            → Read-only mode indicator      │
+│                                                                       │
+│  3. INTERVIEW COMPONENT (KIq)                                        │
+│     ├── Phase 1: Explore             → User interviews for context   │
+│     ├── Tab navigation               → Phase tabs for large plans    │
+│     └── Form inputs                  → Questions about requirements  │
+│                                                                       │
+│  4. EXIT (via /plan or ExitPlanMode tool)                            │
+│     ├── plan_mode_exit attachment    → Mode transition notification  │
+│     └── Tool permissions restored    → Edit tools re-enabled         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Integration Points
+
+| Integration Point | Direction | Description |
+|-------------------|-----------|-------------|
+| Plan mode state | State → UI | `toolPermissionContext.mode === "plan"` |
+| plan_mode attachment | Reminder → UI | System reminder with mode instructions |
+| PlanInterviewUI | UI renders | `PlanInterviewQuestionComponent` (`KIq`) |
+| Plan file path | UI displays | Path to plan.md for user reference |
+| Mode exit | UI → Tools | ExitPlanMode tool restores permissions |
+
+### Plan Mode Reminder Variants
+
+The system reminder system produces four variants of plan mode instructions, optimized for token efficiency:
+
+| Variant | Token Cost | When Used | Producer Function |
+|---------|------------|-----------|-------------------|
+| Full | ~1500 tokens | First reminder, every 5th thereafter | `formatFullPlanReminder` (`szz`) |
+| Sparse | ~150 tokens | Most turns (after initial full) | `formatSparsePlanReminder` (`Ezz`) |
+| Subagent | ~400 tokens | Subagents operating in plan mode | `formatSubagentPlanReminder` (`yzz`) |
+| Ultraplan Complete | ~200 tokens | Ultraplan workflow complete | `formatUltraplanCompleteReminder` (`Zzz`) |
+
+### Variant Selection Algorithm
+
+```javascript
+// ============================================
+// planModeReminderDispatcher (Wzz) - Variant selection
+// Location: chunks.173.mjs:2525-2530
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Wzz(A) {
+    if (A.reminderType === "ultraplan-complete") return Zzz(A);
+    if (A.isSubAgent) return yzz(A);
+    if (A.reminderType === "sparse") return Ezz(A);
+    return szz(A);
+}
+
+// READABLE (for understanding):
+function planModeReminderDispatcher(attachment) {
+    // Priority order for variant selection:
+    // 1. Ultraplan complete - highest priority
+    if (attachment.reminderType === "ultraplan-complete") {
+        return formatUltraplanCompleteReminder(attachment);
+    }
+    // 2. Subagent variant - for nested agents
+    if (attachment.isSubAgent) {
+        return formatSubagentPlanReminder(attachment);
+    }
+    // 3. Sparse variant - token-efficient
+    if (attachment.reminderType === "sparse") {
+        return formatSparsePlanReminder(attachment);
+    }
+    // 4. Full variant - default for main agent
+    return formatFullPlanReminder(attachment);
+}
+
+// Mapping: Wzz→planModeReminderDispatcher, Zzz→formatUltraplanCompleteReminder,
+//          yzz→formatSubagentPlanReminder, Ezz→formatSparsePlanReminder, szz→formatFullPlanReminder
+```
+
+**Why this priority order:**
+1. **Ultraplan complete** must take precedence to signal workflow completion
+2. **Subagent** variant is more token-efficient than full for nested contexts
+3. **Sparse** saves ~1350 tokens per turn after initial full reminder
+4. **Full** provides complete instructions at start and periodically
+
+### Plan Mode Interview Component (KIq)
+
+The interview component gathers user requirements during plan mode exploration:
+
+```javascript
+// ============================================
+// PlanInterviewQuestionComponent (KIq) - Interview form UI
+// Location: chunks.190.mjs:3
+// ============================================
+
+// Component structure:
+<PlanInterviewQuestionComponent>
+    <TabNavigation>           // Phase tabs for multi-phase plans
+        <Phase1Tab active />
+        <Phase2Tab />
+        <Phase3Tab />
+    </TabNavigation>
+
+    <QuestionForm>
+        <QuestionLabel>{question.text}</QuestionLabel>
+        <InputField
+            value={answer}
+            onChange={setAnswer}
+            placeholder={question.placeholder}
+        />
+        <NavigationButtons>
+            <BackButton disabled={isFirstQuestion} />
+            <NextButton onClick={submitAnswer} />
+            <SkipButton onClick={skipQuestion} />
+        </NavigationButtons>
+    </QuestionForm>
+</PlanInterviewQuestionComponent>
+```
+
+### v2.1.76 Enhancement: /plan with Description
+
+```javascript
+// ============================================
+// /plan command with description argument
+// Location: chunks.147.mjs:136-168 (producer), chunks.173.mjs (renderer)
+// ============================================
+
+// When user invokes: /plan "Fix the authentication bug"
+// The description is embedded in the plan_mode attachment:
+
+{
+    type: "plan_mode",
+    reminderType: "full",
+    isSubAgent: false,
+    planFilePath: "/path/to/plan.md",
+    planExists: false,
+    taskDescription: "Fix the authentication bug"  // v2.1.76 new field
+}
+
+// The full reminder variant renders this as:
+/*
+## Task Context
+
+The user wants you to work on the following:
+"Fix the authentication bug"
+
+Use this as your starting point for Phase 1 exploration.
+*/
+```
+
+**Rationale:** Without a description, the LLM must ask the user for clarification before beginning exploration. The description argument allows power users to kick off a plan mode session with full context in a single command, reducing conversation turns.
+
+### Plan Mode Reentry Flow
+
+When resuming a session with an existing plan:
+
+```
+Session Start
+     │
+     ▼
+Check plan file exists
+     │
+     ├── No plan → Normal plan mode activation
+     │
+     └── Has plan → plan_mode_reentry attachment
+                         │
+                         ▼
+                   Load plan content
+                         │
+                         ▼
+                   Show plan reference
+                   (plan_file_reference attachment)
+```
+
+### Turn Throttling Configuration
+
+```javascript
+// ============================================
+// Plan mode timing constants
+// Location: chunks.147.mjs:1231-1247
+// ============================================
+
+// Plan Mode Configuration
+const PLAN_MODE_CONFIG = {
+    TURNS_BETWEEN_ATTACHMENTS: 5,          // Minimum turns between plan_mode attachments
+    FULL_REMINDER_EVERY_N_ATTACHMENTS: 5   // Every 5th reminder is "full" variant
+};
+
+// Selection pattern:
+// Turn 1:  full reminder (reminder #1, (1 % 5) === 1)
+// Turn 6:  sparse reminders (turns 2-5 skipped due to TURNS_BETWEEN)
+// Turn 7:  sparse
+// Turn 8:  sparse
+// Turn 9:  sparse
+// Turn 10: sparse
+// Turn 11: full reminder (reminder #6, (6 % 5) === 1)
+```
+
+---
+
+## Background Agent-UI Integration
+
+> Related: [26_background_agents/](../26_background_agents/), [08_subagent/](../08_subagent/)
+
+### Overview
+
+Background agents are detached execution contexts that run independently while the main conversation continues. The UI integration handles task status display, progress indicators, and the Ctrl+F agent filter panel.
+
+### Background Task State in UI
+
+```javascript
+// ============================================
+// Background task state tracking
+// Location: chunks.151.mjs:2590 (Zustand store)
+// ============================================
+
+// State structure:
+appState.tasks = Map<string, TaskEntry>
+
+// TaskEntry structure:
+{
+    taskId: "a3f4b2c1",           // "a" prefix for local_agent
+    taskType: "local_agent",      // or "local_bash", "remote_agent"
+    status: "running",            // "running" | "completed" | "failed" | "killed"
+    description: "Search codebase",
+    summary: "Analyzed 15 files...",
+    outputOffset: 2048,           // Position in .output file
+    startTime: 1709520000000,
+    abortController: AbortController
+}
+```
+
+### Spinner Integration with Background Tasks
+
+```javascript
+// ============================================
+// hasRunningBackgroundTasks (oi) - Spinner condition
+// Location: chunks.196.mjs:262 (derived state)
+// ============================================
+
+// ORIGINAL (for source lookup):
+let oi = BR($6).some((k6) => k6.status === "running");
+
+// READABLE (for understanding):
+const hasRunningBackgroundTasks = Array.from(tasks.values())
+    .some(task => task.status === "running");
+
+// This feeds into the showSpinner calculation:
+// showSpinner = ... && (isLoading || hasUserInput || hasRunningBackgroundTasks || ...)
+```
+
+**Why this matters:** The spinner shows when background tasks are running, even if the main LLM conversation is idle. This informs users that work is happening in the background.
+
+### Background Task Indicator (GVq)
+
+The background task indicator appears in the component tree:
+
+```
+REPL (ot8)
+  └── yV6 (MCP Provider)
+        └── GVq (Background)     ← Shows task count/status
+              ├── Active task count badge
+              ├── Running task spinner
+              └── Click to expand → TaskList
+```
+
+### Ctrl+F Agent Filter Panel
+
+```javascript
+// ============================================
+// Agent filter panel keyboard shortcut
+// Location: chunks.196.mjs (key handler), chunks.190.mjs (panel component)
+// ============================================
+
+// When Ctrl+F is pressed in non-vim mode:
+// 1. Opens agent filter panel
+// 2. Shows list of active background agents
+// 3. Allows filtering by status (running/completed/failed)
+// 4. Provides kill button for each running task
+
+// Panel displays:
+// - Task ID (truncated)
+// - Description
+// - Status indicator
+// - Kill button (for running tasks)
+// - Output preview (for completed tasks)
+```
+
+### Task Progress Attachments
+
+Background agents surface their progress through system reminder attachments:
+
+```javascript
+// ============================================
+// task_progress attachment
+// Location: chunks.142.mjs:1711 (buildTaskAttachments)
+// ============================================
+
+// When a task is running, progress is shown every 3+ turns:
+{
+    type: "attachment",
+    attachment: {
+        type: "task_progress",
+        taskId: "a3f4b2c1",
+        taskType: "local_agent",
+        message: "Running npm install..."
+    }
+}
+
+// When a task completes/fails/kills:
+{
+    type: "attachment",
+    attachment: {
+        type: "task_status",
+        taskId: "a3f4b2c1",
+        taskType: "local_agent",
+        status: "completed",
+        description: "Search codebase",
+        deltaSummary: "Found 15 occurrences in 8 files..."
+    }
+}
+```
+
+### Progress Throttling Algorithm
+
+```javascript
+// ============================================
+// Progress frequency throttle
+// Location: chunks.142.mjs:2703-2717
+// ============================================
+
+// READABLE (for understanding):
+function shouldShowProgress(taskId, messages, threshold = 3) {
+    // Count turns since last progress for this task
+    let turnCount = 0;
+
+    // Iterate backwards from most recent message
+    for (let i = messages.length - 1; i >= 0; i--) {
+        let message = messages[i];
+
+        // Count assistant turns
+        if (message?.type === "assistant" && !isWhitespaceOnly(message)) {
+            turnCount++;
+        }
+        // Found last progress for this task
+        else if (message?.type === "attachment" &&
+                 message.attachment.type === "task_progress" &&
+                 message.attachment.taskId === taskId) {
+            return turnCount >= threshold;
+        }
+    }
+
+    // No previous progress found - always show
+    return true;
+}
+```
+
+**Why 3 turns:** This balances informativeness with noise reduction. Every turn would overwhelm users with progress updates; 3 turns provides periodic updates without flooding the conversation.
+
+### Task Completion Notification Flow
+
+```
+Background Agent Completes
+         │
+         ▼
+markTaskCompleted(agentId, result, usage)
+         │
+         ├── Update status in appState.tasks
+         │   status: "running" → "completed"
+         │
+         ├── Write final output to .output file
+         │
+         └── notifyTaskCompletion(...)
+                  │
+                  ▼
+         Create task_status attachment
+                  │
+                  ▼
+         Inject into next LLM turn context
+                  │
+                  ▼
+         User sees completion in message stream
+```
+
+### Kill Handler Integration
+
+```javascript
+// ============================================
+// Kill handlers for background tasks
+// ============================================
+
+// Local Agent Kill Handler (Fk1) - chunks.146.mjs:2292
+function LocalAgentTaskHandler_kill(taskId) {
+    const task = tasks.get(taskId);
+    if (task?.abortController) {
+        task.abortController.abort("killed");
+        tasks.set(taskId, { ...task, status: "killed" });
+    }
+}
+
+// Local Bash Kill Handler (Lf6) - chunks.133.mjs:2542
+function LocalBashTaskHandler_kill(taskId) {
+    const process = childProcesses.get(taskId);
+    if (process) {
+        process.kill("SIGTERM");
+        tasks.set(taskId, { ...task, status: "killed" });
+    }
+}
+```
+
+### Summary Table: Background Agent UI Integration
+
+| UI Element | State Source | Update Trigger |
+|------------|--------------|----------------|
+| Spinner | `hasRunningBackgroundTasks` | Task status change |
+| Background indicator | `appState.tasks` | Task add/remove |
+| Progress attachment | `buildTaskAttachments` | Turn iteration |
+| Completion notification | `task_status` attachment | Task completion |
+| Ctrl+F panel | `appState.tasks` filter | Keyboard shortcut |
+
+---
+
 ## v2.1.76 Integration Changes
 
 ### New Integration Points
@@ -1578,6 +2206,258 @@ if (focusedInputDialog === "elicitation") return;  // NO-OP
 1. **Escape key handling** - Fixed race conditions for reliable message selector opening
 2. **Spinner isolation** - 50ms animation loop independent of message renders
 3. **Memory leak fix** - Streaming buffers cleared on abort via `resetLoadingState`
+
+---
+
+## Deep Integration: System Reminders (04_system_reminder)
+
+> Related: [04_system_reminder/](../04_system_reminder/), [04_system_reminder/ui_linkage.md](../04_system_reminder/ui_linkage.md)
+
+### Three-Tier Visibility Model
+
+System reminders use a sophisticated visibility system that integrates with the UI at multiple stages:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                 SYSTEM REMINDER VISIBILITY MODEL                     │
+│                                                                      │
+│  Tier 1: Message Creation (isMeta flag)                             │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │ createUserMessage({ content, isMeta: true })                    ││
+│  │ → User message with special flag                                ││
+│  └─────────────────────────────────────────────────────────────────┘│
+│                         │                                            │
+│                         ▼                                            │
+│  Tier 2: List Filtering (MessageList)                               │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │ flattenMessages() → filterEmptyMessages()                       ││
+│  │ → isMeta messages PASS THROUGH (not filtered)                   ││
+│  └─────────────────────────────────────────────────────────────────┘│
+│                         │                                            │
+│                         ▼                                            │
+│  Tier 3: Component Rendering                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │ MessageComponent checks isMeta                                  ││
+│  │ → Renders as null/nothing (invisible)                           ││
+│  └─────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### isMeta Flag Lifecycle
+
+```javascript
+// ============================================
+// System Reminder isMeta flag lifecycle
+// Location: chunks.173.mjs:1378-1412 (p1 = createUserMessage)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function p1({
+    content: A,
+    toolUseResult: q,
+    mcpMeta: K,
+    isMeta: Y = !1,
+    isVisibleInTranscriptOnly: z = !1,
+    timestamp: _,
+    imagePasteIds: w
+}) {
+    let O = {
+        type: "user",
+        message: {
+            role: "user",
+            content: A
+        },
+        isMeta: Y,
+        isVisibleInTranscriptOnly: z,
+        timestamp: _ ?? Date.now()
+    };
+    if (q) O.toolUseResult = q;
+    if (K) O.mcpMeta = K;
+    if (w) O.imagePasteIds = w;
+    return O
+}
+
+// READABLE (for understanding):
+function createUserMessage({
+    content,
+    toolUseResult,
+    mcpMeta,
+    isMeta = false,
+    isVisibleInTranscriptOnly = false,
+    timestamp,
+    imagePasteIds
+}) {
+    const message = {
+        type: "user",
+        message: {
+            role: "user",
+            content
+        },
+        isMeta,
+        isVisibleInTranscriptOnly,
+        timestamp: timestamp ?? Date.now()
+    };
+
+    // Optional fields
+    if (toolUseResult) message.toolUseResult = toolUseResult;
+    if (mcpMeta) message.mcpMeta = mcpMeta;
+    if (imagePasteIds) message.imagePasteIds = imagePasteIds;
+
+    return message;
+}
+
+// Mapping: p1→createUserMessage, A→content, q→toolUseResult, K→mcpMeta,
+//          Y→isMeta, z→isVisibleInTranscriptOnly, _→timestamp, w→imagePasteIds
+```
+
+### Attachment-to-Message Pipeline
+
+```javascript
+// ============================================
+// Attachment message injection pipeline
+// Location: chunks.147.mjs (assembleAllAttachments), chunks.174.mjs (normalizeAttachmentForAPI)
+// ============================================
+
+// Pipeline stages:
+// 1. assembleAllAttachments() - Gather all context from state
+// 2. normalizeAttachmentForAPI() - Convert attachment → user message
+// 3. wrapWithSystemReminderTags() - Add XML wrapper for API
+// 4. Injection into message stream
+
+// Example: plan_mode reminder
+{
+    type: "attachment",
+    attachment: {
+        type: "plan_mode",
+        planFilePath: "/path/to/plan.md",
+        planExists: true,
+        isSubAgent: false,
+        reminderType: "full"
+    }
+}
+
+// After normalizeAttachmentForAPI:
+{
+    type: "user",
+    message: {
+        role: "user",
+        content: [{
+            type: "text",
+            text: "<system-reminder>\nPlan mode is active...\n</system-reminder>"
+        }]
+    },
+    isMeta: true
+}
+```
+
+### Visibility Check Decision Tree
+
+```
+Message arrives in MessageList
+        │
+        ▼
+┌───────────────────┐
+│ flattenMessages   │
+│ (JM)              │
+│ → Split blocks    │
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│ filterEmptyMessages│
+│ (Gi6)             │
+│ → isMeta PASS     │
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│ MessageComponent  │
+│                   │
+│ isMeta === true?  │
+└───────────────────┘
+        │
+   ┌────┴────┐
+   ▼         ▼
+ [Yes]     [No]
+   │         │
+   ▼         ▼
+Render    Render
+ nothing   content
+```
+
+### XML Tag Detection for System Reminders
+
+The `shouldShowMessageInChat` function (XV6) also checks for XML tags:
+
+```javascript
+// XML tags that trigger hiding in message selector:
+const SYSTEM_REMINDER_TAG = "system-reminder";           // WP
+const THINKING_TAG = "thinking";                          // oA6
+const THINKING_INTERLEAVE_TAG = "thinking-interleave";   // rHA
+const THINKING_INTERLEAVE_SECTION_TAG = "thinking-interleave-section"; // oHA
+const INSTRUCTIONS_TAG = "instructions";                  // EH
+const INSTRUCTIONS_LOADED_TAG = "instructions_loaded";   // vV
+const MEMORY_TAG = "memory";                              // fj
+
+// These tags indicate content that shouldn't be selectable in message selector
+```
+
+### API Preparation: Stripping isMeta
+
+Before sending messages to the API, `isMeta` is stripped:
+
+```javascript
+// ============================================
+// formatMessagesForAPI - Strip isMeta before API call
+// Location: chunks.173.mjs (referenced in agent loop)
+// ============================================
+
+// Messages with isMeta: true are included in the API call
+// (they guide the LLM's behavior) but the flag itself is removed
+// because the API doesn't understand it.
+
+// API message format:
+{
+    role: "user",
+    content: [{
+        type: "text",
+        text: "<system-reminder>\nPlan mode is active...\n</system-reminder>"
+    }]
+}
+// Note: isMeta is NOT sent to API
+```
+
+### Integration Summary Table
+
+| Stage | Location | Function | isMeta Handling |
+|-------|----------|----------|-----------------|
+| Creation | chunks.173.mjs | `createUserMessage` (p1) | Sets `isMeta: true` |
+| Assembly | chunks.147.mjs | `assembleAllAttachments` (_uY) | Produces attachment objects |
+| Normalization | chunks.174.mjs | `normalizeAttachmentForAPI` (Ui8) | Converts to user message |
+| XML Wrapping | chunks.173.mjs | `wrapWithSystemReminderTags` (b5) | Adds `<system-reminder>` tags |
+| Flattening | chunks.173.mjs | `flattenMessages` (JM) | Passes through unchanged |
+| Filtering | chunks.173.mjs | `filterEmptyMessages` (Gi6) | Passes through (not filtered!) |
+| Visibility | chunks.185.mjs | `shouldShowMessageInChat` (XV6) | Returns `false` (hidden from selector) |
+| Rendering | chunks.161.mjs | MessageComponent | Renders as null |
+| API Prep | agent loop | `formatMessagesForAPI` | Strips `isMeta` flag |
+
+### Key Design Decisions
+
+**Why isMeta instead of type: "system"?**
+- System messages have fixed positioning in the conversation (always at the start)
+- User messages can be positioned anywhere
+- Compaction needs to manage reminders along with regular messages
+- The `isMeta` flag is a post-hoc marker that doesn't affect API behavior
+
+**Why not filter at the list level?**
+- Filtering would remove reminders from the conversation history
+- They need to be present for the LLM to receive context
+- The "invisible" rendering approach keeps them in the data while hiding from users
+
+**Why wrap in XML tags?**
+- The XML format provides clear boundaries for the LLM
+- The `<system-reminder>` tag tells the model "this is guidance, not user input"
+- Matches the pattern used in Anthropic's prompt engineering best practices
 
 ---
 
@@ -1612,6 +2492,6 @@ All dialog components validated:
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with master diagram, validation status)
+**Last Updated**: 2026-03-22 (Enhanced with Plan Mode and Background Agent integration sections)
 **Version**: Claude Code 2.1.76
-**Status**: Complete - All cross-module integrations documented and validated
+**Status**: Complete - All cross-module integrations documented and validated including Plan Mode and Background Agent UI integration

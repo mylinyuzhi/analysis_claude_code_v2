@@ -62,7 +62,7 @@
 | `chunks.169.mjs` | LLM Core | `llmRequestGenerator` (`lOq`), `buildSystemPrompt`, `streamingQuery`, `contextCompactor` |
 | `chunks.170.mjs` | Bash Tool | Bash tool execution, background bash, `processMcpCliResult` |
 | `chunks.172.mjs` | UI Normalization | `normalizeDisplayMessages` (`t9q`), `reorderAttachments` (`dzz`), permission mode setup |
-| `chunks.173.mjs` | Message Processing | `normalizeMessages` (`WJ`), `flattenMessages` (`JM`), `handleStreamEvent` (`xN6`), `loadTranscript`, plan reminder builders |
+| `chunks.173.mjs` | Message Processing | `normalizeMessages` (`cM`), `flattenMessages` (`JM`), `handleToolUseStream` (`xN6`), `loadTranscript`, plan reminder builders |
 | `chunks.174.mjs` | File System / Config | `getGlobalConfig`, `updateGlobalConfig`, `getPermissionRules`, `checkPathDenyRule` |
 | `chunks.175.mjs` | MCP Hub | `McpHub` (`nXq`), MCP CLI subcommands, tool/resource listing |
 | `chunks.176.mjs` | MCP Context | `MCPContext` (`ZQA`), `onChangeAppStateHandler`, `ElicitationDialog`, RemoteSessionManager |

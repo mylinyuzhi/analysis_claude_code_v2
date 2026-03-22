@@ -1114,7 +1114,7 @@ async function generateConversationSummary({
     throw Error("Failed to generate conversation summary - no valid response after retries");
 }
 
-// Mapping: ga4→generateConversationSummary, A→messages, q→summaryRequest, K→appState, Y→context, z→preCompactTokenCount, w→cacheSafeParams, _→cacheSharingResult/attemptNumber, J→assistantMessage/hasStartedStreaming, X→assistantMessage, $→retryEnabled, O→maxRetries, j→tools, P→llmIterator, W→streamEvent, G→event, f→deltaLength, Z→currentLength, x8→checkFeatureFlag, av→callLLMWithCache, vmY→canUseSummarizeTool, GN→getLastAssistantMessage, B51→extractTextFromMessage, c→reportTelemetry, h→logMessage, Q1→stringify, K1→logError, NmY→MAX_COMPACT_RETRIES, XU1→shouldAgentUseTools, Sx→deduplicateTools, i5→SUMMARIZE_TOOL, IW6→THINKING_SIMPLE_TOOL, UW1→createMainLLMLoop, WJ→normalizeMessages, TmY→deduplicateMessages, EN→filterMessages, JL6→MAX_SUMMARY_OUTPUT_TOKENS
+// Mapping: ga4→generateConversationSummary, A→messages, q→summaryRequest, K→appState, Y→context, z→preCompactTokenCount, w→cacheSafeParams, _→cacheSharingResult/attemptNumber, J→assistantMessage/hasStartedStreaming, X→assistantMessage, $→retryEnabled, O→maxRetries, j→tools, P→llmIterator, W→streamEvent, G→event, f→deltaLength, Z→currentLength, x8→checkFeatureFlag, av→callLLMWithCache, vmY→canUseSummarizeTool, GN→getLastAssistantMessage, B51→extractTextFromMessage, c→reportTelemetry, h→logMessage, Q1→stringify, K1→logError, NmY→MAX_COMPACT_RETRIES, XU1→shouldAgentUseTools, Sx→deduplicateTools, i5→SUMMARIZE_TOOL, IW6→THINKING_SIMPLE_TOOL, UW1→createMainLLMLoop, cM→normalizeMessages, TmY→deduplicateMessages, EN→filterMessages, JL6→MAX_SUMMARY_OUTPUT_TOKENS
 ```
 
 ---
@@ -1426,7 +1426,7 @@ The following symbols should be added to `symbol_index_core_features.md` under *
 | B51 | extractTextFromMessage | chunks.173.mjs:370 | function |
 | PZ | countTokens | chunks.75.mjs:2236 | function |
 | Yp | extractUsageFromMessage | chunks.75.mjs:2227 | function |
-| WJ | normalizeMessages | chunks.173.mjs:89 | function |
+| cM | normalizeMessages | chunks.173.mjs:1999 | function |
 
 ---
 

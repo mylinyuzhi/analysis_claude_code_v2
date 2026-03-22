@@ -147,13 +147,13 @@ function ra6() {
     if (W7) return "message-selector";
     if (y2) return;
     if (G7[0]) return "sandbox-permission";
-    let k6 = !vK || vK.shouldContinueAnimation;
-    if (k6 && F7[0]) return "tool-permission";
-    if (k6 && Z1.queue[0]) return "worker-sandbox-permission";
-    if (k6 && E1.queue[0]) return "elicitation";
-    if (k6 && Yx) return "cost";
-    if (k6 && k1) return "ide-onboarding";
-    if (k6 && w6) return "lsp-recommendation";
+    let P1 = !j8 || j8.shouldContinueAnimation;
+    if (P1 && a8[0]) return "tool-permission";
+    if (P1 && n.queue[0]) return "worker-sandbox-permission";
+    if (P1 && o.queue[0]) return "elicitation";
+    if (P1 && m26) return "cost";
+    if (P1 && W6) return "ide-onboarding";
+    if (P1 && e8) return "lsp-recommendation";
     return
 }
 
@@ -173,7 +173,7 @@ function getInputDialogType() {
     return;
 }
 
-// Mapping: E1→elicitationState, E1.queue[0]→first pending elicitation event
+// Mapping: o→elicitationState, o.queue[0]→first pending elicitation event
 ```
 
 **Elicitation priority (5th):** Elicitation is below sandbox/tool permissions because it is non-security. It can wait until security-critical approvals are handled.

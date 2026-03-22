@@ -17,7 +17,7 @@
   - [convertAttachmentToMessage (kq)](#convertattachmenttomessage-kq)
   - [reorderAttachments (dzz)](#reorderattachments-dzz)
 - [Context Message Injection: buildContextMessages (bG1)](#context-message-injection-buildcontextmessages-bg1)
-- [Message Normalization: normalizeMessages (WJ)](#message-normalization-normalizemessages-wj)
+- [Message Normalization: normalizeMessages (cM)](#message-normalization-normalizemessages-cm)
 - [API Preparation: Stripping isMeta Before API Call](#api-preparation-stripping-ismeta-before-api-call)
   - [formatMessagesForAPI (m9z)](#formatmessagesforapi-m9z)
   - [formatUserMessageForAPI (b9z)](#formatusermessageforapi-b9z)
@@ -663,20 +663,24 @@ The `contextMap` passed to `bG1` comes from the system prompt building stage and
 
 ---
 
-## Message Normalization: normalizeMessages (WJ)
+## Message Normalization: normalizeMessages (cM)
 
 After attachment injection and reordering, the full message array goes through normalization:
 
 ```javascript
 // ============================================
 // normalizeMessages - Transform internal messages to render-ready format
-// Location: chunks.173.mjs:89-180+
+// Location: chunks.173.mjs:1999-2150
+//
+// IMPORTANT: Previous documentation incorrectly mapped WJ to normalizeMessages.
+// WJ at chunks.5.mjs:945 is a Zod schema builder function, NOT normalizeMessages.
+// The correct symbol is cM at chunks.173.mjs:1999.
 // ============================================
 
 // ORIGINAL (for source lookup):
-function WJ(A, q = []) {
-    let K = new Set(q.map((J) => J.name)),
-        Y = dzz(A),   // Step 1: Reorder attachments
+function cM(A, q = []) {
+    let K = new Set(q.map((M) => M.name)),
+        Y = wzz(A),   // Step 1: Reorder attachments
         z = { ... };  // Step 2: Tool type mappings
     // ... attachment-to-tool-type association loop
     let H = [];
@@ -732,8 +736,8 @@ function normalizeMessages(messages, tools = []) {
     return normalizedMessages;
 }
 
-// Mapping: WJ→normalizeMessages, A→messages, q→tools, K→toolNames, Y→reorderedMessages,
-// z→toolTypeAssociations, H→normalizedMessages, dzz→reorderAttachments, pmA→isApiErrorMessage
+// Mapping: cM→normalizeMessages, A→messages, q→tools, K→toolNames, Y→reorderedMessages,
+// z→toolTypeAssociations, H→normalizedMessages, wzz→reorderAttachments, rn8→isApiErrorMessage
 ```
 
 **isMeta handling in normalizeMessages:**
@@ -1377,7 +1381,7 @@ Key functions in this document:
 - `buildContextMessages` (bG1) - Prepend session context reminder, chunks.148.mjs:2414
 
 **Message Normalization:**
-- `normalizeMessages` (WJ) - Transform internal messages to render format, chunks.173.mjs:89
+- `normalizeMessages` (cM) - Transform internal messages to render format, chunks.173.mjs:1999
 - `extractSystemReminderContent` (hMA) - Parse `<system-reminder>` tags, chunks.90.mjs:517
 - `SYSTEM_REMINDER_REGEX` (EL9) - Regex for system reminder tags, chunks.90.mjs:730
 
