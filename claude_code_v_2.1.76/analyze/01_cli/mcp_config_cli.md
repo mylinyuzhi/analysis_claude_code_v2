@@ -9,10 +9,13 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Tools
 
 Key functions in this document:
-- `loadMcpConfig` - Load MCP server configuration
-- `validateMcpServers` (KPA) - Validate MCP server definitions
-- `getDefaultMcpServers` - Get default MCP servers
-- `mergeMcpConfigs` - Merge multiple MCP configurations
+- `tryParseJson` (j9) - Parse JSON string or return null
+- `validateMcpConfig` (Ug1) - Validate MCP configuration object
+- `loadMcpConfigFile` (YG1) - Load MCP config from file
+- `resolvePath` (UE6) - Resolve file path
+- `isReservedMcpName` (KG1) - Check for reserved MCP names
+- `hasEnterpriseMcpConfig` (pg1) - Check for enterprise MCP config
+- `isEmptyConfig` (hn4) - Check if config is empty
 
 ---
 

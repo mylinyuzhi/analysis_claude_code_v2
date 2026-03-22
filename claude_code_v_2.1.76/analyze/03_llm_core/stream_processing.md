@@ -1930,6 +1930,484 @@ logEvent("tengu_context_window_exceeded", {
 
 ---
 
+## Stall Detection Algorithm (VERIFIED)
+
+> **Source:** `chunks.171.mjs:216-462` (within `mGq` / streamingQueryCore)
+> **Cross-validated:** `chunks.148.mjs:934` (agent loop invocation)
+
+Claude Code implements a two-layer stall detection system inside the streaming SSE loop to detect and recover from unresponsive API connections.
+
+### Layer 1: Watchdog Timers (b6 / resetAndStartWatchdog)
+
+A pair of `setTimeout`-based watchdog timers, gated by the `CLAUDE_ENABLE_STREAM_WATCHDOG` environment variable:
+
+```javascript
+// ============================================
+// clearWatchdog / resetAndStartWatchdog
+// Location: chunks.171.mjs:216-235
+// ============================================
+
+// ORIGINAL:
+let V6 = function() {
+        if (C6 !== null) clearTimeout(C6), C6 = null;
+        if (o6 !== null) clearTimeout(o6), o6 = null
+    },
+    b6 = function() {
+        if (V6(), !Q6) return;
+        C6 = setTimeout((E6) => {
+            k(`Streaming idle warning: no chunks received for ${E6/1000}s`, {
+                level: "warn"
+            }), U1("warn", "cli_streaming_idle_warning")
+        }, k6, k6), o6 = setTimeout(() => {
+            u6 = !0, k(`Streaming idle timeout: no chunks received for ${Z6/1000}s, aborting stream`, {
+                level: "error"
+            }), U1("error", "cli_streaming_idle_timeout"), d("tengu_streaming_idle_timeout", {
+                model: _.model,
+                request_id: J6 ?? "unknown",
+                timeout_ms: Z6
+            }), s()
+        }, Z6)
+    };
+
+// READABLE:
+let clearWatchdog = function() {
+        if (warningTimer !== null) clearTimeout(warningTimer), warningTimer = null;
+        if (abortTimer !== null) clearTimeout(abortTimer), abortTimer = null;
+    },
+    resetAndStartWatchdog = function() {
+        clearWatchdog();
+        if (!watchdogEnabled) return;
+
+        // Tier 1: Warning after 30s of silence
+        warningTimer = setTimeout((duration) => {
+            log(`Streaming idle warning: no chunks received for ${duration/1000}s`, {
+                level: "warn"
+            });
+            logToCloudWatch("warn", "cli_streaming_idle_warning");
+        }, WARNING_TIMEOUT_MS, WARNING_TIMEOUT_MS);   // 30000ms
+
+        // Tier 2: Abort after 60s of silence
+        abortTimer = setTimeout(() => {
+            idleTimedOut = true;
+            log(`Streaming idle timeout: no chunks received for ${ABORT_TIMEOUT_MS/1000}s, aborting stream`, {
+                level: "error"
+            });
+            logToCloudWatch("error", "cli_streaming_idle_timeout");
+            logEvent("tengu_streaming_idle_timeout", {
+                model: params.model,
+                request_id: requestId ?? "unknown",
+                timeout_ms: ABORT_TIMEOUT_MS   // 60000
+            });
+            abortStream();   // s() — triggers AbortError in the for-await loop
+        }, ABORT_TIMEOUT_MS);   // 60000ms
+    };
+
+// Mapping: V6→clearWatchdog, b6→resetAndStartWatchdog, C6→warningTimer, o6→abortTimer,
+//   k6→WARNING_TIMEOUT_MS(30000), Z6→ABORT_TIMEOUT_MS(60000), Q6→watchdogEnabled,
+//   u6→idleTimedOut, J6→requestId, s→abortStream, d→logEvent, k→log, U1→logToCloudWatch
+```
+
+**Constants and initialization** (chunks.171.mjs:266-271):
+
+```javascript
+let Q6 = t6(process.env.CLAUDE_ENABLE_STREAM_WATCHDOG),  // watchdogEnabled: boolean
+    k6 = 30000,   // WARNING_TIMEOUT_MS: 30 seconds
+    Z6 = 60000,   // ABORT_TIMEOUT_MS: 60 seconds
+    u6 = false,    // idleTimedOut: flag set by abort timer
+    C6 = null,     // warningTimer handle
+    o6 = null;     // abortTimer handle
+b6();   // Start watchdog immediately after stream begins
+```
+
+**Watchdog lifecycle:**
+
+```
+Stream starts
+  └── b6() called (starts both timers)
+      │
+      ├── Every SSE event → b6() called again (resets both timers)
+      │
+      ├── 30s silence → Warning tier fires
+      │   └── logs warning + "cli_streaming_idle_warning" CloudWatch event
+      │   └── (stream continues — timers NOT reset by warning)
+      │
+      ├── 60s silence → Abort tier fires
+      │   └── u6 = true (idleTimedOut)
+      │   └── logs error + "cli_streaming_idle_timeout" + telemetry
+      │   └── s() aborts the HTTP stream → AbortError in for-await
+      │
+      └── Stream ends (normal or error)
+          └── V6() called (clears both timers)
+```
+
+### Layer 2: Inter-Event Gap Detection
+
+Independent of the watchdog, a gap tracker runs inside the SSE `for-await` loop measuring time between consecutive events:
+
+```javascript
+// ============================================
+// Inter-event gap detection
+// Location: chunks.171.mjs:274-294
+// ============================================
+
+// ORIGINAL:
+let E6 = !0,
+    U6 = null,        // lastEventTime
+    c6 = 30000,       // GAP_THRESHOLD_MS
+    K1 = 0,           // totalStallTime
+    j6 = 0;           // stallCount
+for await (let n6 of H6) {
+    b6();              // reset watchdog on every event
+    let d6 = Date.now();
+    if (U6 !== null) {
+        let S6 = d6 - U6;
+        if (S6 > c6) j6++, K1 += S6, k(`Streaming stall detected: ${(S6/1000).toFixed(1)}s gap between events (stall #${j6})`, {
+            level: "warn"
+        }), d("tengu_streaming_stall", {
+            stall_duration_ms: S6,
+            stall_count: j6,
+            total_stall_time_ms: K1,
+            event_type: n6.type,
+            model: _.model,
+            request_id: J6 ?? "unknown"
+        })
+    }
+    U6 = d6;
+    // ... process event ...
+}
+
+// READABLE:
+let isFirstChunk = true,
+    lastEventTime = null,
+    GAP_THRESHOLD_MS = 30000,
+    totalStallTime = 0,
+    stallCount = 0;
+for await (let event of streamIterator) {
+    resetAndStartWatchdog();
+    let now = Date.now();
+    if (lastEventTime !== null) {
+        let gap = now - lastEventTime;
+        if (gap > GAP_THRESHOLD_MS) {
+            stallCount++;
+            totalStallTime += gap;
+            log(`Streaming stall detected: ${(gap/1000).toFixed(1)}s gap between events (stall #${stallCount})`, {
+                level: "warn"
+            });
+            logEvent("tengu_streaming_stall", {
+                stall_duration_ms: gap,
+                stall_count: stallCount,
+                total_stall_time_ms: totalStallTime,
+                event_type: event.type,
+                model: params.model,
+                request_id: requestId ?? "unknown"
+            });
+        }
+    }
+    lastEventTime = now;
+    // ... process event ...
+}
+
+// Mapping: E6→isFirstChunk, U6→lastEventTime, c6→GAP_THRESHOLD_MS,
+//   K1→totalStallTime, j6→stallCount, n6→event, d6→now, S6→gap
+```
+
+### Post-Stream Stall Summary
+
+After the `for-await` loop completes, if any stalls were detected, a summary is emitted:
+
+```javascript
+// Location: chunks.171.mjs:448-462
+
+// ORIGINAL:
+if (V6(), u6) throw Error("Stream idle timeout - no chunks received");
+if (!a || n.length === 0 && !w6) throw /* ... */ Error("Stream ended without receiving any events");
+if (j6 > 0) k(`Streaming completed with ${j6} stall(s), total stall time: ${(K1/1000).toFixed(1)}s`, {
+    level: "warn"
+}), d("tengu_streaming_stall_summary", {
+    stall_count: j6,
+    total_stall_time_ms: K1,
+    model: _.model,
+    request_id: J6 ?? "unknown"
+});
+
+// READABLE:
+clearWatchdog();
+if (idleTimedOut) throw Error("Stream idle timeout - no chunks received");
+if (!partialMessage || assistantMessages.length === 0 && !stopReason)
+    throw Error("Stream ended without receiving any events");
+if (stallCount > 0) {
+    log(`Streaming completed with ${stallCount} stall(s), total stall time: ${(totalStallTime/1000).toFixed(1)}s`, {
+        level: "warn"
+    });
+    logEvent("tengu_streaming_stall_summary", {
+        stall_count: stallCount,
+        total_stall_time_ms: totalStallTime,
+        model: params.model,
+        request_id: requestId ?? "unknown"
+    });
+}
+```
+
+### Stall Detection Telemetry Events
+
+| Event | Trigger | Fields |
+|-------|---------|--------|
+| `cli_streaming_idle_warning` | Watchdog warning timer (30s) | (CloudWatch only) |
+| `cli_streaming_idle_timeout` | Watchdog abort timer (60s) | (CloudWatch only) |
+| `tengu_streaming_idle_timeout` | Watchdog abort timer (60s) | model, request_id, timeout_ms |
+| `tengu_streaming_stall` | Inter-event gap > 30s | stall_duration_ms, stall_count, total_stall_time_ms, event_type, model, request_id |
+| `tengu_streaming_stall_summary` | Post-stream if stallCount > 0 | stall_count, total_stall_time_ms, model, request_id |
+| `tengu_stream_no_events` | Stream ended with no content | model, request_id |
+
+### Decision Flow: Stall → Abort → Fallback
+
+```
+SSE for-await loop processing events
+  │
+  ├── Inter-event gap > 30s
+  │   └── Log warning + tengu_streaming_stall (informational only, stream continues)
+  │
+  ├── Watchdog warning timer (30s idle)
+  │   └── Log cli_streaming_idle_warning (informational only, stream continues)
+  │
+  ├── Watchdog abort timer (60s idle)
+  │   └── Set idleTimedOut = true
+  │   └── Log + tengu_streaming_idle_timeout
+  │   └── s() aborts stream → AbortError breaks for-await
+  │       └── Post-loop: throw Error("Stream idle timeout")
+  │           └── Caught by inner catch (line 465)
+  │               └── Falls through to bGq non-streaming fallback
+  │
+  └── Stream completes without message_start or content
+      └── throw Error("Stream ended without receiving any events")
+          └── Also caught by inner catch → falls back to bGq
+```
+
+---
+
+## Non-Streaming Fallback Logic (VERIFIED)
+
+> **Source:** `chunks.170.mjs:2028-2057` (bGq), `chunks.171.mjs:465-594` (trigger points)
+> **Cross-validated:** `chunks.89.mjs:3-93` (_P1 retry wrapper)
+
+When streaming fails, Claude Code falls back to a non-streaming API request via the `bGq` function.
+
+### bGq (nonStreamingFallback)
+
+```javascript
+// ============================================
+// bGq - Non-streaming API request fallback
+// Location: chunks.170.mjs:2028-2057
+// ============================================
+
+// ORIGINAL:
+async function* bGq(A, q, K, Y, z) {
+    let _ = _P1(() => MI({
+            maxRetries: 0,
+            model: A.model,
+            fetchOverride: A.fetchOverride,
+            source: A.source
+        }), async (O, $, H) => {
+            let j = Date.now(),
+                J = K(H);
+            z(J), Y($, j, J.max_tokens);
+            let M = O9z(J, w9z);
+            return await O.beta.messages.create({
+                ...M,
+                model: lg(M.model)
+            })
+        }, {
+            model: q.model,
+            fallbackModel: q.fallbackModel,
+            thinkingConfig: q.thinkingConfig,
+            ...Dq() ? {
+                fastMode: q.fastMode
+            } : {},
+            signal: q.signal,
+            initialConsecutive529Errors: q.initialConsecutive529Errors
+        }),
+        w;
+    do
+        if (w = await _.next(), !w.done && w.value.type === "system") yield w.value; while (!w.done);
+    return w.value
+}
+
+// READABLE:
+async function* nonStreamingFallback(clientConfig, retryConfig, buildParams, onAttempt, onParamsBuilt) {
+    // Create retry-wrapped generator:
+    //   clientFactory: creates API client with maxRetries=0 (retry handled by _P1)
+    //   requestFn: builds params via K(state), calls beta.messages.create WITHOUT stream:true
+    let retryGenerator = withApiRetry(
+        () => buildApiClient({
+            maxRetries: 0,
+            model: clientConfig.model,
+            fetchOverride: clientConfig.fetchOverride,
+            source: clientConfig.source
+        }),
+        async (client, attemptNumber, state) => {
+            let startTime = Date.now();
+            let params = buildParams(state);         // K(H) — builds request params
+            onParamsBuilt(params);                    // z(params) — notify caller
+            onAttempt(attemptNumber, startTime, params.max_tokens);  // Y($, j, max_tokens)
+            let nonStreamParams = convertToNonStream(params, nonStreamConfig);  // O9z
+            return await client.beta.messages.create({
+                ...nonStreamParams,
+                model: stripContextMarkers(nonStreamParams.model)  // lg() strips [1m]/[2m]
+            });
+        },
+        {
+            model: retryConfig.model,
+            fallbackModel: retryConfig.fallbackModel,
+            thinkingConfig: retryConfig.thinkingConfig,
+            ...(isFastModeAvailable() ? { fastMode: retryConfig.fastMode } : {}),
+            signal: retryConfig.signal,
+            initialConsecutive529Errors: retryConfig.initialConsecutive529Errors
+        }
+    );
+
+    // Consume generator, yielding only "system" events (retry notifications)
+    let result;
+    do {
+        result = await retryGenerator.next();
+        if (!result.done && result.value.type === "system") yield result.value;
+    } while (!result.done);
+    return result.value;   // The complete API response (not streaming)
+}
+
+// Mapping: bGq→nonStreamingFallback, A→clientConfig, q→retryConfig,
+//   K→buildParams, Y→onAttempt, z→onParamsBuilt, _P1→withApiRetry,
+//   MI→buildApiClient, O9z→convertToNonStream, w9z→nonStreamConfig,
+//   lg→stripContextMarkers, Dq→isFastModeAvailable
+```
+
+**Key differences from streaming path (mGq):**
+- No `stream: true` in the `create()` call — returns complete response in one HTTP round-trip
+- `O9z(params, w9z)` converts request to non-streaming format
+- `lg(model)` strips context window markers (`[1m]`, `[2m]`) from model name
+- Only `"system"` events (retry status) are yielded during the generator loop — no incremental content
+
+### Three Trigger Points for Fallback
+
+```
+Streaming mGq() execution
+  │
+  ├── Trigger 1 (line 465-519): Inner catch — SSE loop errors
+  │   ├── AbortError (user abort) → re-throw (NO fallback)
+  │   ├── AbortError (SDK timeout) → wrap as zm timeout error (NO fallback)
+  │   ├── Feature flag tengu_disable_streaming_to_non_streaming_fallback=true → re-throw (NO fallback)
+  │   └── All other errors → log + telemetry + yield* bGq(...)
+  │
+  ├── Trigger 2 (line 521-570): Outer catch — HTTP-level errors
+  │   ├── R36 (ModelFallbackError) → re-throw (handled at loop level)
+  │   ├── HTTP 404 from streaming endpoint → log + telemetry + yield* bGq(...)
+  │   └── All other errors → re-throw
+  │
+  └── Trigger 3 (line 473): Feature flag gate
+      └── tengu_disable_streaming_to_non_streaming_fallback = true
+          → Skip fallback entirely, propagate error
+```
+
+**Trigger 1 source (chunks.171.mjs:465-519):**
+
+```javascript
+// ORIGINAL (inner catch):
+} catch (E6) {
+    if (V6(), E6 instanceof Az)
+        if (z.aborted) throw k(`Streaming aborted by user: ${_1(E6)}`), E6;
+        else throw k(`Streaming timeout (SDK abort): ${E6.message}`, { level: "error" }),
+            new zm({ message: "Request timed out" });
+    if (w8("tengu_disable_streaming_to_non_streaming_fallback", !1))
+        throw k(`Error streaming (non-streaming fallback disabled): ${_1(E6)}`, { level: "error" }),
+            d("tengu_streaming_fallback_to_non_streaming", {
+                model: _.model, error: E6 instanceof Error ? E6.name : String(E6),
+                attemptNumber: e, maxOutputTokens: L6, thinkingType: K.type,
+                fallback_disabled: !0
+            }), E6;
+    if (k(`Error streaming, falling back to non-streaming mode: ${_1(E6)}`, { level: "error" }),
+        O6 = !0, _.onStreamingFallback) _.onStreamingFallback();
+    d("tengu_streaming_fallback_to_non_streaming", {
+        model: _.model, error: E6 instanceof Error ? E6.name : String(E6),
+        attemptNumber: e, maxOutputTokens: L6, thinkingType: K.type, fallback_disabled: !1
+    });
+    let c6 = yield* bGq({ model: _.model, source: _.querySource }, {
+        model: _.model, fallbackModel: _.fallbackModel, thinkingConfig: K,
+        ...Dq() ? { fastMode: B } : {},
+        signal: z, initialConsecutive529Errors: iF6(E6) ? 1 : 0
+    }, $6, (j6, W6, n6) => { e = j6, L6 = n6 }, (j6) => b81(j6, _.querySource));
+    // ... wrap result and yield
+}
+
+// Mapping: Az→AbortError, zm→TimeoutError, O6→didFallback,
+//   iF6→isOverloadedError, R36→ModelFallbackError
+```
+
+**Trigger 2 source (chunks.171.mjs:521-570):**
+
+```javascript
+// ORIGINAL (outer catch — 404 handling):
+} catch (T6) {
+    if (T6 instanceof R36) throw T6;   // ModelFallbackError → propagate
+    if (!O6 && T6 instanceof RB && T6.originalError instanceof a7 && T6.originalError.status === 404) {
+        if (k("Streaming endpoint returned 404, falling back to non-streaming mode", { level: "warn" }),
+            O6 = !0, _.onStreamingFallback) _.onStreamingFallback();
+        d("tengu_streaming_fallback_to_non_streaming", {
+            model: _.model, error: "404_stream_creation",
+            attemptNumber: e, maxOutputTokens: L6, thinkingType: K.type
+        });
+        try {
+            let Q6 = yield* bGq(/* ... same params ... */);
+            // ... wrap result and yield
+        } catch (/* ... */) { throw /* ... */ }
+    }
+    throw T6;
+}
+
+// Mapping: RB→RetryExhaustedError, a7→APIError, R36→ModelFallbackError
+```
+
+### Fallback Decision Matrix
+
+| Error Type | User Abort? | Feature Flag? | Action |
+|------------|-------------|---------------|--------|
+| `AbortError` (Az) | `signal.aborted = true` | — | Re-throw (user cancelled) |
+| `AbortError` (Az) | `signal.aborted = false` | — | Wrap as `TimeoutError` (SDK abort) |
+| Any error | — | `tengu_disable_streaming_to_non_streaming_fallback = true` | Re-throw with telemetry (fallback disabled) |
+| `ModelFallbackError` (R36) | — | — | Re-throw (handled at agent loop level) |
+| HTTP 404 from stream endpoint | — | — | **Fall back to bGq** |
+| Any other SSE loop error | — | `= false` (default) | **Fall back to bGq** |
+| Empty stream (no events) | — | — | Throw → caught → **Fall back to bGq** |
+| Watchdog idle timeout | — | — | Throw → caught → **Fall back to bGq** |
+
+### Streaming vs Non-Streaming Comparison
+
+| Aspect | Streaming (mGq) | Non-Streaming (bGq) |
+|--------|-----------------|---------------------|
+| API call | `beta.messages.create({ stream: true })` | `beta.messages.create({ ...nonStreamParams })` |
+| Token delivery | Incremental SSE events | Single complete response |
+| Stall detection | Yes (watchdog + gap detection) | No (relies on HTTP/fetch timeout) |
+| UI feedback | Real-time text streaming to TUI | Spinner until complete response |
+| Retry integration | Same `_P1` (withApiRetry) wrapper | Same `_P1` wrapper |
+| Model name | Raw model string | `lg(model)` strips `[1m]`/`[2m]` markers |
+| Content format | `O9z(params, w9z)` conversion | Same `O9z(params, w9z)` conversion |
+| 529 tracking | `initialConsecutive529Errors: iF6(E6) ? 1 : 0` | Passed through from streaming error |
+| `onStreamingFallback` | Called before bGq to notify agent loop | N/A |
+
+### Fallback Telemetry
+
+```javascript
+// Emitted for EVERY fallback attempt (streaming → non-streaming)
+logEvent("tengu_streaming_fallback_to_non_streaming", {
+    model: string,
+    error: string,                 // Error name or "404_stream_creation"
+    attemptNumber: number,
+    maxOutputTokens: number,
+    thinkingType: string,          // "enabled" | "adaptive" | "disabled"
+    fallback_disabled?: boolean    // true when feature flag blocks fallback
+});
+```
+
+---
+
 ## Verified Symbol Reference
 
 | Obfuscated | Readable | File:Line | Purpose |
@@ -1950,6 +2428,14 @@ logEvent("tengu_context_window_exceeded", {
 | dh1 | processContentBlocks | chunks.171.mjs:600 | Process completed blocks |
 | K9z | abortStream | chunks.171.mjs:663 | Safe stream termination |
 | _P1 | withApiRetry | chunks.89.mjs:3 | Retry wrapper |
+| bGq | nonStreamingFallback | chunks.170.mjs:2028 | Non-streaming API fallback |
+| V6 | clearWatchdog | chunks.171.mjs:216 | Clear both watchdog timers |
+| b6 | resetAndStartWatchdog | chunks.171.mjs:220 | Reset and restart watchdog timers |
+| Az | AbortError | (SDK) | Signal abort error class |
+| zm | TimeoutError | (SDK) | Request timeout error class |
+| R36 | ModelFallbackError | chunks.89.mjs:52 | Model fallback trigger |
+| RB | RetryExhaustedError | chunks.89.mjs:60 | All retries exhausted wrapper |
+| O6 | didFallback | chunks.171.mjs:210 | Flag: already fell back to non-streaming |
 | PA4 | MAX_IMAGES_IN_CONTEXT | chunks.170.mjs | Constant (20) |
 | iA | isAPIKeyAuth | chunks.171.mjs:4 | Check auth type |
 | QA | getPlatform | chunks.171.mjs:11 | Return platform type |

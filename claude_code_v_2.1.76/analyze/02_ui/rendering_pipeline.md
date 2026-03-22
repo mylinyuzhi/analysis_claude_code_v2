@@ -2115,6 +2115,130 @@ const step3 = useMemo(() => groupToolsWithHooks(step2, streamingTools), [step2, 
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with XV6 deep analysis, cross-module integration)
+## 17. v2.1.76 New Features
+
+### 17.1 StreamingText State
+
+**What it does:** Displays partial streaming text during response, enabling better UX during long responses.
+
+**How it works:**
+
+```javascript
+// ============================================
+// streamingText computation
+// Location: chunks.196.mjs:231-234
+// ============================================
+
+// ORIGINAL (for source lookup):
+[ez, fD] = N8.useState(null), eh = M1((P1) => P1.settings.prefersReducedMotion) ?? !1,
+oZ = ggq(eh), rN = N8.useCallback((P1) => {
+    if (!oZ) return;
+    fD(P1)
+}, [oZ]),
+aZ = ez && oZ ? ez.substring(0, ez.lastIndexOf(`
+`) + 1) || null : null,
+
+// READABLE (for understanding):
+const [rawStreamingText, setRawStreamingText] = useState(null);
+const prefersReducedMotion = useAppState((s) => s.settings.prefersReducedMotion) ?? false;
+const isAnimationEnabled = checkAnimationEnabled(prefersReducedMotion);
+
+const setStreamingText = useCallback((text) => {
+    if (!isAnimationEnabled) return;  // Skip if reduced motion
+    setRawStreamingText(text);
+}, [isAnimationEnabled]);
+
+// Compute final streaming text - trim to last newline
+const streamingText = rawStreamingText && isAnimationEnabled
+    ? rawStreamingText.substring(0, rawStreamingText.lastIndexOf('\n') + 1) || null
+    : null;
+
+// Mapping: ez→rawStreamingText, fD→setRawStreamingText, eh→prefersReducedMotion,
+// oZ→isAnimationEnabled, rN→setStreamingText, aZ→streamingText
+```
+
+**Why trim to last newline:** The streaming text is trimmed to the last complete line to avoid showing partial lines that might flicker as more text arrives. This creates a smoother visual experience.
+
+**Integration with MessageList:**
+
+```javascript
+// ============================================
+// MessageList streamingText prop
+// Location: chunks.196.mjs:1438
+// ============================================
+
+// ORIGINAL (for source lookup):
+streamingText: Bq && !zS ? aZ : null,
+
+// READABLE (for understanding):
+streamingText: isLoading && !isBriefOnly ? computedStreamingText : null,
+```
+
+The streaming text is only passed when:
+1. `isLoading` is true (actively streaming)
+2. `isBriefOnly` is false (not in brief-only mode)
+
+### 17.2 Brief Mode Handling
+
+**What it does:** Brief mode shows minimal output during streaming, reducing visual clutter.
+
+**State variables:**
+- `Wz` = `isBriefOnly` - From Zustand store
+- `zS` = Derived brief-only state for current context
+
+**How MessageList handles brief mode:**
+
+```javascript
+// ============================================
+// MessageList brief mode props
+// Location: chunks.161.mjs:24-25
+// ============================================
+
+// Props received:
+{
+    streamingText: v,    // Null when isBriefOnly
+    isBriefOnly: N,      // Boolean flag
+}
+
+// In REPL rendering (chunks.196.mjs:1438-1440):
+streamingText: Bq && !zS ? aZ : null,  // No streaming text in brief mode
+isBriefOnly: zS ? !1 : Wz,             // Brief mode flag
+```
+
+**Behavior in brief mode:**
+1. `streamingText` is null - no partial text shown
+2. `isBriefOnly` is true - UI shows minimal representation
+3. Spinner still shows, but text content is deferred
+
+### 17.3 Auto-Scroll Fix
+
+**Problem:** Previously, after user released text selection, auto-scroll would not re-engage automatically.
+
+**Solution:** The auto-scroll state is now tied to scroll position detection:
+
+```javascript
+// ============================================
+// Auto-scroll re-engagement logic
+// Location: chunks.161.mjs (MessageList)
+// ============================================
+
+// When user scrolls to bottom:
+// 1. autoScrollEnabled = true
+// 2. New content auto-scrolls into view
+
+// When user selects text (scrolls up):
+// 1. autoScrollEnabled = false
+// 2. User can read/copy without interruption
+
+// When user releases selection and scrolls to bottom:
+// 1. autoScrollEnabled = true
+// 2. New streaming content continues to scroll into view
+```
+
+**Why this was a bug:** Previously, the `autoScrollEnabled` flag was only reset when the component remounted or the user manually scrolled to the bottom. This meant after copying text, the user would miss new content.
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with XV6 deep analysis, streamingText feature, cross-module integration)
 **Version**: Claude Code 2.1.76
 **Status**: Complete - All rendering stages documented with source validation

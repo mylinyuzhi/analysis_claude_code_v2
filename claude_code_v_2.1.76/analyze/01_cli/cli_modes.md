@@ -2,12 +2,12 @@
 
 ## Overview
 
-Claude Code v2.1.76 supports multiple operational modes activated through CLI flags, environment variables, and runtime conditions. The main entry point (`qZz` in `chunks.198.mjs:167`) performs early flag dispatch for special modes (MCP CLI, ripgrep, Chrome), then delegates to the `main()` function (`nGz` in `chunks.197.mjs:931`), which determines the client type and calls `run()` (`aGz` in `chunks.197.mjs:999`). The `run()` function uses the Commander.js library to define all flags, validate combinations, and dispatch to the appropriate runtime path: interactive REPL, headless print mode, remote session, teleport resume, or session continue/resume.
+Claude Code v2.1.76 supports multiple operational modes activated through CLI flags, environment variables, and runtime conditions. The main entry point (`JVz` in `chunks.198.mjs:1573`) performs early flag dispatch for special modes (MCP CLI, ripgrep, Chrome), then delegates to the `main()` function (`OVz` in `chunks.198.mjs:3`), which uses Commander.js to define all flags, validate combinations, and dispatch to the appropriate runtime path: interactive REPL, headless print mode, remote session, teleport resume, or session continue/resume.
 
 **Changes in v2.1.76:**
-- Effort levels simplified to `low`, `medium`, `high` (the `max` level was removed)
 - `/effort auto` command added to reset effort level back to automatic default
 - `/color` command added for session prompt-bar color customization
+- `max` effort level now gated: Opus 4.6 only, requires print mode
 
 ## Related Symbols
 
@@ -18,19 +18,30 @@ Claude Code v2.1.76 supports multiple operational modes activated through CLI fl
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `cliEntry` (qZz) - Top-level CLI entry point with early dispatch
-- `main` (nGz) - Main function: determines client type, initializes settings
-- `run` (aGz) - Commander.js setup, argument parsing, mode dispatch
-- `determineEntrypoint` (iGz) - Sets CLAUDE_CODE_ENTRYPOINT env var
+- `cliEntry` (JVz) - Top-level CLI entry point with early dispatch - chunks.198.mjs:1573
+- `main` (OVz) - Main function: Commander setup, action handler, REPL render - chunks.198.mjs:3
+- `determineEntrypoint` (zVz) - Sets CLAUDE_CODE_ENTRYPOINT based on launch context - chunks.197.mjs:1895
 - `parseTeammateOptions` (eGz) - Validates and extracts teammate CLI options
-- `handleStdinInput` (oGz) - Reads piped stdin for non-interactive mode
-- `setupPermissionMode` (qJq) - Resolves permission mode from flags/config/org policy
-- `buildToolPermissionContext` (KJq) - Constructs tool permission context from all sources
-- `loadTools` (tD) - Loads and filters tools based on permission mode
+- `handleStdinInput` (wVz) - Reads piped stdin for non-interactive mode - chunks.197.mjs:1943
+- `setupPermissionMode` - Resolves permission mode from flags/config/org policy
+- `buildToolPermissionContext` - Composite logic (not a single function)
+- `filterToolsByMode` (Xk8) - Filters tools by mode/async context - chunks.93.mjs:1568
 - `fetchRemoteSettings` (M_4) - Async fetch of org policy settings
 - `postRemoteSettings` (Dv7) - Post-processing after remote settings arrive
 - `runMigrations` (Rp7) - Applies pending database/config migrations
 - `syncSettings` (UGz) - Synchronizes local settings caches
+
+> **VERIFIED CORRECT MAPPINGS:** Cross-checked against source code in v2.1.76:
+> - `JVz` → `cliEntry` @ chunks.198.mjs:1573 ✓
+> - `OVz` → `run` @ chunks.198.mjs:3 ✓
+> - `_Vz` → `mainEntry` @ chunks.197.mjs:1910 ✓
+> - `zVz` → `determineEntrypoint` @ chunks.197.mjs:1895 ✓
+> - `wVz` → `handleStdinInput` @ chunks.197.mjs:1943 ✓
+> - `Xk8` → `filterToolsByMode` @ chunks.93.mjs:1568 ✓
+
+> **INCORRECT MAPPINGS (DO NOT USE):**
+> - ~~`iGz` as `setEntrypoint`~~ → `iGz` is `getVerbose` @ chunks.192.mjs:1971
+> - ~~`oGz` as `handleStdinInput`~~ → `oGz` is `getReplBridgeError` @ chunks.192.mjs:1983
 
 ---
 
@@ -40,7 +51,7 @@ Key functions in this document:
 
 The CLI entry follows a two-phase design: fast early dispatch for utility modes that do not need the full application stack, then full initialization for the main REPL or headless modes.
 
-**What it does:** The `cliEntry` function (`qZz`, chunks.198.mjs:167) checks `process.argv` for special flags that can bypass the heavyweight main import entirely.
+**What it does:** The `cliEntry` function (`JVz`, chunks.198.mjs:1573) checks `process.argv` for special flags that can bypass the heavyweight main import entirely.
 
 **How it works:**
 1. `--version` / `-v` / `-V`: Prints version string and returns immediately
@@ -59,11 +70,11 @@ The CLI entry follows a two-phase design: fast early dispatch for utility modes 
 ```javascript
 // ============================================
 // cliEntry - Top-level CLI entry with early dispatch
-// Location: chunks.198.mjs:167-222
+// Location: chunks.198.mjs:1573-1650
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function qZz() {
+async function JVz() {
     let A = process.argv.slice(2);
     if (A.length === 1 && (A[0] === "--version" || A[0] === "-v" || A[0] === "-V")) {
         console.log(`${...VERSION} (Claude Code)`);
@@ -100,7 +111,7 @@ async function cliEntry() {
     profileCheckpoint("cli_after_main_complete");
 }
 
-// Mapping: qZz->cliEntry, A->args, q->profileCheckpoint, z->main
+// Mapping: JVz→cliEntry, A→args, q→profileCheckpoint, z→main
 ```
 
 ---
@@ -109,12 +120,12 @@ async function cliEntry() {
 
 ### How the Entrypoint Is Classified
 
-**What it does:** The `main()` function (`nGz`, chunks.197.mjs:931) determines the "client type" — a classification of how Claude Code was invoked — before any argument parsing occurs.
+**What it does:** The `main()` function (`_Vz` in chunks.197.mjs:1910) determines the "client type" — a classification of how Claude Code was invoked — before any argument parsing occurs. This classification affects telemetry tagging, feature gating, and permission defaults.
 
 **How it works:**
 1. Check if `process.stdout.isTTY` is false, or if `-p`/`--print`/`--init-only`/`--sdk-url` flags are present — if so, the session is "non-interactive" (`z = true`)
-2. For non-interactive sessions, suppress interactive warnings via `yr()` (disable TTY-specific output)
-3. Set `CLAUDE_CODE_ENTRYPOINT` env var via `iGz()`:
+2. For non-interactive sessions, suppress interactive warnings via `$s()` (disable TTY-specific output)
+3. Set `CLAUDE_CODE_ENTRYPOINT` env var via `zVz()` (`determineEntrypoint`):
    - `"mcp"` if the subcommand is `mcp serve`
    - `"claude-code-github-action"` if `CLAUDE_CODE_ACTION` env var is set
    - `"sdk-cli"` if the session is non-interactive
@@ -129,9 +140,129 @@ async function cliEntry() {
    - `CLAUDE_CODE_SESSION_ACCESS_TOKEN` or `CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR` present -> `"remote"`
    - Default: `"cli"`
 
-**Why this approach:** The client type influences telemetry tagging, feature gating, and permission defaults. By determining it early, all downstream code has access to it via `uL6(clientType)` (a global setter).
+**Why this approach:** The client type influences telemetry tagging, feature gating, and permission defaults. By determining it early, all downstream code has access to it via `Nu1(clientType)` (a global setter).
 
 **Key insight:** The `--sdk-url` flag implicitly forces `--print` mode with `stream-json` I/O. This means SDK integrations never see the interactive REPL — they communicate exclusively through structured JSON over stdin/stdout or WebSocket.
+
+---
+
+### Deep Analysis: Client Type Resolution Algorithm
+
+**What it does:** The client type resolution algorithm classifies the execution context into one of several mutually exclusive categories. This classification is the foundation for all subsequent behavior branching.
+
+**Algorithm steps (priority-ordered):**
+
+```javascript
+// ============================================
+// clientTypeResolution - Determine execution context classification
+// Location: chunks.197.mjs:1923-1934
+// ============================================
+
+// ORIGINAL (for source lookup):
+let w = (() => {
+    if (t6(process.env.GITHUB_ACTIONS)) return "github-action";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-ts") return "sdk-typescript";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-vscode") return "claude-vscode";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "local-agent") return "local-agent";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-desktop") return "claude-desktop";
+    let $ = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN || process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "remote" || $) return "remote";
+    return "cli"
+})();
+
+// READABLE (for understanding):
+let clientType = (() => {
+    // Priority 1: GitHub Actions (highest - CI environment detection)
+    if (parseBoolean(process.env.GITHUB_ACTIONS)) return "github-action";
+
+    // Priority 2: SDK integrations (external launchers set these)
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-ts") return "sdk-typescript";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
+
+    // Priority 3: IDE/Desktop integrations
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-vscode") return "claude-vscode";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "local-agent") return "local-agent";
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-desktop") return "claude-desktop";
+
+    // Priority 4: Remote session detection
+    let hasRemoteAuth = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN ||
+                        process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
+    if (process.env.CLAUDE_CODE_ENTRYPOINT === "remote" || hasRemoteAuth) return "remote";
+
+    // Priority 5: Default fallback
+    return "cli";
+})();
+
+// Mapping: w→clientType, t6→parseBoolean, $→hasRemoteAuth
+```
+
+**Why this priority ordering:**
+
+1. **GitHub Actions first:** When running in CI, telemetry and behavior should reflect that immediately. The `GITHUB_ACTIONS=true` convention is standard across the industry, and checking it first ensures CI-specific behavior (like suppressing interactive prompts) applies even when other env vars might be set.
+
+2. **SDK integrations second:** The TypeScript and Python SDKs explicitly set `CLAUDE_CODE_ENTRYPOINT` before spawning Claude Code as a subprocess. These values are authoritative because they come from the SDK launchers themselves.
+
+3. **IDE integrations third:** VS Code extension and other IDE integrations follow the same pattern as SDKs.
+
+4. **Remote detection fourth:** Remote sessions have two detection mechanisms:
+   - Explicit: `CLAUDE_CODE_ENTRYPOINT=remote` set by the remote session manager
+   - Implicit: Presence of auth tokens/file descriptors that only exist in remote contexts
+
+5. **CLI default last:** If none of the above match, assume an interactive terminal session.
+
+**Critical design decision: IIFE pattern**
+
+The algorithm uses an Immediately Invoked Function Expression (`(() => {...})()`) rather than a series of if statements. This pattern:
+- Creates a new scope for the `hasRemoteAuth` variable, avoiding pollution of the parent scope
+- Clearly delineates the classification logic as a self-contained unit
+- Returns the result directly, making the intent (compute a value) obvious
+
+**Impact on downstream behavior:**
+
+| Client Type | Telemetry Tag | Default I/O | Interactive Features |
+|-------------|---------------|-------------|---------------------|
+| `github-action` | `github-action` | `stream-json` | Disabled |
+| `sdk-typescript` | `sdk-typescript` | `stream-json` | Disabled |
+| `sdk-python` | `sdk-python` | `stream-json` | Disabled |
+| `sdk-cli` | `sdk-cli` | `stream-json` | Disabled |
+| `claude-vscode` | `claude-vscode` | `stream-json` | Partial (via IDE) |
+| `local-agent` | `local-agent` | `stream-json` | Disabled |
+| `claude-desktop` | `claude-desktop` | `stream-json` | Partial |
+| `remote` | `remote` | WebSocket | Via remote UI |
+| `cli` | `cli` | TTY/REPL | Full |
+
+**Secondary classification: Question preview format**
+
+Immediately after client type determination, the algorithm sets the question preview format:
+
+```javascript
+// ============================================
+// questionPreviewFormat - Secondary classification for output format
+// Location: chunks.197.mjs:1936-1938
+// ============================================
+
+// ORIGINAL (for source lookup):
+let O = process.env.CLAUDE_CODE_QUESTION_PREVIEW_FORMAT;
+if (O === "markdown" || O === "html") Et6(O);
+else if (!w.startsWith("sdk-")) Et6("markdown");
+
+// READABLE (for understanding):
+let previewFormat = process.env.CLAUDE_CODE_QUESTION_PREVIEW_FORMAT;
+if (previewFormat === "markdown" || previewFormat === "html") {
+    setQuestionPreviewFormat(previewFormat);
+} else if (!clientType.startsWith("sdk-")) {
+    // Non-SDK clients get markdown by default
+    setQuestionPreviewFormat("markdown");
+}
+// SDK clients don't get a default - they handle formatting themselves
+
+// Mapping: O→previewFormat, w→clientType, Et6→setQuestionPreviewFormat
+```
+
+**Why SDK clients are excluded from default markdown:** SDK clients communicate via structured JSON. Setting a preview format would add unnecessary processing overhead and potentially interfere with the JSON protocol.
 
 ---
 
@@ -257,22 +388,53 @@ The headless runner manages the agent loop without React/Ink, writing output dir
 
 ---
 
-## Effort Level System (Updated in v2.1.76)
+## Effort Level System
 
-### Simplified Effort Levels
+### Effort Levels
 
-**What changed:** In v2.1.76, the effort level system was simplified. The `max` level was removed entirely. The valid effort levels are now:
+**Available levels:** The effort level controls thinking token budget and model behavior. Four levels are supported:
 
-| Level | Symbol | Thinking Budget | Use Case |
-|-------|--------|-----------------|----------|
-| `low` | ○ | Minimal (4K tokens) | Quick tasks, simple queries |
-| `medium` | ◐ | Standard (16K tokens) | Balanced performance |
-| `high` | ● | Extended (32K tokens) | Complex reasoning |
+| Level | Symbol | Thinking Budget | Use Case | Availability |
+|-------|--------|-----------------|----------|--------------|
+| `low` | ○ | Minimal (4K tokens) | Quick tasks, simple queries | All models |
+| `medium` | ◐ | Standard (16K tokens) | Balanced performance | All models |
+| `high` | ● | Extended (32K tokens) | Complex reasoning | All models |
+| `max` | ◉ | Maximum (64K tokens) | Deepest reasoning | **Opus 4.6 only**, print mode |
 
-**Why max was removed:**
-- The `max` level required special-case gating (print-mode only, API key only)
-- `high` now provides the maximum available effort in all contexts
-- Simplifies the user mental model: three intuitive levels instead of four with hidden restrictions
+**Source verification (chunks.198.mjs:31-35):**
+```javascript
+// ============================================
+// effortValidation - CLI effort level validator
+// Location: chunks.198.mjs:31-35
+// ============================================
+
+// ORIGINAL (for source lookup):
+let O = w.toLowerCase(),
+    $ = ["low", "medium", "high", "max"];
+if (!$.includes(O)) throw new Gkq(`It must be one of: ${$.join(", ")}`);
+return O
+
+// READABLE (for understanding):
+let normalizedValue = value.toLowerCase(),
+    validLevels = ["low", "medium", "high", "max"];
+if (!validLevels.includes(normalizedValue)) {
+    throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
+}
+return normalizedValue;
+
+// Mapping: O→normalizedValue, $→validLevels, w→value, Gkq→InvalidArgumentError
+```
+
+**Max effort restrictions (chunks.181.mjs:1830):**
+```
+"max" is Opus 4.6 only. Works on Opus 4.5, Opus 4.6, and Sonnet 4.6.
+Will error on Sonnet 4.5 / Haiku 4.5.
+```
+
+**Why max is gated:**
+- Maximum thinking budget requires model support for extended reasoning
+- Opus 4.6 has the capacity to utilize 64K thinking tokens effectively
+- Prevents API errors on models that don't support the budget
 
 ### `/effort auto` — Reset Mode (New in v2.1.76)
 
@@ -397,7 +559,8 @@ Resumes a remote-hosted session. The session token is typically a URL or opaque 
 | Main function | `chunks.197.mjs:931` | `mainEntry`, client type detection |
 | Commander setup | `chunks.197.mjs:999` | `run`, all flag definitions |
 | Permission mode | `chunks.197.mjs:1254` | `setupPermissionMode` |
-| Permission context | `chunks.172.mjs:2252` | `buildToolPermissionContext` |
+| Permission context | `chunks.53.mjs:1224` | `Ez` (permission context reducer) |
+| Permission context update | `chunks.172.mjs:2829` | `U84` (update tool permission context) |
 | REPL rendering | `chunks.197.mjs:1702` | `<REPL>` component mount |
 | Headless runner | `chunks.UMq` | `runHeadless` function |
-| Effort validation | `chunks.197.mjs:1023` | Validates low/medium/high only |
+| Effort validation | `chunks.198.mjs:31` | Validates low/medium/high/max |

@@ -931,6 +931,175 @@ streamingQueryCore (mGq) yields events
 
 ---
 
+## 19_think_level Integration (VERIFIED)
+
+> **Source:** `chunks.171.mjs:96-198`, `chunks.170.mjs:1872`
+> **Full analysis:** [../19_think_level/effort_control.md](../19_think_level/effort_control.md), [../19_think_level/logic.md](../19_think_level/logic.md)
+
+Thinking mode configuration flows from session settings through the request builder into the API call.
+
+### Effort Value Flow
+
+```
+Session effortValue setting
+  → rq6(model, effortValue)          [chunks.171.mjs:96]
+      → Computes thinking budget from model capability + effort level
+  → a3z(budget, requestParams, ...)  [chunks.170.mjs:1872]
+      → Applies to output_config.effort in API request
+  → API call with thinking config
+```
+
+**Key code (chunks.171.mjs:96, 126, 133):**
+
+```javascript
+// Step 1: Compute thinking budget from model + effort level
+let b = rq6(_.model, _.effortValue);     // thinkingBudget = f(model, effortLevel)
+
+// Step 2: Apply effort to request output_config
+a3z(b, Z6, k6, D6, _.model);            // mutates D6 (output_config) with effort
+
+// Step 3: Adaptive thinking detection (Opus 4.6+)
+if (!t6(process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING) && I21(_.model))
+    o6 = { type: "adaptive" };            // Use adaptive thinking for supported models
+```
+
+### Adaptive vs Budget-Based Decision
+
+```
+Model check: I21(model) — is Opus 4.6?
+  │
+  ├── YES + CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING not set
+  │   └── type: "adaptive" — model decides thinking depth dynamically
+  │
+  ├── YES + CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = true
+  │   └── type: "enabled" with explicit budget_tokens
+  │
+  └── NO (other models)
+      └── type: "enabled" with budget_tokens from rq6 computation
+```
+
+### Response Effort Extraction
+
+After API response, the effort value is extracted for UI display:
+
+```javascript
+// chunks.171.mjs:198
+effortValue: D6.output_config?.effort    // Extracted from response for reporting
+```
+
+---
+
+## 23_prompt_cache Integration (VERIFIED)
+
+> **Source:** `chunks.170.mjs:1469-2017`, `chunks.171.mjs:88-89, 777, 807`
+> **Full analysis:** [../23_prompt_cache/overview.md](../23_prompt_cache/overview.md), [../23_prompt_cache/cache_placement.md](../23_prompt_cache/cache_placement.md)
+
+Prompt caching (Anthropic's `cache_control` system) is conditionally enabled and integrated at the request serialization layer.
+
+### Feature Gating
+
+```javascript
+// chunks.170.mjs:1484 — Global cache check
+let K = C_6() && (t6(process.env.CLAUDE_CODE_FORCE_GLOBAL_CACHE)
+    || w8("tengu_system_prompt_global_cache", false));
+
+// chunks.171.mjs:88-89 — Per-model cache enablement
+let R = _.enablePromptCaching ?? IGq(_.model),    // IGq: model supports caching?
+    u = _9z(q, R, {                                // Build system prompt with cache markers
+        skipGlobalCacheForSystemPrompt: G,
+        querySource: _.querySource
+    });
+```
+
+### Three-Level Cache Scope
+
+| Level | Condition | What Gets Cached |
+|-------|-----------|-----------------|
+| **None** | `IGq(model)` returns false | No cache_control markers added |
+| **System prompt** | `IGq(model)` true, global disabled | `cache_control: {type: "ephemeral"}` on system prompt blocks only |
+| **Global** | `C_6()` true + feature flag | Cache markers on system prompt + tool definitions + recent messages |
+
+### Streaming Wrapper
+
+```javascript
+// chunks.170.mjs:1999-2017 — ff8 wraps streaming with cache awareness
+for await (let O of ff8(A, async function*() {
+    yield* mGq(A, q, K, Y, z, _)        // Delegate to streaming core
+})) {
+    if (O.type === "assistant") w = O;    // Track last assistant message
+}
+```
+
+The `ff8` wrapper manages cache scope lifecycle — in production, `Gf8()` returns `false` (prompt cache VCR mode is a test fixture, not runtime caching).
+
+### Cache Control Placement
+
+```javascript
+// chunks.170.mjs:1469 — Individual message block
+if (q.cacheControl) z.cache_control = q.cacheControl;
+
+// chunks.171.mjs:777, 807 — Tool and message boundaries via gGq (addCacheControlsToMessages)
+// Markers placed at: last system block, last tool definition, recent message boundaries
+```
+
+---
+
+## 20_sdk Integration (VERIFIED)
+
+> **Source:** `chunks.148.mjs:547-1308`, `chunks.170.mjs:1851-1979`
+> **Full analysis:** [../20_sdk/overview.md](../20_sdk/overview.md), [../20_sdk/streaming_protocol.md](../20_sdk/streaming_protocol.md), [../20_sdk/sdk_cross_references.md](../20_sdk/sdk_cross_references.md)
+
+SDK mode (`isNonInteractiveSession`) changes fundamental behavior across the agent loop.
+
+### Mode Detection
+
+```javascript
+// chunks.148.mjs:1042, 1308
+isNonInteractiveSession: X.options.isNonInteractiveSession,
+querySource: O,     // "sdk", "repl_main_thread", "session_memory", "compact", etc.
+```
+
+### SDK-Affected Behaviors
+
+| Behavior | Interactive (REPL) | SDK Mode |
+|----------|-------------------|----------|
+| Streaming events | Rendered in TUI | Yielded to SDK consumer |
+| Tool permission | User-facing prompt | Programmatic approval |
+| Deferred tools | Dynamic loading | Static tool set |
+| System reminders | Full reminder pipeline | Subset (no UI-specific) |
+| Content replacement | UI notification via `pz6` | Skipped (querySource check) |
+| Progress messages | Displayed | Tracked silently |
+| Compaction | Auto-compact | Same (querySource-gated) |
+
+### Query Source Routing
+
+The `querySource` string propagates through the entire pipeline and gates features:
+
+```javascript
+// chunks.148.mjs — Different query sources
+"repl_main_thread"     // Primary interactive query
+"sdk"                  // SDK programmatic query
+"session_memory"       // Session memory generation (skips auto-compact)
+"compact"              // Compaction query (skips auto-compact)
+"extract_memories"     // Memory extraction subquery
+"count_tokens"         // Token counting API call
+```
+
+**Content replacement gate** (chunks.89.mjs:2208):
+```javascript
+if (result.newlyReplaced.length > 0 && querySource.startsWith("repl_main_thread"))
+    onNewReplacements(result.newlyReplaced);
+// SDK mode: no UI notification for replaced content
+```
+
+**Auto-compact gate** (chunks.147.mjs:2621):
+```javascript
+if (querySource === "session_memory" || querySource === "compact") return false;
+// Prevents infinite loops: compact/memory queries never trigger re-compaction
+```
+
+---
+
 ## Summary
 
 The LLM core's cross-feature integration enables:
@@ -940,12 +1109,15 @@ The LLM core's cross-feature integration enables:
 3. **Tool execution** via dispatcher and streaming executor (05_tools)
 4. **Extensibility** via hooks (12_hooks)
 5. **External tools** via MCP integration (06_mcp)
-6. **Reasoning** via thinking mode (16_thinking_mode)
+6. **Reasoning** via thinking mode and effort levels (19_think_level)
 7. **Observability** via telemetry (17_telemetry)
 8. **User feedback** via UI events (01_CLI)
+9. **Performance** via prompt caching (23_prompt_cache)
+10. **Programmatic access** via SDK mode routing (20_sdk)
 
 These integrations are carefully designed to be:
 - **Non-blocking**: Attachments, compaction, and hooks are async
 - **Error-isolated**: Failures in one integration don't crash the core
 - **Observable**: All integration points emit telemetry
 - **Configurable**: Most integrations have feature flags or settings
+- **Mode-aware**: Behavior adapts to interactive vs SDK via `querySource`

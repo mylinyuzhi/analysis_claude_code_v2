@@ -715,9 +715,156 @@ function getFastModeBlockReason(): string | null {
 //          q7→isAgentSdk, pk6→isInAgentSdkMode, QA→getDeploymentType
 ```
 
-### Fast Mode Cooldown
+### Fast Mode Cooldown (VERIFIED)
 
-**What it does:** When fast mode encounters issues (rate limits, errors), it enters a cooldown period to prevent cascading failures.
+> **Source:** `chunks.89.mjs:27-48` (trigger logic in _P1), `chunks.89.mjs:206-231` (constants)
+> **Cross-validated:** `chunks.56.mjs:2736-2749` (kf7 state setter)
+
+**What it does:** When fast mode encounters issues (rate limits, errors), it enters a cooldown period to prevent cascading failures. The cooldown logic lives inside the `_P1` (withApiRetry) loop.
+
+### Constants (VERIFIED)
+
+```javascript
+// Location: chunks.89.mjs:215-231
+Bb9 = 1800000   // DEFAULT_COOLDOWN_MS: 30 minutes (default when no retry-after header)
+gb9 = 20000      // SHORT_WAIT_THRESHOLD_MS: 20 seconds (below this → just wait, no cooldown)
+Fb9 = 600000     // MIN_COOLDOWN_MS: 10 minutes (minimum floor for any cooldown)
+hb9 = 3          // MAX_CONSECUTIVE_529_ERRORS: triggers ModelFallbackError
+```
+
+### State Machine
+
+```
+┌────────────────────┐
+│  Active             │  fastMode = true in retry state
+│  (fast mode on)     │
+└────────┬───────────┘
+         │
+         ├── 429/overloaded + retry-after < 20s (gb9)
+         │   └── Short wait (uk(retryAfter, signal))
+         │       └── Retry with fastMode STILL TRUE
+         │
+         ├── 429/overloaded + retry-after >= 20s (gb9)
+         │   └── kf7: Set cooldown = now + max(retryAfter ?? 30min, 10min)
+         │       └── fastMode = false in retry state
+         │           └── Continue retrying without fast mode
+         │
+         ├── 429/overloaded + overage-disabled-reason header present
+         │   └── Lf7: Log reason
+         │       └── fastMode = false in retry state
+         │           └── Continue retrying without fast mode
+         │
+         ├── HTTP 400 "Fast mode is not enabled"
+         │   └── Ef7: Log
+         │       └── fastMode = false in retry state
+         │           └── Continue retrying without fast mode
+         │
+         └── 529 overloaded (consecutive >= 3)
+             └── Throw ModelFallbackError (R36)
+                 └── Agent loop uses fallbackModel (e.g., Opus → Sonnet)
+```
+
+### Trigger Logic Inside _P1 (withApiRetry) (VERIFIED)
+
+```javascript
+// ============================================
+// Fast mode degradation inside _P1
+// Location: chunks.89.mjs:27-48
+// ============================================
+
+// ORIGINAL:
+} catch (j) {
+    O = j;
+    // Log the error
+    k(`API error (attempt ${$}/${Y+1}): ${j instanceof a7?`${j.status} ${j.message}`:_1(j)}`, { level: "error" });
+
+    // FAST MODE DEGRADATION (only when fast mode is active)
+    if (H && j instanceof a7 && (j.status === 429 || iF6(j))) {
+        // Check for overage-disabled-reason header
+        let X = j.headers?.get("anthropic-ratelimit-unified-overage-disabled-reason");
+        if (X !== null && X !== void 0) {
+            Lf7(X);           // Log overage reason
+            z.fastMode = !1;   // Disable fast mode
+            continue;          // Retry immediately
+        }
+        // Parse retry-after header
+        let P = pb9(j);       // Parse retry-after → milliseconds (or null)
+        if (P !== null && P < gb9) {   // gb9 = 20000 (20s)
+            await uk(P, K.signal);      // Short wait
+            continue;                    // Retry with fast mode still on
+        }
+        // Long cooldown: max(retryAfter ?? 30min, 10min)
+        let W = Math.max(P ?? Bb9, Fb9);   // Bb9=1800000, Fb9=600000
+        let Z = iF6(j) ? "overloaded" : "rate_limit";
+        kf7(Date.now() + W, Z);            // Set cooldown until timestamp
+        if (Dq()) z.fastMode = !1;          // Disable fast mode in retry state
+        continue;                            // Retry without fast mode
+    }
+    // Check for "Fast mode is not enabled" error
+    if (H && Cb9(j)) {
+        Ef7();               // Log fast-mode-not-enabled
+        z.fastMode = !1;     // Disable fast mode
+        continue;            // Retry without fast mode
+    }
+    // ... rest of error handling
+}
+
+// READABLE:
+} catch (error) {
+    lastError = error;
+    log(`API error (attempt ${attempt}/${maxRetries+1}): ${error instanceof APIError ? `${error.status} ${error.message}` : String(error)}`, { level: "error" });
+
+    // FAST MODE DEGRADATION
+    if (isFastModeActive && error instanceof APIError && (error.status === 429 || isOverloaded(error))) {
+        // Trigger 1: Overage disabled — provider explicitly disabled fast mode
+        let overageReason = error.headers?.get("anthropic-ratelimit-unified-overage-disabled-reason");
+        if (overageReason !== null && overageReason !== undefined) {
+            logOverageDisabledReason(overageReason);   // Lf7
+            retryState.fastMode = false;
+            continue;
+        }
+        // Trigger 2: Short retry-after — just wait, keep fast mode
+        let retryAfterMs = parseRetryAfterHeader(error);   // pb9
+        if (retryAfterMs !== null && retryAfterMs < 20000) {   // gb9 = 20s threshold
+            await sleep(retryAfterMs, signal);
+            continue;   // Fast mode still on
+        }
+        // Trigger 3: Long cooldown — disable fast mode for duration
+        let cooldownDuration = Math.max(retryAfterMs ?? 1800000, 600000);
+        //                              Bb9=30min default   Fb9=10min floor
+        let reason = isOverloaded(error) ? "overloaded" : "rate_limit";
+        setFastModeCooldown(Date.now() + cooldownDuration, reason);   // kf7
+        if (isFastModeAvailable()) retryState.fastMode = false;
+        continue;   // Retry without fast mode
+    }
+    // Trigger 4: "Fast mode is not enabled" HTTP 400
+    if (isFastModeActive && isFastModeNotEnabledError(error)) {   // Cb9
+        logFastModeNotEnabled();   // Ef7
+        retryState.fastMode = false;
+        continue;
+    }
+    // ... rest of error handling
+}
+
+// Mapping: H→isFastModeActive, a7→APIError, iF6→isOverloaded, Lf7→logOverageDisabledReason,
+//   pb9→parseRetryAfterHeader, gb9→SHORT_WAIT_THRESHOLD_MS(20000),
+//   Bb9→DEFAULT_COOLDOWN_MS(1800000), Fb9→MIN_COOLDOWN_MS(600000),
+//   kf7→setFastModeCooldown, Cb9→isFastModeNotEnabledError, Ef7→logFastModeNotEnabled
+```
+
+### Cooldown Formula
+
+```
+cooldownUntil = Date.now() + max(retryAfterMs ?? 1_800_000, 600_000)
+
+Examples:
+  retry-after: 5s   → below 20s threshold → just wait 5s, fast mode stays on
+  retry-after: 30s  → max(30000, 600000) = 600000 → cooldown 10 minutes
+  retry-after: null  → max(1800000, 600000) = 1800000 → cooldown 30 minutes
+  retry-after: 900s → max(900000, 600000) = 900000 → cooldown 15 minutes
+```
+
+### kf7 (setFastModeCooldown) — State Setter
 
 ```javascript
 // ============================================
@@ -725,7 +872,7 @@ function getFastModeBlockReason(): string | null {
 // Location: chunks.56.mjs:2736-2749
 // ============================================
 
-// ORIGINAL (for source lookup):
+// ORIGINAL:
 function kf7(A, q) {
     if (!Dq()) return;
     RD6 = {
@@ -741,34 +888,61 @@ function kf7(A, q) {
     for (let Y of l21) Y.onCooldownTriggered(A, q)
 }
 
-// READABLE (for understanding):
-function setFastModeCooldown(resetAt: number, reason: string): void {
+// READABLE:
+function setFastModeCooldown(resetAt, reason) {
     if (!isFastModeAvailable()) return;
-
-    cooldownState = {
-        status: "cooldown",
-        resetAt: resetAt,
-        reason: reason
-    };
+    cooldownState = { status: "cooldown", resetAt, reason };
     isActiveState = false;
-
-    const duration = resetAt - Date.now();
+    let duration = resetAt - Date.now();
     log(`Fast mode cooldown triggered (${reason}), duration ${Math.round(duration/1000)}s`);
-
     emitTelemetry("tengu_fast_mode_fallback_triggered", {
         cooldown_duration_ms: duration,
         cooldown_reason: reason
     });
-
-    // Notify all listeners
-    for (const listener of cooldownListeners) {
-        listener.onCooldownTriggered(resetAt, reason);
-    }
+    for (let listener of cooldownListeners) listener.onCooldownTriggered(resetAt, reason);
 }
 
 // Mapping: kf7→setFastModeCooldown, RD6→cooldownState, ZO8→isActiveState,
 //          l21→cooldownListeners, d→emitTelemetry
 ```
+
+### Consecutive 529 → Model Fallback (VERIFIED)
+
+If overloaded errors persist even after disabling fast mode:
+
+```javascript
+// Location: chunks.89.mjs:50-58
+
+// ORIGINAL:
+if (iF6(j) && (process.env.FALLBACK_FOR_ALL_PRIMARY_MODELS || !iA() && V36(K.model))) {
+    if (w++, w >= hb9) {   // hb9 = 3 consecutive 529s
+        if (K.fallbackModel) throw d("tengu_api_opus_fallback_triggered", {
+            original_model: K.model, fallback_model: K.fallbackModel, provider: k76()
+        }), new R36(K.model, K.fallbackModel);
+        if (!process.env.IS_SANDBOX) throw d("tengu_api_custom_529_overloaded_error", {}),
+            new RB(Error(Vv8), z)
+    }
+}
+
+// READABLE:
+if (isOverloaded(error) && (process.env.FALLBACK_FOR_ALL_PRIMARY_MODELS || !isAPIKeyAuth() && isEligibleForFallback(model))) {
+    consecutive529Errors++;
+    if (consecutive529Errors >= 3) {   // hb9 = 3
+        if (fallbackModel)
+            throw new ModelFallbackError(model, fallbackModel);  // R36
+        if (!process.env.IS_SANDBOX)
+            throw new RetryExhaustedError(Error("overloaded"), retryState);  // RB
+    }
+}
+```
+
+### Telemetry Events
+
+| Event | Trigger | Fields |
+|-------|---------|--------|
+| `tengu_fast_mode_fallback_triggered` | kf7 called (cooldown set) | cooldown_duration_ms, cooldown_reason |
+| `tengu_api_opus_fallback_triggered` | 3 consecutive 529s with fallbackModel | original_model, fallback_model, provider |
+| `tengu_api_custom_529_overloaded_error` | 3 consecutive 529s without fallbackModel | (none) |
 
 ---
 

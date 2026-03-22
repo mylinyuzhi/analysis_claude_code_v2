@@ -22,7 +22,7 @@ The CLI provides several flags for controlling model selection and behavior:
 
 1. **`--model <model>`** - Override default model for session
 2. **`--fallback-model <model>`** - Auto-fallback when overloaded
-3. **`--effort <level>`** - Set effort level (low/medium/high)
+3. **`--effort <level>`** - Set effort level (low/medium/high/max)
 4. **`--agent <agent>`** - Override agent setting
 5. **`--betas <betas...>`** - Beta headers for API
 
@@ -72,15 +72,16 @@ The CLI provides several flags for controlling model selection and behavior:
 ```javascript
 // ============================================
 // Model selection CLI flag definitions
-// Location: chunks.197.mjs:1023-1027
+// Location: chunks.198.mjs:31-35 (effort), chunks.197.mjs:1023-1027 (model)
 // ============================================
 
 // ORIGINAL (for source lookup):
 .option("--model <model>", "Model for the current session. Provide an alias for the latest model (e.g. 'sonnet' or 'opus') or a model's full name (e.g. 'claude-sonnet-4-5-20250929').")
-.addOption(new J5("--effort <level>", "Effort level for the current session (low, medium, high)").argParser((w) => {
-    let H = ["low", "medium", "high"];
-    if (!H.includes(w)) throw new kXq(`It must be one of: ${H.join(", ")}`);
-    return w
+.addOption(new J5("--effort <level>", "Effort level for the current session (low, medium, high, max)").argParser((w) => {
+    let O = w.toLowerCase(),
+        $ = ["low", "medium", "high", "max"];
+    if (!$.includes(O)) throw new Gkq(`It must be one of: ${$.join(", ")}`);
+    return O
 }))
 .option("--agent <agent>", "Agent for the current session. Overrides the 'agent' setting.")
 .option("--betas <betas...>", "Beta headers to include in API requests (API key users only)")
@@ -88,22 +89,21 @@ The CLI provides several flags for controlling model selection and behavior:
 
 // READABLE (for understanding):
 .option("--model <model>", "Model for the session (alias like 'sonnet' or full name)")
-.addOption(new Option("--effort <level>", "Effort level (low, medium, high)")
+.addOption(new Option("--effort <level>", "Effort level (low, medium, high, max)")
     .argParser((value) => {
-        let validLevels = ["low", "medium", "high"];
-        if (!validLevels.includes(value)) {
+        let normalized = value.toLowerCase();
+        let validLevels = ["low", "medium", "high", "max"];
+        if (!validLevels.includes(normalized)) {
             throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
         }
-        return value;
+        return normalized;
     }))
 .option("--agent <agent>", "Agent for the session (overrides 'agent' setting)")
 .option("--betas <betas...>", "Beta headers for API requests (API key users only)")
 .option("--fallback-model <model>", "Fallback when overloaded (print mode only)")
 
-// Mapping: J5→Option, kXq→InvalidArgumentError, w→value, H→validLevels
+// Mapping: J5→Option, Gkq→InvalidArgumentError, w→value, O→normalized, $→validLevels
 ```
-
-> **New in v2.1.76:** The `max` effort level has been removed. Valid levels are now only `low`, `medium`, and `high`. Use `/effort auto` in the REPL to reset effort to automatic selection.
 
 ### 1.2 Flag Extraction
 
@@ -212,35 +212,42 @@ if (fallbackModel && options.model && fallbackModel === options.model) {
 
 **What it does:** The effort level controls thinking token budget and model behavior.
 
-> **New in v2.1.76:** The `max` level has been removed. The three remaining levels span a simpler low/medium/high spectrum. Use `/effort auto` in the REPL to reset effort to the model's default automatic selection.
+| Level | Thinking Budget | Use Case | Availability |
+|-------|-----------------|----------|--------------|
+| `low` | Minimal (4K) | Quick tasks, simple queries | All models |
+| `medium` | Standard (16K) | Balanced performance | All models |
+| `high` | Extended (32K) | Complex reasoning | All models |
+| `max` | Maximum (64K) | Deepest reasoning | **Opus 4.6 only**, print mode |
 
-| Level | Thinking Budget | Use Case |
-|-------|-----------------|----------|
-| `low` | Minimal (4K) | Quick tasks, simple queries |
-| `medium` | Standard (16K) | Balanced performance |
-| `high` | Extended (32K) | Complex reasoning |
+**Max effort gate (chunks.181.mjs:1830):**
+> `"max" is Opus 4.6 only. Works on Opus 4.5, Opus 4.6, and Sonnet 4.6. Will error on Sonnet 4.5 / Haiku 4.5.`
 
 ### 3.2 Effort Level Validation
 
-**Source location:** `chunks.197.mjs:1130-1134`
+**Source location:** `chunks.198.mjs:31-35`
 
 ```javascript
 // ============================================
-// Effort level validation (v2.1.76 - max removed)
-// Location: chunks.197.mjs:1130-1134
+// effortValidation - CLI effort level validator
+// Location: chunks.198.mjs:31-35
 // ============================================
 
 // ORIGINAL (for source lookup):
-// Note: In v2.1.76, the "max" level is no longer in the validator list.
-// Valid effort levels: ["low", "medium", "high"]
-// The argParser throws InvalidArgumentError for any other value.
+let O = w.toLowerCase(),
+    $ = ["low", "medium", "high", "max"];
+if (!$.includes(O)) throw new Gkq(`It must be one of: ${$.join(", ")}`);
+return O
 
 // READABLE (for understanding):
-// Validation happens at parse time via .argParser() callback:
-let validLevels = ["low", "medium", "high"];
-if (!validLevels.includes(value)) {
+// Validation happens at parse time:
+let normalizedValue = value.toLowerCase();
+let validLevels = ["low", "medium", "high", "max"];
+if (!validLevels.includes(normalizedValue)) {
     throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
 }
+return normalizedValue;
+
+// Mapping: O→normalizedValue, $→validLevels, w→value, Gkq→InvalidArgumentError
 ```
 
 ### 3.3 Effort Level Constants
@@ -249,7 +256,7 @@ if (!validLevels.includes(value)) {
 
 ```javascript
 // ============================================
-// EFFORT_LEVELS - Valid effort values (v2.1.76)
+// EFFORT_LEVELS - Valid effort values
 // Location: chunks.90.mjs:3070
 // ============================================
 
@@ -260,7 +267,8 @@ WJ6 = ["low", "medium", "high"]
 const EFFORT_LEVELS = ["low", "medium", "high"];
 
 // Mapping: WJ6→EFFORT_LEVELS
-// Note: "max" was removed in v2.1.76
+// Note: "max" is validated separately in CLI (chunks.198.mjs:33)
+// and requires Opus 4.6 model check at runtime
 ```
 
 ### 3.4 /effort auto (New in v2.1.76)
@@ -479,14 +487,14 @@ if (!resolvedModel && agentDefinition?.model && agentDefinition.model !== "inher
 claude -p --effort low "Summarize this file"
 ```
 
-### 8.2 Deep Analysis (High Effort)
+### 8.2 Deep Analysis (High/Max Effort)
 
 ```bash
 # High effort for complex reasoning
 claude --effort high "Analyze architecture and suggest improvements"
 
-# Note: 'max' effort level has been removed in v2.1.76
-# Use 'high' for the most thorough analysis
+# Max effort for deepest reasoning (Opus 4.6 only, print mode)
+claude -p --model opus --effort max "Complex multi-step analysis"
 ```
 
 ### 8.3 Model Switching
@@ -541,8 +549,9 @@ claude --betas "interleaved-thinking-2025-05-14" "effort-2025-11-24"
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
 | Flag definitions | `chunks.197.mjs:1023` | Commander options |
-| Effort validation | `chunks.197.mjs:1023` | low/medium/high only (max removed) |
+| Effort validation | `chunks.198.mjs:31` | low/medium/high/max validator |
 | Model validation | `chunks.197.mjs:1128` | Fallback != primary |
 | Agent resolution | `chunks.197.mjs:1350` | Agent override |
 | Beta constants | `chunks.1.mjs:2245` | Beta header strings |
-| Effort constants | `chunks.90.mjs:3070` | Valid effort levels |
+| Effort constants | `chunks.90.mjs:3070` | Valid effort levels (base) |
+| Max effort gate | `chunks.181.mjs:1830` | Opus 4.6 only check |

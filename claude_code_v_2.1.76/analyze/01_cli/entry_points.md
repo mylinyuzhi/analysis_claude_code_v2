@@ -9,21 +9,45 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (Chrome, IDE, Plugin)
 
 Key functions in this document:
-- `cliEntry` (qZz) - Top-level entry point: version check, subcommand routing, lazy main import
-- `determineEntrypoint` (iGz) - Sets `CLAUDE_CODE_ENTRYPOINT` env var based on argv and env
-- `mainEntry` (nGz) - Full startup: telemetry, client type detection, Commander invocation
-- `createRenderOptions` (rGz) - Builds Ink render options with FPS metrics and flicker tracking
-- `handleStdinInput` (oGz) - Reads stdin pipe into string or returns stream for stream-json mode
-- `renderFullscreenComponent` (LF) - Wraps a React component in AppStateProvider and renders fullscreen
-- `renderAndWait` (sl1) - Renders an Ink app and awaits its exit
-- `renderWithCallback` (mGz) - Promise wrapper: resolves when the rendered component calls its done callback
-- `showSetupScreens` (gRq) - Orchestrates all onboarding/trust/policy dialogs before the REPL
-- `onChangeAppStateHandler` (K11) - Synchronizes app state changes to persistent user settings
-- `AppStateRoot` (Pf1) - Root React component wrapping AppStateProvider and FPS metrics
-- `AppStateProvider` (u_) - React context provider for global state store
-- `createStateStore` (Gf6) - Observable state store factory (zustand-like but hand-rolled)
-- `cleanupOnExit` (tGz) - Restores terminal cursor on process exit
-- `noopCliOptionsPostProcess` (LUA) - Placeholder hook, intentionally empty
+- `cliEntry` (JVz) - Top-level entry point: version check, subcommand routing, lazy main import - chunks.198.mjs:1573
+- `mainEntry` (_Vz) - Main function: process setup, client type, calls run - chunks.197.mjs:1910
+- `run` (OVz) - Commander setup, argument parsing, action handler - chunks.198.mjs:3
+- `getEntrypoint` (aN9) - Returns `CLAUDE_CODE_ENTRYPOINT` env var - chunks.85.mjs:1821-1823
+- `determineEntrypoint` (zVz) - Sets CLAUDE_CODE_ENTRYPOINT based on launch context - chunks.197.mjs:1895
+- `createRenderOptions` (gEq) - Builds Ink render options with FPS metrics and flicker tracking - chunks.180.mjs:1248
+- `handleStdinInput` (wVz) - Reads stdin pipe into string or returns stream for stream-json mode - chunks.197.mjs:1943
+- `renderWithCallback` (Gjz) - Promise wrapper: resolves when the rendered component calls its done callback - chunks.180.mjs:1125
+- `renderFullscreenComponent` (Qh) - Wraps a React component in AppStateProvider and renders fullscreen - chunks.180.mjs:1141
+- `renderAndWait` (OV6) - Renders an Ink app and awaits its exit - chunks.180.mjs:1147
+- `showSetupScreens` (BEq) - Orchestrates all onboarding/trust/policy dialogs before the REPL - chunks.180.mjs:1151
+- `setSessionMetadata` (LF) - Sets session title, tag, agent name, PR info - chunks.174.mjs:2206
+- `AppStateProvider` (Yj) - React context provider for global state store - chunks.148.mjs:2544
+- `createStateStore` (WX1) - Observable state store factory (zustand-like but hand-rolled) - chunks.85.mjs:1747
+- `cleanupOnExit` (HVz) - Restores terminal cursor on process exit
+
+> **VERIFIED CORRECT MAPPINGS:** Cross-checked against source code in v2.1.76:
+> - `JVz` → `cliEntry` @ chunks.198.mjs:1573 ✓
+> - `_Vz` → `mainEntry` @ chunks.197.mjs:1910 ✓
+> - `OVz` → `run` @ chunks.198.mjs:3 ✓
+> - `aN9` → `getEntrypoint` @ chunks.85.mjs:1821 ✓
+> - `zVz` → `determineEntrypoint` @ chunks.197.mjs:1895 ✓
+> - `gEq` → `createRenderOptions` @ chunks.180.mjs:1248 ✓
+> - `wVz` → `handleStdinInput` @ chunks.197.mjs:1943 ✓
+> - `Gjz` → `renderWithCallback` @ chunks.180.mjs:1125 ✓
+> - `Qh` → `renderFullscreenComponent` @ chunks.180.mjs:1141 ✓
+> - `OV6` → `renderAndWait` @ chunks.180.mjs:1147 ✓
+> - `BEq` → `showSetupScreens` @ chunks.180.mjs:1151 ✓
+> - `LF` → `setSessionMetadata` @ chunks.174.mjs:2206 ✓
+> - `Yj` → `AppStateProvider` @ chunks.148.mjs:2544 ✓
+> - `WX1` → `createStateStore` @ chunks.85.mjs:1747 ✓
+
+> **INCORRECT MAPPINGS (DO NOT USE):**
+> - ~~`iGz` as `determineEntrypoint`~~ → `iGz` is actually `getVerbose` @ chunks.192.mjs:1971 (returns `A.verbose`)
+> - ~~`rGz` as `createRenderOptions`~~ → `rGz` is actually `getReplBridgeEnvironmentId` @ chunks.192.mjs:1979
+> - ~~`oGz` as `handleStdinInput`~~ → `oGz` is actually `getReplBridgeError` @ chunks.192.mjs:1983
+> - ~~`gRq` as `showSetupScreens`~~ → `gRq` is `randomUUID` from crypto @ cli.chunks.mjs:8526
+> - ~~`mGz` as `renderWithCallback`~~ → `mGz` is `sendModeChangeToTeamMembers` @ chunks.192.mjs:1670
+> - ~~`K11` as `onChangeAppStateHandler`~~ → `K11` is unrelated (in chunks.10.mjs)
 
 ---
 
@@ -35,9 +59,9 @@ Claude Code's startup is divided into four distinct phases, each loaded lazily t
 
 ```
 Phase 1: Bootstrap (cli.chunks.mjs)
-  └─ calls qZz (cliEntry)
+  └─ calls JVz (cliEntry)
 
-Phase 2: qZz - Early routing (chunks.198.mjs:167)
+Phase 2: JVz - Early routing (chunks.198.mjs:1573)
   ├─ --version          → print & exit
   ├─ --mcp-cli          → mcpCliMain() & exit
   ├─ --ripgrep          → ripgrepMain() & exit
@@ -46,13 +70,12 @@ Phase 2: qZz - Early routing (chunks.198.mjs:167)
   ├─ auth login|status|logout → authSubcommand() & return  [New in v2.1.76]
   └─ (default)          → startCapturingEarlyInput(), then lazy-import main
 
-Phase 3: nGz - Environment setup (chunks.197.mjs:931)
-  ├─ Telemetry markers (EK calls)
-  ├─ determineEntrypoint (iGz) → sets CLAUDE_CODE_ENTRYPOINT
-  ├─ Determine client type (H variable)
-  └─ calls aGz() (Commander setup)
+Phase 3: OVz - Environment setup (chunks.198.mjs:3)
+  ├─ Telemetry markers
+  ├─ Determine client type
+  └─ Commander setup with action handler
 
-Phase 4: aGz - Commander + REPL (chunks.198.mjs / chunks.196.mjs)
+Phase 4: Action Handler - Commander + REPL
   ├─ preAction: migrations, remote settings
   ├─ action handler: builds initialState (~35 fields), routes to render path
   └─ Renders TUA (REPL component) via renderFullscreenComponent
@@ -60,7 +83,7 @@ Phase 4: aGz - Commander + REPL (chunks.198.mjs / chunks.196.mjs)
 
 ### Why Lazy Loading?
 
-The `Promise.resolve().then(() => (...))` pattern used throughout `qZz` is the bundler's code-split syntax. Instead of loading all 198 chunks at startup, each subcommand path loads only what it needs. This means:
+The `Promise.resolve().then(() => (...))` pattern used throughout `JVz` is the bundler's code-split syntax. Instead of loading all 198 chunks at startup, each subcommand path loads only what it needs. This means:
 
 - `--ripgrep` never loads React, Ink, MCP, or any tool definitions
 - `--mcp-cli` never loads the REPL or UI components
@@ -70,7 +93,7 @@ This reduces cold-start latency for single-purpose invocations (e.g., ripgrep pa
 
 ---
 
-## 1. `cliEntry` (qZz) - Top-Level Entry Point
+## 1. `cliEntry` (JVz) - Top-Level Entry Point
 
 ### What it does
 
@@ -81,23 +104,63 @@ This reduces cold-start latency for single-purpose invocations (e.g., ripgrep pa
 ```javascript
 // ============================================
 // cliEntry - Top-level CLI entry point with subcommand routing
-// Location: chunks.198.mjs:167-222
+// Location: chunks.198.mjs:1573-1650
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function qZz() {
+async function JVz() {
     let A = process.argv.slice(2);
     if (A.length === 1 && (A[0] === "--version" || A[0] === "-v" || A[0] === "-V")) {
         console.log(`${VERSION} (Claude Code)`);
         return
     }
     let { profileCheckpoint: q } = await Promise.resolve().then(() => (Fl(), XiA));
-    if (q("cli_entry"), A[0] === "--mcp-cli") {
-        let { isMcpCliEnabled: w } = await Promise.resolve().then(() => (Tj(), $Xq));
-        if (w()) {
-            let H = A.slice(1),
-                { mcpCliMain: $ } = await Promise.resolve().then(() => (mXq(), BXq));
-            process.exit(await $(H))
+    if (q("cli_entry"), process.argv[2] === "--claude-in-chrome-mcp") {
+        // ...chrome-mcp path
+    } else if (process.argv[2] === "--chrome-native-host") {
+        // ...chrome native host path
+    }
+    // ... additional routing logic
+    let { startCapturingEarlyInput: Y } = await Promise.resolve().then(() => (bu6(), Ey7));
+    Y(), q("cli_before_main_import");
+    let { main: z } = await Promise.resolve().then(() => (Ta8(), yFq));
+    // ...
+}
+
+// READABLE (for understanding):
+async function cliEntry() {
+    let args = process.argv.slice(2);
+
+    // Fast path: --version without loading any modules
+    if (args.length === 1 && (args[0] === "--version" || args[0] === "-v" || args[0] === "-V")) {
+        console.log(`${VERSION} (Claude Code)`);
+        return;
+    }
+
+    // Load telemetry profiling
+    let { profileCheckpoint } = await import("./telemetry");
+    profileCheckpoint("cli_entry");
+
+    // Fast paths for special subcommands
+    if (process.argv[2] === "--claude-in-chrome-mcp") {
+        let { runClaudeInChromeMcpServer } = await import("./chrome-mcp");
+        await runClaudeInChromeMcpServer();
+        return;
+    }
+
+    // ... additional routing for chrome-native-host, remote-control, tmux, etc.
+
+    // Start capturing keyboard input early (before main loads)
+    let { startCapturingEarlyInput } = await import("./input");
+    startCapturingEarlyInput();
+
+    // Lazy load and call main()
+    let { main } = await import("./main");
+    await main();
+}
+
+// Mapping: JVz→cliEntry, A→args, q→profileCheckpoint, Y→startCapturingEarlyInput, z→main
+```
         }
     }
     if (A[0] === "--ripgrep") {
@@ -201,7 +264,7 @@ async function cliEntry() {
     profileCheckpoint("cli_after_main_complete");
 }
 
-// Mapping: qZz→cliEntry, A→args, q→profileCheckpoint, K→hasTmuxFlag,
+// Mapping: JVz→cliEntry, A→args, q→profileCheckpoint, K→hasTmuxFlag,
 //          Y→startCapturingEarlyInput, z→main, w→various subcommand exports
 ```
 
@@ -239,7 +302,7 @@ The function acts as a **dispatch table** executed before full application initi
 
 ---
 
-## 2. `determineEntrypoint` (iGz) - Entrypoint Classification
+## 2. `determineEntrypoint` (zVz) - Entrypoint Classification
 
 ### What it does
 
@@ -250,18 +313,18 @@ Sets the `CLAUDE_CODE_ENTRYPOINT` environment variable to one of several string 
 ```javascript
 // ============================================
 // determineEntrypoint - Classify launch context via env var
-// Location: chunks.197.mjs:916-930
+// Location: chunks.197.mjs:1895-1908
 // ============================================
 
 // ORIGINAL (for source lookup):
-function iGz(A) {
+function zVz(A) {
     if (process.env.CLAUDE_CODE_ENTRYPOINT) return;
     let q = process.argv.slice(2), K = q.indexOf("mcp");
     if (K !== -1 && q[K + 1] === "serve") {
         process.env.CLAUDE_CODE_ENTRYPOINT = "mcp";
         return
     }
-    if (J6(process.env.CLAUDE_CODE_ACTION)) {
+    if (t6(process.env.CLAUDE_CODE_ACTION)) {
         process.env.CLAUDE_CODE_ENTRYPOINT = "claude-code-github-action";
         return
     }
@@ -283,7 +346,7 @@ function determineEntrypoint(isNonInteractive) {
     }
 
     // GitHub Actions environment
-    if (isNonEmpty(process.env.CLAUDE_CODE_ACTION)) {
+    if (parseBoolean(process.env.CLAUDE_CODE_ACTION)) {
         process.env.CLAUDE_CODE_ENTRYPOINT = "claude-code-github-action";
         return;
     }
@@ -292,8 +355,8 @@ function determineEntrypoint(isNonInteractive) {
     process.env.CLAUDE_CODE_ENTRYPOINT = isNonInteractive ? "sdk-cli" : "cli";
 }
 
-// Mapping: iGz→determineEntrypoint, A→isNonInteractive, q→args, K→mcpIndex,
-//          J6→isNonEmpty
+// Mapping: zVz→determineEntrypoint, A→isNonInteractive, q→args, K→mcpIndex,
+//          t6→parseBoolean
 ```
 
 **Step-by-step breakdown:**
@@ -304,7 +367,7 @@ function determineEntrypoint(isNonInteractive) {
 
 3. **GitHub Actions detection:** `CLAUDE_CODE_ACTION` is a GitHub Actions-specific variable set by the GitHub Actions wrapper. Its presence (non-empty) indicates Claude Code is running in CI.
 
-4. **Interactive vs non-interactive:** The `isNonInteractive` parameter is computed in `mainEntry` (nGz) by checking for `-p`/`--print`, `--init-only`, `--sdk-url`, or `!process.stdout.isTTY`. This is the "SDK CLI" mode: the TypeScript and Python SDKs invoke Claude Code as a subprocess with `--print` or piped stdio.
+4. **Interactive vs non-interactive:** The `isNonInteractive` parameter is computed in `mainEntry` (_Vz) by checking for `-p`/`--print`, `--init-only`, `--sdk-url`, or `!process.stdout.isTTY`. This is the "SDK CLI" mode: the TypeScript and Python SDKs invoke Claude Code as a subprocess with `--print` or piped stdio.
 
 **Known entrypoint values and their meanings:**
 
@@ -322,46 +385,52 @@ function determineEntrypoint(isNonInteractive) {
 
 ---
 
-## 3. `mainEntry` (nGz) - Full Application Startup
+## 3. `mainEntry` (_Vz) - Full Application Startup
 
 ### What it does
 
-`mainEntry` is the orchestration layer between the lightweight bootstrap (`cliEntry`) and the Commander-based argument parsing. It performs environment setup, telemetry initialization, client type classification, and then delegates to `aGz` (Commander setup) for argument parsing and REPL rendering.
+`mainEntry` is the orchestration layer between the lightweight bootstrap (`cliEntry`) and the Commander-based argument parsing. It performs environment setup, telemetry initialization, client type classification, and then delegates to `OVz` (run) for Commander parsing and REPL rendering.
 
 ### How it works
 
 ```javascript
 // ============================================
 // mainEntry - Full startup orchestrator
-// Location: chunks.197.mjs:931-957
+// Location: chunks.197.mjs:1910-1941
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function nGz() {
-    EK("main_function_start"), process.env.NoDefaultCurrentDirectoryInExePath = "1", _Dq(), process.on("exit", () => {
-        tGz()
+async function _Vz() {
+    Zq("main_function_start"), process.env.NoDefaultCurrentDirectoryInExePath = "1", eVq(), process.on("exit", () => {
+        HVz()
     }), process.on("SIGINT", () => {
         process.exit(0)
-    }), EK("main_warning_handler_initialized");
+    }), Zq("main_warning_handler_initialized");
     let A = process.argv.slice(2),
         q = A.includes("-p") || A.includes("--print"),
         K = A.includes("--init-only"),
         Y = A.some(($) => $.startsWith("--sdk-url")),
         z = q || K || Y || !process.stdout.isTTY;
-    if (z) yr();
-    bL6(!z), iGz(z);
-    let H = (() => {
-        if (process.env.GITHUB_ACTIONS === "true") return "github-action";
+    if (z) $s();
+    vu1(!z), zVz(z);
+    let w = (() => {
+        if (t6(process.env.GITHUB_ACTIONS)) return "github-action";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-ts") return "sdk-typescript";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-vscode") return "claude-vscode";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "local-agent") return "local-agent";
+        if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-desktop") return "claude-desktop";
         let $ = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN || process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "remote" || $) return "remote";
         return "cli"
     })();
-    uL6(H), EK("main_client_type_determined"), lGz(), EK("main_before_run"), process.title = "claude", await aGz(), EK("main_after_run")
+    Nu1(w);
+    let O = process.env.CLAUDE_CODE_QUESTION_PREVIEW_FORMAT;
+    if (O === "markdown" || O === "html") Et6(O);
+    else if (!w.startsWith("sdk-")) Et6("markdown");
+    if (process.env.CLAUDE_CODE_ENVIRONMENT_KIND === "bridge") ku1("remote-control");
+    Zq("main_client_type_determined"), YVz(), Zq("main_before_run"), process.title = "claude", await OVz(), Zq("main_after_run")
 }
 
 // READABLE (for understanding):
@@ -400,12 +469,13 @@ async function mainEntry() {
 
     // Map entrypoint to client type string for telemetry and analytics
     let clientType = (() => {
-        if (process.env.GITHUB_ACTIONS === "true") return "github-action";
+        if (parseBoolean(process.env.GITHUB_ACTIONS)) return "github-action";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-ts") return "sdk-typescript";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-vscode") return "claude-vscode";
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "local-agent") return "local-agent";
+        if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-desktop") return "claude-desktop";
         let tokenOrFd = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN
                      || process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
         if (process.env.CLAUDE_CODE_ENTRYPOINT === "remote" || tokenOrFd) return "remote";
@@ -413,22 +483,30 @@ async function mainEntry() {
     })();
 
     setClientType(clientType);
-    recordTelemetry("main_client_type_determined");
 
+    // Set question preview format (markdown for non-SDK clients)
+    let previewFormat = process.env.CLAUDE_CODE_QUESTION_PREVIEW_FORMAT;
+    if (previewFormat === "markdown" || previewFormat === "html") setQuestionPreviewFormat(previewFormat);
+    else if (!clientType.startsWith("sdk-")) setQuestionPreviewFormat("markdown");
+
+    // Handle bridge environment
+    if (process.env.CLAUDE_CODE_ENVIRONMENT_KIND === "bridge") setBridgeMode("remote-control");
+
+    recordTelemetry("main_client_type_determined");
     initGlobalState();
     recordTelemetry("main_before_run");
 
     process.title = "claude";  // Shows as "claude" in ps/top output
 
-    await commanderSetup();   // aGz: parse args, render REPL
+    await run();   // OVz: parse args, render REPL
     recordTelemetry("main_after_run");
 }
 
-// Mapping: nGz→mainEntry, EK→recordTelemetry, _Dq→initWarningHandlers,
-//          tGz→cleanupOnExit, A→args, q→hasPrint, K→hasInitOnly, Y→hasSdkUrl,
-//          z→isNonInteractive, yr→suppressTtyOutput, bL6→setRenderMode,
-//          iGz→determineEntrypoint, H→clientType, uL6→setClientType,
-//          lGz→initGlobalState, aGz→commanderSetup
+// Mapping: _Vz→mainEntry, Zq→recordTelemetry, eVq→initWarningHandlers,
+//          HVz→cleanupOnExit, A→args, q→hasPrint, K→hasInitOnly, Y→hasSdkUrl,
+//          z→isNonInteractive, $s→suppressTtyOutput, vu1→setRenderMode,
+//          zVz→determineEntrypoint, w→clientType, Nu1→setClientType,
+//          YVz→initGlobalState, OVz→run, t6→parseBoolean, Et6→setQuestionPreviewFormat
 ```
 
 **Step-by-step breakdown:**
@@ -453,7 +531,7 @@ async function mainEntry() {
 
 ---
 
-## 4. `createRenderOptions` (rGz) - Ink Render Configuration
+## 4. `createRenderOptions` (gEq) - Ink Render Configuration
 
 ### What it does
 
@@ -464,29 +542,43 @@ Constructs the configuration object passed to Ink's `render()` function. Critica
 ```javascript
 // ============================================
 // createRenderOptions - Ink render config with FPS and flicker tracking
-// Location: chunks.197.mjs:958-983
+// Location: chunks.180.mjs:1248-1282
 // ============================================
 
 // ORIGINAL (for source lookup):
-function rGz(A) {
-    let q = 0, K = js(A);
-    if (K.stdin) c("tengu_stdin_interactive", {});
-    let Y = new _QA;
+function gEq(A) {
+    let q = 0,
+        K = xc(A);
+    if (K.stdin) d("tengu_stdin_interactive", {});
+    let Y = new ja8,
+        z = Ma8();
+    zu1(z);
+    let _ = process.env.CLAUDE_CODE_FRAME_TIMING_LOG;
     return {
         getFpsMetrics: () => Y.getMetrics(),
+        stats: z,
         renderOptions: {
             ...K,
-            onFrame: (z) => {
-                if (Y.record(z.durationMs), Tv7()) return;
-                for (let w of z.flickers) {
-                    if (w.reason === "resize") continue;
-                    let H = Date.now();
-                    if (H - q < 1000) c("tengu_flicker", {
-                        desiredHeight: w.desiredHeight,
-                        actualHeight: w.availableHeight,
-                        reason: w.reason
+            onFrame: (w) => {
+                if (Y.record(w.durationMs), z.observe("frame_duration_ms", w.durationMs), _ && w.phases) {
+                    let O = JSON.stringify({
+                        total: w.durationMs,
+                        ...w.phases,
+                        rss: process.memoryUsage.rss(),
+                        cpu: process.cpuUsage()
+                    }) + `\n`;
+                    Wjz(_, O)
+                }
+                if (hH8()) return;
+                for (let O of w.flickers) {
+                    if (O.reason === "resize") continue;
+                    let $ = Date.now();
+                    if ($ - q < 1000) d("tengu_flicker", {
+                        desiredHeight: O.desiredHeight,
+                        actualHeight: O.availableHeight,
+                        reason: O.reason
                     });
-                    q = H
+                    q = $
                 }
             }
         }
@@ -496,21 +588,39 @@ function rGz(A) {
 // READABLE (for understanding):
 function createRenderOptions(cliOptions) {
     let lastFlickerTimestamp = 0;
-    let inkOptions = resolveInkOptions(cliOptions);  // js()
+    let inkOptions = resolveInkOptions(cliOptions);  // xc()
 
     // Track if stdin is connected (used for telemetry)
     if (inkOptions.stdin) recordTelemetry("tengu_stdin_interactive", {});
 
-    let fpsTracker = new FpsMetricsTracker();  // _QA
+    let fpsTracker = new FpsMetricsTracker();  // ja8
+    let statsCollector = createStatsCollector();  // Ma8()
+    initStatsCollector(statsCollector);  // zu1()
+
+    // Optional: detailed frame timing log for debugging
+    let frameTimingLog = process.env.CLAUDE_CODE_FRAME_TIMING_LOG;
 
     return {
         // Exposed so AppStateRoot can query render performance
         getFpsMetrics: () => fpsTracker.getMetrics(),
+        stats: statsCollector,
         renderOptions: {
             ...inkOptions,
             onFrame: (frameInfo) => {
                 // Always record frame timing
                 fpsTracker.record(frameInfo.durationMs);
+                statsCollector.observe("frame_duration_ms", frameInfo.durationMs);
+
+                // Optional: write detailed frame timing to log file
+                if (frameTimingLog && frameInfo.phases) {
+                    let logEntry = JSON.stringify({
+                        total: frameInfo.durationMs,
+                        ...frameInfo.phases,
+                        rss: process.memoryUsage.rss(),
+                        cpu: process.cpuUsage()
+                    }) + "\n";
+                    appendToFile(frameTimingLog, logEntry);
+                }
 
                 // If in tmux or non-TTY mode, skip flicker reporting
                 if (isTmuxMode()) return;
@@ -536,9 +646,10 @@ function createRenderOptions(cliOptions) {
     };
 }
 
-// Mapping: rGz→createRenderOptions, A→cliOptions, q→lastFlickerTimestamp,
-//          K→inkOptions, js→resolveInkOptions, Y→fpsTracker, _QA→FpsMetricsTracker,
-//          z→frameInfo, w→flicker, H→now, Tv7→isTmuxMode, c→recordTelemetry
+// Mapping: gEq→createRenderOptions, A→cliOptions, q→lastFlickerTimestamp,
+//          K→inkOptions, xc→resolveInkOptions, Y→fpsTracker, ja8→FpsMetricsTracker,
+//          z→statsCollector, w→frameInfo, O→flicker, $→now, hH8→isTmuxMode,
+//          d→recordTelemetry, Ma8→createStatsCollector, zu1→initStatsCollector
 ```
 
 **Why flicker detection matters:**
@@ -549,7 +660,7 @@ The 1000ms rate limit prevents telemetry flooding during rapid resize events. Re
 
 ---
 
-## 5. `handleStdinInput` (oGz) - Stdin Mode Detection and Reading
+## 5. `handleStdinInput` (wVz) - Stdin Mode Detection and Reading
 
 ### What it does
 
@@ -560,13 +671,13 @@ Determines how to handle stdin: if it is a TTY (interactive terminal), pass the 
 ```javascript
 // ============================================
 // handleStdinInput - Stdin pipe reading and stream-json routing
-// Location: chunks.197.mjs:984-1000
+// Location: chunks.197.mjs:1943-1956
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function oGz(A, q) {
+async function wVz(A, q) {
     if (!process.stdin.isTTY && !process.argv.includes("mcp")) {
-        if (u8("piping"), q === "stream-json") return process.stdin;
+        if (q === "stream-json") return process.stdin;
         process.stdin.setEncoding("utf8");
         let K = "";
         return process.stdin.on("data", (Y) => {
@@ -582,8 +693,6 @@ async function oGz(A, q) {
 async function handleStdinInput(promptArg, inputFormat) {
     // Check: is stdin a pipe AND we're not in MCP server mode?
     if (!process.stdin.isTTY && !process.argv.includes("mcp")) {
-        recordContextFlag("piping");  // u8()
-
         // stream-json mode: pass the raw stream to the input processor
         if (inputFormat === "stream-json") return process.stdin;
 
@@ -606,8 +715,8 @@ async function handleStdinInput(promptArg, inputFormat) {
     return promptArg;
 }
 
-// Mapping: oGz→handleStdinInput, A→promptArg, q→inputFormat, K→buffered,
-//          Y→chunk/resolve, u8→recordContextFlag
+// Mapping: wVz→handleStdinInput, A→promptArg, q→inputFormat, K→buffered,
+//          Y→chunk/resolve
 ```
 
 **Three distinct execution paths:**
@@ -627,18 +736,18 @@ async function handleStdinInput(promptArg, inputFormat) {
 
 ## 6. Ink Render Engine
 
-The three rendering primitives (`mGz`, `LF`, `$l1`) form a layered abstraction over Ink's React rendering system.
+The three rendering primitives (`Gjz`, `Qh`, `OV6`) form a layered abstraction over Ink's React rendering system.
 
-### `renderWithCallback` (mGz) - Promise-Based One-Shot Render
+### `renderWithCallback` (Gjz) - Promise-Based One-Shot Render
 
 ```javascript
 // ============================================
 // renderWithCallback - Render a component and resolve when it calls done()
-// Location: chunks.197.mjs:741-752
+// Location: chunks.180.mjs:1125-1130
 // ============================================
 
 // ORIGINAL (for source lookup):
-function mGz(A, q) {
+function Gjz(A, q) {
     return new Promise((K) => {
         let Y = (z) => void K(z);
         A.render(q(Y))
@@ -656,25 +765,25 @@ function renderWithCallback(inkInstance, componentFactory) {
     });
 }
 
-// Mapping: mGz→renderWithCallback, A→inkInstance, q→componentFactory,
+// Mapping: Gjz→renderWithCallback, A→inkInstance, q→componentFactory,
 //          K→resolve, Y→done, z→result
 ```
 
 **Pattern explained:** This is the standard "callback-to-promise" bridge pattern. The React component receives `done` as a prop (typically called `onDone`). When the user completes the dialog (clicks Accept, presses Enter, etc.), the component calls `onDone(result)`, which triggers `resolve(result)`, completing the promise. The caller `await`s the promise to know when the dialog is dismissed.
 
-### `renderFullscreenComponent` (LF) - Full-Screen Dialog Wrapper
+### `renderFullscreenComponent` (Qh) - Full-Screen Dialog Wrapper
 
 ```javascript
 // ============================================
 // renderFullscreenComponent - Fullscreen dialog with AppStateProvider
-// Location: chunks.197.mjs:748-753
+// Location: chunks.180.mjs:1141-1145
 // ============================================
 
 // ORIGINAL (for source lookup):
-function LF(A, q, K) {
-    return mGz(A, (Y) => wO.default.createElement(u_, {
+function Qh(A, q, K) {
+    return Gjz(A, (Y) => ph.default.createElement(Yj, {
         onChangeAppState: K?.onChangeAppState
-    }, wO.default.createElement(dX, null, q(Y))))
+    }, ph.default.createElement(aj, null, q(Y))))
 }
 
 // READABLE (for understanding):
@@ -690,42 +799,40 @@ function renderFullscreenComponent(inkInstance, componentFactory, options) {
     );
 }
 
-// Mapping: LF→renderFullscreenComponent, A→inkInstance, q→componentFactory,
-//          K→options, Y→done, u_→AppStateProvider, dX→FullscreenBox,
-//          wO→React, mGz→renderWithCallback
+// Mapping: Qh→renderFullscreenComponent, A→inkInstance, q→componentFactory,
+//          K→options, Y→done, Yj→AppStateProvider, aj→FullscreenBox,
+//          ph→React, Gjz→renderWithCallback
 ```
 
 **Three layers of wrapping:**
 
-1. `AppStateProvider` (`u_`): Provides the global state store context so the dialog can read/write app state (e.g., the onboarding dialog writes `hasCompletedOnboarding`).
-2. `FullscreenBox` (`dX`): An Ink box component that occupies the full terminal height/width.
+1. `AppStateProvider` (`Yj`): Provides the global state store context so the dialog can read/write app state (e.g., the onboarding dialog writes `hasCompletedOnboarding`).
+2. `FullscreenBox` (`aj`): An Ink box component that occupies the full terminal height/width.
 3. `componentFactory(done)`: The actual dialog component, receiving the `done` callback.
 
-The `options?.onChangeAppState` is only passed during REPL rendering (where `K11` is used). For standalone dialogs (like `gRq`'s dialogs), it may be omitted or provide a specific handler.
-
-### `renderAndWait` ($l1) - Render and Block Until Exit
+### `renderAndWait` (OV6) - Render and Block Until Exit
 
 ```javascript
 // ============================================
 // renderAndWait - Render a full Ink app and await its exit
-// Location: chunks.197.mjs:754-757
+// Location: chunks.180.mjs:1147-1149
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function $l1(A, q) {
-    A.render(q), RUA(), await A.waitUntilExit(), await nK(0)
+async function OV6(A, q) {
+    A.render(q), mC1(), await A.waitUntilExit(), await Vq(0)
 }
 
 // READABLE (for understanding):
 async function renderAndWait(inkInstance, reactElement) {
     inkInstance.render(reactElement);   // Render the component tree
-    flushRenderQueue();                 // RUA(): force synchronous first render
+    flushRenderQueue();                 // mC1(): force synchronous first render
     await inkInstance.waitUntilExit(); // Block until unmount
-    await sleep(0);                    // nK(0): yield to event loop for cleanup
+    await sleep(0);                    // Vq(0): yield to event loop for cleanup
 }
 
-// Mapping: $l1→renderAndWait, A→inkInstance, q→reactElement,
-//          RUA→flushRenderQueue, nK→sleep
+// Mapping: OV6→renderAndWait, A→inkInstance, q→reactElement,
+//          mC1→flushRenderQueue, Vq→sleep
 ```
 
 **Why `await sleep(0)` at the end?**
@@ -736,7 +843,7 @@ After `waitUntilExit()` resolves, Ink has unmounted its React tree but asynchron
 
 ---
 
-## 7. Setup Screens (`showSetupScreens` / gRq)
+## 7. Setup Screens (`showSetupScreens` / BEq)
 
 ### What it does
 
@@ -747,27 +854,19 @@ Orchestrates a sequential series of modal dialogs that must be completed before 
 ```javascript
 // ============================================
 // showSetupScreens - Sequential onboarding/trust dialog orchestrator
-// Location: chunks.197.mjs:758-851
+// Location: chunks.180.mjs:1151-1246
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function gRq(A, q, K, Y, z) {
-    if (J6(!1) || process.env.IS_DEMO) return !1;
-    let w = f6(), H = !1;
-    if (!w.theme || !w.hasCompletedOnboarding) {
-        H = !0;
-        let [, { Onboarding: $ }] = await Promise.all([Dt(), Promise.resolve().then(() => (Q0q(), F0q))]);
-        await LF(A, (O) => wO.default.createElement($, { onDone: () => { QRq(), O() } }), { onChangeAppState: K11 })
-    }
-    if (q !== "bypassPermissions" && !J6(process.env.CLAUBBIT)) {
-        let { TrustDialog: $ } = await Promise.resolve().then(() => (qjq(), Ajq));
-        await LF(A, (_) => wO.default.createElement($, { commands: Y, onDone: _ })), QT6(), Of1(), l$();
-        let { errors: O } = Jc();
-        if (O.length === 0) await dDq(A);
-        if (await Wp7()) {
-            let _ = su1();
-            await LF(A, (J) => wO.default.createElement(OV6, { onDone: J, isStandaloneDialog: !0, externalIncludes: _ }))
-        }
+async function BEq(A, q, K, Y, z) {
+    if (t6(!1) || process.env.IS_DEMO) return !1;
+    let _ = X1(), w = !1;
+    if (!_.theme || !_.hasCompletedOnboarding) {
+        w = !0;
+        let [, { Onboarding: O }] = await Promise.all([Jz6(), Promise.resolve().then(() => (DEq(), MEq))]);
+        await Qh(A, ($) => ph.default.createElement(O, {
+            onDone: () => { Zjz(), $() }
+        }), { onChangeAppState: bi })
     }
     if (H0q(), q11(), dFA(), await NM1()) {
         if (await LF(A, (O) => wO.default.createElement(RN6, {
@@ -1006,7 +1105,7 @@ function createStateStore(initialState, onChangeCallback) {
     };
 }
 
-// Mapping: Gf6→createStateStore, A→initialState, q→onChangeCallback,
+// Mapping: WX1→createStateStore, A→initialState, q→onChangeCallback,
 //          K→currentState, Y→subscribers, z→updater, w→prevState,
 //          H→nextState, $→notify
 ```
@@ -1027,27 +1126,27 @@ The store is a hand-rolled implementation of the [zustand](https://github.com/pm
 1. `onChangeCallback` (the `K11` / `onChangeAppStateHandler` function) - synchronizes state changes to persistent settings
 2. All `subscribers` - triggers React re-renders via `useSyncExternalStore`
 
-### `AppStateProvider` (u_) - React Context Binding
+### `AppStateProvider` (Yj) - React Context Binding
 
 ```javascript
 // ============================================
 // AppStateProvider - React context provider for global state store
-// Location: chunks.151.mjs:522-580
+// Location: chunks.148.mjs:2544-2583
 // ============================================
 
 // ORIGINAL (for source lookup):
-function u_(A) {
-    let q = e(13), { children: K, initialState: Y, onChangeAppState: z } = A;
-    if (eD.useContext(T6q)) throw Error("AppStateProvider can not be nested within another AppStateProvider");
-    let H;
-    if (q[0] !== Y || q[1] !== z) H = () => Gf6(Y ?? gG1(), z), q[0] = Y, q[1] = z, q[2] = H;
-    else H = q[2];
-    let [$] = eD.useState(H), O;
-    if (q[3] !== $) O = () => {
-        let { toolPermissionContext: M } = $.getState();
-        if (M.isBypassPermissionsModeAvailable && rD1()) h("Disabling bypass permissions mode on mount (remote settings loaded before mount)"), $.setState(tcY)
-    }, q[3] = $, q[4] = O;
-    else O = q[4];
+function Yj(A) {
+    let q = A6(13), { children: K, initialState: Y, onChangeAppState: z } = A;
+    if (wD.useContext(rKq)) throw Error("AppStateProvider can not be nested within another AppStateProvider");
+    let w;
+    if (q[0] !== Y || q[1] !== z) w = () => WX1(Y ?? z16(), z), q[0] = Y, q[1] = z, q[2] = w;
+    else w = q[2];
+    let [O] = wD.useState(w), $;
+    if (q[3] !== O) $ = () => {
+        let { toolPermissionContext: X } = O.getState();
+        if (X.isBypassPermissionsModeAvailable && bd()) k("Disabling bypass permissions mode on mount (remote settings loaded before mount)"), O.setState(_BY)
+    }, q[3] = O, q[4] = $;
+    else $ = q[4];
     let _;
     if (q[5] === Symbol.for("react.memo_cache_sentinel")) _ = [], q[5] = _;
     else _ = q[5];
@@ -1090,9 +1189,9 @@ function AppStateProvider({ children, initialState, onChangeAppState }) {
     );
 }
 
-// Mapping: u_→AppStateProvider, Gf6→createStateStore, gG1→getDefaultInitialState,
-//          T6q→AppStateProviderContext, $→store, rD1→isRemoteSettingsLoaded,
-//          tcY→disableBypassPermissionsMode, h→log
+// Mapping: Yj→AppStateProvider, WX1→createStateStore, z16→getDefaultInitialState,
+//          rKq→AppStateProviderContext, O→store, bd→isRemoteSettingsLoaded,
+//          _BY→disableBypassPermissionsMode, k→log
 ```
 
 **The `useState(factory)` pattern for stable store creation:**
@@ -1451,11 +1550,11 @@ Action:
 
 All telemetry markers (`EK()` / `recordTelemetry()`) fired during startup, in chronological order:
 
-### Phase A: `cliEntry` (qZz) - Subcommand Routing
+### Phase A: `cliEntry` (JVz) - Subcommand Routing
 
 | Marker | Meaning |
 |--------|---------|
-| `cli_entry` | `qZz` started; basic args parsed |
+| `cli_entry` | `JVz` started; basic args parsed |
 | `cli_ripgrep_path` | Routing to ripgrep handler |
 | `cli_claude_in_chrome_mcp_path` | Routing to Chrome MCP server |
 | `cli_chrome_native_host_path` | Routing to Chrome native host |
@@ -1463,11 +1562,11 @@ All telemetry markers (`EK()` / `recordTelemetry()`) fired during startup, in ch
 | `cli_after_main_import` | Main chunk loaded, `main()` about to run |
 | `cli_after_main_complete` | `main()` returned |
 
-### Phase B: `mainEntry` (nGz) - Environment Setup
+### Phase B: `main` (OVz) - Environment Setup
 
 | Marker | Meaning |
 |--------|---------|
-| `main_function_start` | `nGz` entered |
+| `main_function_start` | `OVz` entered |
 | `main_warning_handler_initialized` | `unhandledRejection` handlers set up |
 | `main_client_type_determined` | `clientType` computed, passed to analytics |
 | `main_before_run` | Global state initialized, about to call Commander |
@@ -1627,7 +1726,7 @@ function AppStateRoot({ getFpsMetrics, initialState, children }) {
 
 // Mapping: Pf1→AppStateRoot, q→cache, e→useCompilerCache, K→getFpsMetrics,
 //          Y→initialState, z→children, w→stateProviderElement,
-//          u_→AppStateProvider, K11→onChangeAppStateHandler,
+//          Yj→AppStateProvider, K11→onChangeAppStateHandler,
 //          H→fpsWrapperElement, BDq→FpsMetricsWrapper
 ```
 

@@ -10,9 +10,10 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Compact Module
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - LLM API
 
-Key functions in this document:
-- `autoCompactDispatcher` (sqq) - Top-level auto-compaction orchestrator
-- `shouldTriggerAutoCompaction` (CmY) - Determines if compaction is needed
+Key functions in this document (verified locations):
+- `isAutoCompactEnabled` (Xh) - chunks.147.mjs:2614-2617
+- `shouldTriggerAutoCompaction` (CmY) - chunks.147.mjs:2620-2631
+- `autoCompactDispatcher` (sqq) - chunks.147.mjs:2633-2674
 - `getAutoCompactThreshold` (oc6) - Returns token threshold for triggering
 - `trySessionMemoryQuickPath` (lE1) - Session memory compaction path
 - `performFullCompaction` (mf6) - Standard compaction path
@@ -98,18 +99,20 @@ The compact system integrates with CLI through:
 
 ### 1.1 Disable Flags
 
-**Source location:** `chunks.147.mjs:760-763`
+**Source location:** `chunks.147.mjs:2614-2617`
 
 ```javascript
 // ============================================
 // isAutoCompactEnabled - Check if auto-compact is enabled
-// Location: chunks.147.mjs:760-763
+// Location: chunks.147.mjs:2614-2617
 // ============================================
 
 // ORIGINAL (for source lookup):
-if (J6(process.env.DISABLE_COMPACT)) return !1;
-if (J6(process.env.DISABLE_AUTO_COMPACT)) return !1;
-return f6().autoCompactEnabled
+function Xh() {
+    if (t6(process.env.DISABLE_COMPACT)) return !1;
+    if (t6(process.env.DISABLE_AUTO_COMPACT)) return !1;
+    return X1().autoCompactEnabled
+}
 
 // READABLE (for understanding):
 function isAutoCompactEnabled() {
@@ -125,7 +128,7 @@ function isAutoCompactEnabled() {
     return getUserSettings().autoCompactEnabled;
 }
 
-// Mapping: J6→parseBoolean, f6→getUserSettings
+// Mapping: Xh→isAutoCompactEnabled, t6→parseBoolean, X1→getUserSettings
 ```
 
 ### 1.2 Environment Variables Reference
@@ -140,104 +143,164 @@ function isAutoCompactEnabled() {
 
 ## 2. autoCompactDispatcher (sqq)
 
-**What it does:** Top-level orchestrator that decides whether compaction is needed and which compaction path to use.
+**What it does:** Top-level orchestrator that decides whether compaction is needed and which compaction path to use. Includes circuit breaker logic to stop after 3 consecutive failures.
 
-**Location:** `chunks.147.mjs:2633-2658`
+**Location:** `chunks.147.mjs:2633-2674`
 
 ### 2.1 Function Implementation
 
 ```javascript
 // ============================================
 // autoCompactDispatcher - Main compaction orchestrator
-// Location: chunks.147.mjs:2633-2658
+// Location: chunks.147.mjs:2633-2674
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function sqq(A, q, K, Y) {
-    if (J6(process.env.DISABLE_COMPACT)) return {
+async function sqq(A, q, K, Y, z, _) {
+    if (t6(process.env.DISABLE_COMPACT)) return {
         wasCompacted: !1
     };
-    let z = q.options.mainLoopModel;
-    if (!await CmY(A, z, Y)) return {
+    if (z?.consecutiveFailures !== void 0 && z.consecutiveFailures >= aqq) return {
         wasCompacted: !1
     };
-    let H = await lE1(A, q.agentId, oc6(z));
-    if (H) return i51(void 0), {
+    let w = q.options.mainLoopModel;
+    if (!await CmY(A, w, Y, _)) return {
+        wasCompacted: !1
+    };
+    let $ = {
+            isRecompactionInChain: z?.compacted === !0,
+            turnsSincePreviousCompact: z?.turnCounter ?? -1,
+            previousCompactTurnId: z?.turnId,
+            autoCompactThreshold: oc6(w),
+            querySource: Y
+        },
+        H = await lE1(A, q.agentId, $.autoCompactThreshold);
+    if (H) return K16(void 0), gl(), {
         wasCompacted: !0,
         compactionResult: H
     };
     try {
-        let $ = await mf6(A, q, K, !0, void 0, !0);
-        return i51(void 0), {
+        let j = await mf6(A, q, K, !0, void 0, !0, $);
+        return K16(void 0), gl(), {
             wasCompacted: !0,
-            compactionResult: $
+            compactionResult: j,
+            consecutiveFailures: 0
         }
-    } catch ($) {
-        if (!ST1($, e31)) K1($ instanceof Error ? $ : Error(String($)));
+    } catch (j) {
+        if (!$r(j, zl)) _6(j);
+        let M = (z?.consecutiveFailures ?? 0) + 1;
+        if (M >= aqq) k(`autocompact: circuit breaker tripped after ${M} consecutive failures — skipping future attempts this session`, {
+            level: "warn"
+        });
         return {
-            wasCompacted: !1
+            wasCompacted: !1,
+            consecutiveFailures: M
         }
     }
 }
 
 // READABLE (for understanding):
-async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, querySource) {
+async function autoCompactDispatcher(
+    messages,
+    sessionContext,
+    cacheSafeParams,
+    querySource,
+    compactState,      // v2.1.76: Tracks consecutive failures
+    tokensFreedBySnip  // v2.1.76: Tokens freed by previous snip operation
+) {
     // Step 1: Check if compaction is globally disabled
     if (parseBoolean(process.env.DISABLE_COMPACT)) {
         return { wasCompacted: false };
     }
 
-    // Step 2: Get model for threshold calculation
-    let model = sessionContext.options.mainLoopModel;
-
-    // Step 3: Check if compaction is needed
-    if (!await shouldTriggerAutoCompaction(messages, model, querySource)) {
+    // Step 2: Circuit breaker check (v2.1.76)
+    // Stop trying after 3 consecutive failures
+    if (compactState?.consecutiveFailures !== undefined &&
+        compactState.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
         return { wasCompacted: false };
     }
 
-    // Step 4: Try session memory compaction first (new path)
+    // Step 3: Get model for threshold calculation
+    let model = sessionContext.options.mainLoopModel;
+
+    // Step 4: Check if compaction is needed
+    if (!await shouldTriggerAutoCompaction(messages, model, querySource, tokensFreedBySnip)) {
+        return { wasCompacted: false };
+    }
+
+    // Step 5: Build compaction context (v2.1.76 enhanced)
+    let compactionContext = {
+        isRecompactionInChain: compactState?.compacted === true,
+        turnsSincePreviousCompact: compactState?.turnCounter ?? -1,
+        previousCompactTurnId: compactState?.turnId,
+        autoCompactThreshold: getAutoCompactThreshold(model),
+        querySource: querySource
+    };
+
+    // Step 6: Try session memory compaction first (new path)
     let sessionMemoryResult = await trySessionMemoryQuickPath(
         messages,
         sessionContext.agentId,
-        getAutoCompactThreshold(model)
+        compactionContext.autoCompactThreshold
     );
 
     if (sessionMemoryResult) {
         clearLastCompactionTimestamp(void 0);
+        resetCircuitBreaker();
         return {
             wasCompacted: true,
             compactionResult: sessionMemoryResult
         };
     }
 
-    // Step 5: Fall back to standard compaction
+    // Step 7: Fall back to standard compaction
     try {
         let standardResult = await performFullCompaction(
             messages,
             sessionContext,
             cacheSafeParams,
-            true,           // isAutoCompact
-            void 0,         // customPrompt
-            true            // skipPrePostHooks
+            true,              // isAutoCompact
+            void 0,            // customPrompt
+            true,              // skipPrePostHooks
+            compactionContext  // v2.1.76: Pass context
         );
         clearLastCompactionTimestamp(void 0);
+        resetCircuitBreaker();
         return {
             wasCompacted: true,
-            compactionResult: standardResult
+            compactionResult: standardResult,
+            consecutiveFailures: 0  // Reset on success
         };
     } catch (error) {
         // Only log non-expected compaction errors
         if (!matchesErrorType(error, ExpectedCompactionError)) {
             logError(error instanceof Error ? error : Error(String(error)));
         }
-        return { wasCompacted: false };
+
+        // Increment failure counter
+        let newFailureCount = (compactState?.consecutiveFailures ?? 0) + 1;
+
+        // Log circuit breaker trip
+        if (newFailureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+            debug(`autocompact: circuit breaker tripped after ${newFailureCount} consecutive failures — skipping future attempts this session`, {
+                level: "warn"
+            });
+        }
+
+        return {
+            wasCompacted: false,
+            consecutiveFailures: newFailureCount
+        };
     }
 }
 
 // Mapping: sqq→autoCompactDispatcher, A→messages, q→sessionContext,
-//          K→cacheSafeParams, Y→querySource, z→model, H→sessionMemoryResult,
+//          K→cacheSafeParams, Y→querySource, z→compactState, _→tokensFreedBySnip,
+//          w→model, H→sessionMemoryResult, $→compactionContext,
 //          CmY→shouldTriggerAutoCompaction, lE1→trySessionMemoryQuickPath,
-//          oc6→getAutoCompactThreshold, mf6→performFullCompaction, i51→clearLastCompactionTimestamp
+//          oc6→getAutoCompactThreshold, mf6→performFullCompaction,
+//          K16→clearLastCompactionTimestamp, gl→resetCircuitBreaker,
+//          aqq→CIRCUIT_BREAKER_THRESHOLD (3)
 ```
 
 ### 2.2 Decision Logic Flow
@@ -288,21 +351,26 @@ async function autoCompactDispatcher(messages, sessionContext, cacheSafeParams, 
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function CmY(A, q, K) {
+async function CmY(A, q, K, Y = 0) {
     if (K === "session_memory" || K === "compact") return !1;
     if (!Xh()) return !1;
-    let Y = Ev(A),
-        z = oc6(q),
+    let z = eW(A) - Y,
+        _ = oc6(q),
         w = OF(q);
-    h(`autocompact: tokens=${Y} threshold=${z} effectiveWindow=${w}`);
+    k(`autocompact: tokens=${z} threshold=${_} effectiveWindow=${w}${Y>0?` snipFreed=${Y}`:""}`);
     let {
-        isAboveAutoCompactThreshold: H
-    } = mz6(Y, q);
-    return H
+        isAboveAutoCompactThreshold: O
+    } = mz6(z, q);
+    return O
 }
 
 // READABLE (for understanding):
-async function shouldTriggerAutoCompaction(messages, model, querySource) {
+async function shouldTriggerAutoCompaction(
+    messages,
+    model,
+    querySource,
+    tokensFreedBySnip = 0  // v2.1.76: Account for tokens already freed
+) {
     // Don't compact if we're already in a compaction-related query
     if (querySource === "session_memory" || querySource === "compact") {
         return false;
@@ -313,14 +381,14 @@ async function shouldTriggerAutoCompaction(messages, model, querySource) {
         return false;
     }
 
-    // Calculate current token count
-    let tokenCount = countTokens(messages);
+    // Calculate current token count (subtract any freed by previous snip)
+    let tokenCount = countTokens(messages) - tokensFreedBySnip;
 
     // Get model-specific threshold
     let threshold = getAutoCompactThreshold(model);
     let effectiveWindow = getEffectiveContextWindow(model);
 
-    debug(`autocompact: tokens=${tokenCount} threshold=${threshold} effectiveWindow=${effectiveWindow}`);
+    debug(`autocompact: tokens=${tokenCount} threshold=${threshold} effectiveWindow=${effectiveWindow}${tokensFreedBySnip > 0 ? ` snipFreed=${tokensFreedBySnip}` : ""}`);
 
     // Check if above threshold
     let { isAboveAutoCompactThreshold } = getCompactionStatus(tokenCount, model);
@@ -329,42 +397,53 @@ async function shouldTriggerAutoCompaction(messages, model, querySource) {
 }
 
 // Mapping: CmY→shouldTriggerAutoCompaction, A→messages, q→model, K→querySource,
-//          Y→tokenCount, z→threshold, w→effectiveWindow, Ev→countTokens,
-//          oc6→getAutoCompactThreshold, OF→getEffectiveContextWindow,
-//          Xh→isAutoCompactEnabled, mz6→getCompactionStatus
+//          Y→tokensFreedBySnip, z→tokenCount, _→threshold, w→effectiveWindow,
+//          eW→countTokens, oc6→getAutoCompactThreshold, OF→getEffectiveContextWindow,
+//          Xh→isAutoCompactEnabled, mz6→getCompactionStatus, k→debug
 ```
 
 ---
 
 ## 4. Token Threshold Constants
 
-**Source location:** `chunks.147.mjs:805-813`
+**Source location:** `chunks.147.mjs:2676-2686`
 
 ```javascript
 // ============================================
 // Token threshold constants for compaction
-// Location: chunks.147.mjs:805-813
+// Location: chunks.147.mjs:2676-2686
 // ============================================
 
 // ORIGINAL (for source lookup):
-nmY = 20000
-cCA = 13000
-rmY = 20000
-omY = 20000
-lCA = 3000
+RmY = 20000
+Jp8 = 13000
+hmY = 20000
+SmY = 20000
+Mp8 = 3000
+aqq = 3
 
 // READABLE (for understanding):
 // Token thresholds for different contexts
-const DEFAULT_AUTO_COMPACT_THRESHOLD = 20000;     // Default trigger point
-const MIN_MESSAGES_BEFORE_COMPACT = 13000;        // Minimum messages threshold
-const SESSION_MEMORY_THRESHOLD = 20000;           // For session memory mode
-const BACKGROUND_COMPACT_THRESHOLD = 20000;       // For background agents
-const MIN_REMAINING_TOKENS = 3000;                // Keep this many tokens after compact
+const DEFAULT_AUTO_COMPACT_THRESHOLD = 20000;     // RmY - Default trigger point
+const MIN_MESSAGES_BEFORE_COMPACT = 13000;        // Jp8 - Minimum messages threshold
+const SESSION_MEMORY_THRESHOLD = 20000;           // hmY - For session memory mode
+const BACKGROUND_COMPACT_THRESHOLD = 20000;       // SmY - For background agents
+const MIN_REMAINING_TOKENS = 3000;                // Mp8 - Keep this many tokens after compact
+const CIRCUIT_BREAKER_THRESHOLD = 3;              // aqq - Max consecutive failures (v2.1.76)
 
-// Mapping: nmY→DEFAULT_AUTO_COMPACT_THRESHOLD, cCA→MIN_MESSAGES_BEFORE_COMPACT,
-//          rmY→SESSION_MEMORY_THRESHOLD, omY→BACKGROUND_COMPACT_THRESHOLD,
-//          lCA→MIN_REMAINING_TOKENS
+// Mapping: RmY→DEFAULT_AUTO_COMPACT_THRESHOLD, Jp8→MIN_MESSAGES_BEFORE_COMPACT,
+//          hmY→SESSION_MEMORY_THRESHOLD, SmY→BACKGROUND_COMPACT_THRESHOLD,
+//          Mp8→MIN_REMAINING_TOKENS, aqq→CIRCUIT_BREAKER_THRESHOLD
 ```
+
+### 4.1 Threshold Selection Algorithm
+
+**How the threshold is determined:**
+
+1. **Model-specific thresholds** - Different models have different context windows
+2. **Default fallback** - If no model-specific threshold, use 20,000 tokens
+3. **Buffer calculation** - Threshold = context_window * 0.8 (leaves 20% buffer)
+4. **Minimum threshold** - Never compact if tokens < 13,000 (avoids premature compaction)
 
 ---
 
@@ -453,31 +532,131 @@ This separation allows:
 
 **Why session-scoped:** If the circuit breaker were persistent, a single bad session could permanently disable compaction for the user. Session-scoping means each new session starts fresh.
 
+### 6.2 Circuit Breaker Implementation (Verified Source)
+
+**Source location:** `chunks.147.mjs:2686`
+
 ```javascript
 // ============================================
-// compactionCircuitBreaker - Stop after 3 consecutive failures
-// Location: chunks.147.mjs (circuit breaker logic)
+// Circuit Breaker Constants and Logic
+// Location: chunks.147.mjs:2633-2674 (logic), 2686 (threshold)
 // ============================================
 
-// READABLE (for understanding):
-let consecutiveCompactionFailures = 0;
-const COMPACTION_FAILURE_LIMIT = 3;
+// ORIGINAL (for source lookup):
+// From chunks.147.mjs:2686
+aqq = 3
 
-function recordCompactionFailure() {
-    consecutiveCompactionFailures++;
-    if (consecutiveCompactionFailures >= COMPACTION_FAILURE_LIMIT) {
-        debug("Auto-compaction circuit breaker opened after 3 consecutive failures");
+// From chunks.147.mjs:2633-2674 (inside sqq)
+async function sqq(A, q, K, Y, z, _) {
+    // Circuit breaker check (early return)
+    if (z?.consecutiveFailures !== void 0 && z.consecutiveFailures >= aqq) return {
+        wasCompacted: !1
+    };
+    // ... compaction logic ...
+    try {
+        // ... perform compaction ...
+        return {
+            wasCompacted: !0,
+            compactionResult: j,
+            consecutiveFailures: 0  // Reset on success
+        }
+    } catch (j) {
+        let M = (z?.consecutiveFailures ?? 0) + 1;
+        if (M >= aqq) k(`autocompact: circuit breaker tripped after ${M} consecutive failures — skipping future attempts this session`, {
+            level: "warn"
+        });
+        return {
+            wasCompacted: !1,
+            consecutiveFailures: M
+        }
     }
 }
 
-function recordCompactionSuccess() {
-    consecutiveCompactionFailures = 0;  // Reset on success
+// READABLE (for understanding):
+const CIRCUIT_BREAKER_THRESHOLD = 3;  // aqq
+
+async function autoCompactDispatcher(
+    messages,
+    sessionContext,
+    cacheSafeParams,
+    querySource,
+    compactState,      // Contains consecutiveFailures counter
+    tokensFreedBySnip
+) {
+    // Circuit breaker: Stop if 3+ consecutive failures
+    if (compactState?.consecutiveFailures !== undefined &&
+        compactState.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+        return { wasCompacted: false };
+    }
+
+    try {
+        // ... compaction logic ...
+        return {
+            wasCompacted: true,
+            compactionResult: result,
+            consecutiveFailures: 0  // Reset on success
+        };
+    } catch (error) {
+        let newFailureCount = (compactState?.consecutiveFailures ?? 0) + 1;
+
+        // Log when circuit breaker trips
+        if (newFailureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+            debug(`autocompact: circuit breaker tripped after ${newFailureCount} consecutive failures — skipping future attempts this session`, {
+                level: "warn"
+            });
+        }
+
+        return {
+            wasCompacted: false,
+            consecutiveFailures: newFailureCount
+        };
+    }
 }
 
-function isCircuitBreakerOpen() {
-    return consecutiveCompactionFailures >= COMPACTION_FAILURE_LIMIT;
-}
+// Mapping: aqq→CIRCUIT_BREAKER_THRESHOLD, sqq→autoCompactDispatcher,
+//          z→compactState, M→newFailureCount
 ```
+
+### 6.3 Circuit Breaker State Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CIRCUIT BREAKER STATE MACHINE                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Initial State: consecutiveFailures = 0                                     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        COMPACT ATTEMPT                               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              │                                               │
+│                 ┌────────────┴────────────┐                                 │
+│                 │                         │                                 │
+│              SUCCESS                    FAILURE                             │
+│                 │                         │                                 │
+│                 ▼                         ▼                                 │
+│    consecutiveFailures = 0      consecutiveFailures++                       │
+│    (circuit remains CLOSED)            │                                   │
+│                                        │                                   │
+│                         ┌──────────────┴──────────────┐                    │
+│                         │                             │                    │
+│                failures < 3                    failures >= 3               │
+│                    │                                 │                    │
+│                    ▼                                 ▼                    │
+│              Circuit CLOSED                   Circuit OPEN                 │
+│              (keep trying)                    (stop trying)                │
+│                                                                              │
+│  RECOVERY:                                                                   │
+│  - On session restart: consecutiveFailures = 0                             │
+│  - On successful compact: consecutiveFailures = 0                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** The circuit breaker is implemented as part of the `compactState` object passed between compaction attempts. This design allows:
+1. State to be tracked per-session
+2. No global state pollution
+3. Easy reset on new session or successful compact
 
 ---
 
@@ -549,11 +728,376 @@ The auto-compact dispatcher is called within the main LLM query generator:
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| Enabled check | `chunks.147.mjs:760` | Environment + settings |
-| Threshold decision | `chunks.147.mjs:765` | `shouldAutoCompact` |
-| Main dispatcher | `chunks.147.mjs:778` | `autoCompactDispatcher` |
-| Circuit breaker | `chunks.147.mjs` | Stop after 3 failures (v2.1.76) |
-| Session memory | `chunks.147.mjs` | `performSessionMemoryCompaction` |
-| Standard compact | `chunks.147.mjs` | `performFullCompaction` |
+| Enabled check | `chunks.147.mjs:2614` | `isAutoCompactEnabled` (Xh) |
+| Threshold decision | `chunks.147.mjs:2620` | `shouldTriggerAutoCompaction` (CmY) |
+| Main dispatcher | `chunks.147.mjs:2633` | `autoCompactDispatcher` (sqq) |
+| Circuit breaker | `chunks.147.mjs:2686` | `aqq = 3` threshold |
+| Session memory | `chunks.147.mjs` | `trySessionMemoryQuickPath` (lE1) |
+| Standard compact | `chunks.147.mjs` | `performFullCompaction` (mf6) |
 | Agent loop call | `chunks.169.mjs:739` | Within `llmRequestGenerator` |
-| Token constants | `chunks.147.mjs:805` | Threshold values |
+| Token constants | `chunks.147.mjs:2676-2686` | Threshold values |
+
+---
+
+## 10. Deep Algorithm Analysis
+
+### 10.1 Token Threshold Calculation Algorithm
+
+**How the compaction threshold is determined:**
+
+The threshold calculation involves three interconnected functions: `getEffectiveContextWindow` (OF), `getAutoCompactThreshold` (oc6), and `getCompactionStatus` (mz6).
+
+#### 10.1.1 Effective Context Window Calculation (OF)
+
+```javascript
+// ============================================
+// getEffectiveContextWindow - Calculate usable context window
+// Location: chunks.147.mjs:2566-2575
+// ============================================
+
+// ORIGINAL (for source lookup):
+function OF(A) {
+    let q = Math.min(Li6(A), RmY),
+        K = uM(A, Zj()),
+        Y = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    if (Y) {
+        let z = parseInt(Y, 10);
+        if (!isNaN(z) && z > 0) K = Math.min(K, z)
+    }
+    return K - q
+}
+
+// READABLE (for understanding):
+function getEffectiveContextWindow(model) {
+    // Step 1: Get reserved tokens for thinking budget (min of model's thinking budget, 20000 cap)
+    let reservedTokens = Math.min(getThinkingBudget(model), DEFAULT_AUTO_COMPACT_THRESHOLD);
+
+    // Step 2: Get model's maximum context window
+    let maxContextWindow = getContextWindow(model, getSettings());
+
+    // Step 3: Allow environment override to reduce window
+    let envWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    if (envWindow) {
+        let parsed = parseInt(envWindow, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+            maxContextWindow = Math.min(maxContextWindow, parsed);
+        }
+    }
+
+    // Step 4: Subtract reserved tokens from available window
+    return maxContextWindow - reservedTokens;
+}
+
+// Mapping: OF→getEffectiveContextWindow, A→model, q→reservedTokens,
+//          K→maxContextWindow, Y→envWindow, Li6→getThinkingBudget,
+//          uM→getContextWindow, Zj→getSettings, RmY→DEFAULT_AUTO_COMPACT_THRESHOLD
+```
+
+**Why reserve tokens:** The reserved tokens account for the thinking budget that the model may use. This ensures auto-compaction triggers before the context fills up AND before thinking tokens would be constrained.
+
+#### 10.1.2 Auto-Compact Threshold Calculation (oc6)
+
+```javascript
+// ============================================
+// getAutoCompactThreshold - Calculate compaction trigger threshold
+// Location: chunks.147.mjs:2577-2589
+// ============================================
+
+// ORIGINAL (for source lookup):
+function oc6(A) {
+    let q = OF(A),
+        K = q - Jp8,
+        Y = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+    if (Y) {
+        let z = parseFloat(Y);
+        if (!isNaN(z) && z > 0 && z <= 100) {
+            let _ = Math.floor(q * (z / 100));
+            return Math.min(_, K)
+        }
+    }
+    return K
+}
+
+// READABLE (for understanding):
+function getAutoCompactThreshold(model) {
+    // Step 1: Get effective window (already subtracts reserved tokens)
+    let effectiveWindow = getEffectiveContextWindow(model);
+
+    // Step 2: Calculate threshold with minimum buffer
+    // This leaves MIN_MESSAGES_BEFORE_COMPACT (13,000) tokens of buffer
+    let threshold = effectiveWindow - MIN_MESSAGES_BEFORE_COMPACT;
+
+    // Step 3: Allow percentage-based override
+    let pctOverride = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+    if (pctOverride) {
+        let pct = parseFloat(pctOverride);
+        if (!isNaN(pct) && pct > 0 && pct <= 100) {
+            let pctThreshold = Math.floor(effectiveWindow * (pct / 100));
+            // Use the smaller of percentage-based or default threshold
+            return Math.min(pctThreshold, threshold);
+        }
+    }
+
+    return threshold;
+}
+
+// Mapping: oc6→getAutoCompactThreshold, A→model, q→effectiveWindow,
+//          K→threshold, Y→pctOverride, Jp8→MIN_MESSAGES_BEFORE_COMPACT (13000)
+```
+
+**Why 13,000 token buffer:** The `MIN_MESSAGES_BEFORE_COMPACT` (13,000) buffer ensures:
+1. Space for the next user message
+2. Room for tool results that may be injected
+3. Margin for token estimation variance
+4. Prevents compaction from triggering on small contexts
+
+#### 10.1.3 Compaction Status Calculation (mz6)
+
+```javascript
+// ============================================
+// getCompactionStatus - Calculate all threshold-related states
+// Location: chunks.147.mjs:2591-2612
+// ============================================
+
+// ORIGINAL (for source lookup):
+function mz6(A, q) {
+    let K = oc6(q),
+        Y = Xh() ? K : OF(q),
+        z = Math.max(0, Math.round((Y - A) / Y * 100)),
+        _ = Y - hmY,
+        w = Y - SmY,
+        O = A >= _,
+        $ = A >= w,
+        H = Xh() && A >= K,
+        J = OF(q) - Mp8,
+        M = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE,
+        D = M ? parseInt(M, 10) : NaN,
+        X = !isNaN(D) && D > 0 ? D : J,
+        P = A >= X;
+    return {
+        percentLeft: z,
+        isAboveWarningThreshold: O,
+        isAboveErrorThreshold: $,
+        isAboveAutoCompactThreshold: H,
+        isAtBlockingLimit: P
+    }
+}
+
+// READABLE (for understanding):
+function getCompactionStatus(tokenCount, model) {
+    // Calculate thresholds
+    let autoCompactThreshold = getAutoCompactThreshold(model);
+    let effectiveWindow = getEffectiveContextWindow(model);
+
+    // Use auto-compact threshold if enabled, otherwise use full window
+    let referenceWindow = isAutoCompactEnabled() ? autoCompactThreshold : effectiveWindow;
+
+    // Calculate percentage remaining
+    let percentLeft = Math.max(0, Math.round((referenceWindow - tokenCount) / referenceWindow * 100));
+
+    // Calculate warning threshold (window - 20,000)
+    let warningThreshold = referenceWindow - SESSION_MEMORY_THRESHOLD;  // 20,000
+
+    // Calculate error threshold (window - 20,000)
+    let errorThreshold = referenceWindow - BACKGROUND_COMPACT_THRESHOLD;  // 20,000
+
+    // Check if above warning level
+    let isAboveWarningThreshold = tokenCount >= warningThreshold;
+
+    // Check if above error level
+    let isAboveErrorThreshold = tokenCount >= errorThreshold;
+
+    // Check if should trigger auto-compact (requires auto-compact enabled)
+    let isAboveAutoCompactThreshold = isAutoCompactEnabled() && tokenCount >= autoCompactThreshold;
+
+    // Calculate blocking limit (window - 3,000 minimum remaining)
+    let blockingLimit = effectiveWindow - MIN_REMAINING_TOKENS;
+
+    // Allow environment override for blocking limit
+    let envBlockingOverride = process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE;
+    let parsedOverride = envBlockingOverride ? parseInt(envBlockingOverride, 10) : NaN;
+    let effectiveBlockingLimit = !isNaN(parsedOverride) && parsedOverride > 0
+        ? parsedOverride
+        : blockingLimit;
+
+    // Check if at blocking limit (cannot continue)
+    let isAtBlockingLimit = tokenCount >= effectiveBlockingLimit;
+
+    return {
+        percentLeft,
+        isAboveWarningThreshold,
+        isAboveErrorThreshold,
+        isAboveAutoCompactThreshold,
+        isAtBlockingLimit
+    };
+}
+
+// Mapping: mz6→getCompactionStatus, A→tokenCount, q→model,
+//          K→autoCompactThreshold, Y→referenceWindow, z→percentLeft,
+//          _→warningThreshold, w→errorThreshold, O→isAboveWarningThreshold,
+//          $→isAboveErrorThreshold, H→isAboveAutoCompactThreshold,
+//          J→blockingLimit, P→isAtBlockingLimit,
+//          hmY→SESSION_MEMORY_THRESHOLD (20000), SmY→BACKGROUND_COMPACT_THRESHOLD (20000),
+//          Mp8→MIN_REMAINING_TOKENS (3000)
+```
+
+#### 10.1.4 Threshold Hierarchy
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    THRESHOLD HIERARCHY (Model: claude-sonnet-4)              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Context Window: 200,000 tokens                                              │
+│  ├─ Reserved for thinking: 20,000 tokens (capped)                          │
+│  └─ Effective Window: 180,000 tokens                                        │
+│                                                                              │
+│  Thresholds (from high to low):                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Blocking Limit:      177,000 tokens (window - 3,000)              │   │
+│  │                              ↑ Cannot proceed beyond this          │   │
+│  │                              │                                      │   │
+│  │  Auto-Compact Trigger: 167,000 tokens (effective - 13,000)         │   │
+│  │                              ↑ Compaction starts here              │   │
+│  │                              │                                      │   │
+│  │  Error Threshold:      160,000 tokens (window - 20,000)            │   │
+│  │                              ↑ UI shows error indicator            │   │
+│  │                              │                                      │   │
+│  │  Warning Threshold:    160,000 tokens (window - 20,000)            │   │
+│  │                              ↑ UI shows warning indicator          │   │
+│  │                              │                                      │   │
+│  │  Safe Zone:            0 - 160,000 tokens                          │   │
+│  │                              ↑ Normal operation                    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  Percent Left Calculation:                                                  │
+│  percentLeft = max(0, round((referenceWindow - tokenCount) / referenceWindow * 100))    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why multiple thresholds:**
+1. **Warning threshold** - Alerts user that context is filling up (UI indicator)
+2. **Error threshold** - Indicates context is nearly full (stronger UI warning)
+3. **Auto-compact threshold** - Triggers automatic compaction
+4. **Blocking limit** - Hard stop; cannot proceed without compaction or context reduction
+
+### 10.2 Compaction Path Selection Algorithm
+
+**How the system chooses between session memory and standard compaction:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COMPACTION PATH SELECTION                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  autoCompactDispatcher()                                                    │
+│  │                                                                          │
+│  ├─► shouldTriggerAutoCompaction() returns true?                           │
+│  │   │                                                                      │
+│  │   └─► YES (tokens > threshold)                                          │
+│  │                                                                          │
+│  ├─► isSessionMemoryCompactEnabled()?                                       │
+│  │   │                                                                      │
+│  │   ├─► YES ──► trySessionMemoryQuickPath()                               │
+│  │   │              │                                                       │
+│  │   │              ├─► SUCCESS ──► Return compacted messages              │
+│  │   │              │                                                       │
+│  │   │              └─► FAILURE ──► Fall through to standard               │
+│  │   │                                                                      │
+│  │   └─► NO ──► performFullCompaction()                                    │
+│  │                  │                                                       │
+│  │                  ├─► SUCCESS ──► Return compacted messages              │
+│  │                  │                                                       │
+│  │                  └─► FAILURE ──► Increment circuit breaker              │
+│  │                                                                          │
+│  └─► Return { wasCompacted: boolean, result?, consecutiveFailures? }       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.3 Session Memory vs Standard Compaction Trade-offs
+
+| Aspect | Session Memory Compact | Standard Compact |
+|--------|------------------------|------------------|
+| **Mechanism** | Pre-computed memory from `.claude/memory/` | LLM summarization on-demand |
+| **Performance** | Fast (no LLM call needed) | Slower (requires API call) |
+| **Quality** | Preserves key facts from history | May lose context details |
+| **Availability** | Requires feature flags | Always available |
+| **Cost** | No API cost per compact | API call per compact |
+| **Freshness** | Updated asynchronously | Real-time summarization |
+
+**When session memory is preferred:**
+- Long-running sessions with many turns
+- Sessions where key facts need persistence
+- When API cost is a concern
+- When speed is critical
+
+**When standard compaction is preferred:**
+- Feature flags not enabled
+- Real-time context is essential
+- Session memory not yet populated
+- Complex multi-turn reasoning needs summarization
+
+---
+
+## 11. Cross-Feature Connections
+
+### 11.1 Connection to 04_system_reminder
+
+Compaction affects system reminder attachment producers:
+
+| Compaction Event | System Reminder Effect |
+|------------------|------------------------|
+| Pre-compaction | `CompactionTriggeredAttachment` produced |
+| Post-compaction | `CompactionSummaryAttachment` added |
+| Session memory | Memory-based reminders updated |
+
+### 11.2 Connection to 05_tools
+
+Tool usage affects compaction triggers:
+
+| Tool | Compaction Effect |
+|------|-------------------|
+| Snip tool | Frees tokens, may avoid compaction |
+| Compact tool | Manual compaction trigger |
+| Long tool results | Increase token count, may trigger compaction |
+
+### 11.3 Connection to 06_mcp
+
+MCP servers can contribute to context growth:
+
+| MCP Source | Token Impact |
+|------------|--------------|
+| Large tool schemas | Added to system prompt |
+| Tool results | Contribute to message history |
+| Resource content | May trigger compaction |
+
+### 11.4 Connection to 11_hooks
+
+Hooks are triggered during compaction:
+
+| Hook Type | Compaction Timing |
+|-----------|-------------------|
+| `PreCompact` | Before compaction starts |
+| `PostCompact` | After compaction completes |
+
+---
+
+## 12. Symbol Reference Summary
+
+> Symbol mappings:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Compact Module
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - LLM API
+
+Key symbols verified in this document:
+- `Xh` (isAutoCompactEnabled) - chunks.147.mjs:2614
+- `CmY` (shouldTriggerAutoCompaction) - chunks.147.mjs:2620
+- `sqq` (autoCompactDispatcher) - chunks.147.mjs:2633
+- `oc6` (getAutoCompactThreshold) - Token threshold getter
+- `lE1` (trySessionMemoryQuickPath) - Session memory compaction
+- `mf6` (performFullCompaction) - Standard compaction
+- `aqq` (CIRCUIT_BREAKER_THRESHOLD) - chunks.147.mjs:2686 (value: 3)
+- `RmY` (DEFAULT_AUTO_COMPACT_THRESHOLD) - chunks.147.mjs:2676 (value: 20000)
+- `Jp8` (MIN_MESSAGES_BEFORE_COMPACT) - chunks.147.mjs:2678 (value: 13000)
+- `Mp8` (MIN_REMAINING_TOKENS) - chunks.147.mjs:2684 (value: 3000)

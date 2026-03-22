@@ -604,15 +604,142 @@ try {
 }
 ```
 
-### Tombstone for Failed Tools
+### Tombstone Mechanism (VERIFIED)
 
-When a tool fails, its partial result is removed:
+> **Source:** `chunks.148.mjs:1063-1071`
+
+Tombstones remove orphaned messages from the UI when context overflow triggers a reset:
 
 ```javascript
-// Agent loop yields:
-yield { type: "tombstone", uuids: [failedToolResultUuid] };
-yield { type: "user", message: errorMessage };
+// ============================================
+// Tombstone event generation — orphaned message cleanup
+// Location: chunks.148.mjs:1063-1071
+// ============================================
+
+// ORIGINAL:
+if (D6) {
+    for (let u6 of e) yield {
+        type: "tombstone",
+        message: u6
+    };
+    if (d("tengu_orphaned_messages_tombstoned", {
+        orphanedMessageCount: e.length,
+        queryChainId: u,
+        queryDepth: R.depth
+    }),
+    e.length = 0, Y6.length = 0, H6.length = 0, J6 = !1, s)
+        s.discard(), s = new ui6(X.options.tools, _, X)
+}
+
+// READABLE:
+if (contextOverflowDetected) {
+    // Yield tombstone for every orphaned message
+    for (let msg of orphanedMessages) yield {
+        type: "tombstone",
+        message: msg
+    };
+    logEvent("tengu_orphaned_messages_tombstoned", {
+        orphanedMessageCount: orphanedMessages.length,
+        queryChainId: chainId,
+        queryDepth: recursionState.depth
+    });
+    // Reset all message buffers
+    orphanedMessages.length = 0;
+    toolResults.length = 0;
+    assistantMessages.length = 0;
+    hasCompletedToolExecution = false;
+    // Reset streaming tool executor
+    if (streamingToolExecutor) {
+        streamingToolExecutor.discard();
+        streamingToolExecutor = new StreamingToolExecutor(tools, canUseTool, context);
+    }
+}
+
+// Mapping: D6→contextOverflowDetected, e→orphanedMessages, u→chainId,
+//   R→recursionState, ui6→StreamingToolExecutor, s→streamingToolExecutor
 ```
+
+**Tombstone lifecycle:**
+
+```
+Context overflow detected (D6 = true)
+  │
+  ├── For each orphaned message → yield { type: "tombstone", message }
+  │   └── UI: setMessages(prev => prev.filter(m => m.uuid !== tombstone.message.uuid))
+  │
+  ├── Emit tengu_orphaned_messages_tombstoned telemetry
+  │
+  ├── Clear all buffers (orphanedMessages, toolResults, assistantMessages)
+  │
+  └── Reset StreamingToolExecutor → new instance with clean state
+```
+
+### Stream Mode State Transitions (VERIFIED)
+
+> **Source:** `chunks.147.mjs:1828-1831`
+
+```javascript
+// Location: chunks.147.mjs:1828-1831
+
+// ORIGINAL:
+if (!J && G.type === "stream_event" &&
+    G.event.type === "content_block_start" &&
+    G.event.content_block.type === "text") {
+    J = !0, Y.setStreamMode?.("responding")
+}
+if (G.type === "stream_event" &&
+    G.event.type === "content_block_delta" &&
+    G.event.delta.type === "text_delta") {
+    let f = G.event.delta.text.length;
+    Y.setResponseLength?.((v) => v + f)
+}
+
+// READABLE:
+// Transition: "requesting" → "responding" on first text block
+if (!hasStartedResponding && event.type === "stream_event" &&
+    event.event.type === "content_block_start" &&
+    event.event.content_block.type === "text") {
+    hasStartedResponding = true;
+    toolUseContext.setStreamMode?.("responding");
+}
+// Accumulate response length for each text delta
+if (event.type === "stream_event" &&
+    event.event.type === "content_block_delta" &&
+    event.event.delta.type === "text_delta") {
+    let charCount = event.event.delta.text.length;
+    toolUseContext.setResponseLength?.((prev) => prev + charCount);
+}
+```
+
+**State machine:**
+
+```
+Query submitted
+  └── setStreamMode("requesting")       ← set by REPL before calling agent loop
+
+First text content_block_start event
+  └── setStreamMode("responding")        ← set inside streaming loop (J flag)
+
+Each text_delta event
+  └── setResponseLength(prev + charCount) ← accumulate for UI display
+
+Stream complete / Error
+  └── setStreamMode(null)                ← reset in finally block
+```
+
+### Stream Event Types Yielded by Agent Loop
+
+| Event Type | Source | UI Handler |
+|------------|--------|------------|
+| `stream_request_start` | Agent loop start | `setStreamMode("requesting")` |
+| `stream_event` (content_block_start, text) | mGq SSE | `setStreamMode("responding")` |
+| `stream_event` (content_block_delta, text_delta) | mGq SSE | `setResponseLength(updater)` |
+| `stream_event` (content_block_start, thinking) | mGq SSE | `setStreamMode("thinking")` |
+| `stream_event` (content_block_start, tool_use) | mGq SSE | `setStreamMode("tool-input")` |
+| `assistant` | Completed content block | `setMessages([...prev, event])` |
+| `user` (tool_result) | Tool execution complete | `setMessages([...prev, event])` |
+| `tombstone` | Context overflow | `setMessages(prev => filter(...))` |
+| `system` (retry) | _P1 retry event | Show retry indicator |
 
 ---
 
@@ -631,6 +758,13 @@ logEvent("tengu_query_submitted", {
 logEvent("tengu_stream_event", {
     type: eventType,
     blockType: contentBlockType
+});
+
+// Orphaned messages tombstoned (context overflow):
+logEvent("tengu_orphaned_messages_tombstoned", {
+    orphanedMessageCount: number,
+    queryChainId: string,
+    queryDepth: number
 });
 ```
 

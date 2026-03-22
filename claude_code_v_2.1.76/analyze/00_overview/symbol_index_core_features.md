@@ -852,7 +852,7 @@
 | ik1 | findTaskByAgentName | chunks.139.mjs:2898 | function |
 | ag8 | setAwaitingPlanApproval | chunks.139.mjs:2899 | function |
 | E7 | isTasksEnabled | chunks.143.mjs:2950 | function |
-| z3 | toolNameMatches | chunks.143.mjs:2950 | function |
+| z3 | matchesTool | chunks.56.mjs:1588 | function (checks tool.name === name or aliases.includes(name)) |
 | r4 | TaskToolName | chunks.143.mjs:2950 | constant ("Task") |
 | Fj | getPlanFilePath | chunks.143.mjs:2877 | function |
 | sJ | getPlanContent | chunks.143.mjs:2878 | function |
@@ -983,9 +983,9 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| sqq | autocompactDispatcher | chunks.147.mjs:2633 | function |
-| CmY | shouldTriggerAutoCompaction | chunks.147.mjs:2620 | function |
-| Xh | isAutoCompactEnabled | chunks.147.mjs:2614 | function |
+| sqq | autoCompactDispatcher | chunks.147.mjs:2633 | function (main orchestrator with circuit breaker) |
+| CmY | shouldTriggerAutoCompaction | chunks.147.mjs:2620 | function (checks token count vs threshold) |
+| Xh | isAutoCompactEnabled | chunks.147.mjs:2614 | function (checks DISABLE_COMPACT env and settings) |
 | mz6 | getCompactionStatus | chunks.147.mjs:2591 | function |
 | oc6 | getAutoCompactThreshold | chunks.147.mjs:2577 | function |
 | OF | getEffectiveContextWindow | chunks.147.mjs:2566 | function |
@@ -1220,6 +1220,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Uu8 | executeSetupHooks | chunks.175.mjs | generator |
 | b_6 | executePermissionRequestHooks | chunks.175.mjs:2766 | generator |
 | mW6 | executePreCompactHooks | chunks.141.mjs:3011 | function |
+| sT6 | executePreCompactHooks | chunks.175.mjs:2710 | generator (alternative entry point) |
 | JN1 | executePluginHooksForSession | chunks.135.mjs:1836 | function |
 | oN1 | executePluginHooksForSetup | chunks.135.mjs:1882 | function |
 | nB | loadAllPluginHooks | chunks.94.mjs:824 | variable (memoized) |
@@ -1847,23 +1848,58 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 > Full analysis: [01_cli/](../01_cli/)
 
+> **VERIFIED CORRECT MAPPINGS (v2.1.76):** Cross-checked against source code.
+> Entry points: `JVz`=cliEntry, `_Vz`=mainEntry, `OVz`=run, `zVz`=determineEntrypoint.
+>
+> **INCORRECT MAPPINGS (DO NOT USE):**
+> - `iGz` is `getVerbose` @ chunks.192.mjs:1971 (returns `A.verbose`), NOT setEntrypoint
+> - `rGz` is `getReplBridgeEnvironmentId` @ chunks.192.mjs:1979, NOT createRenderOptions
+> - `oGz` is `getReplBridgeError` @ chunks.192.mjs:1983, NOT handleStdinInput
+> - `gRq` is `randomUUID` (crypto import) @ cli.chunks.mjs:8526, NOT showSetupScreens
+> - `mGz` is `sendModeChangeToTeamMembers` @ chunks.192.mjs:1670, NOT renderWithCallback
+> - `LF` is `setSessionMetadata` @ chunks.174.mjs:2206, NOT renderFullscreenComponent
+
 ### Entry Points & Commands
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| nGz | mainEntry | chunks.189.mjs:931 | function |
-| aGz | commanderSetup | chunks.198.mjs:999 | function |
-| qZz | cliEntry | chunks.190.mjs:167 | function |
-| iGz | determineEntrypoint | chunks.189.mjs:916 | function |
-| gRq | showSetupScreens | chunks.189.mjs:758 | function |
+| JVz | cliEntry | chunks.198.mjs:1573 | function (top-level entry: version check, routing, lazy import of mainEntry) |
+| _Vz | mainEntry | chunks.197.mjs:1910 | function (process setup, client type determination, calls run) |
+| OVz | run | chunks.198.mjs:3 | function (Commander.js program definition, flag parsing, action handler) |
+| aN9 | getEntrypoint | chunks.85.mjs:1821 | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
+| zVz | determineEntrypoint | chunks.197.mjs:1895 | function (sets CLAUDE_CODE_ENTRYPOINT based on launch context) |
+| BEq | showSetupScreens | chunks.180.mjs:1151 | function (onboarding/trust/policy dialogs before REPL) |
 | PGz | pluginValidateCommand | chunks.189.mjs:3 | function |
 | VGz | installCommandRender | chunks.189.mjs:80 | function |
 | yGz | updateCheckCommand | chunks.189.mjs:371 | function |
 | vGz | setupTokenCommand | chunks.189.mjs:267 | function |
 | LGz | doctorCommand | chunks.189.mjs:313 | function |
 | RGz | installCommandAction | chunks.189.mjs:328 | function |
-| tGz | cleanupOnExit | chunks.189.mjs:2144 | function |
-| LUA | noopCliOptionsPostProcess | chunks.189.mjs:2142 | function |
+| HVz | cleanupOnExit | chunks.197.mjs (inferred) | function |
+
+### Ink Rendering (Setup Dialogs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gjz | renderWithCallback | chunks.180.mjs:1125 | function (Promise wrapper: resolves when component calls done()) |
+| Qh | renderFullscreenComponent | chunks.180.mjs:1141 | function (wraps component in AppStateProvider) |
+| OV6 | renderAndWait | chunks.180.mjs:1147 | function (renders and blocks until exit) |
+| gEq | createRenderOptions | chunks.180.mjs:1248 | function (Ink render config with FPS/flicker tracking) |
+| wVz | handleStdinInput | chunks.197.mjs:1943 | function (stdin pipe reading for stream-json mode) |
+| LF | setSessionMetadata | chunks.174.mjs:2206 | function (sets session title, tag, agent name, PR info) |
+
+### Session State Providers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Yj | AppStateProvider | chunks.148.mjs:2544 | component (React context for global state) |
+| WX1 | createStateStore | chunks.85.mjs:1747 | function (observable state store factory) |
+
+> **Correct mappings for tool functions:**
+> - `Xk8` = `filterToolsByMode` at chunks.93.mjs:1568
+> - `_c` = `resolveToolFilter` at chunks.93.mjs:1590 (validates tools, handles wildcard, Agent type restrictions)
+> - `z3` = `matchesTool` at chunks.56.mjs:1588 (tool name/alias matching)
+> - `_uY` = `assembleAllAttachments` at chunks.147.mjs:3
 
 ### Rendering Primitives
 
@@ -1873,20 +1909,26 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | LF | renderFullscreenComponent | chunks.189.mjs:748 | function |
 | $l1 | renderAndWait | chunks.189.mjs:754 | function |
 | rGz | createRenderOptions | chunks.189.mjs:958 | function |
-| oGz | streamJsonInputHandler | chunks.189.mjs:984 | function (routes stdin → stream based on input format) |
+| oGz | getReplBridgeError | chunks.192.mjs:1983 | function (getter: return A.replBridgeError) |
 | _QA | FpsMetricsTracker | chunks.176.mjs:1020 | class |
 | js | resolveInkOptions | chunks.110.mjs:874 | function |
 | RUA | flushRenderQueue | chunks.189.mjs:864 | function |
 
 ### State Store Architecture
 
+> **CORRECTION (v2.1.76):** Previous versions incorrectly mapped `Gf6` and `u_` to chunks.151.mjs.
+> Verified locations: `WX1`=createStateStore, `Yj`=AppStateProvider.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Gf6 | createStateStore | chunks.151.mjs:398 | function |
-| u_ | AppStateProvider | chunks.151.mjs:522 | function (Component) |
+| WX1 | createStateStore | chunks.85.mjs:1747 | function (zustand-like store factory) |
+| Yj | AppStateProvider | chunks.148.mjs:2544 | function (Component) |
 | Pf1 | AppStateRoot | chunks.176.mjs:643 | function (Component) |
 | K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
 | BDq | FpsMetricsWrapper | chunks.176.mjs:657 | function (Component) |
+
+> **Note:** The old mappings `Gf6` (chunks.151.mjs:398) and `u_` (chunks.151.mjs:522) were incorrect.
+> `Gf6` and `u_` do not correspond to these functions in v2.1.76.
 
 ### UI & Interaction
 
@@ -1904,12 +1946,17 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | hH | localConnectionHandler | chunks.185.mjs:1433 | function |
 | pJ | remoteConnectionHandler | chunks.185.mjs:1684 | function |
 
-### Permission Mode & Tool Context (chunks.172.mjs)
+### Permission Mode & Tool Context
+
+> **CORRECTION (v2.1.76):** `KJq` is a constant (2000), NOT buildToolPermissionContext.
+> The permission context building uses `Ez` (reducer), `_v` (apply multiple), `U84` (merge with settings).
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| Ez | permissionContextReducer | chunks.53.mjs:1224 | function (core reducer: setMode, addRules, replaceRules, etc.) |
+| _v | applyPermissionUpdates | chunks.53.mjs:1296 | function (applies multiple updates to context) |
+| U84 | updateToolPermissionContext | chunks.172.mjs:2829 | function (merge settings into permission context) |
 | qJq | setupPermissionMode | chunks.172.mjs:2175 | function |
-| KJq | buildToolPermissionContext | chunks.172.mjs:2252 | function |
 | hd | parseToolList | chunks.172.mjs:2219 | function |
 | rRA | getAllToolNames | chunks.141.mjs:1459 | function |
 | hzz | isSymlinkedPath | chunks.172.mjs:2168 | function |
@@ -1920,6 +1967,20 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | rD1 | isBypassPermissionsDisabled | chunks.172.mjs:2317 | function |
 | oD1 | downgradeBypassContext | chunks.172.mjs:2323 | function |
 | YJq | enforceBypassGateAsync | chunks.172.mjs:2336 | function |
+| Xk8 | filterToolsByMode | chunks.93.mjs:1568 | function (filters tools by mode/async context) |
+
+> **Note:** `KJq` (chunks.161.mjs:1761) = 2000 constant, NOT buildToolPermissionContext.
+
+### Tool Whitelist Constants
+
+> **Location:** All tool whitelist sets defined at chunks.91.mjs:269
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CW6 | EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (tools excluded from default list) |
+| xV8 | NON_BUILTIN_EXCLUDED | chunks.91.mjs:269 | Set (copy of CW6 for non-builtin filtering) |
+| eP1 | ASYNC_ALLOWED_TOOLS | chunks.91.mjs:269 | Set (tools allowed in async/background mode) |
+| WY4 | BACKGROUND_AGENT_TOOLS | chunks.91.mjs:269 | Set (tools for background agents) |
 
 ### preAction Hook Functions
 
@@ -1946,16 +2007,51 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | yl | exitWithError | chunks.189.mjs:1302 | function |
 | H6 | chalk | chunks.189.mjs (import) | library |
 
+### MCP Config Loading
+
+> Full analysis: [01_cli/mcp_config_cli.md](../01_cli/mcp_config_cli.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| j9 | tryParseJson | chunks.197.mjs:1179 | function (parse JSON string or return null) |
+| Ug1 | validateMcpConfig | chunks.197.mjs:1183 | function (validate MCP config object) |
+| YG1 | loadMcpConfigFile | chunks.197.mjs:1192 | function (load MCP config from file path) |
+| UE6 | resolvePath | chunks.197.mjs:1191 | function (resolve file path) |
+| KG1 | isReservedMcpName | chunks.197.mjs:1225 | function (check for "claude-code" reserved name) |
+| G61 | mapValues | chunks.197.mjs:1229 | function (map object values with scope) |
+| pg1 | hasEnterpriseMcpConfig | chunks.197.mjs:1268 | function (check enterprise MCP policy) |
+
+### Debug & Telemetry
+
+> Full analysis: [01_cli/debug_telemetry.md](../01_cli/debug_telemetry.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k | debugLog | chunks.2.mjs:165 | function (core logging with level/category filtering) |
+| d | trackEvent | chunks.2.mjs:275 | function (telemetry event tracking) |
+| oAA | setTelemetryBackend | chunks.2.mjs:263 | function (set telemetry backend, flush pending events) |
+| Jm1 | LOG_LEVELS | chunks.2.mjs:219 | object ({verbose:0, debug:1, info:2, warn:3, error:4}) |
+| qrq | getCurrentLogLevel | chunks.2.mjs:225 | function (memoized: read CLAUDE_CODE_DEBUG_LOG_LEVEL) |
+| PT | isDebugEnabled | chunks.2.mjs:232 | function (memoized: check DEBUG/env/argv) |
+| Krq | getDebugFilter | chunks.2.mjs:239 | function (memoized: parse --debug=filter) |
+| Sx | isDebugToStderr | chunks.2.mjs:244 | function (memoized: check --debug-to-stderr flag) |
+| iAA | getDebugFilePath | chunks.2.mjs:246 | function (memoized: parse --debug-file=path) |
+| t6 | parseBoolean | chunks.1.mjs:4491 | function (parse "1","true","yes","on" as true) |
+| Yrq | shouldLogMessage | chunks.2.mjs (inferred) | function (category filter check) |
+| zrq | getDebugOutputStream | chunks.2.mjs (inferred) | function (get stderr stream for debug output) |
+| tw6 | telemetryBackend | chunks.2.mjs:263 | variable (singleton backend instance) |
+| nt6 | pendingEvents | chunks.2.mjs:263 | array (queued events before backend init) |
+
 ### Agent SDK — Entrypoint & Mode Detection
 
 > Full analysis: [20_sdk/](../20_sdk/)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iGz | setEntrypoint | chunks.189.mjs:916-928 | function (detects CLAUDE_CODE_ENTRYPOINT; sets cli/sdk-cli/mcp/github-action) |
+| zVz | determineEntrypoint | chunks.197.mjs:1895 | function (sets CLAUDE_CODE_ENTRYPOINT: cli/sdk-cli/mcp/github-action) |
 | w4 | isNonInteractive | chunks.1.mjs:2730-2732 | function (returns !globalState.isInteractive; used in 30+ locations) |
 | bL6 | setInteractive | chunks.1.mjs:2738 | function (sets globalState.isInteractive flag) |
-| L59 | getEntrypoint | chunks.75.mjs:1578 | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
+| aN9 | getEntrypoint | chunks.85.mjs:1821 | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
 | APA | getBuiltinAgents | chunks.90.mjs:3049-3054 | function (filters guide agent in SDK mode) |
 | Jr | getExternalUserAgent | chunks.47.mjs:1725-1728 | function (builds SDK user-agent string) |
 | CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control_request) |

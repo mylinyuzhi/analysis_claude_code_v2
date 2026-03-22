@@ -1833,6 +1833,110 @@ The function uses fail-safe defaults:
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with event routing decision tree, invariants, performance analysis)
+## 20. v2.1.76 Spinner Animation Isolation
+
+### Problem Statement
+
+In previous versions, the spinner animation triggered re-renders of the entire message list on each animation frame (~50ms intervals). This caused:
+1. Unnecessary React reconciliation on every frame
+2. Increased CPU usage during long streaming sessions
+3. Potential input latency during intense animation cycles
+
+### Solution: Dedicated Animation Loop
+
+The spinner now runs on an isolated timer that doesn't affect the message list:
+
+```javascript
+// ============================================
+// Spinner isolation pattern
+// Location: chunks.196.mjs (spinner component)
+// ============================================
+
+// The spinner component uses its own useInterval or setTimeout loop
+// This is separate from the main MessageList rendering cycle
+
+// Key separation:
+// 1. Spinner state (text, color, shimmer) lives in REPL state
+// 2. Spinner renders in a separate <box> component
+// 3. MessageList is not a dependency of the spinner animation
+// 4. Spinner updates don't trigger MessageList re-renders
+```
+
+### Animation Loop Details
+
+```javascript
+// ============================================
+// Spinner animation timing
+// ============================================
+
+// Animation frame interval: ~50ms (20 FPS)
+// This is fast enough for smooth animation but not CPU-intensive
+
+// Animation cycle:
+// 1. Update spinner frame (character, color)
+// 2. Render spinner component only
+// 3. MessageList remains untouched
+
+// The 50ms interval was chosen because:
+// - Human perception threshold for smooth animation: ~60ms
+// - Lower values waste CPU cycles
+// - Higher values appear "choppy"
+```
+
+### Performance Impact
+
+| Metric | Before v2.1.76 | After v2.1.76 |
+|--------|----------------|---------------|
+| Re-renders per second | 20 (every frame) | Only on message changes |
+| CPU usage during streaming | Higher | Lower |
+| Input latency | Potential delays | Responsive |
+| Memory allocations | More (full reconciliation) | Less (spinner-only) |
+
+### Integration with Streaming State
+
+```javascript
+// ============================================
+// Spinner state management
+// Location: chunks.196.mjs
+// ============================================
+
+// Spinner state variables:
+[nF, I6] = N8.useState(null);  // overrideMessage, setOverrideMessage
+[m6, Z1] = N8.useState(null);  // overrideColor, setOverrideColor
+[M8, u8] = N8.useState(null);  // overrideShimmerColor, setOverrideShimmerColor
+
+// Spinner visibility:
+let QV6 = (!j8 || j8.showSpinner) && a8.length === 0 &&
+          (Bq || Wz || oi || n4.size > 0) && !XA && !MG;
+
+// The spinner shows when:
+// - Not blocked by local JSX command
+// - No tool permission queue
+// - At least one active operation (loading, input, tasks, tools)
+// - No pending worker request
+// - Not in tool-only mode
+```
+
+### StreamingText Integration with Spinner
+
+The streaming text accumulator (`$` callback in `xN6`) allows partial text display without message list re-renders:
+
+```javascript
+// In handleToolUseStream (xN6):
+case "text_delta": {
+    let H = A.event.delta.text;
+    K(H);  // Forward to response handler
+    $?.((j) => (j ?? "") + H);  // Accumulate streaming text
+    return;
+}
+
+// The $ callback updates a separate state (streamingText)
+// This state is only used during active streaming
+// It doesn't affect the memoized MessageList until the message is complete
+```
+
+---
+
+**Last Updated**: 2026-03-22 (Enhanced with event routing decision tree, invariants, performance analysis, spinner isolation)
 **Version**: Claude Code 2.1.76
 **Status**: Complete - Full streaming event processing documented

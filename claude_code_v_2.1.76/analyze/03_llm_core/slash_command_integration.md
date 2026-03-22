@@ -601,6 +601,125 @@ function clearSkillCache() {
 
 ---
 
+## Permission Checking (VERIFIED)
+
+> **Source:** `chunks.137.mjs:98-176` (m66.checkPermissions)
+
+The SkillTool's permission check follows a deny → allow → auto-allow → ask pipeline:
+
+```javascript
+// ============================================
+// m66.checkPermissions — SkillTool permission evaluation
+// Location: chunks.137.mjs:98-176
+// ============================================
+
+// READABLE:
+async checkPermissions(input, canUseTool, toolUseContext) {
+    let skillName = normalizeSkillName(input.skill);  // Strip leading "/"
+
+    // Stage 1: Check deny rules
+    let denyRules = getSettingsRules(canUseTool, SkillTool, "deny");
+    for (let rule of denyRules) {
+        if (matchesSkillPattern(rule, skillName))  // Supports ":*" wildcard suffix
+            return { behavior: "deny", reason: `Denied by rule: ${rule}` };
+    }
+
+    // Stage 2: Check allow rules
+    let allowRules = getSettingsRules(canUseTool, SkillTool, "allow");
+    for (let rule of allowRules) {
+        if (matchesSkillPattern(rule, skillName))
+            return { behavior: "allow" };
+    }
+
+    // Stage 3: Auto-allow if skill has only known/filtered properties
+    if (isAutoAllowableSkill(skill))
+        return { behavior: "allow" };
+
+    // Stage 4: Prompt user for approval
+    return {
+        behavior: "ask",
+        suggestions: [
+            { label: `Allow "${skillName}"`, pattern: skillName },
+            { label: `Allow "${skillName}:*"`, pattern: `${skillName}:*` }
+        ]
+    };
+}
+
+// Mapping: Sb→getSettingsRules, $kY→isAutoAllowableSkill
+```
+
+### Inline vs Forked Execution Decision (VERIFIED)
+
+> **Source:** `chunks.137.mjs:178-252` (m66.call), `chunks.136.mjs:2447-2514` (zkY)
+
+```
+m66.call(input, context)
+  │
+  ├── context === "fork"?
+  │   └── YES → zkY(skill, name, args, toolUseContext, canUseTool, message, onProgress)
+  │       └── Spawns isolated sub-agent via qh()
+  │       └── Returns { success, commandName, status: "forked", agentId, result }
+  │
+  └── NO (inline)
+      └── processPromptSlashCommand(skill, args, ...)
+          ├── shouldQuery === false → return early
+          └── shouldQuery === true → return {
+                  success: true,
+                  commandName: skillName,
+                  allowedTools: [...],  // Optional tool overrides
+                  model: modelOverride, // Optional model override
+                  status: "inline"
+              }
+```
+
+### Skill Source Priority (VERIFIED)
+
+> **Source:** `chunks.137.mjs:193-197`
+
+| Priority | Source | Check | Telemetry `command_name` |
+|----------|--------|-------|--------------------------|
+| 1 | Bundled | `source === "bundled"` | `"bundled"` |
+| 2 | Plugin (official) | `tn4(skill)` — checks plugin registry | `"plugin"` |
+| 3 | Known standard | `Qg().has(name)` — well-known skill set | `"known"` |
+| 4 | Custom (user/project) | Default | `"custom"` |
+
+### Forked Execution Details (zkY)
+
+```javascript
+// Location: chunks.136.mjs:2447-2514 (VERIFIED)
+
+// READABLE:
+async function forkSkillExecution(skill, name, args, toolUseContext, canUseTool, message, onProgress) {
+    let agentId = generateId();          // bI()
+    // Prepare sub-agent context
+    let { modifiedGetAppState, baseAgent, promptMessages, skillContent } =
+        prepareSkillAgent(skill, args || "", toolUseContext);   // DN1()
+
+    // Spawn isolated sub-agent
+    let result = await spawnAgent({      // qh()
+        agentDefinition: baseAgent,
+        isAsync: false,
+        querySource: "agent:custom",
+        override: { agentId }
+    });
+
+    // Report progress for tool uses
+    for (let msg of result.messages) {
+        onProgress({ type: "skill_progress", message: msg });
+    }
+
+    return {
+        success: true,
+        commandName: name,
+        status: "forked",
+        agentId,
+        result: formatResult(result, "Skill execution completed")  // XN1()
+    };
+}
+```
+
+---
+
 ## Telemetry Events
 
 ```javascript
@@ -610,7 +729,8 @@ logEvent("tengu_skill_tool_slash_prefix", {});
 // Skill execution started
 logEvent("tengu_skill_execution_started", {
     skillName: string,
-    executionMode: "inline" | "forked"
+    executionMode: "inline" | "forked",
+    command_name: "bundled" | "plugin" | "known" | "custom"
 });
 
 // Skill execution completed
@@ -628,10 +748,11 @@ logEvent("tengu_skill_execution_completed", {
 
 The slash command/skill integration in Claude Code 2.1.76 provides:
 
-1. **Flexible execution modes**: Inline for simple prompts, forked for isolated execution
-2. **Permission system**: Fine-grained control over which skills can be auto-approved
-3. **Dynamic discovery**: Skills are loaded from multiple directories at runtime
-4. **LLM integration**: Available skills are exposed through the Skill tool's schema and prompt
+1. **Flexible execution modes**: Inline for simple prompts, forked for isolated sub-agent execution
+2. **Permission system**: 4-stage pipeline (deny → allow → auto-allow → ask) with wildcard patterns
+3. **Dynamic discovery**: Skills loaded from multiple directories with priority: bundled > plugin > known > custom
+4. **LLM integration**: Available skills exposed through the Skill tool's schema and prompt
 5. **Caching and watching**: Performance optimization for skill loading
+6. **Isolated execution**: Forked skills run in their own agent context with `querySource: "agent:custom"`
 
 The skill system enables users to extend Claude Code's capabilities without modifying the core codebase, making it a powerful customization mechanism.

@@ -1119,6 +1119,7 @@
 | TM | handleCancel | chunks.196.mjs:420-432 | function (escape/cancel with per-dialog behavior) ✅ |
 | xN6 | handleToolUseStream | chunks.173.mjs:2384-2480 | function (streaming event processor) ✅ |
 | HIq | ToolPermissionDialog | chunks.190.mjs:899 | component (tool use approval dialog) ✅ |
+| fIq | PromptDialog | chunks.190.mjs:2125 | component (tool prompt selection dialog) ✅ |
 | ct8 | SandboxPermissionDialog | chunks.194.mjs:2899 | component (network/sandbox approval dialog) ✅ |
 | ZIq | ElicitationRouter | chunks.190.mjs:1242 | component (MCP elicitation dialog router) ✅ |
 | zs8 | MessageSelector | chunks.185.mjs:1179 | component (conversation history browser) ✅ |

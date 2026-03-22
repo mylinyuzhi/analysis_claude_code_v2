@@ -121,7 +121,6 @@
 | yEY | getNotebookInputSchema | chunks.134.mjs:2595 | function |
 | CEY | getNotebookOutputSchema | chunks.134.mjs | function |
 | N51 | checkEditPermissions | chunks.146.mjs | function |
-| ix1 | recordPatch | chunks.134.mjs | function |
 | xP6 | computeGitDiff | chunks.134.mjs | function |
 | sQ1 | tryParseAsIndex | chunks.134.mjs | function |
 | _A | parseNotebook | chunks.134.mjs | function |
@@ -168,6 +167,49 @@
 | X38 | hasSingleQuotedBackslashPattern | chunks.91.mjs | function |
 | $g9 | containsCharacter | chunks.91.mjs | function |
 | _g9 | hasMalformedTokenPattern | chunks.91.mjs | function |
+
+### Tool Filtering Sets
+
+> Tool availability sets for different execution modes
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| CW6 | EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (TaskOutput, ExitPlanMode, EnterPlanMode, Agent, AskUserQuestion, TaskStop) |
+| xV8 | NON_BUILTIN_EXCLUDED | chunks.91.mjs:269 | Set (same as EXCLUDED_TOOLS for non-builtin contexts) |
+| eP1 | ASYNC_ALLOWED_TOOLS | chunks.91.mjs:269 | Set (Read, WebSearch, Grep, WebFetch, Glob, TodoWrite, Edit, Write, NotebookEdit, Skill, ...) |
+| WY4 | BACKGROUND_AGENT_TOOLS | chunks.91.mjs:269 | Set (TaskCreate, TaskGet, TaskList, TaskUpdate, SendMessage, CronCreate, CronDelete, CronList) |
+| Xk8 | filterToolsByMode | chunks.93.mjs:1568 | function (filters tools by mode/async context) |
+| _c | resolveToolFilter | chunks.93.mjs:1590 | function (validates tools, handles wildcard, Agent type restrictions) |
+| z3 | matchesTool | chunks.56.mjs:1588 | function (checks tool.name or aliases) |
+
+### Tool Name Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| $C | TOOL_NAME_TASK_OUTPUT | chunks.40.mjs:421 | constant ("TaskOutput") |
+| aJ | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:507 | constant ("ExitPlanMode") |
+| dt | TOOL_NAME_ENTER_PLAN_MODE | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| r4 | TOOL_NAME_AGENT | chunks.40.mjs:406 | constant ("Agent") |
+| Fw | TOOL_NAME_ASK_USER_QUESTION | chunks.90.mjs:3123 | constant ("AskUserQuestion") |
+| OC | TOOL_NAME_TASK_STOP | chunks.40.mjs:412 | constant ("TaskStop") |
+| s7 | TOOL_NAME_READ | chunks.56.mjs:173 | constant ("Read") |
+| jv | TOOL_NAME_WEB_SEARCH | chunks.56.mjs:1287 | constant ("WebSearch") |
+| N9 | TOOL_NAME_GREP | chunks.56.mjs:1215 | constant ("Grep") |
+| sO | TOOL_NAME_WEB_FETCH | chunks.56.mjs:80 | constant ("WebFetch") |
+| qz | TOOL_NAME_GLOB | chunks.56.mjs:1192 | constant ("Glob") |
+| MB | TOOL_NAME_TODO_WRITE | chunks.84.mjs:1401 | constant ("TodoWrite") |
+| R4 | TOOL_NAME_EDIT | chunks.56.mjs:102 | constant ("Edit") |
+| _K | TOOL_NAME_WRITE | chunks.56.mjs:1234 | constant ("Write") |
+| bJ | TOOL_NAME_NOTEBOOK_EDIT | chunks.56.mjs:1240 | constant ("NotebookEdit") |
+| oH | TOOL_NAME_SKILL | chunks.90.mjs:2596 | constant ("Skill") |
+| TR | TOOL_NAME_TASK_CREATE | chunks.90.mjs:2592 | constant ("TaskCreate") |
+| lt | TOOL_NAME_TASK_GET | chunks.91.mjs:41 | constant ("TaskGet") |
+| it | TOOL_NAME_TASK_LIST | chunks.91.mjs:43 | constant ("TaskList") |
+| ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs:2594 | constant ("TaskUpdate") |
+| hI | TOOL_NAME_SEND_MESSAGE | chunks.91.mjs:39 | constant ("SendMessage") |
+| ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") |
+| ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
+| SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
 | jg9 | hasBackslashEscapedWhitespace | chunks.91.mjs | function |
 | Mg9 | hasBackslashEscapedOperator | chunks.91.mjs | function |
 | n36 | isEscapedBackslash | chunks.91.mjs | function |
@@ -1292,17 +1334,22 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | dcA | createInternalState | chunks.1.mjs:2351 | function |
 | E81 | getSettingsState | chunks.75.mjs:1757 | function |
 | f6 | getGlobalConfig | chunks.174.mjs:1539 | function |
+| fU6 | isSessionIdInUse | chunks.174.mjs:1178 | function |
 | Gf6 | createStore | chunks.151.mjs:398 | function |
 | gG1 | initialAppState | chunks.151.mjs:419 | function |
+| ix1 | regenerateSessionId | chunks.1.mjs:2341 | function |
 | jA | updateGlobalConfig | chunks.174.mjs:1460 | function |
 | l4 | getUserSettings | chunks.151.mjs:410 | function |
 | L7 | useSetAppState | chunks.151.mjs:591 | hook |
+| nk | validateUuid | chunks.93.mjs:1552 | function |
 | o6 | internalStateObject | chunks.1.mjs:3052 | object |
-| pcA | generateSessionId | chunks.1.mjs:2340 | function |
 | QD | getDefaultPermissionContext | chunks.151.mjs:400 | function |
+| R1 | getSessionId | chunks.1.mjs:2337 | function |
 | u_ | AppStateProvider | chunks.151.mjs:522 | component |
 | v6 | useAppState | chunks.151.mjs:576 | hook |
 | Wf6 | getInitialPromptSuggestionEnabled | chunks.151.mjs:415 | function |
 | yhA | useStoreContext | chunks.151.mjs:574 | hook |
 | yt | resumeSession | chunks.142.mjs:379 | function |
 | Zw6 | initialAttributionState | chunks.151.mjs:412 | function |
+
+> **Note:** `yx1` is `randomUUID` imported from Node.js `crypto` module (not a custom function).

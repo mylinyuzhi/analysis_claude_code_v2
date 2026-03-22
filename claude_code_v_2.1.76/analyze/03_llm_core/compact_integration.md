@@ -449,16 +449,22 @@ function parseContextOverflowError(error) {
 
 ### Auto-Compact Thresholds
 
+> **Detailed formula:** See [algorithms.md — Algorithm #11: Auto-Compact Threshold Formula](algorithms.md#algorithm-11-auto-compact-threshold-formula-verified) for the complete `OF` → `oc6` → `CmY` → `mz6` call chain with exact constants.
+
 Compaction is triggered when:
 
 ```
-currentTokenCount > thresholdPercentage × modelContextLimit
+tokens = getEffectiveTokenCount(messages) - snipFreed
+threshold = effectiveWindow - 13000
+effectiveWindow = min(contextWindow, envOverride) - min(maxOutputTokens, 20000)
+compact when: tokens >= threshold
 ```
 
-The threshold percentage is determined by:
-1. **Model-specific thresholds**: Different models have different context limits and optimal thresholds.
-2. **User settings**: Can be adjusted via `autoCompactThreshold` setting.
-3. **Feature flags**: `tengu_auto_compact` feature flag controls the feature.
+The threshold is determined by:
+1. **Effective window**: Context window minus max output tokens (capped at 20,000 deduction).
+2. **Buffer**: 13,000 tokens (`Jp8`) subtracted from effective window.
+3. **Environment overrides**: `CLAUDE_CODE_AUTO_COMPACT_WINDOW` and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
+4. **Circuit breaker**: After 3 consecutive failures (`aqq=3`), compaction is skipped for the session.
 
 ### Micro-Compact Conditions
 

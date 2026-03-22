@@ -12,21 +12,21 @@
 
 Key symbols referenced throughout this document:
 
-- `REPL` (TUA) - Root interactive UI component (chunks.196.mjs:3)
+- `REPL` (TUA) - Root interactive UI component (chunks.188.mjs:3)
 - `AppStateRoot` (Pf1) - React root wrapping FpsMetrics + AppStateProvider (chunks.176.mjs:643)
-- `AppStateProvider` (u_) - React context provider for global state store (chunks.151.mjs:522)
-- `createStateStore` (Gf6) - Observable store factory: getState/setState/subscribe (chunks.151.mjs:398)
-- `useAppState` (v6) - Hook: reads a single state slice via useSyncExternalStore (chunks.151.mjs:576)
-- `useSetAppState` (L7) - Hook: returns the setState dispatcher (chunks.151.mjs:591)
-- `useStoreContext` (yhA) - Hook: returns the raw store object (chunks.151.mjs:574)
+- `AppStateProvider` (Yj) - React context provider for global state store (chunks.148.mjs:2544)
+- `createStateStore` (WX1) - Observable store factory: getState/setState/subscribe (chunks.85.mjs:1747)
+- `useAppState` (M1) - Hook: reads a single state slice via useSyncExternalStore (chunks.148.mjs:2598)
+- `useSetAppState` (xA) - Hook: returns the setState dispatcher (chunks.148.mjs:2613)
+- `useStoreContext` (Bp8) - Hook: returns the raw store object (chunks.148.mjs:2592)
 - `onChangeAppStateHandler` (K11) - State-to-disk sync callback (chunks.176.mjs:581)
-- `renderWithCallback` (mGz) - Promise wrapper for one-shot React dialogs (chunks.197.mjs:741)
-- `renderFullscreenComponent` (LF) - Full-screen dialog with AppStateProvider (chunks.197.mjs:748)
-- `renderAndWait` ($l1) - Renders Ink app and blocks until exit (chunks.197.mjs:754)
-- `createRenderOptions` (rGz) - Builds Ink render options with FPS/flicker tracking (chunks.197.mjs:958)
+- `renderWithCallback` (mGz) - Promise wrapper for one-shot React dialogs (chunks.189.mjs:741)
+- `renderFullscreenComponent` (LF) - Full-screen dialog with AppStateProvider (chunks.189.mjs:748)
+- `renderAndWait` ($l1) - Renders Ink app and blocks until exit (chunks.189.mjs:754)
+- `createRenderOptions` (rGz) - Builds Ink render options with FPS/flicker tracking (chunks.189.mjs:958)
 - `FpsMetricsTracker` (_QA) - Tracks per-frame render duration (chunks.176.mjs:1020)
 - `FpsMetricsWrapper` (BDq) - React component providing FPS context (chunks.176.mjs:657)
-- `showSetupScreens` (gRq) - Sequential onboarding/trust dialog orchestrator (chunks.197.mjs:758)
+- `showSetupScreens` (gRq) - Sequential onboarding/trust dialog orchestrator (chunks.189.mjs:758)
 
 ---
 
@@ -191,12 +191,12 @@ function renderFullscreenComponent(inkInstance, componentFactory, options) {
 }
 
 // Mapping: LF→renderFullscreenComponent, A→inkInstance, q→componentFactory,
-//          K→options, Y→done, u_→AppStateProvider, dX→KeybindingSetup,
+//          K→options, Y→done, Yj→AppStateProvider, dX→KeybindingSetup,
 //          wO→React, mGz→renderWithCallback
 ```
 
 **Three wrapping layers:**
-1. `AppStateProvider` (u_) — Creates an isolated state store for the dialog. Dialogs like the onboarding screen can read and write app state (e.g., recording `hasCompletedOnboarding`). The `onChangeAppState` option controls whether state changes persist to disk (`K11`) or are transient.
+1. `AppStateProvider` (Yj) — Creates an isolated state store for the dialog. Dialogs like the onboarding screen can read and write app state (e.g., recording `hasCompletedOnboarding`). The `onChangeAppState` option controls whether state changes persist to disk (`K11`) or are transient.
 2. `KeybindingSetup` (dX) — Sets up keyboard bindings and theme context. Without this, Ink's raw keyboard input would not be properly mapped to actions.
 3. `componentFactory(done)` — The actual dialog component (Onboarding, TrustDialog, PolicyUpdateDialog, etc.)
 
@@ -220,16 +220,16 @@ This is the primitive used for the main REPL and session pickers (anything that 
 
 ## 4. The State Store — Hand-Rolled Zustand Pattern
 
-### `createStateStore` (Gf6) — Observable Store Factory
+### `createStateStore` (WX1) — Observable Store Factory
 
 ```javascript
 // ============================================
 // createStateStore - Minimal observable state store (zustand-compatible)
-// Location: chunks.151.mjs:398-420
+// Location: chunks.85.mjs:1747-1766
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Gf6(A, q) {
+function WX1(A, q) {
     let K = A, Y = new Set;
     return {
         getState: () => K,
@@ -270,7 +270,7 @@ function createStateStore(initialState, onChangeCallback) {
     };
 }
 
-// Mapping: Gf6→createStateStore, A→initialState, q→onChangeCallback,
+// Mapping: WX1→createStateStore, A→initialState, q→onChangeCallback,
 //          K→currentState, Y→subscribers, z→updater, w→prevState,
 //          H→nextState, $→notify
 ```
@@ -377,19 +377,19 @@ function AppStateRoot({ initialState, onChangeAppState, children }) {
     );
 }
 
-// Mapping: Pf1→AppStateRoot, BDq→FpsMetricsWrapper, u_→AppStateProvider
+// Mapping: Pf1→AppStateRoot, BDq→FpsMetricsWrapper, Yj→AppStateProvider
 ```
 
-### 6.2 AppStateProvider (u_)
+### 6.2 AppStateProvider (Yj)
 
-**Source location:** `chunks.151.mjs:522`
+**Source location:** `chunks.148.mjs:2544`
 
 `AppStateProvider` creates the state store (via `createStateStore`) and exposes it through React context. All components that need to read or write app state use this context.
 
 ```javascript
 // ============================================
 // AppStateProvider - React context provider for state store
-// Location: chunks.151.mjs:522-560
+// Location: chunks.148.mjs:2544-2583
 // ============================================
 
 // READABLE (for understanding):
@@ -404,28 +404,28 @@ function AppStateProvider({ initialState, onChangeAppState, children }) {
     }, children);
 }
 
-// Mapping: u_→AppStateProvider, Gf6→createStateStore
+// Mapping: Yj→AppStateProvider, WX1→createStateStore
 ```
 
 ---
 
 ## 7. State Reading Hooks
 
-### 7.1 useAppState (v6)
+### 7.1 useAppState (M1)
 
-**Source location:** `chunks.151.mjs:576`
+**Source location:** `chunks.148.mjs:2598`
 
 Reads a single state slice reactively. Uses React's `useSyncExternalStore` for concurrent-safe reads.
 
 ```javascript
 // ============================================
 // useAppState - Reactive state slice reader
-// Location: chunks.151.mjs:576-590
+// Location: chunks.148.mjs:2598-2610
 // ============================================
 
 // ORIGINAL (for source lookup):
-function v6(A) {
-    let q = (0, I7.useContext)(tA);
+function M1(A) {
+    let q = A6(3), K = Bp8(), Y;
     return (0, C7.useSyncExternalStore)(q.subscribe, () => A(q.getState()))
 }
 
@@ -438,25 +438,25 @@ function useAppState(selector) {
     );
 }
 
-// Mapping: v6→useAppState, A→selector, q→store, tA→StoreContext
+// Mapping: M1→useAppState, A→selector, K→store, XU6→StoreContext
 ```
 
-**Pattern:** `v6(state => state.messages)` reads `messages` from the store. When `messages` changes, the component re-renders. When other fields change (e.g., `verbose`), the component does NOT re-render (selector optimization).
+**Pattern:** `M1(state => state.messages)` reads `messages` from the store. When `messages` changes, the component re-renders. When other fields change (e.g., `verbose`), the component does NOT re-render (selector optimization).
 
-### 7.2 useSetAppState (L7)
+### 7.2 useSetAppState (xA)
 
-**Source location:** `chunks.151.mjs:591`
+**Source location:** `chunks.148.mjs:2613`
 
 Returns the store's `setState` dispatcher for writing state updates.
 
 ```javascript
 // ============================================
 // useSetAppState - State writer hook
-// Location: chunks.151.mjs:591-595
+// Location: chunks.148.mjs:2613-2615
 // ============================================
 
 // ORIGINAL (for source lookup):
-function L7() {
+function xA() {
     return (0, I7.useContext)(tA).setState
 }
 
@@ -465,7 +465,7 @@ function useSetAppState() {
     return useContext(StoreContext).setState;
 }
 
-// Mapping: L7→useSetAppState, tA→StoreContext
+// Mapping: xA→useSetAppState, XU6→StoreContext
 ```
 
 ---
@@ -513,13 +513,13 @@ function onChangeAppStateHandler({ newState, oldState }) {
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
-| renderAndWait | `chunks.197.mjs:754` | Main REPL mount |
-| renderFullscreenComponent | `chunks.197.mjs:748` | Setup dialog wrapper |
-| renderWithCallback | `chunks.197.mjs:741` | Promise-based dialog |
-| createStateStore | `chunks.151.mjs:398` | Observable store factory |
-| AppStateProvider | `chunks.151.mjs:522` | React context provider |
+| renderAndWait | `chunks.189.mjs:754` | Main REPL mount |
+| renderFullscreenComponent | `chunks.189.mjs:748` | Setup dialog wrapper |
+| renderWithCallback | `chunks.189.mjs:741` | Promise-based dialog |
+| createStateStore | `chunks.85.mjs:1747` | Observable store factory |
+| AppStateProvider | `chunks.148.mjs:2544` | React context provider |
 | AppStateRoot | `chunks.176.mjs:643` | Root component with FPS |
-| useAppState | `chunks.151.mjs:576` | State slice reader |
-| useSetAppState | `chunks.151.mjs:591` | State writer |
+| useAppState | `chunks.148.mjs:2598` | State slice reader |
+| useSetAppState | `chunks.148.mjs:2613` | State writer |
 | onChangeAppStateHandler | `chunks.176.mjs:581` | State persistence |
-| initialState construction | `chunks.197.mjs:1600` | CLI flags to React state |
+| initialState construction | `chunks.192.mjs` | CLI flags to React state |

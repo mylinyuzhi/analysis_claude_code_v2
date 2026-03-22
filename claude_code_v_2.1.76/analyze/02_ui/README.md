@@ -164,6 +164,13 @@ async function handleColorCommand(displayMessage, appState, colorArg) {
 
 ### New Dialog Types
 
+**Prompt Dialog (`fIq`)**
+- Tool-initiated interactive prompt for user selection
+- Appears at priority 5 in the dialog dispatcher
+- Renders selection options for tools needing user input during execution
+- Cancel behavior: rejects ALL queued prompts with "Prompt cancelled by user" error
+- Location: chunks.190.mjs:2125
+
 **Effort Callout Dialog (`gmq`)**
 - Extended thinking effort level selection
 - Options: Low, Medium (recommended), High

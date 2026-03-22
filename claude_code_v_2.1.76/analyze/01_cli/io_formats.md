@@ -9,9 +9,10 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - CLI Module
 
 Key functions in this document:
-- `handleStdinInput` (oGz) - Read stdin for non-interactive mode
-- `structuredOutputTool` - Structured output validation
-- `streamingQuery` (UW1) - Streaming LLM response
+- `parseJsonInput` (j9) - Parse JSON string input
+- `createStructuredOutputTool` (k_6) - Create structured output tool from schema
+- `validateMcpConfig` (Ug1) - Validate MCP configuration object
+- `loadMcpConfigFile` (YG1) - Load MCP config from file path
 
 ---
 

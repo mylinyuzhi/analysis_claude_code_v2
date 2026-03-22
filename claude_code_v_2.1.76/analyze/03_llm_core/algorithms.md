@@ -1064,13 +1064,452 @@ getCompletedResults() called
 
 ---
 
+## Algorithm #10: Token Counting Approximation (VERIFIED)
+
+> **Source:** `chunks.169.mjs:708-802`, `chunks.84.mjs:1090-1168`, `chunks.133.mjs:964-984`
+> **Cross-ref:** [compact_integration.md](compact_integration.md) — used in auto-compact threshold check
+
+Claude Code uses a **two-tier hybrid** approach to token counting: precise counts from the most recent API response, plus character-based approximation for messages added after that response.
+
+### Tier 1: Precise Token Count from API Usage
+
+```javascript
+// ============================================
+// fF6 — Sum all token fields from API usage object
+// Location: chunks.84.mjs:1090-1092
+// ============================================
+
+// ORIGINAL:
+function fF6(A) {
+    return A.input_tokens + (A.cache_creation_input_tokens ?? 0)
+         + (A.cache_read_input_tokens ?? 0) + A.output_tokens
+}
+
+// READABLE:
+function sumUsageTokens(usage) {
+    return usage.input_tokens
+         + (usage.cache_creation_input_tokens ?? 0)
+         + (usage.cache_read_input_tokens ?? 0)
+         + usage.output_tokens;
+}
+
+// ============================================
+// Ck — Find last message with usage and return total tokens
+// Location: chunks.84.mjs:1094-1103
+// ============================================
+
+// ORIGINAL:
+function Ck(A) {
+    let q = A.length - 1;
+    while (q >= 0) {
+        let K = A[q], Y = K ? Rd(K) : void 0;
+        if (Y) return fF6(Y);
+        q--
+    }
+    return 0
+}
+
+// READABLE:
+function getLastUsageTokenCount(messages) {
+    let i = messages.length - 1;
+    while (i >= 0) {
+        let msg = messages[i];
+        let usage = msg ? extractUsage(msg) : undefined;
+        if (usage) return sumUsageTokens(usage);
+        i--;
+    }
+    return 0;   // No message with API usage found
+}
+
+// Mapping: Ck→getLastUsageTokenCount, fF6→sumUsageTokens, Rd→extractUsage
+```
+
+### Tier 2: Character-Based Approximation
+
+```javascript
+// ============================================
+// j5 — Approximate token count from string length
+// Location: chunks.169.mjs:708-710
+// ============================================
+
+// ORIGINAL:
+function j5(A, q = 4) {
+    return Math.round(A.length / q)
+}
+
+// READABLE:
+function estimateTokens(text, charsPerToken = 4) {
+    return Math.round(text.length / charsPerToken);
+}
+// Default: 4 chars per token (English average)
+// JSON override: 2 chars per token (via PV8/C94 for json/jsonl/jsonc)
+```
+
+### Per-Content-Block Estimation
+
+```javascript
+// ============================================
+// s5z — Estimate tokens for a single content block
+// Location: chunks.169.mjs:793-802
+// ============================================
+
+// ORIGINAL:
+function s5z(A) {
+    if (typeof A === "string") return j5(A);
+    if (A.type === "text") return j5(A.text);
+    if (A.type === "image" || A.type === "document") return 2000;
+    if (A.type === "tool_result") return pi8(A.content);
+    if (A.type === "tool_use") return j5(A.name + B6(A.input ?? {}));
+    if (A.type === "thinking") return j5(A.thinking);
+    if (A.type === "redacted_thinking") return j5(A.data);
+    return j5(B6(A))
+}
+
+// READABLE:
+function estimateContentBlockTokens(block) {
+    if (typeof block === "string") return estimateTokens(block);
+    if (block.type === "text") return estimateTokens(block.text);
+    if (block.type === "image" || block.type === "document") return 2000;  // Fixed constant
+    if (block.type === "tool_result") return estimateContentTokens(block.content);
+    if (block.type === "tool_use") return estimateTokens(block.name + JSON.stringify(block.input ?? {}));
+    if (block.type === "thinking") return estimateTokens(block.thinking);
+    if (block.type === "redacted_thinking") return estimateTokens(block.data);
+    return estimateTokens(JSON.stringify(block));   // Fallback
+}
+
+// Mapping: s5z→estimateContentBlockTokens, j5→estimateTokens,
+//   pi8→estimateContentTokens, B6→JSON.stringify
+```
+
+**Token estimation by content type:**
+
+| Content Type | Method | Ratio |
+|-------------|--------|-------|
+| `text` | `text.length / 4` | ~4 chars/token |
+| `thinking` | `thinking.length / 4` | ~4 chars/token |
+| `redacted_thinking` | `data.length / 4` | ~4 chars/token |
+| `image` / `document` | Fixed `2000` | Constant |
+| `tool_use` | `(name + JSON(input)).length / 4` | ~4 chars/token |
+| `tool_result` | Recursive `estimateContentTokens()` | Depends on content |
+| JSON files | `text.length / 2` | ~2 chars/token (via `PV8`) |
+
+### Hybrid Approach: eW (getEffectiveTokenCount)
+
+The key function that combines both tiers:
+
+```javascript
+// ============================================
+// eW — Hybrid token count: precise API usage + char approximation
+// Location: chunks.84.mjs:1146-1168
+// ============================================
+
+// ORIGINAL:
+function eW(A) {
+    let q = A.length - 1;
+    while (q >= 0) {
+        let K = A[q], Y = K ? Rd(K) : void 0;
+        if (K && Y) {
+            let z = e14(K);        // Get requestId of this message
+            if (z) {
+                let _ = q - 1;
+                while (_ >= 0) {
+                    let w = A[_], O = w ? e14(w) : void 0;
+                    if (O === z) q = _;         // Collapse multi-msg responses with same requestId
+                    else if (O !== void 0) break;
+                    _--
+                }
+            }
+            return fF6(Y) + GF6(A.slice(q + 1))
+        }
+        q--
+    }
+    return GF6(A)   // No API usage found → pure approximation
+}
+
+// READABLE:
+function getEffectiveTokenCount(messages) {
+    // Scan backward for last message with API usage
+    let i = messages.length - 1;
+    while (i >= 0) {
+        let msg = messages[i];
+        let usage = msg ? extractUsage(msg) : undefined;
+        if (msg && usage) {
+            // Multi-message response handling:
+            // If multiple messages share the same requestId (e.g., streamed blocks),
+            // collapse to the earliest one — the API usage covers all of them.
+            let requestId = getRequestId(msg);
+            if (requestId) {
+                let j = i - 1;
+                while (j >= 0) {
+                    let prev = messages[j];
+                    let prevId = prev ? getRequestId(prev) : undefined;
+                    if (prevId === requestId) i = j;      // Same response, move back
+                    else if (prevId !== undefined) break;  // Different response, stop
+                    j--;
+                }
+            }
+            // Precise tokens for everything up to last API response
+            // + approximate tokens for messages added after it
+            return sumUsageTokens(usage) + sumMessageTokenEstimates(messages.slice(i + 1));
+        }
+        i--;
+    }
+    // No message with usage found — approximate everything
+    return sumMessageTokenEstimates(messages);
+}
+
+// Mapping: eW→getEffectiveTokenCount, e14→getRequestId, fF6→sumUsageTokens,
+//   GF6→sumMessageTokenEstimates, Rd→extractUsage
+```
+
+**Visual flow:**
+
+```
+messages: [user_1, assistant_1(usage=500), user_2, tool_result, assistant_2(usage=1200, reqId=abc),
+           assistant_2b(reqId=abc), user_3]
+                                                  ↑ collapse multi-msg response ↑
+Step 1: Scan backward → find assistant_2 with usage (i=4)
+Step 2: requestId="abc" → collapse to earliest: assistant_2 (i=4), assistant_2b shares reqId
+Step 3: Return: sumUsageTokens(1200 usage) + sumMessageTokenEstimates([assistant_2b, user_3])
+                = 1200 + approximate(user_3)
+```
+
+**Where each function is used:**
+
+| Function | Caller | Purpose |
+|----------|--------|---------|
+| `eW` (getEffectiveTokenCount) | `CmY` (shouldCompactNow) | Auto-compact threshold check |
+| `eW` | Compact pre-count | Token count before compaction |
+| `Ck` (getLastUsageTokenCount) | Post-compact token count | Verify compaction success |
+| `Ck` | Token usage attachment | Report tokens to UI |
+| `j5` (estimateTokens) | Throughout system | Quick inline estimation |
+
+---
+
+## Algorithm #11: Auto-Compact Threshold Formula (VERIFIED)
+
+> **Source:** `chunks.147.mjs:2566-2686`
+> **Cross-ref:** [compact_integration.md](compact_integration.md) — full compaction lifecycle
+> **Cross-validated:** `chunks.84.mjs:1146` (eW provides token input)
+
+The auto-compact system decides when to compress conversation history based on configurable token thresholds.
+
+### Constants
+
+```javascript
+// Location: chunks.147.mjs:2676-2686
+RmY = 20000   // MAX_OUTPUT_TOKENS_CAP: cap on max output tokens deduction
+Jp8 = 13000   // COMPACT_BUFFER: buffer subtracted from effective window for threshold
+hmY = 20000   // WARNING_THRESHOLD_OFFSET: tokens below limit for warning
+SmY = 20000   // ERROR_THRESHOLD_OFFSET: tokens below limit for error
+Mp8 = 3000    // BLOCKING_LIMIT_OFFSET: tokens below limit for hard block
+aqq = 3       // CIRCUIT_BREAKER_MAX: max consecutive compaction failures before skip
+```
+
+### Step 1: effectiveWindow (OF)
+
+```javascript
+// Location: chunks.147.mjs:2566-2575
+
+// ORIGINAL:
+function OF(A) {
+    let q = Math.min(Li6(A), RmY),
+        K = uM(A, Zj()),
+        Y = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    if (Y) {
+        let z = parseInt(Y, 10);
+        if (!isNaN(z) && z > 0) K = Math.min(K, z)
+    }
+    return K - q
+}
+
+// READABLE:
+function getEffectiveWindow(model) {
+    let maxOutputDeduction = Math.min(getMaxOutputTokens(model), 20000);  // RmY cap
+    let contextWindow = getContextWindowSize(model, getCurrentContextVersion());
+    // Environment override: restrict effective window
+    let envOverride = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    if (envOverride) {
+        let parsed = parseInt(envOverride, 10);
+        if (!isNaN(parsed) && parsed > 0) contextWindow = Math.min(contextWindow, parsed);
+    }
+    return contextWindow - maxOutputDeduction;
+}
+
+// Formula: effectiveWindow = min(contextWindow, envOverride) - min(maxOutputTokens, 20000)
+// Example: 200k context, 16k output → 200000 - 16000 = 184000
+// Example: 200k context, 128k output → 200000 - 20000 = 180000 (capped at 20000)
+```
+
+### Step 2: autoCompactThreshold (oc6)
+
+```javascript
+// Location: chunks.147.mjs:2577-2589
+
+// ORIGINAL:
+function oc6(A) {
+    let q = OF(A),
+        K = q - Jp8,
+        Y = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+    if (Y) {
+        let z = parseFloat(Y);
+        if (!isNaN(z) && z > 0 && z <= 100) {
+            let _ = Math.floor(q * (z / 100));
+            return Math.min(_, K)
+        }
+    }
+    return K
+}
+
+// READABLE:
+function getAutoCompactThreshold(model) {
+    let window = getEffectiveWindow(model);
+    let baseThreshold = window - 13000;    // Jp8 = 13000 buffer
+    // Environment override: percentage-based threshold (capped by base)
+    let pctOverride = process.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE;
+    if (pctOverride) {
+        let pct = parseFloat(pctOverride);
+        if (!isNaN(pct) && pct > 0 && pct <= 100) {
+            let pctThreshold = Math.floor(window * (pct / 100));
+            return Math.min(pctThreshold, baseThreshold);  // Never exceed base
+        }
+    }
+    return baseThreshold;
+}
+
+// Formula: threshold = effectiveWindow - 13000
+// Example: 184000 effective → threshold = 171000 (compact when tokens >= 171000)
+// With 80% override: min(floor(184000 * 0.8), 171000) = min(147200, 171000) = 147200
+```
+
+### Step 3: shouldCompactNow (CmY)
+
+```javascript
+// Location: chunks.147.mjs:2620-2631
+
+// ORIGINAL:
+async function CmY(A, q, K, Y = 0) {
+    if (K === "session_memory" || K === "compact") return !1;
+    if (!Xh()) return !1;
+    let z = eW(A) - Y,
+        _ = oc6(q),
+        w = OF(q);
+    k(`autocompact: tokens=${z} threshold=${_} effectiveWindow=${w}${Y>0?` snipFreed=${Y}`:""}`);
+    let { isAboveAutoCompactThreshold: O } = mz6(z, q);
+    return O
+}
+
+// READABLE:
+async function shouldCompactNow(messages, model, querySource, snipFreed = 0) {
+    // Never compact during session_memory or compact query sources (infinite loop prevention)
+    if (querySource === "session_memory" || querySource === "compact") return false;
+    // Check global toggles: DISABLE_COMPACT, DISABLE_AUTO_COMPACT, autoCompactEnabled
+    if (!isAutoCompactEnabled()) return false;
+
+    let tokens = getEffectiveTokenCount(messages) - snipFreed;
+    let threshold = getAutoCompactThreshold(model);
+    let window = getEffectiveWindow(model);
+    log(`autocompact: tokens=${tokens} threshold=${threshold} effectiveWindow=${window}` +
+        (snipFreed > 0 ? ` snipFreed=${snipFreed}` : ""));
+
+    let { isAboveAutoCompactThreshold } = getContextWindowStatus(tokens, model);
+    return isAboveAutoCompactThreshold;
+}
+
+// Mapping: CmY→shouldCompactNow, Xh→isAutoCompactEnabled, eW→getEffectiveTokenCount,
+//   oc6→getAutoCompactThreshold, OF→getEffectiveWindow, mz6→getContextWindowStatus
+```
+
+### Step 4: Context Window Status (mz6)
+
+Used for UI indicators and blocking decisions:
+
+```javascript
+// Location: chunks.147.mjs:2591-2612
+
+// READABLE:
+function getContextWindowStatus(tokens, model) {
+    let compactThreshold = getAutoCompactThreshold(model);
+    let limit = isAutoCompactEnabled() ? compactThreshold : getEffectiveWindow(model);
+    let percentLeft = Math.max(0, Math.round((limit - tokens) / limit * 100));
+    let warningLine = limit - 20000;    // hmY = 20000
+    let errorLine = limit - 20000;      // SmY = 20000
+    let blockingLine = getEffectiveWindow(model) - 3000;   // Mp8 = 3000
+    // Environment override for blocking limit
+    let blockOverride = parseInt(process.env.CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE, 10);
+    let effectiveBlockingLine = (!isNaN(blockOverride) && blockOverride > 0)
+        ? blockOverride : blockingLine;
+    return {
+        percentLeft,
+        isAboveWarningThreshold: tokens >= warningLine,
+        isAboveErrorThreshold: tokens >= errorLine,
+        isAboveAutoCompactThreshold: isAutoCompactEnabled() && tokens >= compactThreshold,
+        isAtBlockingLimit: tokens >= effectiveBlockingLine
+    };
+}
+```
+
+### Circuit Breaker: sqq (autocompact)
+
+```javascript
+// Location: chunks.147.mjs:2633-2674
+
+// Key guard (line 2637):
+if (tracking?.consecutiveFailures !== undefined && tracking.consecutiveFailures >= aqq)
+    return { wasCompacted: false };
+// aqq = 3: after 3 consecutive failures, skip all future compaction attempts
+
+// On failure (line 2663-2672):
+let failures = (tracking?.consecutiveFailures ?? 0) + 1;
+if (failures >= 3)
+    log("autocompact: circuit breaker tripped after N consecutive failures — skipping future attempts this session",
+        { level: "warn" });
+return { wasCompacted: false, consecutiveFailures: failures };
+
+// On success (line 2661):
+return { wasCompacted: true, compactionResult: result, consecutiveFailures: 0 };  // Reset counter
+```
+
+### Complete Decision Flow
+
+```
+Pre-query phase (every turn):
+  │
+  ├── querySource === "session_memory" or "compact"? → Skip (prevent loops)
+  ├── DISABLE_COMPACT or DISABLE_AUTO_COMPACT env set? → Skip
+  ├── autoCompactEnabled === false? → Skip
+  ├── circuitBreaker.consecutiveFailures >= 3? → Skip (circuit tripped)
+  │
+  ├── Calculate: tokens = eW(messages) - snipFreed
+  ├── Calculate: threshold = effectiveWindow - 13000
+  │   where effectiveWindow = min(contextWindow, envOverride) - min(maxOutput, 20000)
+  │
+  ├── tokens >= threshold? → YES → Attempt compaction
+  │   ├── Success → reset consecutiveFailures = 0
+  │   └── Failure → increment consecutiveFailures
+  │       └── >= 3 → trip circuit breaker for session
+  │
+  └── tokens < threshold → Skip (context not full enough)
+```
+
+### Numerical Examples
+
+| Model | Context Window | Max Output | Effective Window | Threshold | Triggers At |
+|-------|---------------|------------|-----------------|-----------|-------------|
+| Sonnet 3.5 | 200,000 | 8,192 | 191,808 | 178,808 | ~89% full |
+| Opus 4 | 200,000 | 16,384 | 183,616 | 170,616 | ~85% full |
+| Sonnet 4.5 (1M) | 1,000,000 | 16,384 | 983,616 | 970,616 | ~97% full |
+| Haiku 3.5 | 200,000 | 8,192 | 191,808 | 178,808 | ~89% full |
+
+---
+
 ## Summary
 
 These algorithms form the core of Claude Code's resilience and optimization:
 
 | Algorithm | Purpose | Key Insight |
 |-----------|---------|-------------|
-| Token Counting | Prevent context overflow | 20% buffer for safety |
+| Token Counting | Prevent context overflow | Hybrid: precise API usage + char/4 approximation |
 | Context Overflow Recovery | Automatic max_tokens adjustment | 1000-token buffer for margin |
 | Thinking Mode Decision | Enable optimal reasoning | Adaptive preferred for 4.6+ |
 | Dynamic Tool Loading | Reduce token usage | On-demand tool loading |
@@ -1079,5 +1518,7 @@ These algorithms form the core of Claude Code's resilience and optimization:
 | Attachment Assembly | Context injection | Parallel execution with timeout |
 | Model Overload Fallback | Service availability | Circuit breaker with fallback |
 | Streaming Tool Executor | Parallel tool execution | Concurrency-safe parallelism |
+| Token Counting Approximation | Hybrid token estimation | Precise API usage + char-based fallback |
+| Auto-Compact Threshold | When to compress history | effectiveWindow - 13000, with circuit breaker |
 
 All constants and thresholds are tuned based on production telemetry to balance user experience with API reliability.

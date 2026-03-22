@@ -1109,6 +1109,267 @@ logEvent("tengu_context_window_exceeded", {
 
 ---
 
+## Content Replacement Strategy — T34 (VERIFIED)
+
+> **Source:** `chunks.89.mjs:2024-2210` (P34, f34, fu9, Tu9, Vu9, vu9, T34, QN8)
+> **Invocation:** `chunks.148.mjs:934` — called in agent loop before microcompaction
+> **Cross-ref:** [compact_integration.md](compact_integration.md) — runs before micro-compact in the pre-query pipeline
+
+Claude Code implements a **per-message budget** system that replaces oversized tool results with compressed summaries saved to disk. This runs every turn, before microcompaction, to keep tool results within a configurable token window.
+
+### Constants
+
+```javascript
+// Location: chunks.89.mjs:1872-1881, 2244
+$34 = 50000       // MAX_SINGLE_RESULT_SIZE: per-result size cap (chars)
+Yp6 = 4           // CHARS_PER_TOKEN: approximation ratio
+H34 = 400000      // DEFAULT_RESULT_LIMIT: fallback per-tool limit (chars)
+j34 = 200000      // DEFAULT_MESSAGE_BUDGET: default per-message-group budget (chars)
+EI = 50           // MAX_CONCURRENT_PERSISTS (not used in Vu9 — used in X34)
+J34 = "<persisted-output>"  // REPLACEMENT_PREFIX: marks already-replaced content
+DP1 = (unknown)    // PREVIEW_SIZE: first N bytes of preview
+```
+
+### Entry Point: T34 (applyContentReplacement)
+
+```javascript
+// Location: chunks.89.mjs:2205-2210
+// Invoked at: chunks.148.mjs:934
+
+// ORIGINAL:
+async function T34(A, q, K, Y) {
+    if (!q) return A;
+    let z = await Vu9(A, q);
+    if (z.newlyReplaced.length > 0 && K.startsWith("repl_main_thread")) Y(z.newlyReplaced);
+    return z.messages
+}
+
+// READABLE:
+async function applyContentReplacement(messages, state, querySource, onNewReplacements) {
+    if (!state) return messages;   // No state → feature disabled
+    let result = await enforcePerMessageBudget(messages, state);
+    // Notify UI of new replacements only for REPL main thread
+    if (result.newlyReplaced.length > 0 && querySource.startsWith("repl_main_thread"))
+        onNewReplacements(result.newlyReplaced);
+    return result.messages;
+}
+
+// Mapping: T34→applyContentReplacement, A→messages, q→state, K→querySource,
+//   Y→onNewReplacements, Vu9→enforcePerMessageBudget
+```
+
+**Agent loop invocation** (chunks.148.mjs:934):
+```javascript
+I = await T34(I, X.contentReplacementState, O, (D6) => void pz6(D6).catch(_6));
+// Right before microcompact: I = (await j.microcompact(I, X, O)).messages;
+```
+
+### State Machine: P34 (createContentReplacementState)
+
+```javascript
+// Location: chunks.89.mjs:2024-2029
+
+// ORIGINAL:
+function P34() {
+    return { seenIds: new Set, replacements: new Map }
+}
+
+// READABLE:
+function createContentReplacementState() {
+    return {
+        seenIds: new Set(),         // tool_use_ids already processed (frozen)
+        replacements: new Map()     // toolUseId → compressed replacement string
+    };
+}
+```
+
+State is created once per session via `W34` (gated by feature flag `tengu_hawthorn_steeple`), or restored from prior session via `QN8`.
+
+### Core Algorithm: Vu9 (enforcePerMessageBudget)
+
+```javascript
+// Location: chunks.89.mjs:2145-2203
+
+// ORIGINAL:
+async function Vu9(A, q) {
+    let K = f34(A),            // Step 1: group tool results by turn
+        Y = Wu9(),             // Get per-message budget (default 200000 chars)
+        z = new Map,           // toolUseId → replacement content
+        _ = [],                // fresh results selected for replacement
+        w = 0,                 // reapplied count
+        O = 0;                 // over-budget message count
+    for (let J of K) {
+        let { mustReapply: M, frozen: D, fresh: X } = fu9(J, q);  // Step 2: classify
+        if (M.forEach((f) => z.set(f.toolUseId, f.replacement)), w += M.length,
+            X.length === 0) { J.forEach((f) => q.seenIds.add(f.toolUseId)); continue }
+        let P = D.reduce((f, v) => f + v.size, 0),    // frozen size
+            W = X.reduce((f, v) => f + v.size, 0),    // fresh size
+            Z = P + W > Y ? Tu9(X, P, Y) : [],        // Step 3: select for replacement
+            G = new Set(Z.map((f) => f.toolUseId));
+        J.filter((f) => !G.has(f.toolUseId)).forEach((f) => q.seenIds.add(f.toolUseId));
+        if (Z.length === 0) continue;
+        O++, _.push(...Z)
+    }
+    if (z.size === 0 && _.length === 0) return { messages: A, newlyReplaced: [] };
+    let $ = await Promise.all(_.map(async (J) => [J, await Nu9(J)])),  // Step 4: persist
+        H = [], j = 0;
+    for (let [J, M] of $) {
+        if (q.seenIds.add(J.toolUseId), M === null) continue;
+        j += J.size, z.set(J.toolUseId, M.content), q.replacements.set(J.toolUseId, M.content);
+        H.push({ kind: "tool-result", toolUseId: J.toolUseId, replacement: M.content });
+        d("tengu_tool_result_persisted_message_budget", { /* ... */ });
+    }
+    // ...
+    return { messages: vu9(A, z), newlyReplaced: H };   // Step 5: apply replacements
+}
+
+// READABLE:
+async function enforcePerMessageBudget(messages, state) {
+    let groups = groupToolResultsByTurn(messages);    // Step 1
+    let budget = getMessageBudget();                   // default: 200,000 chars (j34)
+    let replacementMap = new Map();
+    let freshToReplace = [];
+    let reappliedCount = 0;
+    let overBudgetGroupCount = 0;
+
+    for (let group of groups) {
+        // Step 2: Classify each tool result in the group
+        let { mustReapply, frozen, fresh } = classifyToolResults(group, state);
+
+        // Re-apply existing replacements
+        mustReapply.forEach(r => replacementMap.set(r.toolUseId, r.replacement));
+        reappliedCount += mustReapply.length;
+
+        if (fresh.length === 0) {
+            group.forEach(r => state.seenIds.add(r.toolUseId));
+            continue;
+        }
+
+        // Step 3: Check if group exceeds budget
+        let frozenSize = frozen.reduce((sum, r) => sum + r.size, 0);
+        let freshSize = fresh.reduce((sum, r) => sum + r.size, 0);
+        let toReplace = (frozenSize + freshSize > budget)
+            ? selectForReplacement(fresh, frozenSize, budget)   // Tu9
+            : [];
+        let replaceSet = new Set(toReplace.map(r => r.toolUseId));
+
+        // Mark non-replaced as seen (frozen for future turns)
+        group.filter(r => !replaceSet.has(r.toolUseId))
+             .forEach(r => state.seenIds.add(r.toolUseId));
+
+        if (toReplace.length === 0) continue;
+        overBudgetGroupCount++;
+        freshToReplace.push(...toReplace);
+    }
+
+    if (replacementMap.size === 0 && freshToReplace.length === 0)
+        return { messages, newlyReplaced: [] };
+
+    // Step 4: Persist selected results to disk (parallel)
+    let persisted = await Promise.all(
+        freshToReplace.map(async (r) => [r, await persistToolResult(r)])
+    );
+
+    let newlyReplaced = [];
+    let totalShed = 0;
+    for (let [result, compressed] of persisted) {
+        state.seenIds.add(result.toolUseId);
+        if (compressed === null) continue;  // persistence failed
+        totalShed += result.size;
+        replacementMap.set(result.toolUseId, compressed.content);
+        state.replacements.set(result.toolUseId, compressed.content);
+        newlyReplaced.push({
+            kind: "tool-result",
+            toolUseId: result.toolUseId,
+            replacement: compressed.content
+        });
+        logEvent("tengu_tool_result_persisted_message_budget", {
+            originalSizeBytes: compressed.originalSize,
+            persistedSizeBytes: compressed.content.length,
+            estimatedOriginalTokens: Math.ceil(compressed.originalSize / 4),
+            estimatedPersistedTokens: Math.ceil(compressed.content.length / 4)
+        });
+    }
+
+    // Step 5: Apply all replacements to messages
+    return { messages: applyReplacements(messages, replacementMap), newlyReplaced };
+}
+```
+
+### Algorithm Steps (Visual)
+
+```
+Step 1: f34 — Group tool results by assistant message boundary
+  messages: [user(tool_result_A), user(tool_result_B), assistant_1, user(tool_result_C), assistant_2]
+  groups: [[A, B], [C]]
+
+Step 2: fu9 — Classify each result in a group
+  ┌─────────────────────────────────┐
+  │ For each tool_use_id:           │
+  │  ├── In state.replacements?     │
+  │  │   └── YES → mustReapply      │  (cached replacement from prior turn)
+  │  ├── In state.seenIds?          │
+  │  │   └── YES → frozen           │  (already processed, under budget)
+  │  └── Neither?                   │
+  │      └── fresh                  │  (new, never seen)
+  └─────────────────────────────────┘
+
+Step 3: Tu9 — Select largest fresh results for replacement
+  IF frozenSize + freshSize > budget (200,000 chars):
+    Sort fresh by size DESCENDING
+    Remove largest until: frozenSize + remainingFreshSize ≤ budget
+    Selected items → compress and persist
+
+Step 4: Nu9 → XP1 — Persist to disk
+  XP1(content, toolUseId):
+    Write to ~/.claude/tool-results/{sessionId}/{toolUseId}.{json|txt}
+    Return { filepath, originalSize, preview, hasMore }
+  PP1(result):
+    Format as: "<persisted-output>\nOutput too large ({size}). Full output saved to: {path}\nPreview (first {N}):\n{preview}\n..."
+
+Step 5: vu9 — Apply replacements to messages
+  For each user message with tool_result blocks:
+    If tool_use_id in replacementMap:
+      Replace content with compressed string
+```
+
+### Filter Rules (What Is NOT Replaced)
+
+| Check | Function | Rule |
+|-------|----------|------|
+| Already replaced | `Zu9` | Content starts with `"<persisted-output>"` (J34 prefix) |
+| Contains images | `Z34` | Content is array with any `type === "image"` element |
+| Frozen | `fu9` | tool_use_id already in `state.seenIds` |
+| Must-reapply | `fu9` | tool_use_id already in `state.replacements` (re-applies cached) |
+
+### Feature Gating
+
+- **Feature flag:** `tengu_hawthorn_steeple` — gates state creation (`W34`)
+- **Budget override:** `tengu_hawthorn_window` — overrides default budget of 200,000 chars (`Wu9`)
+- **Per-tool override:** `Du9` feature flag object — per-tool-name size limits (`M34`)
+
+### Telemetry
+
+```javascript
+// Per-result: emitted for each successfully persisted tool result
+logEvent("tengu_tool_result_persisted_message_budget", {
+    originalSizeBytes: number,
+    persistedSizeBytes: number,
+    estimatedOriginalTokens: number,   // Math.ceil(original / 4)
+    estimatedPersistedTokens: number   // Math.ceil(persisted / 4)
+});
+
+// Per-turn: emitted when any group was over budget
+logEvent("tengu_message_level_tool_result_budget_enforced", {
+    resultsPersisted: number,
+    messagesOverBudget: number,
+    replacedSizeBytes: number,
+    reapplied: number
+});
+```
+
+---
+
 ## Verified Symbol Reference
 
 | Obfuscated | Readable | File:Line | Purpose |
@@ -1126,3 +1387,19 @@ logEvent("tengu_context_window_exceeded", {
 | dh1 | processContentBlocks | chunks.171.mjs:600 | Block processor |
 | zF | extractReferencedTools | chunks.171.mjs:21 | Find referenced tools |
 | GX | isDeferredTool | chunks.171.mjs | Deferred tool check |
+| T34 | applyContentReplacement | chunks.89.mjs:2205 | Entry point for content replacement |
+| P34 | createContentReplacementState | chunks.89.mjs:2024 | State factory (seenIds, replacements) |
+| Vu9 | enforcePerMessageBudget | chunks.89.mjs:2145 | Core per-message budget algorithm |
+| f34 | groupToolResultsByTurn | chunks.89.mjs:2070 | Group results by assistant boundary |
+| fu9 | classifyToolResults | chunks.89.mjs:2086 | Classify: mustReapply/frozen/fresh |
+| Tu9 | selectForReplacement | chunks.89.mjs:2103 | Select largest fresh for compression |
+| vu9 | applyReplacements | chunks.89.mjs:2114 | Apply replacement map to messages |
+| Nu9 | persistToolResult | chunks.89.mjs:2136 | Persist single result via XP1 |
+| XP1 | persistToFile | chunks.89.mjs:1910 | Write tool result to disk |
+| PP1 | formatPersistedOutput | chunks.89.mjs:1948 | Format replacement string |
+| W34 | initContentReplacementState | chunks.89.mjs:2037 | Feature-gated state init |
+| QN8 | restoreContentReplacementState | chunks.89.mjs:2212 | Restore state from prior session |
+| Wu9 | getMessageBudget | chunks.89.mjs:2031 | Get budget (default j34=200000) |
+| J34 | REPLACEMENT_PREFIX | chunks.89.mjs:2244 | `"<persisted-output>"` marker |
+| j34 | DEFAULT_MESSAGE_BUDGET | chunks.89.mjs:1879 | 200,000 chars default |
+| Yp6 | CHARS_PER_TOKEN | chunks.89.mjs:1875 | 4 chars per token ratio |

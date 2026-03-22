@@ -10,9 +10,11 @@
 
 Key functions in this document:
 - `resumeSession` (yt) - Resume a session by ID or picker
-- `generateSessionId` (pcA) - Create new session UUID
+- `regenerateSessionId` (ix1) - Generate new session UUID
+- `getSessionId` (R1) - Get current session ID
+- `validateUuid` (nk) - Validate UUID format
+- `isSessionIdInUse` (fU6) - Check if session file exists
 - `createChildAbortController` (R61) - Session abort handling
-- `getSessionsDir` - Get sessions storage directory
 
 ---
 
@@ -203,24 +205,24 @@ async function performCompaction(messages, sessionContext) {
 
 ### 3.1 UUID Validation
 
-**Source location:** `chunks.197.mjs:1100-1109`
+**Source location:** `chunks.198.mjs:122-131`
 
 ```javascript
 // ============================================
 // Session ID validation
-// Location: chunks.197.mjs:1100-1109
+// Location: chunks.198.mjs:122-131
 // ============================================
 
 // ORIGINAL (for source lookup):
-if (N) {
-    if ((H.continue || H.resume) && !H.forkSession)
-        process.stderr.write(H6.red(`Error: --session-id can only be used with --continue or --resume if --fork-session is also specified.
+if (L) {
+    if ((O.continue || O.resume) && !O.forkSession)
+        process.stderr.write(O1.red(`Error: --session-id can only be used with --continue or --resume if --fork-session is also specified.
 `)), process.exit(1);
-    if (!D1) {
-        let TA = xv(N);
-        if (!TA) process.stderr.write(H6.red(`Error: Invalid session ID. Must be a valid UUID.
+    if (!$6) {
+        let Q1 = nk(L);
+        if (!Q1) process.stderr.write(O1.red(`Error: Invalid session ID. Must be a valid UUID.
 `)), process.exit(1);
-        if (zm1(TA)) process.stderr.write(H6.red(`Error: Session ID ${TA} is already in use.
+        if (fU6(Q1)) process.stderr.write(O1.red(`Error: Session ID ${Q1} is already in use.
 `)), process.exit(1)
     }
 }
@@ -233,7 +235,7 @@ if (sessionId) {
         process.exit(1);
     }
 
-    // Validate UUID format
+    // Validate UUID format (skip in SDK mode)
     if (!isSdkMode) {
         let parsedUuid = validateUuid(sessionId);
         if (!parsedUuid) {
@@ -249,30 +251,132 @@ if (sessionId) {
     }
 }
 
-// Mapping: N→sessionId, xv→validateUuid, zm1→isSessionIdInUse, D1→isSdkMode
+// Mapping: L→sessionId, O→options, O1→chalk.red, $6→isSdkMode, nk→validateUuid, fU6→isSessionIdInUse
+```
+
+### 3.2.1 UUID Validation Function
+
+**Source location:** `chunks.93.mjs:1552-1555`
+
+```javascript
+// ============================================
+// validateUuid - Validate UUID string format
+// Location: chunks.93.mjs:1552-1555
+// ============================================
+
+// ORIGINAL (for source lookup):
+function nk(A) {
+    if (typeof A !== "string") return null;
+    return VF9.test(A) ? A : null
+}
+
+// READABLE (for understanding):
+function validateUuid(value) {
+    // Must be a string
+    if (typeof value !== "string") return null;
+
+    // Test against UUID regex pattern, return value if valid
+    return UUID_REGEX.test(value) ? value : null;
+}
+
+// Mapping: nk→validateUuid, A→value, VF9→UUID_REGEX
+```
+
+### 3.2.2 Session ID In-Use Check
+
+**Source location:** `chunks.174.mjs:1178-1183`
+
+```javascript
+// ============================================
+// isSessionIdInUse - Check if session file exists
+// Location: chunks.174.mjs:1178-1183
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fU6(A) {
+    let q = mj(AA()),
+        K = uN(q, `${A}.jsonl`),
+        Y = $1();
+    try {
+        return Y.statSync(K), !0
+    } catch {
+        return !1
+    }
+}
+
+// READABLE (for understanding):
+function isSessionIdInUse(sessionId) {
+    // Get sessions directory path
+    let sessionsDir = getSessionsDirectory(getProjectDir());
+    let sessionFile = joinPath(sessionsDir, `${sessionId}.jsonl`);
+    let fs = getFileSystem();
+
+    try {
+        // If file exists, session is in use
+        fs.statSync(sessionFile);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Mapping: fU6→isSessionIdInUse, A→sessionId, mj→getSessionsDirectory, AA→getProjectDir, uN→joinPath, $1→getFileSystem
 ```
 
 ### 3.2 Session ID Generation
 
-**Source location:** `chunks.1.mjs:2340`
+**Source location:** `chunks.1.mjs:2341`
 
 ```javascript
 // ============================================
-// generateSessionId - Create new session UUID
-// Location: chunks.1.mjs:2340
+// regenerateSessionId - Generate new session UUID
+// Location: chunks.1.mjs:2341
 // ============================================
 
 // ORIGINAL (for source lookup):
-function pcA() {
-    return gL9()
+function ix1(A = {}) {
+    if (A.setCurrentAsParent) v1.parentSessionId = v1.sessionId;
+    return v1.sessionId = yx1(), v1.sessionProjectDir = null, v1.sessionId
 }
 
 // READABLE (for understanding):
-function generateSessionId() {
-    return generateUUID();
+function regenerateSessionId(options = {}) {
+    // If forking, save current session as parent
+    if (options.setCurrentAsParent) {
+        sessionState.parentSessionId = sessionState.sessionId;
+    }
+
+    // Generate new UUID using crypto.randomUUID
+    sessionState.sessionId = randomUUID();
+    sessionState.sessionProjectDir = null;
+
+    return sessionState.sessionId;
 }
 
-// Mapping: pcA→generateSessionId, gL9→generateUUID
+// Mapping: ix1→regenerateSessionId, A→options, v1→sessionState, yx1→randomUUID
+```
+
+### 3.3 Session ID Getter
+
+**Source location:** `chunks.1.mjs:2337`
+
+```javascript
+// ============================================
+// getSessionId - Get current session ID
+// Location: chunks.1.mjs:2337
+// ============================================
+
+// ORIGINAL (for source lookup):
+function R1() {
+    return v1.sessionId
+}
+
+// READABLE (for understanding):
+function getSessionId() {
+    return sessionState.sessionId;
+}
+
+// Mapping: R1→getSessionId, v1→sessionState
 ```
 
 ---
@@ -595,9 +699,12 @@ claude -p --no-session-persistence "Quick analysis"
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
 | Flag definitions | `chunks.197.mjs:1023` | Commander options |
-| UUID validation | `chunks.197.mjs:1100` | Session ID check |
+| UUID validation | `chunks.198.mjs:122` | Session ID check (calls `nk`, `fU6`) |
+| validateUuid | `chunks.93.mjs:1552` | UUID format validation |
+| isSessionIdInUse | `chunks.174.mjs:1178` | Check if session file exists |
+| regenerateSessionId | `chunks.1.mjs:2341` | Generate new session UUID |
+| getSessionId | `chunks.1.mjs:2337` | Get current session ID |
 | PR resolution | `chunks.197.mjs:1055` | Extract PR number |
-| Session ID generation | `chunks.1.mjs:2340` | `generateSessionId` |
 | Resume handling | `chunks.142.mjs:379` | `resumeSession` |
 | Rewind files | Various | File history module |
 | Persistence check | `chunks.197.mjs:1305` | Print mode validation |

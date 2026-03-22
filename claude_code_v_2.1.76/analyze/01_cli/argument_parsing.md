@@ -7,15 +7,15 @@
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - State Management
 
 Key functions in this document:
-- `commanderSetup` (aGz) - Main argument definition function in chunks.198.mjs:999
-- `mainEntry` (nGz) - Validation and post-processing in chunks.197.mjs:931
-- `cliEntry` (qZz) - Entry dispatch after commander parse in chunks.198.mjs:167
+- `commanderSetup` (aGz) - Main argument definition function in chunks.192.mjs:1987
+- `main` (OVz) - Main CLI entry: Commander setup, argument parsing, action handler - chunks.198.mjs:3
+- `cliEntry` (JVz) - Top-level CLI entry with early dispatch - chunks.198.mjs:1573
 
 ---
 
 ## Overview
 
-Claude Code v2.1.76 uses `commander` (obfuscated `UT6`) as its CLI framework. Argument definitions live in `commanderSetup` (`aGz`, chunks.198.mjs:999), and the bulk of validation and cross-flag consistency checking runs inside `mainEntry` (`nGz`, chunks.197.mjs:931) immediately after commander parses `process.argv`.
+Claude Code v2.1.76 uses `commander` (obfuscated `UT6`) as its CLI framework. Argument definitions live in `commanderSetup` (`aGz`, chunks.192.mjs:1987), and the bulk of validation and cross-flag consistency checking runs inside the Commander action handler immediately after parsing `process.argv`.
 
 The argument surface has grown substantially beyond what casual users see in `--help`. Roughly half of all flags are hidden from help output using commander's `.hideHelp()` method. This document catalogues every flag, its parser type, its visibility, the validation rules that govern it, and the design rationale behind each decision.
 
@@ -149,8 +149,8 @@ Specifies the model alias (e.g., `sonnet`, `opus`) or full model ID. Overrides t
 **`--fallback-model <model>`** (hidden, string)
 Designates an automatic fallback when the primary model returns an overload error (HTTP 529). Print mode only. Validated: cannot be the same as `--model`. The fallback is typically a smaller, more available model (e.g., `haiku` when primary is `opus`).
 
-**`--effort <level>`** (visible, custom parser) — **Updated in v2.1.76**
-Sets the reasoning effort level. Custom parser validates against the allowed list: `["low", "medium", "high"]`. The `max` level was removed in v2.1.76 — use `high` for maximum available effort. Throws an error if an invalid value is given.
+**`--effort <level>`** (visible, custom parser) — **Verified in v2.1.76**
+Sets the reasoning effort level. Custom parser validates against the allowed list: `["low", "medium", "high", "max"]`. Source verification at chunks.198.mjs:31-35 confirms all four levels are valid. Throws an error if an invalid value is given. Note: The `max` level has runtime restrictions (Opus 4.6 only, print mode required in some contexts).
 
 **`--betas <betas...>`** (hidden, variadic string)
 Beta header names to append to every API request. Restricted to API key users only (not claude.ai subscribers). Allows early access to pre-release model capabilities without waiting for a version update.
@@ -346,7 +346,7 @@ Identical in effect to `--debug`. Kept for backward compatibility with scripts a
 
 ## 3. Argument Validation Logic
 
-All cross-flag consistency checks run sequentially in `mainEntry` (`nGz`, chunks.197.mjs) after commander parses `process.argv`. The order is significant: early checks can short-circuit later ones.
+All cross-flag consistency checks run sequentially in the Commander action handler after parsing `process.argv`. The order is significant: early checks can short-circuit later ones.
 
 ### Validation 1: Single-Word Prompt Detection
 
@@ -455,38 +455,39 @@ if (sdkUrl) {
 
 **What it does:** Rejects configurations where `--fallback-model` equals `--model`.
 
-### Validation 7: Effort Level Restrictions (Updated in v2.1.76)
+### Validation 7: Effort Level Restrictions (Verified in v2.1.76)
 
-**Location:** chunks.197.mjs:1130-1133
+**Location:** chunks.198.mjs:31-35
 
-**What changed in v2.1.76:** The `max` effort level was removed. The valid values are now strictly `low`, `medium`, and `high`. If `max` is passed, the custom parser throws an `InvalidArgumentError` immediately at parse time, rather than a deferred runtime check.
+**Verified values:** The effort validation array includes all four levels: `["low", "medium", "high", "max"]`. Source verification:
 
 ```javascript
 // ============================================
-// effortLevelValidator - Validates effort level (v2.1.76: no max)
-// Location: chunks.197.mjs:1023
+// effortLevelValidator - Validates effort level
+// Location: chunks.198.mjs:31-35
 // ============================================
 
 // ORIGINAL (for source lookup):
-(w) => {
-    let H = ["low", "medium", "high"];
-    if (!H.includes(w)) throw new kXq(`It must be one of: ${H.join(", ")}`);
-    return w
-}
+let O = w.toLowerCase(),
+    $ = ["low", "medium", "high", "max"];
+if (!$.includes(O)) throw new Gkq(`It must be one of: ${$.join(", ")}`);
+return O
 
 // READABLE (for understanding):
-(value) => {
-    let validLevels = ["low", "medium", "high"];
-    if (!validLevels.includes(value)) {
-        throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
-    }
-    return value;
+let normalizedValue = value.toLowerCase(),
+    validLevels = ["low", "medium", "high", "max"];
+if (!validLevels.includes(normalizedValue)) {
+    throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
 }
+return normalizedValue;
 
-// Mapping: kXq→InvalidArgumentError, w→value, H→validLevels
+// Mapping: kXq→InvalidArgumentError, w→value, O→normalizedValue, $→validLevels
 ```
 
-**Why max was removed:** The `max` effort level required special-case gating (print-mode only, API key only). v2.1.76 simplifies the effort model: `high` is the maximum interactive effort level and has the same behavior as the former interactive `high`. The `max` distinction (formerly only in print mode) is no longer exposed.
+**Runtime restrictions for `max`:** While `max` is accepted at parse time, it has runtime restrictions:
+- Opus 4.6 models only
+- Print mode may be required in certain contexts
+- Other models may reject the `max` effort level at API call time
 
 ### Validation 8: System Prompt Mutual Exclusion
 
@@ -554,3 +555,124 @@ Commander provides type coercion, automatic help generation, and variadic argume
 ### The `() => !0` Pattern vs. Native Boolean Flags
 
 Commander's native boolean flags (no argParser) produce `undefined` when absent and the string `"true"` when present. The `() => !0` pattern produces `undefined` when absent and the primitive `true` when present. Downstream code uses `if (options.flag)` checks, which work identically for both. The `() => !0` pattern is used to ensure downstream strict equality checks (`=== true`) work correctly.
+
+---
+
+## 5. Deep Analysis: Flag Parsing Strategies
+
+### 5.1 Pattern A: Boolean-Always-True Parser `() => !0`
+
+**What it does:** Returns `true` regardless of any value the shell passes in. The flag is a pure on/off switch.
+
+**How it works:**
+1. Commander calls the argParser function with whatever the user typed after the flag (or nothing)
+2. The function ignores its argument entirely and returns primitive `true`
+3. The options object always holds boolean `true`, never the string `"true"`
+
+**Why this approach:**
+
+The subtle bug this avoids: Commander's native boolean handling produces inconsistent types:
+
+```javascript
+// Without argParser:
+--verbose  → options.verbose = "true" (string)
+(no flag)  → options.verbose = undefined
+
+// With () => !0:
+--verbose  → options.verbose = true (boolean)
+(no flag)  → options.verbose = undefined
+```
+
+The string `"true"` passes truthiness checks but fails strict equality (`options.verbose === true`). Downstream code that uses strict equality for feature gates would silently fail. The `() => !0` pattern normalizes all present flags to primitive `true`.
+
+**Key insight:** This pattern creates a consistent boolean interface for downstream consumers, preventing subtle type-related bugs in feature flag checks.
+
+### 5.2 Pattern B: Value-or-True Parser `(w) => w || !0`
+
+**What it does:** Returns the user-supplied string value when one is given, or `true` when the flag is bare (no value).
+
+**How it works:**
+1. If user writes `--resume abc123`, commander calls parser with `"abc123"` and the function returns `"abc123"`
+2. If user writes `--resume` alone, commander calls parser with `undefined`; since falsy, `|| !0` returns `true`
+
+**Why this approach:**
+
+Some flags are meaningful both ways:
+- `--resume abc123` → Jump directly to session `abc123`
+- `--resume` → Open interactive session picker
+
+The single coercion handles both modes cleanly without requiring two separate flag definitions.
+
+**Decision tree for when to use Pattern B:**
+```
+Does the flag have a meaningful "bare" mode?
+├─ YES → Use Pattern B: (w) => w || !0
+│        Examples: --resume, --from-pr
+└─ NO  → Use Pattern A: () => !0
+         Examples: --print, --verbose, --dangerously-skip-permissions
+```
+
+### 5.3 Pattern C: Custom Parsers with Validation
+
+**What it does:** Validates the user's input against a domain rule before storing it.
+
+**Example: `--effort` validation**
+
+```javascript
+// ============================================
+// effortValidation - CLI effort level validator
+// Location: chunks.198.mjs:31-35
+// ============================================
+
+// ORIGINAL (for source lookup):
+(w) => {
+    let O = w.toLowerCase(),
+        $ = ["low", "medium", "high", "max"];
+    if (!$.includes(O)) throw new Gkq(`It must be one of: ${$.join(", ")}`);
+    return O
+}
+
+// READABLE (for understanding):
+(value) => {
+    let normalized = value.toLowerCase();
+    let validLevels = ["low", "medium", "high", "max"];
+    if (!validLevels.includes(normalized)) {
+        throw new InvalidArgumentError(`It must be one of: ${validLevels.join(", ")}`);
+    }
+    return normalized;
+}
+
+// Mapping: w→value, O→normalized, $→validLevels, Gkq→InvalidArgumentError
+```
+
+**Why validation at parse time:**
+- Immediate feedback to user (error before any work begins)
+- Prevents invalid state from propagating
+- Cleaner than validating in the action handler
+
+### 5.4 Parser Pattern Decision Matrix
+
+| Requirement | Pattern | Example Flags |
+|-------------|---------|---------------|
+| Pure boolean, strict `=== true` support | `() => !0` | `--print`, `--verbose` |
+| Optional value with fallback | `(w) => w \|\| !0` | `--resume`, `--from-pr` |
+| Enum validation | Custom with `includes()` | `--effort` |
+| Numeric coercion | `argParser(Number)` | `--max-turns`, `--max-thinking-tokens` |
+| Positive number validation | Custom with `> 0` check | `--max-budget-usd` |
+| Boolean from string | `argParser(Boolean)` | `--debug-to-stderr` |
+
+### 5.5 Trade-offs: Commander vs. Manual Parsing
+
+**Commander advantages:**
+1. **Automatic help generation** - `.help()` produces formatted output
+2. **Type coercion** - Built-in `argParser` mechanisms
+3. **Variadic arguments** - `--tools <tools...>` handled automatically
+4. **Subcommand routing** - `claude auth login` dispatch built-in
+
+**Commander disadvantages:**
+1. **Bundle size** - Increases overall bundle (acceptable for Claude Code)
+2. **Less flexibility** - Complex validation patterns require workarounds
+3. **String `"true"` issue** - Requires explicit `() => !0` pattern
+
+**Why Commander was chosen:**
+The complexity of Claude Code's flag surface (~50 flags with various types, validation rules, and mutual exclusion logic) would require substantial custom parsing code. Commander handles the common cases well, and the edge cases are manageable with the patterns documented above.

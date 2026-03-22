@@ -10,6 +10,7 @@ Key functions in this document:
 - `getInputDialogType` (`ra6`) - Priority dialog dispatcher, chunks.196.mjs:387-404
 - `handleCancel` (`TM`) - Escape/cancel handler, chunks.196.mjs:420-432
 - `ToolPermissionDialog` (`HIq`) - Tool use approval dialog, chunks.190.mjs:899
+- `PromptDialog` (`fIq`) - Tool prompt selection dialog, chunks.190.mjs:2125
 - `MessageList` (`veY`) - Memoized message list component, chunks.161.mjs:3
 
 ---
@@ -25,6 +26,10 @@ Key functions in this document:
 - [7. Image Attachment Handling](#7-image-attachment-handling)
 - [8. Multi-line Input](#8-multi-line-input)
 - [9. Submit Flow](#9-submit-flow)
+- [10. Prompt Dialog System](#10-prompt-dialog-system)
+- [11. Deep Algorithm Analysis: Concurrency Guard](#11-deep-algorithm-analysis-concurrency-guard)
+- [12. Submit Flow State Machine](#12-submit-flow-state-machine)
+- [13. v2.1.76 Input Handling Changes](#13-v2176-input-handling-changes)
 
 ---
 
@@ -616,7 +621,225 @@ async function executeQuery(messages, abortController, shouldExecute, tools, mod
 
 ---
 
-## 10. Deep Algorithm Analysis: Concurrency Guard
+## 10. Prompt Dialog System
+
+The prompt dialog system allows tools to interactively request user input during execution. This is distinct from the main input prompt - it's a modal dialog that appears when a tool needs clarification or selection.
+
+### When Prompt Dialogs Appear
+
+Prompt dialogs are queued when:
+- A tool calls a `prompt` method requiring user selection
+- The tool's execution is blocked waiting for user input
+- Multiple prompts can queue up during parallel tool execution
+
+### Prompt Queue State
+
+```javascript
+// ============================================
+// Prompt Queue State - chunks.196.mjs:167
+// ============================================
+
+// ORIGINAL (for source lookup):
+[zA, gA] = N8.useState([]),  // promptQueue, setPromptQueue
+
+// READABLE (for understanding):
+const [promptQueue, setPromptQueue] = useState([]);
+
+// Each queue entry:
+// {
+//     title: string,           // Dialog title
+//     toolInputSummary: string, // Tool context summary
+//     request: {
+//         prompt: string,      // The prompt message
+//         message: string,     // Subtitle message
+//         options: Array<{     // Selectable options
+//             key: string,
+//             label: string,
+//             description?: string
+//         }>
+//     },
+//     resolve: (value) => void, // Promise resolver
+//     reject: (error) => void   // Promise rejecter
+// }
+```
+
+### Prompt Dialog Component (fIq)
+
+The `PromptDialog` component renders a selection dialog with options:
+
+```javascript
+// ============================================
+// PromptDialog (fIq) - Selection dialog component
+// Location: chunks.190.mjs:2125-2171
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fIq(A) {
+    let q = A6(15),
+        {
+            title: K,
+            toolInputSummary: Y,
+            request: z,
+            onRespond: _,
+            onAbort: w
+        } = A;
+    // ... memoization logic ...
+    D8("app:interrupt", w, { isActive: true });
+    // Map options to select format
+    let $ = z.options.map(FWz);  // FWz maps key/label/description
+    return Ui.createElement(cz, {
+        title: K,
+        subtitle: z.message,
+        titleRight: j  // toolInputSummary display
+    }, Ui.createElement(T8, {
+        options: $,
+        onChange: (X) => { _(X) }
+    }));
+}
+
+// READABLE (for understanding):
+function PromptDialog({ title, toolInputSummary, request, onRespond, onAbort }) {
+    // Register abort handler for app:interrupt events
+    useEvent("app:interrupt", onAbort, { isActive: true });
+
+    // Transform options for SelectInput component
+    const selectOptions = request.options.map(option => ({
+        label: option.label,
+        value: option.key,
+        description: option.description
+    }));
+
+    return (
+        <Dialog title={title} subtitle={request.message} titleRight={toolInputSummary}>
+            <SelectInput
+                options={selectOptions}
+                onChange={(selectedValue) => onRespond(selectedValue)}
+            />
+        </Dialog>
+    );
+}
+
+// Mapping: fIq→PromptDialog, FWz→mapPromptOption, T8→SelectInput, cz→Dialog
+```
+
+### Priority Dispatch
+
+The prompt dialog appears at priority 5 in the dialog dispatcher:
+
+```javascript
+// ============================================
+// Prompt Dialog Priority - chunks.196.mjs:394
+// ============================================
+
+// In getInputDialogType (ra6):
+if (P1 && zA[0]) return "prompt";  // Priority 5: after tool-permission, before worker-sandbox
+
+// Full priority order:
+// 1. message-selector (W7)
+// 2. [blocked if paused (y2)]
+// 3. sandbox-permission (G7[0])
+// 4. tool-permission (a8[0]) [if animation allows]
+// 5. prompt (zA[0]) [if animation allows] ← HERE
+// 6. worker-sandbox-permission (n.queue[0])
+// 7. elicitation (o.queue[0])
+// 8. cost (m26)
+// 9. ide-onboarding (W6)
+// 10. effort-callout (g6)
+// 11. remote-callout (J1)
+// 12. lsp-recommendation (e8)
+// 13. desktop-upsell (E1)
+```
+
+### Cancel Behavior
+
+When the user presses Escape during a prompt dialog:
+
+```javascript
+// ============================================
+// Prompt Dialog Cancel Handler - chunks.196.mjs:426-428
+// ============================================
+
+// ORIGINAL (for source lookup):
+else if (K2 === "prompt") {
+    for (let P1 of zA) P1.reject(Error("Prompt cancelled by user"));
+    gA([]), M5?.abort()
+}
+
+// READABLE (for understanding):
+else if (focusedInputDialog === "prompt") {
+    // Reject ALL queued prompts, not just the first
+    for (let prompt of promptQueue) {
+        prompt.reject(new Error("Prompt cancelled by user"));
+    }
+    // Clear the entire queue
+    setPromptQueue([]);
+    // Abort any pending operation
+    abortController?.abort();
+}
+```
+
+### Why Reject All Queued Prompts?
+
+The cancel behavior rejects ALL queued prompts, not just the visible one:
+
+1. **Consistent state:** If the user cancels, they're canceling the entire operation flow
+2. **Prevents orphaned prompts:** No stale prompts remain after cancel
+3. **Clean abort:** Tool execution stops cleanly with proper error handling
+
+### Prompt Queue Use Counter
+
+The system tracks how often users use the prompt queue feature:
+
+```javascript
+// ============================================
+// Prompt Queue Use Tracking - chunks.196.mjs:1182-1185
+// ============================================
+
+// ORIGINAL (for source lookup):
+g26.current = !0, d1((P1) => ({
+    ...P1,
+    promptQueueUseCount: (P1.promptQueueUseCount ?? 0) + 1
+}))
+
+// READABLE (for understanding):
+hasTrackedPromptQueue.current = true;
+setAppState(state => ({
+    ...state,
+    promptQueueUseCount: (state.promptQueueUseCount ?? 0) + 1
+}));
+```
+
+This counter is used for tips/tutorials:
+```javascript
+// chunks.180.mjs:2114 - Show tip if user hasn't used queue much
+async isRelevant() {
+    return X1().promptQueueUseCount <= 3  // Only show for first 3 uses
+}
+```
+
+### Integration with Tool Execution
+
+The prompt dialog integrates with tool execution flow:
+
+```
+Tool Execution Flow with Prompt:
+│
+├── Tool calls prompt() method
+│       │
+│       └── Creates Promise → pushed to promptQueue
+│               │
+│               └── Tool execution BLOCKED waiting for Promise
+│                       │
+│                       ├── User selects option → resolve(value)
+│                       │       └── Tool continues with selected value
+│                       │
+│                       └── User cancels → reject(Error)
+│                               └── Tool receives error, may retry or fail
+```
+
+---
+
+## 11. Deep Algorithm Analysis: Concurrency Guard
 
 ### Why Concurrency Protection is Needed
 
@@ -752,7 +975,7 @@ I6.current = false;  // Skipped if operation throws
 
 ---
 
-## 11. Submit Flow State Machine
+## 12. Submit Flow State Machine
 
 ### Complete Submit Flow
 
@@ -848,7 +1071,7 @@ if (toolPermission === "rejected") {
 
 ---
 
-## 12. v2.1.76 Input Handling Changes
+## 13. v2.1.76 Input Handling Changes
 
 ### New Features
 
@@ -885,6 +1108,6 @@ async function initVoiceMode() {
 
 ---
 
-**Last Updated**: 2026-03-22 (Enhanced with concurrency guard analysis, submit flow state machine)
+**Last Updated**: 2026-03-22 (Added prompt dialog system documentation, enhanced with concurrency guard analysis, submit flow state machine)
 **Version**: Claude Code 2.1.76
-**Status**: Complete - Full input handling flow documented
+**Status**: Complete - Full input handling flow documented including prompt dialog system

@@ -94,8 +94,9 @@
 |------------|----------|-----------|------|
 | nXq | McpHub | chunks.175.mjs:1897 | class |
 | ZQA | MCPContext | chunks.176.mjs:2333 | class |
-| K11 | onChangeAppStateHandler | chunks.176.mjs:581 | function |
 | Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function |
+
+> **Note:** `K11` was incorrectly documented as `onChangeAppStateHandler`. The actual `K11` is in chunks.10.mjs and is unrelated to MCP.
 
 ### MCP CLI Subcommands
 
@@ -124,8 +125,12 @@
 
 ## Module: Telemetry
 
+### Event Tracking
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| d | trackEvent | chunks.2.mjs:275 | function (main telemetry event tracker) |
+| oAA | setTelemetryBackend | chunks.2.mjs:263 | function (initialize telemetry backend) |
 | c | logEvent | chunks.1.mjs:4278 | function |
 | ml | logEventAsync | chunks.1.mjs:4290 | function |
 | ziA | attachAnalyticsSink | chunks.1.mjs:4266 | function |
@@ -140,6 +145,20 @@
 | - | feedbackSurveyRate | settings | config key (session quality survey trigger rate 0-1) |
 | - | speed | telemetry | OTel attribute (marks fast mode events) |
 | - | tool_decision | telemetry | OTel event (tool permission decision in headless mode) |
+
+### Debug Logging
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| k | debugLog | chunks.2.mjs:165 | function (debug logging with level filtering) |
+| PT | isDebugEnabled | chunks.2.mjs:225-231 | function (check if debug mode enabled) |
+| Krq | getDebugFilter | chunks.2.mjs:232-237 | function (get debug category filter from --debug=) |
+| Sx | isDebugToStderr | chunks.2.mjs:237-239 | function (check --debug-to-stderr flag) |
+| iAA | getDebugFilePath | chunks.2.mjs:239-246 | function (get --debug-file path) |
+| Jm1 | LOG_LEVELS | chunks.2.mjs:219-225 | object (verbose:0, debug:1, info:2, warn:3, error:4) |
+| qrq | getCurrentLogLevel | chunks.2.mjs:225-229 | function (get CLAUDE_CODE_DEBUG_LOG_LEVEL env) |
+| t6 | parseBoolean | chunks.2.mjs:4 (referenced) | function (parse boolean string/env) |
+| e1 | memoize | chunks.2.mjs:4 (referenced) | function (memoization helper) |
 
 ### Query Profiling
 
@@ -270,6 +289,25 @@
 | zcY | checkIfsInjection | chunks.150.mjs:382474 | function |
 | wcY | checkProcEnvironAccess | chunks.150.mjs:382491 | function |
 | HcY | checkMalformedTokens | chunks.150.mjs:382508 | function |
+
+---
+
+## Module: Permissions
+
+> Full analysis: [01_cli/tools_integration.md](../01_cli/tools_integration.md)
+
+### Permission Context Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xM | createDefaultPermissionContext | chunks.56.mjs:1596 | function (factory for initial permission context) |
+| Ez | permissionContextReducer | chunks.53.mjs:1224 | function (handles setMode, addRules, replaceRules, etc.) |
+| _v | applyPermissionUpdates | chunks.53.mjs:1296 | function (apply multiple updates to context) |
+| U84 | updateToolPermissionContext | chunks.172.mjs:2829 | function (merge settings into context) |
+| Xk8 | filterToolsByMode | chunks.93.mjs:1568 | function (filter tools by mode/async context) |
+
+> **Note:** Previous versions incorrectly documented `tD` as `getDefaultTools`. This mapping is incorrect.
+> Tool assembly is a composite operation using `filterToolsByMode` and permission rules.
 
 ---
 
