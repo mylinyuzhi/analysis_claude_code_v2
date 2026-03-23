@@ -171,13 +171,13 @@ We'll trace the example: **User presses `Ctrl+K`, then `Ctrl+C` in the Chat cont
 
 **Time:** T+5ms
 
-**Location:** x6Y() KeybindingHandler → tK6() resolveKeystroke (chunks.110.mjs, chunks.53.mjs)
+**Location:** N4Y() KeybindingHandler → Z$1() resolveKeystroke (chunks.117.mjs, chunks.65.mjs)
 
 **What happens:**
 
 1. **Normalize event to keystroke:**
    ```javascript
-   // sN5(eventToKeystroke)
+   // Hl3(eventToKeystroke)
    const keystroke = {
      key: "k",
      ctrl: true,
@@ -204,7 +204,7 @@ We'll trace the example: **User presses `Ctrl+K`, then `Ctrl+C` in the Chat cont
 
 4. **Check for prefix match:**
    ```javascript
-   // tN5(isPrefixMatch)
+   // jl3(isPrefixMatch)
    const hasPrefix = contextualBindings.some(binding =>
      binding.chord.length > currentSequence.length && // chord length = 2 > 1
      isPrefixMatch(currentSequence, binding) // [ctrl+k] is prefix of [ctrl+k, ctrl+c]
@@ -339,7 +339,7 @@ We'll trace the example: **User presses `Ctrl+K`, then `Ctrl+C` in the Chat cont
 
 5. **Check for exact match:**
    ```javascript
-   // eN5(isExactMatch)
+   // Jl3(isExactMatch)
    for (let binding of contextualBindings) {
      if (isExactMatch(currentSequence, binding)) {
        matchedBinding = binding;
@@ -376,7 +376,7 @@ We'll trace the example: **User presses `Ctrl+K`, then `Ctrl+C` in the Chat cont
 
 **Time:** T+311ms
 
-**Location:** x6Y() KeybindingHandler, lines 1012-1026 (chunks.110.mjs)
+**Location:** N4Y() KeybindingHandler, lines 1012-1026 (chunks.117.mjs)
 
 **What happens:**
 

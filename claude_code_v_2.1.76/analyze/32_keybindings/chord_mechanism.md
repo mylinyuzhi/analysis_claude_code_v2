@@ -12,14 +12,15 @@ Claude Code v2.1.76 features a sophisticated keybinding system that supports "Ch
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions and constants in this document:
-- `KeybindingHandler` (x6Y) - React component that manages the keyboard event loop
-- `CHORD_TIMEOUT_MS` (C6Y) - The 1000ms window to complete a chord
-- `loadKeybindings` (YS1) - Function that parses the JSON configuration
-- `watchKeybindingsFile` (Lq7) - Enables hot-reloading of the config
-- `isPrefixMatch` (tN5) - Checks if keystroke sequence is a prefix of a registered chord
-- `isExactMatch` (eN5) - Checks if keystroke sequence exactly matches a registered chord
-- `matchKeystroke` (tK6) - Main keystroke matching orchestrator
-- `setPendingChord` (P) - Manages chord timeout lifecycle
+- `KeybindingHandler` (N4Y) - React component that manages the keyboard event loop
+- `CHORD_TIMEOUT_MS` (G4Y) - The 1000ms window to complete a chord
+- `loadKeybindingsAsync` (tu9) - Async function that loads and parses the JSON configuration
+- `watchKeybindingsFile` (B34) - Enables hot-reloading of the config
+- `isPrefixMatch` (jl3) - Checks if keystroke sequence is a prefix of a registered chord
+- `isExactMatch` (Jl3) - Checks if keystroke sequence exactly matches a registered chord
+- `resolveKeystroke` (Z$1) - Main keystroke matching orchestrator
+- `eventToKeystroke` (Hl3) - Converts raw event to keystroke object
+- `keystrokesMatch` (W$1) - Compares two keystroke objects for equality
 
 ## Chord State Machine (Algorithm)
 
@@ -39,274 +40,17 @@ Key functions and constants in this document:
 
 ```javascript
 // ============================================
-// handleKeyEvent - Core logic for chord processing
-// Location: chunks.110.mjs:988-1040
+// resolveKeystroke - Main keystroke matching orchestrator
+// Location: chunks.65.mjs:758-795
 // ============================================
 
 // ORIGINAL (for source lookup):
-function x6Y(A) {
-    ...
-    case "chord_started": {
-        let q = setTimeout(() => {
-            dispatch({ type: "chord_cancelled" });
-        }, C6Y);
-        return () => clearTimeout(q);
-    }
-    ...
-}
-
-// READABLE (for understanding):
-function handleKeyEvent(key, state, keybindings) {
-    const sequence = [...state.currentSequence, key];
-
-    // Check for exact match
-    const action = keybindings.find(kb => isDeepEqual(kb.chord, sequence));
-    if (action) {
-        executeAction(action.name);
-        return { currentSequence: [], state: 'idle' };
-    }
-
-    // Check if this is a prefix of a longer chord
-    const isPrefix = keybindings.some(kb =>
-        kb.chord.length > sequence.length &&
-        isPrefixOf(sequence, kb.chord)
-    );
-
-    if (isPrefix) {
-        // Start/Continue chord sequence
-        return {
-            currentSequence: sequence,
-            state: 'chord_started',
-            timer: startTimeout(1000, () => cancelChord())
-        };
-    }
-
-    // No match and not a prefix
-    return { currentSequence: [], state: 'idle' };
-}
-
-// Mapping: x6Y→handleKeyEvent, C6Y→CHORD_TIMEOUT_MS
-```
-
-## Hot-Reloading Configuration
-
-The system monitors `~/.claude/keybindings.json` using chokidar (wrapped as `Lq7`). When the file is saved:
-1. `watchKeybindingsFile` triggers.
-2. `loadKeybindings` re-reads the JSON.
-3. The new bindings are injected into the React context.
-4. The UI immediately reflects the new shortcuts without a restart.
-
-## Configuration Format
-
-Keybindings are stored as an array of context objects:
-```json
-[
-  {
-    "context": "Chat",
-    "bindings": {
-      "ctrl+g": "chat:externalEditor"
-    }
-  },
-  {
-    "context": "Global",
-    "bindings": {
-      "ctrl+k ctrl+c": "app:clearHistory"
-    }
-  }
-]
-```
-
-**Key insight:** The use of a prefix-checking state machine allows Claude Code to provide a highly extensible keyboard interface similar to VS Code or Vim, which is essential for a CLI-first tool.
-
-## Timeout Implementation
-
-**What it does:** Provides a time window for completing multi-key chords before automatically cancelling them.
-
-**How it works:**
-1. **Timeout Constant**: `C6Y` is set to 1000ms (1 second) - the maximum time between keystrokes in a chord.
-2. **Timer Setup**: When a chord sequence starts (prefix match detected), a setTimeout is created.
-3. **Timer Cancellation**: The timer is cleared if:
-   - The user completes the chord (exact match found)
-   - The user presses Escape (explicit cancellation)
-   - A new chord sequence starts (replaces the old timer)
-4. **Timeout Expiration**: If 1 second passes without completing the chord, the pending state is reset.
-
-```javascript
-// ============================================
-// setPendingChord - Manages chord timeout lifecycle
-// Location: chunks.110.mjs:956-961
-// ============================================
-
-// ORIGINAL (for source lookup):
-P = pX.useCallback((W) => {
-    if (M(), W !== null) _.current = setTimeout(() => {
-        h("[keybindings] Chord timeout - cancelling"), H.current = null, O(null)
-    }, C6Y);
-    H.current = W, O(W)
-}, [M]);
-
-// READABLE (for understanding):
-const setPendingChord = useCallback((newChord) => {
-    // Clear any existing timer
-    clearChordTimer();
-
-    // If starting a new chord, create timeout
-    if (newChord !== null) {
-        timerRef.current = setTimeout(() => {
-            debug("[keybindings] Chord timeout - cancelling");
-            pendingChordRef.current = null;
-            setPendingChordState(null);
-        }, CHORD_TIMEOUT_MS); // 1000ms
-    }
-
-    pendingChordRef.current = newChord;
-    setPendingChordState(newChord);
-}, [clearChordTimer]);
-
-// Mapping: P→setPendingChord, M→clearChordTimer, W→newChord, _→timerRef, H→pendingChordRef, O→setPendingChordState, C6Y→CHORD_TIMEOUT_MS
-```
-
-**Why this approach:**
-- **1-second window**: Balances user convenience (enough time to press the next key) with responsiveness (not too long before cancellation).
-- **Explicit cleanup**: Prevents timer leaks by clearing old timers before creating new ones.
-- **User feedback**: The cancellation resets visual indicators (pending chord display) immediately.
-
-## Prefix Matching Algorithm
-
-**What it does:** Determines whether a keystroke sequence is a prefix of a registered chord, enabling multi-step chord detection.
-
-**How it works:**
-
-### Prefix Check Function (tN5)
-
-The `tN5()` function checks if the current sequence could be the start of a longer chord:
-
-```javascript
-// ============================================
-// tN5 - Checks if keystroke sequence is a prefix of a registered chord
-// Location: chunks.53.mjs:2914-2926
-// ============================================
-
-// ORIGINAL (for source lookup):
-function tN5(A, q) {
-    if (A.length >= q.chord.length) return !1;
-    for (let K = 0; K < A.length; K++) {
-        let Y = A[K],
-            z = q.chord[K];
-        if (!Y || !z) return !1;
-        if (Y.key !== z.key) return !1;
-        if (Y.ctrl !== z.ctrl) return !1;
-        if ((Y.alt || Y.meta) !== (z.alt || z.meta)) return !1;
-        if (Y.shift !== z.shift) return !1
-    }
-    return !0
-}
-
-// READABLE (for understanding):
-function isPrefixMatch(currentSequence, keybinding) {
-    // Prefix must be shorter than the target chord
-    if (currentSequence.length >= keybinding.chord.length) {
-        return false;
-    }
-
-    // Check each keystroke in the current sequence
-    for (let i = 0; i < currentSequence.length; i++) {
-        let currentKey = currentSequence[i];
-        let targetKey = keybinding.chord[i];
-
-        if (!currentKey || !targetKey) return false;
-
-        // All modifiers and key must match exactly
-        if (currentKey.key !== targetKey.key) return false;
-        if (currentKey.ctrl !== targetKey.ctrl) return false;
-
-        // alt and meta are treated as equivalent
-        if ((currentKey.alt || currentKey.meta) !== (targetKey.alt || targetKey.meta)) {
-            return false;
-        }
-
-        if (currentKey.shift !== targetKey.shift) return false;
-    }
-
-    return true; // All keys match so far
-}
-
-// Mapping: tN5→isPrefixMatch, A→currentSequence, q→keybinding, K→i, Y→currentKey, z→targetKey
-```
-
-**Key insight:** The alt/meta equivalence `(Y.alt || Y.meta) !== (z.alt || z.meta)` allows cross-platform chord definitions. A chord defined with `alt` will match `meta` key presses, important for macOS users where `meta` (Cmd) is more common than `alt` (Option).
-
-### Exact Match Function (eN5)
-
-The `eN5()` function checks if the current sequence exactly matches a registered chord:
-
-```javascript
-// ============================================
-// eN5 - Checks if keystroke sequence exactly matches a registered chord
-// Location: chunks.53.mjs:2928-2940
-// ============================================
-
-// ORIGINAL (for source lookup):
-function eN5(A, q) {
-    if (A.length !== q.chord.length) return !1;
-    for (let K = 0; K < A.length; K++) {
-        let Y = A[K],
-            z = q.chord[K];
-        if (!Y || !z) return !1;
-        if (Y.key !== z.key) return !1;
-        if (Y.ctrl !== z.ctrl) return !1;
-        if ((Y.alt || Y.meta) !== (z.alt || z.meta)) return !1;
-        if (Y.shift !== z.shift) return !1
-    }
-    return !0
-}
-
-// READABLE (for understanding):
-function isExactMatch(currentSequence, keybinding) {
-    // Lengths must be identical for exact match
-    if (currentSequence.length !== keybinding.chord.length) {
-        return false;
-    }
-
-    // Check each keystroke in the sequence
-    for (let i = 0; i < currentSequence.length; i++) {
-        let currentKey = currentSequence[i];
-        let targetKey = keybinding.chord[i];
-
-        if (!currentKey || !targetKey) return false;
-
-        // All modifiers and key must match exactly
-        if (currentKey.key !== targetKey.key) return false;
-        if (currentKey.ctrl !== targetKey.ctrl) return false;
-        if ((currentKey.alt || currentKey.meta) !== (targetKey.alt || targetKey.meta)) {
-            return false;
-        }
-        if (currentKey.shift !== targetKey.shift) return false;
-    }
-
-    return true;
-}
-
-// Mapping: eN5→isExactMatch, A→currentSequence, q→keybinding, K→i, Y→currentKey, z→targetKey
-```
-
-### Main Matching Orchestrator (tK6)
-
-When a key event arrives, the main matching function `tK6()` builds the pending chord array and checks for matches:
-
-```javascript
-// ============================================
-// tK6 - Main keystroke matching orchestrator
-// Location: chunks.53.mjs:2942-2979
-// ============================================
-
-// ORIGINAL (for source lookup):
-function tK6(A, q, K, Y, z) {
+function Z$1(A, q, K, Y, z) {
     if (q.escape && z !== null) return {
         type: "chord_cancelled"
     };
-    let w = sN5(A, q);
-    if (!w) {
+    let _ = Hl3(A, q);
+    if (!_) {
         if (z !== null) return {
             type: "chord_cancelled"
         };
@@ -314,22 +58,22 @@ function tK6(A, q, K, Y, z) {
             type: "none"
         }
     }
-    let H = z ? [...z, w] : [w],
-        $ = Y.filter((J) => K.includes(J.context));
-    if ($.some((J) => J.chord.length > H.length && tN5(H, J))) return {
+    let w = z ? [...z, _] : [_],
+        O = Y.filter((j) => K.includes(j.context));
+    if (O.some((j) => j.chord.length > w.length && jl3(w, j))) return {
         type: "chord_started",
-        pending: H
+        pending: w
     };
-    let _;
-    for (let J of $)
-        if (eN5(H, J)) _ = J;
-    if (_) {
-        if (_.action === null) return {
+    let H;
+    for (let j of O)
+        if (Jl3(w, j)) H = j;
+    if (H) {
+        if (H.action === null) return {
             type: "unbound"
         };
         return {
             type: "match",
-            action: _.action
+            action: H.action
         }
     }
     if (z !== null) return {
@@ -341,14 +85,14 @@ function tK6(A, q, K, Y, z) {
 }
 
 // READABLE (for understanding):
-function matchKeystroke(inputStr, keyEvent, activeContexts, allBindings, pendingChord) {
+function resolveKeystroke(inputStr, keyEvent, activeContexts, allBindings, pendingChord) {
     // Escape key cancels any pending chord
     if (keyEvent.escape && pendingChord !== null) {
         return { type: "chord_cancelled" };
     }
 
     // Convert raw key event to normalized keystroke
-    let normalizedKey = normalizeKeystroke(inputStr, keyEvent);
+    let normalizedKey = eventToKeystroke(inputStr, keyEvent);
     if (!normalizedKey) {
         // Invalid keystroke - cancel if chord in progress
         if (pendingChord !== null) {
@@ -402,14 +146,358 @@ function matchKeystroke(inputStr, keyEvent, activeContexts, allBindings, pending
     return { type: "none" }; // Nothing matched
 }
 
-// Mapping: tK6→matchKeystroke, A→inputStr, q→keyEvent, K→activeContexts, Y→allBindings, z→pendingChord, w→normalizedKey, H→currentSequence, $→contextualBindings, _→matchedBinding
+// Mapping: Z$1→resolveKeystroke, A→inputStr, q→keyEvent, K→activeContexts, Y→allBindings, z→pendingChord, _→normalizedKey, w→currentSequence, O→contextualBindings, H→matchedBinding, Hl3→eventToKeystroke, jl3→isPrefixMatch, Jl3→isExactMatch
+```
+
+## Hot-Reloading Configuration
+
+The system monitors `~/.claude/keybindings.json` using chokidar (wrapped as `B34`). When the file is saved:
+1. `watchKeybindingsFile` triggers.
+2. `loadKeybindingsAsync` re-reads the JSON.
+3. The new bindings are injected into the React context.
+4. The UI immediately reflects the new shortcuts without a restart.
+
+## Configuration Format
+
+Keybindings are stored as an array of context objects:
+```json
+[
+  {
+    "context": "Chat",
+    "bindings": {
+      "ctrl+g": "chat:externalEditor"
+    }
+  },
+  {
+    "context": "Global",
+    "bindings": {
+      "ctrl+k ctrl+c": "app:clearHistory"
+    }
+  }
+]
+```
+
+**Key insight:** The use of a prefix-checking state machine allows Claude Code to provide a highly extensible keyboard interface similar to VS Code or Vim, which is essential for a CLI-first tool.
+
+## Timeout Implementation
+
+**What it does:** Provides a time window for completing multi-key chords before automatically cancelling them.
+
+**How it works:**
+1. **Timeout Constant**: `G4Y` is set to 1000ms (1 second) - the maximum time between keystrokes in a chord.
+2. **Timer Setup**: When a chord sequence starts (prefix match detected), a setTimeout is created.
+3. **Timer Cancellation**: The timer is cleared if:
+   - The user completes the chord (exact match found)
+   - The user presses Escape (explicit cancellation)
+   - A new chord sequence starts (replaces the old timer)
+4. **Timeout Expiration**: If 1 second passes without completing the chord, the pending state is reset.
+
+```javascript
+// ============================================
+// setPendingChord - Manages chord timeout lifecycle
+// Location: chunks.117.mjs:1904-1909
+// ============================================
+
+// ORIGINAL (for source lookup):
+P = wM.useCallback((W) => {
+    if (X(), W !== null) H.current = setTimeout((Z, G) => {
+        k("[keybindings] Chord timeout - cancelling"), Z.current = null, G(null)
+    }, G4Y, w, $);
+    w.current = W, $(W)
+}, [X]);
+
+// READABLE (for understanding):
+const setPendingChord = useCallback((newChord) => {
+    // Clear any existing timer
+    clearChordTimer();
+
+    // If starting a new chord, create timeout
+    if (newChord !== null) {
+        timerRef.current = setTimeout(() => {
+            debug("[keybindings] Chord timeout - cancelling");
+            pendingChordRef.current = null;
+            setPendingChordState(null);
+        }, CHORD_TIMEOUT_MS); // 1000ms
+    }
+
+    pendingChordRef.current = newChord;
+    setPendingChordState(newChord);
+}, [clearChordTimer]);
+
+// Mapping: P→setPendingChord, X→clearChordTimer, W→newChord, H→timerRef, w→pendingChordRef, $→setPendingChordState, G4Y→CHORD_TIMEOUT_MS
 ```
 
 **Why this approach:**
-- **Greedy prefix matching**: The system checks for prefix matches first, allowing it to detect when a chord sequence is starting.
-- **Context filtering**: Only bindings relevant to the current UI context are considered, preventing conflicts.
-- **Unbound slots**: Bindings with `action: null` are explicitly disabled, allowing users to "unbind" default shortcuts.
-- **Deterministic matching**: The last-matching binding wins (iteration order matters), giving user config files priority over defaults.
+- **1-second window**: Balances user convenience (enough time to press the next key) with responsiveness (not too long before cancellation).
+- **Explicit cleanup**: Prevents timer leaks by clearing old timers before creating new ones.
+- **User feedback**: The cancellation resets visual indicators (pending chord display) immediately.
+
+## Prefix Matching Algorithm
+
+**What it does:** Determines whether a keystroke sequence is a prefix of a registered chord, enabling multi-step chord detection.
+
+**How it works:**
+
+### Prefix Check Function (jl3)
+
+The `jl3()` function checks if the current sequence could be the start of a longer chord:
+
+```javascript
+// ============================================
+// jl3 - Checks if keystroke sequence is a prefix of a registered chord
+// Location: chunks.65.mjs:736-745
+// ============================================
+
+// ORIGINAL (for source lookup):
+function jl3(A, q) {
+    if (A.length >= q.chord.length) return !1;
+    for (let K = 0; K < A.length; K++) {
+        let Y = A[K],
+            z = q.chord[K];
+        if (!Y || !z) return !1;
+        if (!W$1(Y, z)) return !1
+    }
+    return !0
+}
+
+// READABLE (for understanding):
+function isPrefixMatch(currentSequence, keybinding) {
+    // Prefix must be shorter than the target chord
+    if (currentSequence.length >= keybinding.chord.length) {
+        return false;
+    }
+
+    // Check each keystroke in the current sequence
+    for (let i = 0; i < currentSequence.length; i++) {
+        let currentKey = currentSequence[i];
+        let targetKey = keybinding.chord[i];
+
+        if (!currentKey || !targetKey) return false;
+
+        // All modifiers and key must match (uses W$1 keystrokesMatch)
+        if (!keystrokesMatch(currentKey, targetKey)) return false;
+    }
+
+    return true; // All keys match so far
+}
+
+// Mapping: jl3→isPrefixMatch, A→currentSequence, q→keybinding, K→i, Y→currentKey, z→targetKey, W$1→keystrokesMatch
+```
+
+**Key insight:** The matching delegates to `W$1` (keystrokesMatch) which handles the alt/meta equivalence, allowing cross-platform chord definitions. A chord defined with `alt` will match `meta` key presses, important for macOS users where `meta` (Cmd) is more common than `alt` (Option).
+
+### Exact Match Function (Jl3)
+
+The `Jl3()` function checks if the current sequence exactly matches a registered chord:
+
+```javascript
+// ============================================
+// Jl3 - Checks if keystroke sequence exactly matches a registered chord
+// Location: chunks.65.mjs:747-756
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Jl3(A, q) {
+    if (A.length !== q.chord.length) return !1;
+    for (let K = 0; K < A.length; K++) {
+        let Y = A[K],
+            z = q.chord[K];
+        if (!Y || !z) return !1;
+        if (!W$1(Y, z)) return !1
+    }
+    return !0
+}
+
+// READABLE (for understanding):
+function isExactMatch(currentSequence, keybinding) {
+    // Lengths must be identical for exact match
+    if (currentSequence.length !== keybinding.chord.length) {
+        return false;
+    }
+
+    // Check each keystroke in the sequence
+    for (let i = 0; i < currentSequence.length; i++) {
+        let currentKey = currentSequence[i];
+        let targetKey = keybinding.chord[i];
+
+        if (!currentKey || !targetKey) return false;
+
+        // All modifiers and key must match (uses W$1 keystrokesMatch)
+        if (!keystrokesMatch(currentKey, targetKey)) return false;
+    }
+
+    return true;
+}
+
+// Mapping: Jl3→isExactMatch, A→currentSequence, q→keybinding, K→i, Y→currentKey, z→targetKey, W$1→keystrokesMatch
+```
+
+### Keystroke Comparison Function (W$1)
+
+The `W$1()` function compares two keystroke objects for equality:
+
+```javascript
+// ============================================
+// W$1 - Compares two keystroke objects for equality
+// Location: chunks.65.mjs:732-734
+// ============================================
+
+// ORIGINAL (for source lookup):
+function W$1(A, q) {
+    return A.key === q.key && A.ctrl === q.ctrl && A.shift === q.shift && (A.alt || A.meta) === (q.alt || q.meta) && A.super === q.super
+}
+
+// READABLE (for understanding):
+function keystrokesMatch(keystroke1, keystroke2) {
+    return keystroke1.key === keystroke2.key &&
+           keystroke1.ctrl === keystroke2.ctrl &&
+           keystroke1.shift === keystroke2.shift &&
+           // alt and meta are treated as equivalent
+           (keystroke1.alt || keystroke1.meta) === (keystroke2.alt || keystroke2.meta) &&
+           keystroke1.super === keystroke2.super;
+}
+
+// Mapping: W$1→keystrokesMatch, A→keystroke1, q→keystroke2
+```
+
+### Keystroke Parsing Function (Qu6)
+
+The `Qu6()` function parses a keystroke string like "ctrl+k" into a structured object:
+
+```javascript
+// ============================================
+// Qu6 - Parses keystroke string to structured object
+// Location: chunks.65.mjs:533-594
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Qu6(A) {
+    let q = A.split("+"),
+        K = {
+            key: "",
+            ctrl: !1,
+            alt: !1,
+            shift: !1,
+            meta: !1,
+            super: !1
+        };
+    for (let Y of q) {
+        let z = Y.toLowerCase();
+        switch (z) {
+            case "ctrl":
+            case "control":
+                K.ctrl = !0;
+                break;
+            case "alt":
+            case "opt":
+            case "option":
+                K.alt = !0;
+                break;
+            case "shift":
+                K.shift = !0;
+                break;
+            case "meta":
+                K.meta = !0;
+                break;
+            case "cmd":
+            case "command":
+            case "super":
+            case "win":
+                K.super = !0;
+                break;
+            case "esc":
+                K.key = "escape";
+                break;
+            case "return":
+                K.key = "enter";
+                break;
+            case "space":
+                K.key = " ";
+                break;
+            case "↑":
+                K.key = "up";
+                break;
+            case "↓":
+                K.key = "down";
+                break;
+            case "←":
+                K.key = "left";
+                break;
+            case "→":
+                K.key = "right";
+                break;
+            default:
+                K.key = z;
+                break
+        }
+    }
+    return K
+}
+
+// READABLE (for understanding):
+function parseKeystroke(keystrokeString) {
+    let parts = keystrokeString.split("+");
+    let result = {
+        key: "",
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+        super: false
+    };
+
+    for (let part of parts) {
+        let lower = part.toLowerCase();
+        switch (lower) {
+            case "ctrl":
+            case "control":
+                result.ctrl = true;
+                break;
+            case "alt":
+            case "opt":       // macOS alias
+            case "option":
+                result.alt = true;
+                break;
+            case "shift":
+                result.shift = true;
+                break;
+            case "meta":
+                result.meta = true;
+                break;
+            case "cmd":       // macOS Command key
+            case "command":
+            case "super":     // Linux Super key
+            case "win":       // Windows key
+                result.super = true;
+                break;
+            // Key name aliases
+            case "esc":
+                result.key = "escape";
+                break;
+            case "return":
+                result.key = "enter";
+                break;
+            case "space":
+                result.key = " ";
+                break;
+            // Unicode arrow support
+            case "↑": result.key = "up"; break;
+            case "↓": result.key = "down"; break;
+            case "←": result.key = "left"; break;
+            case "→": result.key = "right"; break;
+            default:
+                result.key = lower;
+                break;
+        }
+    }
+
+    return result;
+}
+
+// Mapping: Qu6→parseKeystroke, A→keystrokeString, q→parts, K→result, Y→part, z→lower
+```
+
+**Key insight:** The parser supports multiple modifier aliases (cmd/super/win, alt/opt/option) and Unicode arrow characters, making keybindings cross-platform and user-friendly.
 
 ## Edge Cases
 
@@ -417,16 +505,16 @@ function matchKeystroke(inputStr, keyEvent, activeContexts, allBindings, pending
 
 **Issue**: What happens if the user presses just Ctrl, Alt, Shift, or Cmd without a key?
 
-**Solution**: The `v77()` key normalization function (chunks.53.mjs:2875-2891) only recognizes special keys (escape, enter, arrows, etc.) or single characters. Modifier-only presses produce no valid keystroke, triggering a `type: "none"` result.
+**Solution**: The `Qj8()` key normalization function (chunks.65.mjs:671-689) only recognizes special keys (escape, enter, arrows, etc.) or single characters. Modifier-only presses produce no valid keystroke, triggering a `type: "none"` result.
 
 ```javascript
 // ============================================
-// v77 - Normalizes raw key input to key name
-// Location: chunks.53.mjs:2875-2891
+// Qj8 - Extracts key name from raw key event
+// Location: chunks.65.mjs:671-689
 // ============================================
 
 // ORIGINAL (for source lookup):
-function v77(A, q) {
+function Qj8(A, q) {
     if (q.escape) return "escape";
     if (q.return) return "enter";
     if (q.tab) return "tab";
@@ -438,6 +526,8 @@ function v77(A, q) {
     if (q.rightArrow) return "right";
     if (q.pageUp) return "pageup";
     if (q.pageDown) return "pagedown";
+    if (q.wheelUp) return "wheelup";
+    if (q.wheelDown) return "wheeldown";
     if (q.home) return "home";
     if (q.end) return "end";
     if (A.length === 1) return A.toLowerCase();
@@ -445,8 +535,8 @@ function v77(A, q) {
 }
 
 // READABLE (for understanding):
-function extractKeyName(inputStr, keyEvent) {
-    // Special keys have dedicated properties
+function getKeyNameFromEvent(inputStr, keyEvent) {
+    // Special keys have dedicated boolean properties
     if (keyEvent.escape) return "escape";
     if (keyEvent.return) return "enter";
     if (keyEvent.tab) return "tab";
@@ -458,10 +548,12 @@ function extractKeyName(inputStr, keyEvent) {
     if (keyEvent.rightArrow) return "right";
     if (keyEvent.pageUp) return "pageup";
     if (keyEvent.pageDown) return "pagedown";
+    if (keyEvent.wheelUp) return "wheelup";
+    if (keyEvent.wheelDown) return "wheeldown";
     if (keyEvent.home) return "home";
     if (keyEvent.end) return "end";
 
-    // Single character input (e.g., "a", "1", "[")
+    // Single character input (alphanumeric or symbol)
     if (inputStr.length === 1) {
         return inputStr.toLowerCase();
     }
@@ -470,7 +562,7 @@ function extractKeyName(inputStr, keyEvent) {
     return null;
 }
 
-// Mapping: v77→extractKeyName, A→inputStr, q→keyEvent
+// Mapping: Qj8→getKeyNameFromEvent, A→inputStr, q→keyEvent
 ```
 
 **Result**: Pressing just Ctrl does nothing. The user must press Ctrl+K (for example) to trigger a chord.
@@ -489,43 +581,43 @@ function extractKeyName(inputStr, keyEvent) {
 
 **Issue**: What happens if the user edits keybindings.json while a chord is pending?
 
-**Solution**: The reload listener (`Nq7` in chunks.54.mjs:1793-1801) updates the bindings array, but does NOT clear the pending chord state. This can cause inconsistencies:
+**Solution**: The reload listener (`I34` in chunks.90.mjs:14-22) updates the bindings array, but does NOT clear the pending chord state. This can cause inconsistencies:
 
 ```javascript
 // ============================================
-// Nq7 - File change handler for hot-reload
-// Location: chunks.54.mjs:1793-1801
+// I34 - File change handler for hot-reload
+// Location: chunks.90.mjs:14-22
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Nq7(A) {
-    h(`[keybindings] Detected change to ${A}`);
+async function I34(A) {
+    k(`[keybindings] Detected change to ${A}`);
     try {
-        let q = await Mk5();
-        ZM = q.bindings, GW = q.warnings, KS1.forEach((K) => K(q))
+        let q = await tu9();
+        Y0 = q.bindings, _Z = q.warnings, Op6.forEach((K) => K(q))
     } catch (q) {
-        h(`[keybindings] Error reloading: ${q instanceof Error?q.message:String(q)}`)
+        k(`[keybindings] Error reloading: ${_1(q)}`)
     }
 }
 
 // READABLE (for understanding):
-async function onFileChange(filePath) {
+async function handleKeybindingsFileChange(filePath) {
     debug(`[keybindings] Detected change to ${filePath}`);
     try {
-        let newConfig = await loadKeybindings();
+        let newConfig = await loadKeybindingsAsync();
 
-        // Update cached bindings
+        // Update cached bindings and warnings
         cachedBindings = newConfig.bindings;
         cachedWarnings = newConfig.warnings;
 
-        // Notify all subscribers
+        // Notify all subscribers (React components)
         reloadSubscribers.forEach(callback => callback(newConfig));
     } catch (error) {
-        debug(`[keybindings] Error reloading: ${error instanceof Error ? error.message : String(error)}`);
+        debug(`[keybindings] Error reloading: ${formatError(error)}`);
     }
 }
 
-// Mapping: Nq7→onFileChange, A→filePath, q→newConfig, Mk5→loadKeybindings, ZM→cachedBindings, GW→cachedWarnings, KS1→reloadSubscribers
+// Mapping: I34→handleKeybindingsFileChange, A→filePath, k→debug, tu9→loadKeybindingsAsync, Y0→cachedBindings, _Z→cachedWarnings, Op6→reloadSubscribers, _1→formatError
 ```
 
 **Example scenario**:

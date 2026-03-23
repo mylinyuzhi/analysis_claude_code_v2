@@ -21,13 +21,13 @@ The action system bridges keybinding matches to executable handlers. When a keys
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Keybindings
 
 Key functions in this document:
-- `KeybindingHandler` (x6Y) - Dispatches matched keybindings to handlers
-- `KeybindingContext` (A36) - Provides registration API via React Context
-- `resolveKeystroke` (tK6) - Returns match type and action name
-- `registerHandler` (closure in A36) - Registers action handler for context
-- `invokeAction` (closure in A36) - Executes handler for action in active contexts
-- `useKeybindingContext` (VL) - Hook to access keybinding context
-- `useRegisterContext` (q36) - Hook to mark component context as active
+- `KeybindingHandler` (N4Y) - Dispatches matched keybindings to handlers
+- `KeybindingContext` (G$1) - Provides registration API via React Context
+- `resolveKeystroke` (Z$1) - Returns match type and action name
+- `registerHandler` (closure in G$1) - Registers action handler for context
+- `invokeAction` (closure in G$1) - Executes handler for action in active contexts
+- `useKeybindingContext` (Wv) - Hook to access keybinding context
+- `useRegisterContext` (f$1) - Hook to mark component context as active
 
 ---
 
@@ -132,7 +132,7 @@ if (q[12] !== H || q[13] !== K || q[14] !== D || q[15] !== W || q[16] !== z || q
 // READABLE (for understanding):
 if (anyDependencyChanged) {
     contextValue = {
-        resolve: resolveKeystroke,           // tK6 - Returns match type
+        resolve: resolveKeystroke,           // Z$1 - Returns match type
         setPendingChord: setPendingChord,    // Update chord state
         getDisplayText: getDisplayText,       // Format keybinding for UI
         getPlatformDisplayText: getPlatformDisplayText, // Platform-specific format
@@ -284,7 +284,7 @@ The dispatch flow from keypress to handler execution:
 ```javascript
 // ============================================
 // KeybindingHandler - Dispatches keystroke events to handlers
-// Location: chunks.110.mjs:998-1037
+// Location: chunks.117.mjs:1936-1989
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -296,7 +296,7 @@ if (q[0] !== w || q[1] !== K || q[2] !== H || q[3] !== Y || q[4] !== z) $ = (_, 
             for (let f of G) j.add(f.context);
     let M = [...j, ...w, "Global"],
         P = Y.current !== null,
-        W = tK6(_, J, M, K, Y.current);
+        W = Z$1(_, J, M, K, Y.current);
     A: switch (W.type) {
         case "chord_started": {
             z(W.pending), X.stopImmediatePropagation();
@@ -546,33 +546,33 @@ registerHandler({
 ```javascript
 // ============================================
 // useRegisterContext - Marks component context as active
-// Location: chunks.53.mjs:3062-3075
+// Location: chunks.65.mjs:878-891
 // ============================================
 
 // ORIGINAL (for source lookup):
-function q36(A, q) {
-    let K = e(5),
+function f$1(A, q) {
+    let K = A6(5),
         Y = q === void 0 ? !0 : q,
-        z = VL(),
-        w, H;
-    if (K[0] !== A || K[1] !== Y || K[2] !== z) w = () => {
+        z = Wv(),
+        _, w;
+    if (K[0] !== A || K[1] !== Y || K[2] !== z) _ = () => {
         if (!z || !Y) return;
         return z.registerActiveContext(A), () => {
             z.unregisterActiveContext(A)
         }
-    }, H = [A, z, Y], K[0] = A, K[1] = Y, K[2] = z, K[3] = w, K[4] = H;
-    else w = K[3], H = K[4];
-    TJ1.useLayoutEffect(w, H)
+    }, w = [A, z, Y], K[0] = A, K[1] = Y, K[2] = z, K[3] = _, K[4] = w;
+    else _ = K[3], w = K[4];
+    uX6.useLayoutEffect(_, w)
 }
 
 // READABLE (for understanding):
 function useRegisterContext(contextName, isActive = true) {
-    let cache = e(5);
+    let cache = useMemoSlot(5);
     let keybindingContext = useKeybindingContext();
 
     let effect, deps;
 
-    if (contextChanged || isActiveChanged || keybindingContextChanged) {
+    if (cache[0] !== contextName || cache[1] !== isActive || cache[2] !== keybindingContext) {
         effect = () => {
             // Skip if disabled or context not available
             if (!keybindingContext || !isActive) return;
@@ -587,13 +587,23 @@ function useRegisterContext(contextName, isActive = true) {
         };
 
         deps = [contextName, keybindingContext, isActive];
+
+        // Cache computed values
+        cache[0] = contextName;
+        cache[1] = isActive;
+        cache[2] = keybindingContext;
+        cache[3] = effect;
+        cache[4] = deps;
+    } else {
+        effect = cache[3];
+        deps = cache[4];
     }
 
     // Use useLayoutEffect for immediate registration
     React.useLayoutEffect(effect, deps);
 }
 
-// Mapping: q36→useRegisterContext, A→contextName, q→isActive, K→cache, Y→isActive, z→keybindingContext, w→effect, H→deps, VL→useKeybindingContext, TJ1→React
+// Mapping: f$1→useRegisterContext, A→contextName, q→isActive, K→cache, Y→isActive, z→keybindingContext, _→effect, w→deps, Wv→useKeybindingContext, uX6→React
 ```
 
 **Why useLayoutEffect?**
@@ -709,3 +719,168 @@ handler(); // Don't await
 **Trade-off:**
 - **Pro**: Fast, non-blocking dispatch
 - **Con**: Handlers must manage async state themselves (loading flags, etc.)
+
+---
+
+## 8. useKeybindingAction Hook
+
+### Hook API
+
+The `useKeybindingAction` hook (D8) provides a convenient way to register an action handler and optionally handle keystrokes directly:
+
+```javascript
+// ============================================
+// D8 - useKeybindingAction hook
+// Location: chunks.65.mjs:905-943
+// ============================================
+
+// ORIGINAL (for source lookup):
+function D8(A, q, K = {}) {
+    let {
+        context: Y = "Global",
+        isActive: z = !0
+    } = K, _ = Wv();
+    mX6.useEffect(() => {
+        if (!_ || !z) return;
+        return _.registerHandler({
+            action: A,
+            context: Y,
+            handler: q
+        })
+    }, [A, Y, q, _, z]);
+    let w = mX6.useCallback((O, $, H) => {
+        if (!_) return;
+        let j = [..._.activeContexts, Y, "Global"],
+            J = [...new Set(j)],
+            M = _.resolve(O, $, J);
+        switch (M.type) {
+            case "match":
+                if (_.setPendingChord(null), M.action === A) q(), H.stopImmediatePropagation();
+                break;
+            case "chord_started":
+                _.setPendingChord(M.pending), H.stopImmediatePropagation();
+                break;
+            case "chord_cancelled":
+                _.setPendingChord(null);
+                break;
+            case "unbound":
+                _.setPendingChord(null), H.stopImmediatePropagation();
+                break;
+            case "none":
+                break
+        }
+    }, [A, Y, q, _]);
+    jA(w, {
+        isActive: z
+    })
+}
+
+// READABLE (for understanding):
+function useKeybindingAction(action, handler, options = {}) {
+    let {
+        context: contextName = "Global",
+        isActive = true
+    } = options;
+
+    let keybindingContext = useKeybindingContext();
+
+    // Register handler in the registry
+    React.useEffect(() => {
+        if (!keybindingContext || !isActive) return;
+
+        return keybindingContext.registerHandler({
+            action: action,
+            context: contextName,
+            handler: handler
+        });
+    }, [action, contextName, handler, keybindingContext, isActive]);
+
+    // Create a keystroke handler for optional direct use
+    let handleKeystroke = React.useCallback((inputStr, keyEvent, domEvent) => {
+        if (!keybindingContext) return;
+
+        // Build context list with this hook's context
+        let contextList = [...keybindingContext.activeContexts, contextName, "Global"];
+        let uniqueContexts = [...new Set(contextList)];
+
+        // Resolve keystroke
+        let result = keybindingContext.resolve(inputStr, keyEvent, uniqueContexts);
+
+        switch (result.type) {
+            case "match":
+                keybindingContext.setPendingChord(null);
+                if (result.action === action) {
+                    handler();
+                    domEvent.stopImmediatePropagation();
+                }
+                break;
+            case "chord_started":
+                keybindingContext.setPendingChord(result.pending);
+                domEvent.stopImmediatePropagation();
+                break;
+            case "chord_cancelled":
+                keybindingContext.setPendingChord(null);
+                break;
+            case "unbound":
+                keybindingContext.setPendingChord(null);
+                domEvent.stopImmediatePropagation();
+                break;
+            case "none":
+                break;
+        }
+    }, [action, contextName, handler, keybindingContext]);
+
+    // Register with Ink's input system
+    useInput(handleKeystroke, { isActive: isActive });
+}
+
+// Mapping: D8→useKeybindingAction, A→action, q→handler, K→options, Y→contextName, z→isActive, _→keybindingContext, w→handleKeystroke, O→inputStr, $→keyEvent, H→domEvent, j→contextList, J→uniqueContexts, M→result, mX6→React, Wv→useKeybindingContext, jA→useInput
+```
+
+### Usage Patterns
+
+**Basic registration:**
+```javascript
+// Register handler for "chat:submit" in Chat context
+useKeybindingAction("chat:submit", () => {
+    submitMessage();
+}, { context: "Chat" });
+```
+
+**With isActive flag:**
+```javascript
+// Only register when modal is open
+useKeybindingAction("modal:close", () => {
+    closeModal();
+}, { context: "Confirmation", isActive: isModalOpen });
+```
+
+**Multiple actions:**
+```javascript
+// Register multiple handlers
+useKeybindingActions({
+    "chat:submit": handleSubmit,
+    "chat:cancel": handleCancel,
+    "chat:undo": handleUndo
+}, { context: "Chat" });
+```
+
+### Key Design Decisions
+
+**Why useLayoutEffect for registration?**
+The hook uses `useEffect` (not `useLayoutEffect`) for handler registration. This is acceptable because:
+1. Keystrokes can't fire until after the render is committed
+2. The registration doesn't affect DOM layout
+3. React guarantees effects run before user interactions
+
+**Why return cleanup function?**
+The `registerHandler` returns a cleanup function that removes the handler when the component unmounts or dependencies change. This prevents:
+- Stale handlers firing for unmounted components
+- Memory leaks from accumulated handlers
+- Duplicate registrations from re-renders
+
+**Why useCallback for handleKeystroke?**
+The `handleKeystroke` callback is memoized to:
+1. Prevent re-registering with `useInput` on every render
+2. Ensure consistent closure captures
+3. Optimize Ink's internal event handling

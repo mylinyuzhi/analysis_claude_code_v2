@@ -16,11 +16,11 @@ This architecture allows different panes (Chat, Autocomplete, Settings, etc.) to
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `KeybindingSetup` (dX) - Initializes context tracking system
-- `KeybindingHandler` (x6Y) - Processes keystrokes with context filtering
-- `useRegisterContext` (q36) - Hook for registering active contexts
-- `KeybindingContext` (A36) - React context provider for keybinding state
-- `resolveKeystroke` (tK6) - Matches keystrokes against active contexts
+- `KeybindingSetup` (aj) - Initializes context tracking system
+- `KeybindingHandler` (N4Y) - Processes keystrokes with context filtering
+- `useRegisterContext` (f$1) - Hook for registering active contexts
+- `KeybindingContext` (G$1) - React context provider for keybinding state
+- `resolveKeystroke` (Z$1) - Matches keystrokes against active contexts
 - `VALID_CONTEXTS` (Gq7) - Array of all 18 supported contexts
 - `addFocusable` - Registers component in focus traversal list
 - `activateFocusable` - Marks component as available for focus
@@ -437,14 +437,14 @@ Components register their context activation state using the `useRegisterContext
 ```javascript
 // ============================================
 // useRegisterContext - React hook for context lifecycle management
-// Location: chunks.53.mjs:3062-3075
+// Location: chunks.65.mjs:800-815
 // ============================================
 
 // ORIGINAL (for source lookup):
-function q36(A, q) {
-    let K = e(5),
+function f$1(A, q) {
+    let K = A6(5),
         Y = q === void 0 ? !0 : q,
-        z = VL(),
+        z = Wv(),
         w, H;
     if (K[0] !== A || K[1] !== Y || K[2] !== z) w = () => {
         if (!z || !Y) return;
@@ -453,7 +453,7 @@ function q36(A, q) {
         }
     }, H = [A, z, Y], K[0] = A, K[1] = Y, K[2] = z, K[3] = w, K[4] = H;
     else w = K[3], H = K[4];
-    TJ1.useLayoutEffect(w, H)
+    uX6.useLayoutEffect(w, H)
 }
 
 // READABLE (for understanding):
@@ -499,7 +499,7 @@ function useRegisterContext(contextName, isActive) {
     React.useLayoutEffect(effectCallback, dependencies);
 }
 
-// Mapping: q36→useRegisterContext, A→contextName, q→isActive, K→memoizedState, Y→shouldRegister, z→keybindingContext, w→effectCallback, H→dependencies, VL→useKeybindingContext, TJ1→React, !0→true
+// Mapping: f$1→useRegisterContext, A→contextName, q→isActive, K→memoizedState, Y→shouldRegister, z→keybindingContext, w→effectCallback, H→dependencies, Wv→useKeybindingContext, uX6→React, !0→true
 ```
 
 **How it works:**
@@ -519,7 +519,7 @@ function useRegisterContext(contextName, isActive) {
 // ============================================
 
 // ORIGINAL (for source lookup):
-q36("ThemePicker");
+f$1("ThemePicker");
 
 // READABLE (for understanding):
 useRegisterContext("ThemePicker");
@@ -537,7 +537,7 @@ useRegisterContext("ThemePicker");
 // ============================================
 
 // ORIGINAL (for source lookup):
-q36("Autocomplete", Y1)
+f$1("Autocomplete", Y1)
 
 // READABLE (for understanding):
 let hasAutocomplete = suggestions.length > 0 || hasPendingRequest;
@@ -558,7 +558,7 @@ When multiple contexts are active simultaneously, the keybinding resolver uses a
 ```javascript
 // ============================================
 // KeybindingHandler context collection logic
-// Location: chunks.110.mjs:998-1006
+// Location: chunks.117.mjs:980-1000
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -570,7 +570,7 @@ $ = (_, J, X) => {
             for (let f of G) j.add(f.context);
     let M = [...j, ...w, "Global"],
         P = Y.current !== null,
-        W = tK6(_, J, M, K, Y.current);
+        W = Z$1(_, J, M, K, Y.current);
 
 // READABLE (for understanding):
 handleKeystroke = (rawInput, keyInfo, eventObject) => {
@@ -604,7 +604,7 @@ handleKeystroke = (rawInput, keyInfo, eventObject) => {
     // ... handle resolution result
 };
 
-// Mapping: $→handleKeystroke, _→rawInput, J→keyInfo, X→eventObject, D→handlerRegistry, H→handlerRegistryRef, j→contextsFromHandlers, G→handlersForAction, f→handler, M→activeContextsList, w→activeContextsSet, P→isChordInProgress, Y→pendingChordRef, K→bindings, W→resolution, tK6→resolveKeystroke
+// Mapping: $→handleKeystroke, _→rawInput, J→keyInfo, X→eventObject, D→handlerRegistry, H→handlerRegistryRef, j→contextsFromHandlers, G→handlersForAction, f→handler, M→activeContextsList, w→activeContextsSet, P→isChordInProgress, Y→pendingChordRef, K→bindings, W→resolution, Z$1→resolveKeystroke
 ```
 
 **Design rationale:**
@@ -622,15 +622,15 @@ The `resolveKeystroke` function filters bindings by active contexts before match
 ```javascript
 // ============================================
 // resolveKeystroke - Match keystroke against active contexts
-// Location: chunks.53.mjs:2942-2979
+// Location: chunks.65.mjs:758-795
 // ============================================
 
 // ORIGINAL (for source lookup):
-function tK6(A, q, K, Y, z) {
+function Z$1(A, q, K, Y, z) {
     if (q.escape && z !== null) return {
         type: "chord_cancelled"
     };
-    let w = sN5(A, q);
+    let w = Hl3(A, q);
     if (!w) {
         if (z !== null) return {
             type: "chord_cancelled"
@@ -641,13 +641,13 @@ function tK6(A, q, K, Y, z) {
     }
     let H = z ? [...z, w] : [w],
         $ = Y.filter((J) => K.includes(J.context));
-    if ($.some((J) => J.chord.length > H.length && tN5(H, J))) return {
+    if ($.some((J) => J.chord.length > H.length && jl3(H, J))) return {
         type: "chord_started",
         pending: H
     };
     let _;
     for (let J of $)
-        if (eN5(H, J)) _ = J;
+        if (Jl3(H, J)) _ = J;
     if (_) {
         if (_.action === null) return {
             type: "unbound"
@@ -734,7 +734,7 @@ function resolveKeystroke(
     return { type: "none" };
 }
 
-// Mapping: tK6→resolveKeystroke, A→rawInput, q→keyInfo, K→activeContextsList, Y→allBindings, z→pendingChord, w→keystroke, H→chordSequence, $→candidateBindings, J→binding, _→matchedBinding, sN5→eventToKeystroke, tN5→isPrefixMatch, eN5→isExactMatch
+// Mapping: Z$1→resolveKeystroke, A→rawInput, q→keyInfo, K→activeContextsList, Y→allBindings, z→pendingChord, w→keystroke, H→chordSequence, $→candidateBindings, J→binding, _→matchedBinding, Hl3→eventToKeystroke, jl3→isPrefixMatch, Jl3→isExactMatch
 ```
 
 **Step-by-step logic:**

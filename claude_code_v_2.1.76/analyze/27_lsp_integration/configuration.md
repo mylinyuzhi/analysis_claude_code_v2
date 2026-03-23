@@ -10,181 +10,41 @@ The LSP integration supports configuration via `.lsp.json` files, which can be p
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integration infrastructure
 
 Key functions in this document:
-- `lspServerConfigSchema` (ew1) - Zod schema for server config
-- `loadPluginLspConfig` (HvY) - Plugin config loader
-- `expandLspConfigVars` (_vY) - Variable expansion
-- `namespacePluginServers` (JvY) - Server name namespacing
-- `loadLspConfigs` (dm4) - Aggregate config loader
+- `loadPluginLspConfig` (Nl6) - Plugin config loader
+- `resolvePluginLspServersField` (zyY) - Resolve manifest.lspServers
+- `expandLspConfigVars` (_yY) - Variable expansion
+- `namespacePluginServers` (wyY) - Server name namespacing
+- `safePluginRelativePath` (YyY) - Path traversal protection
+- `loadLspConfigs` (so4) - Aggregate config loader
 
 ---
 
-## 1. Configuration Schema
-
-### LSP Server Config Schema
-
-```javascript
-// ============================================
-// ew1 - Zod schema for LSP server configuration
-// Location: chunks.15.mjs:274-294
-// ============================================
-
-// ORIGINAL:
-ew1 = u.strictObject({
-    command: u.string().min(1).refine((A) => {
-        if (A.includes(" ") && !A.startsWith("/")) return !1;
-        return !0
-    }, {
-        message: "Command should not contain spaces. Use args array for arguments."
-    }).describe('Command to execute the LSP server (e.g., "typescript-language-server")'),
-    args: u.array(gw8).optional().describe("Command-line arguments to pass to the server"),
-    extensionToLanguage: u.record(ZOK, gw8).refine((A) => Object.keys(A).length > 0, {
-        message: "extensionToLanguage must have at least one mapping"
-    }).describe("Mapping from file extension to LSP language ID. File extensions and languages are derived from this mapping."),
-    transport: u.enum(["stdio", "socket"]).default("stdio").describe("Communication transport mechanism"),
-    env: u.record(u.string(), u.string()).optional().describe("Environment variables to set when starting the server"),
-    initializationOptions: u.unknown().optional().describe("Initialization options passed to the server during initialization"),
-    settings: u.unknown().optional().describe("Settings passed to the server via workspace/didChangeConfiguration"),
-    workspaceFolder: u.string().optional().describe("Workspace folder path to use for the server"),
-    startupTimeout: u.number().int().positive().optional().describe("Maximum time to wait for server startup (milliseconds)"),
-    shutdownTimeout: u.number().int().positive().optional().describe("Maximum time to wait for graceful shutdown (milliseconds)"),
-    restartOnCrash: u.boolean().optional().describe("Whether to restart the server if it crashes"),
-    maxRestarts: u.number().int().nonnegative().optional().describe("Maximum number of restart attempts before giving up")
-})
-
-// READABLE:
-const lspServerConfigSchema = z.strictObject({
-    // Required: Command to run the LSP server
-    command: z.string()
-        .min(1)
-        .refine((cmd) => {
-            // Reject commands with spaces unless they're absolute paths
-            if (cmd.includes(" ") && !cmd.startsWith("/")) return false;
-            return true;
-        }, {
-            message: "Command should not contain spaces. Use args array for arguments."
-        })
-        .describe('Command to execute the LSP server (e.g., "typescript-language-server")'),
-
-    // Optional: Command-line arguments
-    args: z.array(z.string().min(1)).optional()
-        .describe("Command-line arguments to pass to the server"),
-
-    // Required: File extension to language mapping
-    extensionToLanguage: z.record(
-        z.string().min(2).refine(ext => ext.startsWith("."), {
-            message: 'File extensions must start with dot (e.g., ".ts", not "ts")'
-        }),
-        z.string().min(1)
-    )
-    .refine(mapping => Object.keys(mapping).length > 0, {
-        message: "extensionToLanguage must have at least one mapping"
-    })
-    .describe("Mapping from file extension to LSP language ID"),
-
-    // Optional: Transport mechanism (defaults to stdio)
-    transport: z.enum(["stdio", "socket"]).default("stdio")
-        .describe("Communication transport mechanism"),
-
-    // Optional: Environment variables
-    env: z.record(z.string(), z.string()).optional()
-        .describe("Environment variables to set when starting the server"),
-
-    // Optional: Server initialization options
-    initializationOptions: z.unknown().optional()
-        .describe("Initialization options passed to the server during initialization"),
-
-    // Optional: Server settings
-    settings: z.unknown().optional()
-        .describe("Settings passed to the server via workspace/didChangeConfiguration"),
-
-    // Optional: Workspace folder
-    workspaceFolder: z.string().optional()
-        .describe("Workspace folder path to use for the server"),
-
-    // Optional: Timeout settings
-    startupTimeout: z.number().int().positive().optional()
-        .describe("Maximum time to wait for server startup (milliseconds)"),
-    shutdownTimeout: z.number().int().positive().optional()
-        .describe("Maximum time to wait for graceful shutdown (milliseconds)"),
-
-    // Optional: Crash recovery (not yet implemented)
-    restartOnCrash: z.boolean().optional()
-        .describe("Whether to restart the server if it crashes"),
-    maxRestarts: z.number().int().nonnegative().optional()
-        .describe("Maximum number of restart attempts before giving up")
-});
-
-// Mapping: ew1→lspServerConfigSchema, u→z, ZOK→fileExtensionSchema, gw8→nonEmptyStringSchema
-```
-
-### Schema Constraints
-
-| Field | Required | Default | Validation |
-|-------|----------|---------|------------|
-| `command` | Yes | - | No spaces (unless absolute path) |
-| `args` | No | `[]` | Array of non-empty strings |
-| `extensionToLanguage` | Yes | - | At least one mapping, extensions must start with `.` |
-| `transport` | No | `"stdio"` | Either `"stdio"` or `"socket"` |
-| `env` | No | - | String-to-string mapping |
-| `workspaceFolder` | No | - | Any string path |
-
-### Example Configuration
-
-```json
-{
-  "typescript-language-server": {
-    "command": "typescript-language-server",
-    "args": ["--stdio"],
-    "extensionToLanguage": {
-      ".ts": "typescript",
-      ".tsx": "typescriptreact",
-      ".js": "javascript",
-      ".jsx": "javascriptreact"
-    },
-    "env": {
-      "NODE_OPTIONS": "--max-old-space-size=4096"
-    }
-  },
-  "gopls": {
-    "command": "gopls",
-    "args": ["serve"],
-    "extensionToLanguage": {
-      ".go": "go"
-    },
-    "initializationOptions": {
-      "usePlaceholders": true
-    }
-  }
-}
-```
-
----
-
-## 2. Configuration Loading Flow
+## 1. Configuration Loading Flow
 
 ### Plugin LSP Config Loading
 
 ```javascript
 // ============================================
-// HvY - Load LSP config from a single plugin
-// Location: chunks.133.mjs:1980-2015
+// loadPluginLspConfig - Load LSP config from a single plugin
+// Location: chunks.138.mjs:593-628
 // ============================================
 
 // ORIGINAL:
-async function HvY(A, q = []) {
-    let K = {}, Y = YvY(A.path, ".lsp.json");
+async function Nl6(A, q = []) {
+    let K = {},
+        Y = qyY(A.path, ".lsp.json");
     try {
-        let z = await gm4(Y, "utf-8"),
-            w = _A(z),
-            H = u.record(u.string(), ew1).safeParse(w);
-        if (H.success) Object.assign(K, H.data);
+        let z = await oo4(Y, "utf-8"),
+            _ = i1(z),
+            w = u.record(u.string(), ew1).safeParse(_);
+        if (w.success) Object.assign(K, w.data);
         else {
-            let $ = `LSP config validation failed for .lsp.json in plugin ${A.name}: ${H.error.message}`;
-            K1(Error($)), q.push({
+            let H = `LSP config validation failed for .lsp.json in plugin ${A.name}: ${w.error.message}`;
+            _6(Error(H)), q.push({
                 type: "lsp-config-invalid",
                 plugin: A.name,
                 serverName: ".lsp.json",
-                validationError: H.error.message,
+                validationError: w.error.message,
                 source: "plugin"
             })
         }
@@ -194,7 +54,7 @@ async function HvY(A, q = []) {
         }
     }
     if (A.manifest.lspServers) {
-        let z = await $vY(A.manifest.lspServers, A.path, A.name, q);
+        let z = await zyY(A.manifest.lspServers, A.path, A.name, q);
         if (z) Object.assign(K, z)
     }
     return Object.keys(K).length > 0 ? K : void 0
@@ -248,14 +108,83 @@ async function loadPluginLspConfig(plugin, errors = []) {
     return Object.keys(configs).length > 0 ? configs : undefined;
 }
 
-// Mapping: HvY→loadPluginLspConfig, YvY→path.join, gm4→fs.readFile, _A→JSON.parse, $vY→resolvePluginLspServersField
+// Mapping: Nl6→loadPluginLspConfig, qyY→path.join, oo4→fs.readFile, i1→JSON.parse, zyY→resolvePluginLspServersField, ew1→lspServerConfigSchema
+```
+
+### Resolve manifest.lspServers Field
+
+```javascript
+// ============================================
+// resolvePluginLspServersField - Resolve manifest.lspServers field
+// Location: chunks.138.mjs:630-690
+// ============================================
+
+// ORIGINAL:
+async function zyY(A, q, K, Y) {
+    let z = {},
+        _ = Array.isArray(A) ? A : [A];
+    for (let w of _)
+        if (typeof w === "string") {
+            let O = YyY(q, w);
+            if (!O) {
+                let $ = `Security: Path traversal attempt blocked in plugin ${K}: ${w}`;
+                _6(Error($)), k($, {
+                    level: "warn"
+                }), Y.push({
+                    type: "lsp-config-path-traversal",
+                    plugin: K,
+                    path: w,
+                    source: "plugin"
+                });
+                continue
+            }
+            // ... load config from path ...
+        } else if (typeof w === "object") {
+            // ... validate inline config ...
+        }
+    return Object.keys(z).length > 0 ? z : void 0
+}
+
+// READABLE:
+async function resolvePluginLspServersField(lspServers, pluginPath, pluginName, errors) {
+    const configs = {};
+    const items = Array.isArray(lspServers) ? lspServers : [lspServers];
+
+    for (const item of items) {
+        if (typeof item === "string") {
+            // String path: resolve and load file
+            const safePath = safePluginRelativePath(pluginPath, item);
+            if (!safePath) {
+                const message = `Security: Path traversal attempt blocked in plugin ${pluginName}: ${item}`;
+                logError(Error(message));
+                log(message, { level: "warn" });
+                errors.push({
+                    type: "lsp-config-path-traversal",
+                    plugin: pluginName,
+                    path: item,
+                    source: "plugin"
+                });
+                continue;
+            }
+            // Load config from safePath...
+        } else if (typeof item === "object") {
+            // Inline config: validate directly
+            const result = lspServerConfigSchema.safeParse(item);
+            // ...
+        }
+    }
+
+    return Object.keys(configs).length > 0 ? configs : undefined;
+}
+
+// Mapping: zyY→resolvePluginLspServersField, YyY→safePluginRelativePath
 ```
 
 ### Configuration Loading Sequence
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    loadLspConfigs (dm4)                         │
+│                    loadLspConfigs (so4)                         │
 │                    Aggregates all plugin configs                │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -263,15 +192,15 @@ async function loadPluginLspConfig(plugin, errors = []) {
 ┌─────────────────────────────────────────────────────────────────┐
 │                For each enabled plugin:                         │
 │                                                                 │
-│  loadSinglePluginLspConfig (Um4)                               │
+│  loadSinglePluginLspConfig (ao4)                               │
 │  ┌───────────────────────────────────────────────────────────┐ │
 │  │                                                           │ │
-│  │  1. loadPluginLspConfig (HvY)                             │ │
+│  │  1. loadPluginLspConfig (Nl6)                             │ │
 │  │     ├── Read .lsp.json file                              │ │
 │  │     ├── Parse and validate JSON                          │ │
 │  │     └── Merge into configs object                        │ │
 │  │                                                           │ │
-│  │  2. Resolve manifest.lspServers field                    │ │
+│  │  2. Resolve manifest.lspServers field (zyY)              │ │
 │  │     ├── String path → resolve and load file              │ │
 │  │     ├── Array of paths → load each                       │ │
 │  │     └── Object → inline config validation                │ │
@@ -279,12 +208,12 @@ async function loadPluginLspConfig(plugin, errors = []) {
 │  └───────────────────────────────────────────────────────────┘ │
 │                              │                                  │
 │                              ▼                                  │
-│  expandLspConfigVars (_vY)                                     │
+│  expandLspConfigVars (_yY)                                     │
 │  ├── Expand ${CLAUDE_PLUGIN_ROOT}                             │
 │  └── Expand environment variables                             │
 │                              │                                  │
 │                              ▼                                  │
-│  namespacePluginServers (JvY)                                  │
+│  namespacePluginServers (wyY)                                  │
 │  └── Prefix: "plugin:{pluginName}:{serverName}"               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -307,63 +236,57 @@ async function loadPluginLspConfig(plugin, errors = []) {
 
 ---
 
-## 3. Variable Expansion
+## 2. Variable Expansion
 
 ### Plugin Root Variable
 
 ```javascript
 // ============================================
-// OvY - Expand ${CLAUDE_PLUGIN_ROOT} placeholder
-// Location: chunks.133.mjs:2079-2081
+// expandPluginRootVar - Expand ${CLAUDE_PLUGIN_ROOT} placeholder
+// Location: chunks.138.mjs (embedded in _yY)
 // ============================================
-
-// ORIGINAL:
-function OvY(A, q) {
-    return A.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, q)
-}
 
 // READABLE:
 function expandPluginRootVar(value, pluginRootPath) {
     return value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRootPath);
 }
-
-// Mapping: OvY→expandPluginRootVar
 ```
 
 ### Full Variable Expansion
 
 ```javascript
 // ============================================
-// _vY - Expand all variables in config
-// Location: chunks.133.mjs:2083-2112
+// expandLspConfigVars - Expand all variables in config
+// Location: chunks.138.mjs:692-722
 // ============================================
 
 // ORIGINAL:
-function _vY(A, q, K) {
-    let Y = [],
-        z = ($) => {
-            let O = OvY($, q),
-                {
-                    expanded: _,
-                    missingVars: J
-                } = i01(O);
-            return Y.push(...J), _
+function _yY(A, q, K, Y) {
+    let z = [],
+        _ = ($) => {
+            let H = ZL($, q);
+            if (K) H = zz1(H, K);
+            let {
+                expanded: J,
+                missingVars: M
+            } = cz(H);
+            return z.push(...M), J
         },
         w = {
             ...A
         };
-    if (w.command) w.command = z(w.command);
-    if (w.args) w.args = w.args.map(($) => z($));
+    if (w.command) w.command = _(w.command);
+    if (w.args) w.args = w.args.map(($) => _($));
     let H = {
         CLAUDE_PLUGIN_ROOT: q,
         ...w.env || {}
     };
-    for (let [$, O] of Object.entries(H))
-        if ($ !== "CLAUDE_PLUGIN_ROOT") H[$] = z(O);
-    if (w.env = H, w.workspaceFolder) w.workspaceFolder = z(w.workspaceFolder);
-    if (Y.length > 0) {
-        let O = `Missing environment variables in plugin LSP config: ${[...new Set(Y)].join(", ")}`;
-        K1(Error(O)), h(O, {
+    for (let [$, J] of Object.entries(H))
+        if ($ !== "CLAUDE_PLUGIN_ROOT") H[$] = _(J);
+    if (w.env = H, w.workspaceFolder) w.workspaceFolder = _(w.workspaceFolder);
+    if (z.length > 0) {
+        let J = `Missing environment variables in plugin LSP config: ${[...new Set(z)].join(", ")}`;
+        _6(Error(J)), k(J, {
             level: "warn"
         })
     }
@@ -371,16 +294,22 @@ function _vY(A, q, K) {
 }
 
 // READABLE:
-function expandLspConfigVars(config, pluginRootPath, errors) {
+function expandLspConfigVars(config, pluginRootPath, workspaceFolder, errors) {
     const missingVars = [];
 
     const expandString = (value) => {
         // First expand plugin root
-        const withPluginRoot = expandPluginRootVar(value, pluginRootPath);
+        let expanded = value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRootPath);
+
+        // Expand workspace folder if provided
+        if (workspaceFolder) {
+            expanded = expanded.replace(/\$\{WORKSPACE_FOLDER\}/g, workspaceFolder);
+        }
+
         // Then expand environment variables
-        const { expanded, missingVars: vars } = expandEnvVars(withPluginRoot);
+        const { expanded: result, missingVars: vars } = expandEnvVars(expanded);
         missingVars.push(...vars);
-        return expanded;
+        return result;
     };
 
     const expanded = { ...config };
@@ -423,12 +352,13 @@ function expandLspConfigVars(config, pluginRootPath, errors) {
     return expanded;
 }
 
-// Mapping: _vY→expandLspConfigVars, OvY→expandPluginRootVar, i01→expandEnvVars
+// Mapping: _yY→expandLspConfigVars, ZL→expandPluginRootVar, cz→expandEnvVars
 ```
 
 **Variable expansion order:**
 1. `${CLAUDE_PLUGIN_ROOT}` → Plugin directory path
-2. `${ENV_VAR}` → Value from process environment
+2. `${WORKSPACE_FOLDER}` → Workspace folder path (if provided)
+3. `${ENV_VAR}` → Value from process environment
 
 **Example:**
 ```json
@@ -455,20 +385,20 @@ After expansion (assuming plugin at `/home/user/plugins/my-plugin` and `MY_CONFI
 
 ---
 
-## 4. Server Namespacing
+## 3. Server Namespacing
 
 ```javascript
 // ============================================
-// JvY - Namespace server names by plugin
-// Location: chunks.133.mjs:2114-2125
+// namespacePluginServers - Namespace server names by plugin
+// Location: chunks.138.mjs:724-735
 // ============================================
 
 // ORIGINAL:
-function JvY(A, q) {
+function wyY(A, q) {
     let K = {};
     for (let [Y, z] of Object.entries(A)) {
-        let w = `plugin:${q}:${Y}`;
-        K[w] = {
+        let _ = `plugin:${q}:${Y}`;
+        K[_] = {
             ...z,
             scope: "dynamic",
             source: q
@@ -491,7 +421,7 @@ function namespacePluginServers(configs, pluginName) {
     return namespaced;
 }
 
-// Mapping: JvY→namespacePluginServers
+// Mapping: wyY→namespacePluginServers
 ```
 
 **Why namespacing:**
@@ -502,20 +432,20 @@ function namespacePluginServers(configs, pluginName) {
 
 ---
 
-## 5. Path Traversal Protection
+## 4. Path Traversal Protection
 
 ```javascript
 // ============================================
-// wvY - Validate plugin-relative paths
-// Location: chunks.133.mjs:1972-1978
+// safePluginRelativePath - Validate plugin-relative paths
+// Location: chunks.138.mjs:585-591
 // ============================================
 
 // ORIGINAL:
-function wvY(A, q) {
-    let K = VkA(A),
-        Y = VkA(A, q),
-        z = zvY(K, Y);
-    if (z.startsWith("..") || VkA(z) === z) return null;
+function YyY(A, q) {
+    let K = Um8(A),
+        Y = Um8(A, q),
+        z = KyY(K, Y);
+    if (z.startsWith("..") || Um8(z) === z) return null;
     return Y
 }
 
@@ -532,37 +462,44 @@ function safePluginRelativePath(pluginRoot, relativePath) {
     return targetPath;
 }
 
-// Mapping: wvY→safePluginRelativePath, VkA→path.resolve, zvY→path.relative
+// Mapping: YyY→safePluginRelativePath, Um8→path.resolve, KyY→path.relative
 ```
 
 **Security insight:** This prevents malicious plugins from reading files outside their directory using relative paths like `../../../etc/passwd`.
 
 ---
 
-## 6. Aggregate Configuration Loading
+## 5. Aggregate Configuration Loading
 
 ```javascript
 // ============================================
-// dm4 - Load all LSP configs from all plugins
-// Location: chunks.133.mjs:2144-2163
+// loadLspConfigs - Load all LSP configs from all plugins
+// Location: chunks.138.mjs:756-796
 // ============================================
 
 // ORIGINAL:
-async function dm4() {
+async function so4() {
     let A = {};
     try {
         let {
             enabled: q
-        } = await iY();
-        for (let K of q) {
-            let Y = [],
-                z = await Um4(K, Y);
-            if (z && Object.keys(z).length > 0) Object.assign(A, z), h(`Loaded ${Object.keys(z).length} LSP server(s) from plugin: ${K.name}`);
-            if (Y.length > 0) h(`${Y.length} error(s) loading LSP servers from plugin: ${K.name}`)
-        }
-        h(`Total LSP servers loaded: ${Object.keys(A).length}`)
+        } = await _z(), K = await Promise.all(q.map(async (Y) => {
+            let z = [];
+            return {
+                plugin: Y,
+                configs: await ao4(Y, z),
+                errors: z
+            }
+        }));
+        for (let {
+            plugin: Y,
+            configs: z,
+            errors: _
+        } of K)
+            if (z && Object.keys(z).length > 0 && (Object.assign(A, z), k(`Loaded ${Object.keys(z).length} LSP server(s) from plugin: ${Y.name}`)), _.length > 0) k(`${_.length} error(s) loading LSP servers from plugin: ${Y.name}`);
+        k(`Total LSP servers loaded: ${Object.keys(A).length}`)
     } catch (q) {
-        K1(q instanceof Error ? q : Error(`Failed to load LSP servers: ${String(q)}`)), h(`Error loading LSP servers: ${q instanceof Error?q.message:String(q)}`)
+        _6(q instanceof Error ? q : Error(`Failed to load LSP servers: ${String(q)}`)), k(`Error loading LSP servers: ${q instanceof Error?q.message:String(q)}`)
     }
     return {
         servers: A
@@ -574,23 +511,26 @@ async function loadLspConfigs() {
     const allServers = {};
 
     try {
-        const { enabled: plugins } = await getPluginState();
+        const { enabled: plugins } = await getPluginState();  // _z
 
-        for (const plugin of plugins) {
+        const results = await Promise.all(plugins.map(async (plugin) => {
             const errors = [];
-            const pluginConfigs = await loadSinglePluginLspConfig(plugin, errors);
+            const pluginConfigs = await loadSinglePluginLspConfig(plugin, errors);  // ao4
+            return { plugin, configs: pluginConfigs, errors };
+        }));
 
-            if (pluginConfigs && Object.keys(pluginConfigs).length > 0) {
-                Object.assign(allServers, pluginConfigs);
-                log(`Loaded ${Object.keys(pluginConfigs).length} LSP server(s) from plugin: ${plugin.name}`);
+        for (const { plugin, configs, errors } of results) {
+            if (configs && Object.keys(configs).length > 0) {
+                Object.assign(allServers, configs);
+                log(`Loaded ${Object.keys(configs).length} LSP server(s) from plugin: ${plugin.name}`);
             }
-
             if (errors.length > 0) {
                 log(`${errors.length} error(s) loading LSP servers from plugin: ${plugin.name}`);
             }
         }
 
         log(`Total LSP servers loaded: ${Object.keys(allServers).length}`);
+
     } catch (error) {
         logError(error instanceof Error ? error : Error(`Failed to load LSP servers: ${String(error)}`));
         log(`Error loading LSP servers: ${error.message}`);
@@ -599,7 +539,60 @@ async function loadLspConfigs() {
     return { servers: allServers };
 }
 
-// Mapping: dm4→loadLspConfigs, iY→getPluginState, Um4→loadSinglePluginLspConfig
+// Mapping: so4→loadLspConfigs, _z→getPluginState, ao4→loadSinglePluginLspConfig
+```
+
+---
+
+## 6. Configuration Schema
+
+The LSP server configuration uses Zod schema validation:
+
+### Schema Fields
+
+| Field | Required | Default | Validation |
+|-------|----------|---------|------------|
+| `command` | Yes | - | No spaces (unless absolute path) |
+| `args` | No | `[]` | Array of non-empty strings |
+| `extensionToLanguage` | Yes | - | At least one mapping, extensions must start with `.` |
+| `transport` | No | `"stdio"` | Either `"stdio"` or `"socket"` |
+| `env` | No | - | String-to-string mapping |
+| `workspaceFolder` | No | - | Any string path |
+| `initializationOptions` | No | - | Any JSON value |
+| `settings` | No | - | Any JSON value |
+| `startupTimeout` | No | - | Positive integer (milliseconds) |
+| `shutdownTimeout` | No | - | Positive integer (milliseconds) |
+| `restartOnCrash` | No | - | Boolean (not yet implemented) |
+| `maxRestarts` | No | - | Non-negative integer (not yet implemented) |
+
+### Example Configuration
+
+```json
+{
+  "typescript-language-server": {
+    "command": "typescript-language-server",
+    "args": ["--stdio"],
+    "extensionToLanguage": {
+      ".ts": "typescript",
+      ".tsx": "typescriptreact",
+      ".js": "javascript",
+      ".jsx": "javascriptreact"
+    },
+    "env": {
+      "NODE_OPTIONS": "--max-old-space-size=4096"
+    }
+  },
+  "gopls": {
+    "command": "gopls",
+    "args": ["serve"],
+    "extensionToLanguage": {
+      ".go": "go"
+    },
+    "initializationOptions": {
+      "usePlaceholders": true
+    }
+  }
+}
 ```
 
 ---
@@ -609,7 +602,7 @@ async function loadLspConfigs() {
 | Stage | Function | Purpose |
 |-------|----------|---------|
 | Parse JSON | `JSON.parse` | Convert file content to object |
-| Validate | `lspServerConfigSchema.safeParse` | Ensure config matches schema |
+| Validate | Zod schema | Ensure config matches schema |
 | Expand | `expandLspConfigVars` | Replace variable placeholders |
 | Namespace | `namespacePluginServers` | Add plugin prefix to names |
 | Aggregate | `loadLspConfigs` | Combine all plugin configs |
@@ -623,3 +616,18 @@ async function loadLspConfigs() {
 | Schema validation error | Log and report to errors array |
 | Missing env variable | Log warning, use empty string |
 | Path traversal attempt | Reject path, log security warning |
+
+---
+
+## Source Locations
+
+| Function | Symbol | Location |
+|----------|--------|----------|
+| safePluginRelativePath | YyY | chunks.138.mjs:585-591 |
+| loadPluginLspConfig | Nl6 | chunks.138.mjs:593-628 |
+| resolvePluginLspServersField | zyY | chunks.138.mjs:630-690 |
+| expandLspConfigVars | _yY | chunks.138.mjs:692-722 |
+| namespacePluginServers | wyY | chunks.138.mjs:724-735 |
+| loadSinglePluginLspConfig | ao4 | chunks.138.mjs:737-745 |
+| loadLspConfigs | so4 | chunks.138.mjs:756-796 |
+| LspServerManager | eo4 | chunks.138.mjs:806-969 |

@@ -17,68 +17,105 @@ Fast lookup reference for key functions, event flow, context system, and common 
 
 | Function | Obfuscated | Purpose | Returns |
 |----------|------------|---------|---------|
-| loadKeybindingsAsync | Mk5 | Async load from file, merge with defaults | `{bindings, warnings}` |
-| loadKeybindingsSync | YS1 | Sync load with caching | `{bindings, warnings}` |
-| getCachedBindings | kq7 | Get cached or load on first call | `Array<Keybinding>` |
-| getKeybindingsFilePath | R71 | Build path to keybindings.json | `string` |
-| getDefaultKeybindings | tqA | Return hardcoded defaults | `Array<Keybinding>` |
-| isKeybindingCustomizationEnabled | Hv | Check feature flag | `boolean` |
+| loadKeybindingsAsync | tu9 | Async load from file, merge with defaults | `{bindings, warnings}` |
+| loadKeybindingsSync | $p6 | Sync load with caching | `{bindings, warnings}` |
+| getCachedBindings | m34 | Get cached or load on first call | `Array<Keybinding>` |
+| getKeybindingsFilePath | b36 | Build path to keybindings.json | `string` |
+| getDefaultBindings | rN8 | Return hardcoded defaults | `Array<Keybinding>` |
+| isKeybindingCustomizationEnabled | pk | Check feature flag | `boolean` |
+| DEFAULT_KEYBINDINGS | XW6 | Default bindings array | `Array<BindingBlock>` |
+
+> **For complete default keybindings, see [default_keybindings.md](./default_keybindings.md)**
 
 ### File Watching
 
 | Function | Obfuscated | Purpose | Returns |
 |----------|------------|---------|---------|
-| watchKeybindingsFile | Lq7 | Start chokidar file watcher | `Promise<void>` |
-| stopWatchingKeybindings | Pk5 | Close watcher, clear listeners | `void` |
-| handleKeybindingsFileChange | Nq7 | Reload on file modification | `Promise<void>` |
-| handleKeybindingsFileDelete | Wk5 | Reset to defaults on file deletion | `Promise<void>` |
-| subscribeToKeybindingsChanges | Rq7 | Register reload listener | `UnsubscribeFn` |
+| watchKeybindingsFile | B34 | Start chokidar file watcher | `Promise<void>` |
+| stopWatchingKeybindings | eu9 | Close watcher, clear listeners | `void` |
+| handleKeybindingsFileChange | I34 | Reload on file modification | `Promise<void>` |
+| handleKeybindingsFileDelete | Am9 | Reset to defaults on file deletion | `Promise<void>` |
+| WRITE_STABILITY_THRESHOLD_MS | ru9 | File watcher debounce delay | `500` |
+| WRITE_POLL_INTERVAL_MS | ou9 | File watcher poll interval | `200` |
 
 ### Validation
 
 | Function | Obfuscated | Purpose | Returns |
 |----------|------------|---------|---------|
-| validateKeybindingsArray | qk5 | Check top-level array structure | `Array<Warning>` |
-| validateKeybindingBlock | Ak5 | Validate single block | `Array<Warning>` |
-| parseAndValidateKeystroke | eE5 | Parse keystroke, return error if invalid | `Warning \| null` |
-| detectDuplicateBindings | Kk5 | Find duplicate keys in same context | `Array<Warning>` |
-| detectReservedKeyConflicts | Yk5 | Check for platform-reserved shortcuts | `Array<Warning>` |
-| detectMalformedJSON | aqA | Regex-based JSON linting | `Array<Warning>` |
-| validateKeybindingsComprehensive | sqA | Run all validations, dedupe warnings | `Array<Warning>` |
+| isValidKeybindingsArray | uu9 | Check top-level array structure | `boolean` |
+| isValidKeybindingBlock | xu9 | Validate single block structure | `boolean` |
+| isValidContext | mu9 | Check if context name is valid | `boolean` |
+| parseAndValidateKeystroke | Bu9 | Parse keystroke, return error if invalid | `Warning \| null` |
+| validateKeybindingBlock | gu9 | Validate single block | `Array<Warning>` |
+| validateKeybindingsArray | Fu9 | Validate entire array | `Array<Warning>` |
+| detectDuplicateBindings | pu9 | Find duplicate keys in same context | `Array<Warning>` |
+| detectReservedKeyConflicts | Qu9 | Check for platform-reserved shortcuts | `Array<Warning>` |
+| detectMalformedJSON | iN8 | Regex-based JSON linting | `Array<Warning>` |
+| VALID_CONTEXTS | h34 | Allowed context names | `Array<string>` |
 
-### Parsing
-
-| Function | Obfuscated | Purpose | Returns |
-|----------|------------|---------|---------|
-| parseKeystroke | iC1 | Parse string to `{key, ctrl, alt, shift, meta}` | `Keystroke` |
-| parseChordString | rN5 | Split chord by spaces, parse each | `Array<Keystroke>` |
-| stringifyKeystroke | oN5 | Convert keystroke object to string | `string` |
-| getDisplayKeyName | aN5 | Map key names to symbols (↑, ←, Esc) | `string` |
-| flattenKeybindings | aK6 | Convert blocks to flat array | `Array<FlatBinding>` |
-| stringifyChord | oK6 | Convert chord array to display string | `string` |
-| getKeyNameFromEvent | v77 | Extract key name from DOM event | `string \| null` |
-| normalizeKeystroke | k71 | Handle modifier aliases | `string` |
-
-### Matching & Resolution
+### Parsing (chunks.65.mjs)
 
 | Function | Obfuscated | Purpose | Returns |
 |----------|------------|---------|---------|
-| resolveKeystroke | tK6 | Main matching orchestrator | `MatchResult` |
-| eventToKeystroke | sN5 | Convert DOM event to keystroke | `Keystroke \| null` |
-| isPrefixMatch | tN5 | Check if sequence is prefix of chord | `boolean` |
-| isExactMatch | eN5 | Check if sequences match exactly | `boolean` |
-| findKeybindingForAction | sK6 | Reverse lookup: action → chord string | `string \| undefined` |
+| parseKeystroke | Qu6 | Parse string to `{key, ctrl, alt, shift, meta}` | `Keystroke` |
+| parseChordString | pj8 | Split chord by spaces, parse each | `Array<Keystroke>` |
+| stringifyKeystroke | wl3 | Convert keystroke object to string | `string` |
+| getDisplayKeyName | Ol3 | Map key names to symbols (↑, ←, Esc) | `string` |
+| flattenKeybindings | X$1 | Convert blocks to flat array | `Array<FlatBinding>` |
+| stringifyChord | D$1 | Convert chord array to display string | `string` |
+| getKeyNameFromEvent | Qj8 | Extract key name from DOM event | `string \| null` |
+| getModifiers | $l3 | Extract modifier flags from event | `Modifiers` |
 
-### React Context & UI
+### Matching & Resolution (chunks.65.mjs)
+
+| Function | Obfuscated | Purpose | Returns |
+|----------|------------|---------|---------|
+| resolveKeystroke | Z$1 | Main matching orchestrator | `MatchResult` |
+| eventToKeystroke | Hl3 | Convert DOM event to keystroke | `Keystroke \| null` |
+| keystrokesMatch | W$1 | Compare two keystroke objects | `boolean` |
+| isPrefixMatch | jl3 | Check if sequence is prefix of chord | `boolean` |
+| isExactMatch | Jl3 | Check if sequences match exactly | `boolean` |
+| findKeybindingForAction | P$1 | Reverse lookup: action → chord string | `string \| undefined` |
+| modifiersMatch | gL7 | Check if modifier flags match | `boolean` |
+| eventMatchesKeystroke | FL7 | Full event-to-keystroke comparison | `boolean` |
+
+### React Context & UI (chunks.65.mjs, chunks.117.mjs, chunks.90.mjs)
 
 | Function/Component | Obfuscated | Purpose | Returns |
 |-------------------|------------|---------|---------|
-| KeybindingSetup | dX | Top-level provider component | `ReactElement` |
-| KeybindingHandler | x6Y | Global keystroke listener component | `null` |
-| KeybindingContext | A36 | Context provider | `ReactElement` |
-| useKeybindingContext | VL | Hook to access context | `ContextValue` |
-| useRegisterContext | q36 | Hook to register/unregister context | `void` |
-| logKeybindingWarnings | S6Y | Log/display validation warnings | `void` |
+| KeybindingSetup | aj | Top-level provider component | `ReactElement` |
+| KeybindingHandler | N4Y | Global keystroke listener component | `null` |
+| KeybindingContext | G$1 | Context provider | `ReactElement` |
+| useKeybindingContext | Wv | Hook to access context | `ContextValue` |
+| useRegisterContext | f$1 | Hook to register/unregister context | `void` |
+| useKeybindingDisplayText | Rq | Hook to get display text with fallback | `string` |
+| useKeybindingDisplayTextSync | PX | Sync lookup with telemetry tracking | `string \| undefined` |
+| ShortcutDisplay | a1 | Renders `<shortcut> to <action>` | `ReactElement` |
+| KeybindingHint | O8 | Renders keybinding hint with description | `ReactElement` |
+| KeybindingHintsList | C8 | Renders list of keybinding hints | `ReactElement` |
+| useMemoSlot | A6 | Custom memoization for performance | `[value, element]` |
+| CHORD_TIMEOUT_MS | G4Y | Chord completion timeout | `1000` |
+
+### Voice Push-to-Talk
+
+| Function/Component | Obfuscated | Purpose | Returns |
+|-------------------|------------|---------|---------|
+| VoiceKeybindingHandler | Evz | PTT handler with repeat detection | `null` |
+| PTT_ACTIVATION_THRESHOLD | Nvz | Presses needed to activate PTT | `5` |
+| PTT_WARMUP_THRESHOLD | Sgq | Presses to show warming indicator | `2` |
+| PTT_RESET_TIMEOUT_MS | vvz | Timeout before counter resets (ms) | `120` |
+| DEFAULT_PTT_KEYSTROKE | Vvz | Fallback PTT keybinding (Space) | `{key:" "}` |
+
+### Platform-Specific
+
+| Variable | Obfuscated | Purpose | Value |
+|----------|------------|---------|-------|
+| imagePasteKey | Cu9 | Key for image paste | `alt+v` (Win) / `ctrl+v` (Mac/Linux) |
+| modeCycleKey | bu9 | Key for mode cycling | `shift+tab` or `meta+m` |
+| supportsShiftTab | Iu9 | Platform supports shift+tab | `boolean` |
+| RESERVED_HARDCODED_SHORTCUTS | wp6 | Terminal limitations (ctrl+c, ctrl+d, ctrl+m) | `Array` |
+| RESERVED_UNIX_SHORTCUTS | cN8 | Unix signals (ctrl+z, ctrl+\) | `Array` |
+| RESERVED_MACOS_SHORTCUTS | lN8 | macOS system shortcuts | `Array` |
 
 ---
 
@@ -127,7 +164,7 @@ Fast lookup reference for key functions, event flow, context system, and common 
                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 6. KEYBINDING MATCHING                                          │
-│    sN5() normalize event → tK6() main matching function         │
+│    Hl3() normalize event → Z$1() main matching function         │
 │    - Build current sequence (append to pending chord)           │
 │    - Filter by activeContexts                                   │
 │    - Check prefix match → "chord_started" (start 1000ms timer)  │
@@ -325,11 +362,17 @@ Escape key AND chord pending?
 
 | Constant | Obfuscated | Value | Purpose |
 |----------|------------|-------|---------|
-| CHORD_TIMEOUT_MS | C6Y | 1000 | Max time between chord keystrokes (ms) |
-| WATCH_STABILITY_THRESHOLD_MS | Jk5 | 500 | File watcher debounce delay (ms) |
-| WATCH_POLL_INTERVAL_MS | Xk5 | 200 | File watcher poll interval (ms) |
-| VALID_CONTEXTS | Gq7 | [18 contexts] | Allowed context names |
-| DEFAULT_KEYBINDINGS | kJ1 | [...] | Fallback bindings array |
+| CHORD_TIMEOUT_MS | G4Y | 1000 | Max time between chord keystrokes (ms) |
+| WRITE_STABILITY_THRESHOLD_MS | ru9 | 500 | File watcher debounce delay (ms) |
+| WRITE_POLL_INTERVAL_MS | ou9 | 200 | File watcher poll interval (ms) |
+| VALID_CONTEXTS | h34 | [18 contexts] | Allowed context names |
+| DEFAULT_KEYBINDINGS | XW6 | [...] | Fallback bindings array |
+| imagePasteKey | Cu9 | `alt+v` (Win) / `ctrl+v` (Mac/Linux) | Platform-specific image paste |
+| modeCycleKey | bu9 | `shift+tab` or `meta+m` | Platform-specific mode cycling |
+| supportsShiftTab | Iu9 | `boolean` | Platform shift+tab support flag |
+| PTT_ACTIVATION_THRESHOLD | Nvz | 5 | Presses needed to activate voice PTT |
+| PTT_WARMUP_THRESHOLD | Sgq | 2 | Presses to show warming indicator |
+| PTT_RESET_TIMEOUT_MS | vvz | 120 | Timeout before PTT counter resets (ms) |
 
 ---
 
@@ -350,10 +393,10 @@ Escape key AND chord pending?
 | Path | Purpose |
 |------|---------|
 | `~/.claude/keybindings.json` | User keybindings configuration file |
-| `chunks.54.mjs` | Configuration, validation, file watching |
-| `chunks.53.mjs` | Parsing, matching, chord logic |
-| `chunks.110.mjs` | React context, handlers, UI integration |
-| `chunks.177.mjs` | Help documentation, schema |
+| `chunks.65.mjs` | Parsing, matching, chord logic, React Context |
+| `chunks.89.mjs` | Configuration, validation, file watching, default bindings |
+| `chunks.90.mjs` | File watcher constants |
+| `chunks.117.mjs` | KeybindingSetup, KeybindingHandler components |
 
 ---
 
@@ -393,6 +436,76 @@ cat ~/.claude/keybindings.json | jq .
 
 ---
 
+## Voice PTT Algorithm Quick Reference
+
+### PTT Activation Sequence
+
+```
+User presses PTT key (e.g., 'v')
+     │
+     ▼
+Is voice enabled and available?
+     ├─ NO  → Ignore keypress
+     └─ YES → Continue
+           │
+           ▼
+     Increment keyPressCount
+           │
+           ▼
+     keyPressCount >= 5 (PTT_ACTIVATION_THRESHOLD)?
+           ├─ YES → ACTIVATE PTT
+           │        - Strip typed characters
+           │        - Start voice recording
+           │        - voiceWarmingUp = false
+           │
+           └─ NO  → Continue
+                 │
+                 ▼
+           keyPressCount >= 2 (PTT_WARMUP_THRESHOLD)?
+                 ├─ YES → voiceWarmingUp = true
+                 │        Show "warming up" indicator
+                 │
+                 └─ NO  → Continue accumulating
+                       │
+                       ▼
+                 120ms passes without keypress?
+                       ├─ YES → Reset keyPressCount to 0
+                       │        voiceWarmingUp = false
+                       └─ NO  → Keep waiting for more presses
+```
+
+### PTT State Transitions
+
+| State | Trigger | Next State | Action |
+|-------|---------|------------|--------|
+| Idle | 2+ presses | Warming | Show indicator |
+| Warming | 5+ presses | Active | Start recording |
+| Warming | 120ms timeout | Idle | Hide indicator |
+| Active | Any keypress | Idle | Stop recording |
+
+### Single-Character PTT Detection
+
+```javascript
+// Detect if PTT binding is single character (e.g., 'v')
+const isSingleCharPTT = pttKeystroke.key.length === 1 &&
+                        !pttKeystroke.ctrl &&
+                        !pttKeystroke.alt &&
+                        !pttKeystroke.shift &&
+                        !pttKeystroke.meta;
+
+// Single-char: Count repeated presses (v, vv, vvv...)
+// Multi-key: Match exact keystroke combination
+```
+
+### Character Stripping During PTT
+
+When PTT activates after typing "vvvvv":
+1. `stripTrailing(count, {char: 'v', anchor: true})` called
+2. Removes 5 'v' characters from input
+3. Prevents PTT activation characters from appearing in text
+
+---
+
 ## Summary
 
 This quick reference provides instant lookup for:
@@ -401,6 +514,7 @@ This quick reference provides instant lookup for:
 - **Context system** with all 18 contexts and activation patterns
 - **Common patterns** for context registration and handler management
 - **Match type decision tree** for understanding keystroke resolution
+- **Voice PTT algorithm** for repeated-keypress activation mechanism
 - **Constants and error types** for debugging and troubleshooting
 
 For detailed analysis, see individual documentation files in this directory.

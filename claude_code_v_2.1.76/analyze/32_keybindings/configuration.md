@@ -10,14 +10,18 @@ Keybindings in Claude Code v2.1.76 are customizable via `~/.claude/keybindings.j
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Keybindings
 
 Key functions in this document:
-- `loadKeybindingsAsync` (Mk5) - Async loader with validation
-- `loadKeybindingsSync` (YS1) - Sync loader with caching
-- `watchKeybindingsFile` (Lq7) - Chokidar file watcher
-- `getDefaultKeybindings` (tqA) - Default bindings fallback
-- `isKeybindingCustomizationEnabled` (Hv) - Feature flag check
-- `getKeybindingsFilePath` (R71) - Returns `~/.claude/keybindings.json`
-- `WRITE_STABILIZATION_MS` (Jk5) - 500ms debounce threshold
-- `WRITE_POLL_INTERVAL_MS` (Xk5) - 200ms poll interval
+- `loadKeybindingsAsync` (tu9) - Async loader with validation
+- `loadKeybindingsSync` ($p6) - Sync loader with caching
+- `getCachedBindings` (m34) - Returns cached or loads bindings
+- `watchKeybindingsFile` (B34) - Chokidar file watcher
+- `handleKeybindingsFileChange` (I34) - Hot-reload callback
+- `getDefaultBindings` (rN8) - Default bindings fallback
+- `isKeybindingCustomizationEnabled` (pk) - Feature flag check
+- `getKeybindingsFilePath` (b36) - Returns `~/.claude/keybindings.json`
+- `WRITE_STABILITY_THRESHOLD_MS` (ru9) - 500ms debounce threshold
+- `WRITE_POLL_INTERVAL_MS` (ou9) - 200ms poll interval
+- `VALID_CONTEXTS` (h34) - Set of valid context names
+- `VALID_CONTEXTS_ARRAY` (R34) - Array of all 18 valid contexts
 
 ---
 
@@ -56,45 +60,44 @@ Key functions in this document:
 
 ### 1.2 File Loading
 
-**Async Loader**: `loadKeybindingsAsync` (Mk5, chunks.54.mjs:1635-1693)
+**Async Loader**: `loadKeybindingsAsync` (tu9, chunks.89.mjs:3143-3199)
 
 **Loading Process**:
-1. Check `isKeybindingCustomizationEnabled()` (Hv) — if disabled, return defaults
-2. Read file with UTF-8 encoding from `getKeybindingsFilePath()` (R71)
-3. Parse as JSON using `_A()` (JSON.parse wrapper)
+1. Check `isKeybindingCustomizationEnabled()` (pk) — if disabled, return defaults
+2. Read file with UTF-8 encoding from `getKeybindingsFilePath()` (b36)
+3. Parse as JSON
 4. Validate top-level structure (must have a `"bindings"` key)
-5. Validate each binding block via `validateKeybindingBlock` (Ak5)
-6. Detect duplicate keys via `detectDuplicateKeysInJSON` (aqA)
-7. Check reserved shortcuts via `validateKeybindingsComprehensive` (sqA)
-8. Merge valid user bindings with defaults (user bindings appended after defaults — last-match-wins)
+5. Validate each binding block
+6. Detect duplicate keys and reserved shortcuts
+7. Merge valid user bindings with defaults (user bindings appended after defaults — last-match-wins)
 
 ```javascript
 // ============================================
-// loadKeybindingsAsync - Async keybindings loader with full validation pipeline
-// Location: chunks.54.mjs:1635-1693
+// tu9 - Async keybindings loader with validation pipeline
+// Location: chunks.89.mjs:3143-3199
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Mk5() {
-    let A = tqA();
-    if (!Hv()) return {
+async function tu9() {
+    let A = rN8();
+    if (!pk()) return {
         bindings: A,
         warnings: []
     };
-    let q = R71();
+    let q = b36();
     try {
-        let K = await wk5(q, "utf-8"),
-            Y = _A(K),
+        let K = await oP6(q, "utf-8"),
+            Y = JSON.parse(K),
             z;
         if (typeof Y === "object" && Y !== null && "bindings" in Y) z = Y.bindings;
-        else return h('[keybindings] Invalid keybindings.json: must have a "bindings" array'), {
+        else return k('[keybindings] Invalid keybindings.json: must have a "bindings" array'), {
             bindings: A,
             warnings: [{ type: "parse_error", severity: "error", message: '...' }]
         };
         // ... validation continues ...
     } catch (K) {
-        if (Dk5(K) && K.code === "ENOENT") return { bindings: A, warnings: [] };
-        return h(`[keybindings] Error loading ${q}: ${K instanceof Error?K.message:String(K)}`), {
+        if (K.code === "ENOENT") return { bindings: A, warnings: [] };
+        return k(`[keybindings] Error loading ${q}: ${K instanceof Error?K.message:String(K)}`), {
             bindings: A,
             warnings: [{ type: "parse_error", severity: "error", message: `Failed to parse: ${K.message}` }]
         }
@@ -103,13 +106,13 @@ async function Mk5() {
 
 // READABLE (for understanding):
 async function loadKeybindingsAsync() {
-    let defaultBindings = getDefaultKeybindings();
+    let defaultBindings = getDefaultBindings();
 
     if (!isKeybindingCustomizationEnabled()) {
         return { bindings: defaultBindings, warnings: [] };
     }
 
-    let configPath = getKeybindingsFilePath();
+    let configPath = getKeybindingsFilePath(); // ~/.claude/keybindings.json
     try {
         let jsonContent = await readFile(configPath, "utf-8");
         let parsed = JSON.parse(jsonContent);
@@ -131,7 +134,7 @@ async function loadKeybindingsAsync() {
         return { bindings: mergedBindings, warnings };
 
     } catch (error) {
-        if (isFileNotFoundError(error) && error.code === "ENOENT") {
+        if (error.code === "ENOENT") {
             return { bindings: defaultBindings, warnings: [] }; // First-time users
         }
         debug(`[keybindings] Error loading ${configPath}: ${error.message}`);
@@ -142,7 +145,7 @@ async function loadKeybindingsAsync() {
     }
 }
 
-// Mapping: Mk5→loadKeybindingsAsync, A→defaultBindings, q→configPath, K→jsonContent/error, Y→parsed, z→userBindings, tqA→getDefaultKeybindings, Hv→isKeybindingCustomizationEnabled, R71→getKeybindingsFilePath, wk5→readFile, _A→JSON.parse, Dk5→isFileNotFoundError
+// Mapping: tu9→loadKeybindingsAsync, A→defaultBindings, q→configPath, K→jsonContent/error, Y→parsed, z→userBindings, rN8→getDefaultBindings, pk→isKeybindingCustomizationEnabled, b36→getKeybindingsFilePath, oP6→readFile, k→debug
 ```
 
 **File not found is not an error**: ENOENT is silently treated as "no user customizations" — first-time users should not see errors.
@@ -153,20 +156,45 @@ async function loadKeybindingsAsync() {
 
 ### 1.3 Sync Loader with Caching
 
-**Sync Loader**: `loadKeybindingsSync` (YS1, chunks.54.mjs:1700-1750)
+**Sync Loader**: `loadKeybindingsSync` ($p6, chunks.89.mjs:3208-3230)
+**Cache Getter**: `getCachedBindings` (m34, chunks.89.mjs:3203-3206)
 
 Used at startup and by React components that need synchronous access:
 
 ```javascript
 // ============================================
-// loadKeybindingsSync - Sync loader returning cached bindings
-// Location: chunks.54.mjs:1700-1750
+// m34 - Returns cached bindings or loads synchronously
+// Location: chunks.89.mjs:3203-3206
 // ============================================
 
 // ORIGINAL (for source lookup):
-function YS1() {
-    if (ZM !== null) return { bindings: ZM, warnings: GW };
-    // ... synchronous load and cache
+function m34() {
+    if (Y0) return Y0;
+    return $p6().bindings
+}
+
+// READABLE (for understanding):
+function getCachedBindings() {
+    if (cachedBindings) return cachedBindings;
+    return loadKeybindingsSync().bindings;
+}
+
+// Mapping: m34→getCachedBindings, Y0→cachedBindings, $p6→loadKeybindingsSync
+```
+
+```javascript
+// ============================================
+// $p6 - Sync loader returning cached bindings
+// Location: chunks.89.mjs:3208-3230
+// ============================================
+
+// ORIGINAL (for source lookup):
+function $p6() {
+    if (Y0) return { bindings: Y0, warnings: _Z };
+    let A = rN8();
+    if (!pk()) return Y0 = A, _Z = [], { bindings: Y0, warnings: _Z };
+    let q = b36();
+    // ... synchronous file read and parse
 }
 
 // READABLE (for understanding):
@@ -176,14 +204,19 @@ function loadKeybindingsSync() {
         return { bindings: cachedBindings, warnings: cachedWarnings };
     }
 
+    let defaultBindings = getDefaultBindings();
+    if (!isKeybindingCustomizationEnabled()) {
+        cachedBindings = defaultBindings;
+        cachedWarnings = [];
+        return { bindings: cachedBindings, warnings: cachedWarnings };
+    }
+
     // First call: synchronous load, set cache
-    let config = loadSynchronously();
-    cachedBindings = config.bindings;
-    cachedWarnings = config.warnings;
-    return config;
+    let configPath = getKeybindingsFilePath();
+    // ... synchronous file operations
 }
 
-// Mapping: YS1→loadKeybindingsSync, ZM→cachedBindings, GW→cachedWarnings
+// Mapping: $p6→loadKeybindingsSync, Y0→cachedBindings, _Z→cachedWarnings, A→defaultBindings, q→configPath, rN8→getDefaultBindings, pk→isKeybindingCustomizationEnabled, b36→getKeybindingsFilePath
 ```
 
 ---
@@ -221,7 +254,7 @@ function loadKeybindingsSync() {
 
 **Chord rules**:
 - The first keystroke must be a prefix of at least one chord in the active contexts
-- 1000ms timeout (`CHORD_TIMEOUT_MS`, C6Y) between keystrokes — exceeding it cancels the chord
+- 1000ms timeout (`CHORD_TIMEOUT_MS`, G4Y) between keystrokes — exceeding it cancels the chord
 - Escape key always cancels an in-progress chord
 - Typing an invalid second key cancels the chord
 
@@ -248,7 +281,7 @@ function loadKeybindingsSync() {
 
 ## 3. Default Keybindings
 
-**Default bindings** are returned by `getDefaultKeybindings` (tqA) and stored in the module-level constant `kJ1`. They cover all 18 contexts and include bindings for:
+**Default bindings** are returned by `getDefaultBindings` (rN8) and stored in the module-level constant `XW6`. They cover all 18 contexts and include bindings for:
 
 ### Global Context (always active)
 | Binding | Action |
@@ -283,25 +316,25 @@ function loadKeybindingsSync() {
 
 ```javascript
 // ============================================
-// watchKeybindingsFile - Start chokidar file watcher
-// Location: chunks.54.mjs:1752-1780
+// B34 - Start chokidar file watcher for hot-reload
+// Location: chunks.89.mjs:3260-3288
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Lq7() {
-    if (fq7 || Tq7) return;
-    if (!Hv()) { h("[keybindings] Skipping file watcher - user customization disabled"); return }
-    let A = R71(), q = _k5(A);
+async function B34() {
+    if (S34 || b34) return;
+    if (!pk()) { k("[keybindings] Skipping file watcher - user customization disabled"); return }
+    let A = b36(), q = nu9(A);
     try {
-        if (!(await Hk5(q)).isDirectory()) { h(`[keybindings] Not watching: ${q} is not a directory`); return }
-    } catch { h(`[keybindings] Not watching: ${q} does not exist`); return }
-    fq7 = !0, h(`[keybindings] Watching for changes to ${A}`),
-    L71 = wH1.watch(A, {
+        if (!(await cu9(q)).isDirectory()) { k(`[keybindings] Not watching: ${q} is not a directory`); return }
+    } catch { k(`[keybindings] Not watching: ${q} does not exist`); return }
+    S34 = !0, k(`[keybindings] Watching for changes to ${A}`),
+    I36 = g46.watch(A, {
         persistent: !0, ignoreInitial: !0,
-        awaitWriteFinish: { stabilityThreshold: Jk5, pollInterval: Xk5 },
+        awaitWriteFinish: { stabilityThreshold: ru9, pollInterval: ou9 },
         ignorePermissionErrors: !0, usePolling: !1, atomic: !0
-    }), L71.on("add", Nq7), L71.on("change", Nq7), L71.on("unlink", Wk5),
-    Tq(async () => Pk5())
+    }), I36.on("add", I34), I36.on("change", I34), I36.on("unlink", Am9),
+    E4(async () => eu9())
 }
 
 // READABLE (for understanding):
@@ -333,22 +366,22 @@ async function watchKeybindingsFile() {
         persistent: true,
         ignoreInitial: true,
         awaitWriteFinish: {
-            stabilityThreshold: WRITE_STABILIZATION_MS,  // 500ms — wait for editor to finish writing
-            pollInterval: WRITE_POLL_INTERVAL_MS          // 200ms — how often to poll during stabilization
+            stabilityThreshold: WRITE_STABILITY_THRESHOLD_MS,  // 500ms — wait for editor to finish writing
+            pollInterval: WRITE_POLL_INTERVAL_MS                // 200ms — how often to poll during stabilization
         },
         ignorePermissionErrors: true,
         usePolling: false,
         atomic: true     // Treat atomic writes (rename-based) correctly
     });
 
-    fileWatcher.on("add", onFileChange);
-    fileWatcher.on("change", onFileChange);
-    fileWatcher.on("unlink", onFileDelete);
+    fileWatcher.on("add", handleKeybindingsFileChange);
+    fileWatcher.on("change", handleKeybindingsFileChange);
+    fileWatcher.on("unlink", handleKeybindingsFileDelete);
 
     onShutdown(async () => stopWatchingKeybindings());
 }
 
-// Mapping: Lq7→watchKeybindingsFile, fq7→watcherInitialized, Tq7→watcherShutdown, Hv→isKeybindingCustomizationEnabled, A→configPath, q→configDir, R71→getKeybindingsFilePath, _k5→getDirectoryPath, Hk5→statAsync, L71→fileWatcher, wH1→chokidar, Jk5→WRITE_STABILIZATION_MS, Xk5→WRITE_POLL_INTERVAL_MS, Nq7→onFileChange, Wk5→onFileDelete, Tq→onShutdown, Pk5→stopWatchingKeybindings
+// Mapping: B34→watchKeybindingsFile, S34→watcherInitialized, b34→watcherShutdown, pk→isKeybindingCustomizationEnabled, A→configPath, q→configDir, b36→getKeybindingsFilePath, nu9→getDirectoryPath, cu9→statAsync, I36→fileWatcher, g46→chokidar, ru9→WRITE_STABILITY_THRESHOLD_MS, ou9→WRITE_POLL_INTERVAL_MS, I34→handleKeybindingsFileChange, Am9→handleKeybindingsFileDelete, E4→onShutdown, eu9→stopWatchingKeybindings
 ```
 
 **Why `awaitWriteFinish`**: Many text editors (vim, VSCode) write files in chunks or rename-then-move sequences. Without stabilization, the watcher could fire on an incomplete write, causing JSON parse errors. The 500ms threshold waits until the file hasn't changed for half a second before triggering reload.
@@ -359,23 +392,23 @@ async function watchKeybindingsFile() {
 
 ```javascript
 // ============================================
-// onFileChange - Reloads keybindings on file modification
-// Location: chunks.54.mjs:1793-1801
+// I34 - Reloads keybindings on file modification
+// Location: chunks.90.mjs:14-22
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Nq7(A) {
-    h(`[keybindings] Detected change to ${A}`);
+async function I34(A) {
+    k(`[keybindings] Detected change to ${A}`);
     try {
-        let q = await Mk5();
-        ZM = q.bindings, GW = q.warnings, KS1.forEach((K) => K(q))
+        let q = await tu9();
+        Y0 = q.bindings, _Z = q.warnings, Op6.forEach((K) => K(q))
     } catch (q) {
-        h(`[keybindings] Error reloading: ${q instanceof Error?q.message:String(q)}`)
+        k(`[keybindings] Error reloading: ${_1(q)}`)
     }
 }
 
 // READABLE (for understanding):
-async function onFileChange(filePath) {
+async function handleKeybindingsFileChange(filePath) {
     debug(`[keybindings] Detected change to ${filePath}`);
     try {
         let newConfig = await loadKeybindingsAsync();
@@ -388,11 +421,11 @@ async function onFileChange(filePath) {
         reloadSubscribers.forEach(callback => callback(newConfig));
     } catch (error) {
         // If reload fails, keep previous valid config intact
-        debug(`[keybindings] Error reloading: ${error instanceof Error ? error.message : String(error)}`);
+        debug(`[keybindings] Error reloading: ${formatError(error)}`);
     }
 }
 
-// Mapping: Nq7→onFileChange, A→filePath, q→newConfig/error, Mk5→loadKeybindingsAsync, ZM→cachedBindings, GW→cachedWarnings, KS1→reloadSubscribers
+// Mapping: I34→handleKeybindingsFileChange, A→filePath, k→debug, tu9→loadKeybindingsAsync, Y0→cachedBindings, _Z→cachedWarnings, Op6→reloadSubscribers, _1→formatError
 ```
 
 **Key insight**: If hot-reload fails (e.g., user saves broken JSON mid-edit), the previous valid configuration remains active because the `catch` block exits without updating the cache. The user sees an error notification but their shortcuts continue working.
@@ -444,10 +477,10 @@ This creates a binding with `action: null`, which returns `{type: "unbound"}` fr
 ## 6. Summary
 
 **Configuration pipeline**:
-1. `loadKeybindingsAsync` (Mk5) reads and validates JSON
+1. `loadKeybindingsAsync` (tu9) reads and validates JSON
 2. Validation: structure → block → keystroke → duplicates → reserved shortcuts
 3. Merge: defaults + user bindings (user wins via last-match)
-4. Chokidar watcher triggers `onFileChange` (Nq7) on save
+4. Chokidar watcher triggers `handleKeybindingsFileChange` (I34) on save
 5. Subscribers (React components) receive new config and re-render
 
 **Design principles**:
@@ -456,4 +489,4 @@ This creates a binding with `action: null`, which returns `{type: "unbound"}` fr
 - **Explicit errors**: Validation provides actionable messages
 - **User wins**: User bindings always shadow defaults for same key+context
 
-**Last Updated**: 2026-03-15 (Claude Code v2.1.76)
+**Last Updated**: 2026-03-23 (Claude Code v2.1.76)

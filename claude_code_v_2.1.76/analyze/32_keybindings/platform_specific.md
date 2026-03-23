@@ -26,23 +26,24 @@ Key functions and constants in this document:
 
 **Issue**: macOS users expect `Cmd` as the primary modifier, not `Ctrl`. The `meta` key in terminals typically maps to `Option` (Alt), not `Cmd`.
 
-**Solution**: The keystroke parser `iC1()` treats multiple aliases as equivalent:
+**Solution**: The keystroke parser `Qu6()` treats multiple aliases as equivalent:
 
 ```javascript
 // ============================================
-// iC1 - Parses keystroke strings with platform-aware modifier aliases
-// Location: chunks.53.mjs:2752-2808
+// Qu6 - Parses keystroke strings with platform-aware modifier aliases
+// Location: chunks.65.mjs:533-594
 // ============================================
 
 // ORIGINAL (for source lookup):
-function iC1(A) {
+function Qu6(A) {
     let q = A.split("+"),
         K = {
             key: "",
             ctrl: !1,
             alt: !1,
             shift: !1,
-            meta: !1
+            meta: !1,
+            super: !1
         };
     for (let Y of q) {
         let z = Y.toLowerCase();
@@ -60,9 +61,13 @@ function iC1(A) {
                 K.shift = !0;
                 break;
             case "meta":
+                K.meta = !0;
+                break;
             case "cmd":
             case "command":
-                K.meta = !0;
+            case "super":
+            case "win":
+                K.super = !0;
                 break;
             case "esc":
                 K.key = "escape";
@@ -101,7 +106,8 @@ function parseKeystroke(keystrokeString) {
         ctrl: false,
         alt: false,
         shift: false,
-        meta: false
+        meta: false,
+        super: false
     };
 
     for (let part of parts) {
@@ -123,9 +129,14 @@ function parseKeystroke(keystrokeString) {
                 break;
 
             case "meta":
+                normalized.meta = true;
+                break;
+
             case "cmd":      // macOS Command key alias
             case "command":
-                normalized.meta = true;
+            case "super":    // Linux Super key
+            case "win":      // Windows key
+                normalized.super = true;
                 break;
 
             // Key name aliases
@@ -162,18 +173,40 @@ function parseKeystroke(keystrokeString) {
     return normalized;
 }
 
-// Mapping: iC1→parseKeystroke, A→keystrokeString, q→parts, K→normalized, Y→part, z→lower
+// Mapping: Qu6→parseKeystroke, A→keystrokeString, q→parts, K→normalized, Y→part, z→lower
 ```
 
-**Key insight:** By accepting both `cmd` and `meta` as aliases for the same modifier flag, users can write keybindings using their preferred terminology. A binding defined as `cmd+k` will match the same events as `meta+k`.
+**Key insight:** The parser distinguishes between `meta` and `super` (cmd/win/command):
+- `meta` maps to the terminal's Meta modifier (often Option on macOS)
+- `cmd`/`command`/`super`/`win` map to the Super modifier (Command on macOS, Windows key on Windows/Linux)
 
-### Alt/Meta Equivalence in Matching
+This separation allows precise control over which modifier to use, while still supporting common aliases.
 
-The matching functions `tN5()` and `eN5()` treat `alt` and `meta` as equivalent:
+### Alt/Meta/Super Equivalence in Matching
+
+The matching function `W$1()` (keystrokesMatch) treats `alt` and `meta` as equivalent:
 
 ```javascript
-// From chord_mechanism.md, repeated for context
-if ((Y.alt || Y.meta) !== (z.alt || z.meta)) return !1;
+// ============================================
+// W$1 - Keystroke matching with alt/meta equivalence
+// Location: chunks.65.mjs:732-734
+// ============================================
+
+// ORIGINAL (for source lookup):
+function W$1(A, q) {
+    return A.key === q.key && A.ctrl === q.ctrl && A.shift === q.shift && (A.alt || A.meta) === (q.alt || q.meta) && A.super === q.super
+}
+
+// READABLE (for understanding):
+function keystrokesMatch(keystrokeA, keystrokeB) {
+    return keystrokeA.key === keystrokeB.key &&
+           keystrokeA.ctrl === keystrokeB.ctrl &&
+           keystrokeA.shift === keystrokeB.shift &&
+           (keystrokeA.alt || keystrokeA.meta) === (keystrokeB.alt || keystrokeB.meta) &&
+           keystrokeA.super === keystrokeB.super;
+}
+
+// Mapping: W$1→keystrokesMatch, A→keystrokeA, q→keystrokeB
 ```
 
 **Why this matters**: On some terminals, the `Option` key sends `alt`, while on others it sends `meta` (or can be configured either way). This equivalence ensures cross-platform consistency.

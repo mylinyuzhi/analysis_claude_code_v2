@@ -39,14 +39,16 @@
 | `chunks.134.mjs` | In-Process Teammate | `inProcessAgentRunner` (XNY), `pollForNextMessage` (DNY), `claimUnclaimedTask` (Ji4), NotebookEditTool (gd) |
 | `chunks.135.mjs` | Teammate Spawn | `spawnTeammate` (qn4), `spawnTeammateDispatcher` (pNY), `spawnSplitPaneTeammate` (BNY), `spawnTmuxTeammate` (gNY), `spawnInProcessTeammate` (FNY) |
 | `chunks.136.mjs` | AgentTool | `AgentTool` (QW6), `agentInputSchema` (aVY), `teammateInputSchema` (sVY), `agentOutputSchema` (eVY), worktree isolation, MCP validation |
+| `chunks.138.mjs` | LSP Integration | `createLspProcessWrapper` (co4), `createLspClient` (no4), `LspServerManager` (eo4), diagnostic deduplication, configuration loading, singleton accessors |
 | `chunks.139.mjs` | Plan Mode / ExitPlanMode | `ExitPlanModeTool` (Nj), `AskUserQuestionTool` (`dW1`), plan approval request send |
-| `chunks.140.mjs` | Plan Mode / EnterPlanMode | `EnterPlanModeTool` (`kg1`), `LspTool`, task management tools |
+| `chunks.140.mjs` | Plan Mode / EnterPlanMode | `EnterPlanModeTool` (`kg1`), task management tools |
 | `chunks.141.mjs` | Task System / Teams | `TaskUpdate`, `TaskList`, `TeamCreateTool`, `SendMessageTool`, plan approval handlers |
 | `chunks.142.mjs` | Main Loop / Attachments | Attachment producers, plan mode attachments, task reminder attachments, kill handlers |
 | `chunks.143.mjs` | Conversation Chain | `buildConversationChain` (`ld1`): assembles messages for LLM API calls |
-| `chunks.144.mjs` | Remote / MCP | SDK MCP transport, WebSocket transport (lower level) |
+| `chunks.144.mjs` | LSP Tool / Remote MCP | `LspTool` (wF8), LSP result formatters, render functions, SDK MCP transport |
 | `chunks.145.mjs` | Remote / MCP | `initializeSdkMcpClients`, MCP transport (higher level) |
 | `chunks.146.mjs` | File Read Tool | `FileReadTool` (`i5`), PDF support, `analyzeConversationMemoryUsage`, read permissions |
+| `chunks.147.mjs` | System Reminders | Attachment producers, `createDiagnosticAttachmentProducer` (luY), LSP diagnostic integration |
 | `chunks.149.mjs` | Agent Loop Core | `mainAgentLoop` (`ZR`), `StreamingToolExecutor`, tool execution pipeline, `FAST_MODEL_NAME`, `addDirCommand`, `feedbackCommand` |
 | `chunks.150.mjs` | Slash Commands | `clearCommand`, `colorCommand`, `copyCommand` |
 | `chunks.151.mjs` | Compact Command | `compactCommand`, `compactCommandHandler`, `buildCompactionContext` |
@@ -80,7 +82,7 @@
 | `chunks.192.mjs` | Agent Teams UI | `qGz` — agent tab component (selected/viewed/idle state display) |
 | `chunks.193.mjs` | REPL Main Component | `Efz` — main REPL component orchestrating all session UI and state |
 | `chunks.194.mjs` | Tool Permission | `tuq` — async tool permission request handler (worker thread) |
-| `chunks.195.mjs` | MCP Notifications | `ZBq` — MCP notification handler (failed/disconnected server UI) |
+| `chunks.195.mjs` | MCP/LSP Notifications | `ZBq` MCP notification handler, `useLspErrorNotifications`, LSP plugin recommendations UI |
 | `chunks.196.mjs` | Session Orchestrator | `ot8` — main session orchestrator (initializes agent loop, tools, MCP, remote) |
 | `chunks.197.mjs` | Wrong Directory UI | `evz` — dialog shown when resuming a session from wrong directory |
 | `chunks.198.mjs` | CLI Entry Point | `OVz` — main CLI entry function (Commander setup, all flags, subcommands) |
@@ -129,3 +131,19 @@ The following 8 chunks are new in v2.1.76 (vs 190 in v2.1.38):
 | `implementation.md` | /loop command architecture: interval parsing, state management, error handling |
 | `cron_tools.md` | CronCreate/CronDelete/CronList tool definitions and schemas |
 | `integration.md` | How loop/cron integrates with agent loop, tools, and background agents |
+
+### 27_lsp_integration/ - LSP Integration Documentation
+
+| File | Contents |
+|------|----------|
+| `README.md` | Module overview: 120+ symbols, architecture diagram, 9 LSP operations |
+| `implementation.md` | Deep code analysis: process wrapper, client factory, server manager |
+| `lsp_client_architecture.md` | LSP client creation, capabilities, transport layer |
+| `algorithms.md` | 11 algorithms: retry, deduplication, generation counter, symbol extraction |
+| `diagnostic_pipeline.md` | Complete diagnostic pipeline: notification → deduplication → delivery |
+| `configuration_deep_dive.md` | Configuration schema, plugin loading, variable expansion, security |
+| `error_handling.md` | Error types, retry mechanisms, fail-open strategies |
+| `lifecycle.md` | State machine, init/shutdown sequences, generation counter pattern |
+| `result_formatting.md` | Formatters, LocationLink normalization, git ignore filtering |
+| `ui_linkage.md` | React hooks, LSP Plugin Recommendations, error notifications |
+| `cross_module_integration.md` | System reminder, file tools, plugins integration |

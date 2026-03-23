@@ -10,11 +10,11 @@ This document covers the lifecycle of the LSP integration system, from manager i
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integration infrastructure
 
 Key functions in this document:
-- `initializeLspServerManager` (KF4) - Singleton manager initialization
-- `shutdownLspServerManager` (YF4) - Clean shutdown
-- `LspServerManager` (lm4) - Manager factory
-- `getLspManager` (md) - Singleton accessor
-- `getLspManagerStatus` (W51) - Status query
+- `initializeLspServerManager` (dm8) - Singleton manager initialization
+- `shutdownLspServerManager` (Ma4) - Clean shutdown
+- `LspServerManager` (eo4) - Manager factory
+- `getLspManager` (vl) - Singleton accessor
+- `getLspManagerStatus` (qT6) - Status query
 
 ---
 
@@ -31,7 +31,7 @@ Key functions in this document:
 │    │ not-started  │ ◄───────────── Initial state                   │
 │    └──────┬───────┘                                                │
 │           │                                                         │
-│           │ initializeLspServerManager()                           │
+│           │ initializeLspServerManager() (dm8)                     │
 │           ▼                                                         │
 │    ┌──────────────┐                                                │
 │    │   pending    │ ◄───────────── Async initialization            │
@@ -46,7 +46,7 @@ Key functions in this document:
 │      │          │                                                  │
 │      │          └──────► Can retry initializeLspServerManager()   │
 │      │                                                             │
-│      └───────────────► shutdownLspServerManager()                  │
+│      └───────────────► shutdownLspServerManager() (Ma4)           │
 │                              │                                     │
 │                              ▼                                     │
 │                       ┌──────────────┐                            │
@@ -61,24 +61,24 @@ Key functions in this document:
 ```javascript
 // ============================================
 // LSP Manager Singleton State
-// Location: chunks.133.mjs:2669-2677
+// Location: chunks.138.mjs:1322-1330
 // ============================================
 
 // ORIGINAL:
-jI           // Manager instance or undefined
-ev = "not-started"   // State: "not-started" | "pending" | "success" | "failed"
-vP6          // Last error (if failed)
-TP6 = 0              // Generation counter (prevents race conditions)
-EP6          // Initialization promise
+MN                        // Manager instance or undefined
+IZ = "not-started"        // State: "not-started" | "pending" | "success" | "failed"
+kl6                       // Last error (if failed)
+QV1 = 0                   // Generation counter (prevents race conditions)
+UV1                       // Initialization promise
 
 // READABLE:
-let lspManagerInstance = undefined;           // jI
-let lspManagerState = "not-started";          // ev
-let lspManagerLastError = undefined;          // vP6
-let lspInitGeneration = 0;                    // TP6
-let lspInitPromise = undefined;               // EP6
+let lspManagerInstance = undefined;           // MN
+let lspManagerState = "not-started";          // IZ
+let lspManagerLastError = undefined;          // kl6
+let lspInitGeneration = 0;                    // QV1
+let lspInitPromise = undefined;               // UV1
 
-// Mapping: jI→lspManagerInstance, ev→lspManagerState, vP6→lspManagerLastError, TP6→lspInitGeneration, EP6→lspInitPromise
+// Mapping: MN→lspManagerInstance, IZ→lspManagerState, kl6→lspManagerLastError, QV1→lspInitGeneration, UV1→lspInitPromise
 ```
 
 ---
@@ -89,25 +89,25 @@ let lspInitPromise = undefined;               // EP6
 
 ```javascript
 // ============================================
-// KF4 - Initialize the LSP server manager
-// Location: chunks.133.mjs:2641-2656
+// dm8 - Initialize the LSP server manager
+// Location: chunks.138.mjs:1286-1301
 // ============================================
 
 // ORIGINAL:
-function KF4() {
-    if (h("[LSP MANAGER] initializeLspServerManager() called"), jI !== void 0 && ev !== "failed") {
-        h("[LSP MANAGER] Already initialized or initializing, skipping");
+function dm8() {
+    if (k("[LSP MANAGER] initializeLspServerManager() called"), MN !== void 0 && IZ !== "failed") {
+        k("[LSP MANAGER] Already initialized or initializing, skipping");
         return
     }
-    if (ev === "failed") jI = void 0, vP6 = void 0;
-    jI = lm4(), ev = "pending", h("[LSP MANAGER] Created manager instance, state=pending");
-    let A = ++TP6;
-    h(`[LSP MANAGER] Starting async initialization (generation ${A})`), EP6 = jI.initialize().then(() => {
-        if (A === TP6) {
-            if (ev = "success", h("LSP server manager initialized successfully"), jI) em4(jI)
+    if (IZ === "failed") MN = void 0, kl6 = void 0;
+    MN = eo4(), IZ = "pending", k("[LSP MANAGER] Created manager instance, state=pending");
+    let A = ++QV1;
+    k(`[LSP MANAGER] Starting async initialization (generation ${A})`), UV1 = MN.initialize().then(() => {
+        if (A === QV1) {
+            if (IZ = "success", k("LSP server manager initialized successfully"), MN) $a4(MN)
         }
     }).catch((q) => {
-        if (A === TP6) ev = "failed", vP6 = q, jI = void 0, K1(q), h(`Failed to initialize LSP server manager: ${q instanceof Error?q.message:String(q)}`)
+        if (A === QV1) IZ = "failed", kl6 = q, MN = void 0, _6(q), k(`Failed to initialize LSP server manager: ${_1(q)}`)
     })
 }
 
@@ -115,7 +115,7 @@ function KF4() {
 function initializeLspServerManager() {
     log("[LSP MANAGER] initializeLspServerManager() called");
 
-    // Guard: Already initialized or in progress (except failed)
+    // Guard: Already initialized or in progress (except after failure)
     if (lspManagerInstance !== undefined && lspManagerState !== "failed") {
         log("[LSP MANAGER] Already initialized or initializing, skipping");
         return;
@@ -128,7 +128,7 @@ function initializeLspServerManager() {
     }
 
     // Create new manager instance
-    lspManagerInstance = LspServerManager();  // lm4
+    lspManagerInstance = LspServerManager();
     lspManagerState = "pending";
     log("[LSP MANAGER] Created manager instance, state=pending");
 
@@ -139,17 +139,15 @@ function initializeLspServerManager() {
     // Async initialization
     lspInitPromise = lspManagerInstance.initialize()
         .then(() => {
-            // Only update if this is still the current generation
             if (generation === lspInitGeneration) {
                 lspManagerState = "success";
                 log("LSP server manager initialized successfully");
                 if (lspManagerInstance) {
-                    registerNotificationHandlers(lspManagerInstance);  // em4
+                    registerNotificationHandlers(lspManagerInstance);
                 }
             }
         })
         .catch((error) => {
-            // Only update if this is still the current generation
             if (generation === lspInitGeneration) {
                 lspManagerState = "failed";
                 lspManagerLastError = error;
@@ -160,10 +158,10 @@ function initializeLspServerManager() {
         });
 }
 
-// Mapping: KF4→initializeLspServerManager, lm4→LspServerManager, em4→registerNotificationHandlers
+// Mapping: dm8→initializeLspServerManager, eo4→LspServerManager, $a4→registerNotificationHandlers
 ```
 
-**Generation counter pattern:** The `lspInitGeneration` counter prevents stale initialization results from overwriting newer attempts. This is essential for:
+**Generation counter pattern:** The `lspInitGeneration` (QV1) counter prevents stale initialization results from overwriting newer attempts. This is essential for:
 
 1. **Rapid restarts:** If `shutdown()` and `initialize()` are called in quick succession
 2. **Error recovery:** If initialization fails and is retried
@@ -184,7 +182,7 @@ function initializeLspServerManager() {
 │      ├─► Check: Previous failure?                                   │
 │      │   └─► Yes: Reset state variables                             │
 │      │                                                               │
-│      ├─► Create manager instance: lm4()                             │
+│      ├─► Create manager instance: eo4()                             │
 │      │                                                               │
 │      ├─► Set state = "pending"                                      │
 │      │                                                               │
@@ -194,12 +192,12 @@ function initializeLspServerManager() {
 │                                                                      │
 │  T1: manager.initialize() runs                                       │
 │      │                                                               │
-│      ├─► loadLspConfigs() → Get all plugin configs                  │
+│      ├─► loadLspConfigs() (so4) → Get all plugin configs           │
 │      │                                                               │
 │      ├─► For each server config:                                    │
 │      │   ├─► Validate required fields                               │
 │      │   ├─► Build extension → server mapping                       │
-│      │   ├─► createLspClient(serverName, config)                    │
+│      │   ├─► createLspClient() (no4)                               │
 │      │   ├─► Register workspace/configuration handler               │
 │      │   └─► client.start() → Spawn process and handshake           │
 │      │                                                               │
@@ -225,8 +223,8 @@ function initializeLspServerManager() {
 
 ```javascript
 // ============================================
-// lm4 - LSP Server Manager Factory
-// Location: chunks.133.mjs:2172-2341
+// eo4 - LSP Server Manager Factory
+// Location: chunks.138.mjs:806-969
 // ============================================
 
 // READABLE (structure):
@@ -268,7 +266,7 @@ function LspServerManager() {
     };
 }
 
-// Mapping: lm4→LspServerManager
+// Mapping: eo4→LspServerManager
 ```
 
 ### Server Initialization Within Manager
@@ -276,37 +274,35 @@ function LspServerManager() {
 ```javascript
 // ============================================
 // Manager.initialize() - Server startup
-// Location: chunks.133.mjs:2176-2203
+// Location: chunks.138.mjs:810-835
 // ============================================
 
-// ORIGINAL (partial):
+// ORIGINAL:
 async function Y() {
-    let M;
+    let X;
     try {
-        M = (await dm4()).servers, h(`[LSP SERVER MANAGER] getAllLspServers returned ${Object.keys(M).length} server(s)`)
+        X = (await so4()).servers, k(`[LSP SERVER MANAGER] getAllLspServers returned ${Object.keys(X).length} server(s)`)
     } catch (P) {
-        throw K1(Error(`Failed to load LSP server configuration: ${P.message}`)), P
+        throw _6(Error(`Failed to load LSP server configuration: ${P.message}`)), P
     }
-    for (let [P, W] of Object.entries(M)) try {
+    for (let [P, W] of Object.entries(X)) try {
         if (!W.command) throw Error(`Server ${P} missing required 'command' field`);
         if (!W.extensionToLanguage || Object.keys(W.extensionToLanguage).length === 0) throw Error(`Server ${P} missing required 'extensionToLanguage' field`);
-        let G = Object.keys(W.extensionToLanguage);
-        for (let Z of G) {
-            let N = Z.toLowerCase();
-            if (!q.has(N)) q.set(N, []);
-            let T = q.get(N);
-            if (T) T.push(P)
+        let Z = Object.keys(W.extensionToLanguage);
+        for (let f of Z) {
+            let v = f.toLowerCase();
+            if (!q.has(v)) q.set(v, []);
+            let N = q.get(v);
+            if (N) N.push(P)
         }
-        let f = Fm4(P, W);
-        A.set(P, f), f.onRequest("workspace/configuration", (Z) => {
-            return h(`LSP: Received workspace/configuration request from ${P}`), Z.items.map(() => null)
-        }), f.start().catch((Z) => {
-            K1(Error(`Failed to start LSP server ${P}: ${Z.message}`))
+        let G = no4(P, W);
+        A.set(P, G), G.onRequest("workspace/configuration", (f) => {
+            return k(`LSP: Received workspace/configuration request from ${P}`), f.items.map(() => null)
         })
-    } catch (G) {
-        K1(Error(`Failed to initialize LSP server ${P}: ${G.message}`))
+    } catch (Z) {
+        _6(Error(`Failed to initialize LSP server ${P}: ${Z.message}`))
     }
-    h(`LSP manager initialized with ${A.size} servers`)
+    k(`LSP manager initialized with ${A.size} servers`)
 }
 
 // READABLE:
@@ -341,7 +337,7 @@ async function initialize() {
             }
 
             // Create client instance
-            const client = createLspClient(serverName, config);  // Fm4
+            const client = createLspClient(serverName, config);
             servers.set(serverName, client);
 
             // Handle workspace/configuration requests from server
@@ -363,7 +359,7 @@ async function initialize() {
     log(`LSP manager initialized with ${servers.size} servers`);
 }
 
-// Mapping: Y→initialize, dm4→loadLspConfigs, q→extensionMap, A→servers, Fm4→createLspClient
+// Mapping: Y→initialize, so4→loadLspConfigs, q→extensionMap, A→servers, no4→createLspClient
 ```
 
 **Non-blocking start:** Each server starts asynchronously. The manager doesn't wait for all servers to be ready before returning. This allows partial functionality even if some servers fail.
@@ -404,7 +400,7 @@ async function initialize() {
 │      │                                                               │
 │      ▼                                                               │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ LSP Client (Fm4)                                             │  │
+│  │ LSP Client (no4)                                             │  │
 │  │                                                               │  │
 │  │  1. Send JSON-RPC request over stdio                         │  │
 │  │  2. Wait for response (with timeout)                         │  │
@@ -428,17 +424,17 @@ async function initialize() {
 ```javascript
 // ============================================
 // File sync methods in manager
-// Location: chunks.133.mjs:2250-2327
+// Location: chunks.138.mjs:878-955
 // ============================================
 
 // READABLE (conceptual):
 
 // Open file - called when first accessing a file
 async function openFile(filePath, content) {
-    const client = ensureServerStarted(filePath);
+    const client = await ensureServerStarted(filePath);
     if (!client) return;
 
-    const uri = `file://${path.resolve(filePath)}`;
+    const uri = pathToFileUrl(path.resolve(filePath)).href;
 
     // Skip if already open
     if (openFiles.get(uri) === client.name) {
@@ -469,7 +465,7 @@ async function changeFile(filePath, content) {
         return openFile(filePath, content);  // Fallback to open
     }
 
-    const uri = `file://${path.resolve(filePath)}`;
+    const uri = pathToFileUrl(path.resolve(filePath)).href;
     if (openFiles.get(uri) !== client.name) {
         return openFile(filePath, content);  // Not our file, open instead
     }
@@ -487,7 +483,7 @@ async function saveFile(filePath) {
     if (!client || client.state !== "running") return;
 
     await client.sendNotification("textDocument/didSave", {
-        textDocument: { uri: `file://${path.resolve(filePath)}` }
+        textDocument: { uri: pathToFileUrl(path.resolve(filePath)).href }
     });
     log(`LSP: Sent didSave for ${filePath}`);
 }
@@ -497,12 +493,17 @@ async function closeFile(filePath) {
     const client = getServerForFile(filePath);
     if (!client || client.state !== "running") return;
 
-    const uri = `file://${path.resolve(filePath)}`;
+    const uri = pathToFileUrl(path.resolve(filePath)).href;
     await client.sendNotification("textDocument/didClose", {
         textDocument: { uri }
     });
     openFiles.delete(uri);
     log(`LSP: Sent didClose for ${filePath}`);
+}
+
+function isFileOpen(filePath) {
+    const uri = pathToFileUrl(path.resolve(filePath)).href;
+    return openFiles.has(uri);
 }
 ```
 
@@ -514,19 +515,19 @@ async function closeFile(filePath) {
 
 ```javascript
 // ============================================
-// YF4 - Shutdown LSP server manager
-// Location: chunks.133.mjs:2658-2667
+// Ma4 - Shutdown LSP server manager
+// Location: chunks.138.mjs:1311-1320
 // ============================================
 
 // ORIGINAL:
-async function YF4() {
-    if (jI === void 0) return;
+async function Ma4() {
+    if (MN === void 0) return;
     try {
-        await jI.shutdown(), h("LSP server manager shut down successfully")
+        await MN.shutdown(), k("LSP server manager shut down successfully")
     } catch (A) {
-        K1(A), h(`Failed to shutdown LSP server manager: ${A instanceof Error?A.message:String(A)}`)
+        _6(A), k(`Failed to shutdown LSP server manager: ${_1(A)}`)
     } finally {
-        jI = void 0, ev = "not-started", vP6 = void 0, EP6 = void 0, TP6++
+        MN = void 0, IZ = "not-started", kl6 = void 0, UV1 = void 0, QV1++
     }
 }
 
@@ -550,7 +551,7 @@ async function shutdownLspServerManager() {
     }
 }
 
-// Mapping: YF4→shutdownLspServerManager
+// Mapping: Ma4→shutdownLspServerManager
 ```
 
 ### Server Shutdown Within Manager
@@ -558,39 +559,29 @@ async function shutdownLspServerManager() {
 ```javascript
 // ============================================
 // Manager.shutdown() - Stop all servers
-// Location: chunks.133.mjs:2204-2217
+// Location: chunks.138.mjs:836-845
 // ============================================
 
-// ORIGINAL (partial):
+// ORIGINAL:
 async function z() {
-    let M = [];
-    for (let [P, W] of A.entries())
-        if (W.state === "running") try {
-            await W.stop()
-        } catch (G) {
-            let f = G;
-            K1(Error(`Failed to stop LSP server ${P}: ${f.message}`)), M.push(f)
-        }
-    if (A.clear(), q.clear(), K.clear(), M.length > 0) {
-        let P = Error(`Failed to stop ${M.length} LSP server(s): ${M.map((W)=>W.message).join("; ")}`);
-        throw K1(P), P
+    let X = Array.from(A.entries()).filter(([, Z]) => Z.state === "running" || Z.state === "error"),
+        P = await Promise.allSettled(X.map(([, Z]) => Z.stop()));
+    A.clear(), q.clear(), K.clear();
+    let W = P.map((Z, G) => Z.status === "rejected" ? `${X[G][0]}: ${Z.reason.message}` : null).filter((Z) => Z !== null);
+    if (W.length > 0) {
+        let Z = Error(`Failed to stop ${W.length} LSP server(s): ${W.join("; ")}`);
+        throw _6(Z), Z
     }
 }
 
 // READABLE:
 async function shutdown() {
-    const errors = [];
+    const runningServers = Array.from(servers.entries())
+        .filter(([, client]) => client.state === "running" || client.state === "error");
 
-    for (const [serverName, client] of servers.entries()) {
-        if (client.state === "running") {
-            try {
-                await client.stop();
-            } catch (error) {
-                logError(Error(`Failed to stop LSP server ${serverName}: ${error.message}`));
-                errors.push(error);
-            }
-        }
-    }
+    const results = await Promise.allSettled(
+        runningServers.map(([, client]) => client.stop())
+    );
 
     // Clear all state
     servers.clear();
@@ -598,9 +589,19 @@ async function shutdown() {
     openFiles.clear();
 
     // Report if any servers failed to stop
-    if (errors.length > 0) {
-        const message = `Failed to stop ${errors.length} LSP server(s): ${errors.map(e => e.message).join("; ")}`;
-        throw Error(message);
+    const failures = results
+        .map((result, index) => {
+            if (result.status === "rejected") {
+                return `${runningServers[index][0]}: ${result.reason.message}`;
+            }
+            return null;
+        })
+        .filter(msg => msg !== null);
+
+    if (failures.length > 0) {
+        const error = Error(`Failed to stop ${failures.length} LSP server(s): ${failures.join("; ")}`);
+        logError(error);
+        throw error;
     }
 }
 
@@ -652,41 +653,41 @@ async function shutdown() {
 
 ```javascript
 // ============================================
-// md - Get LSP manager instance
-// Location: chunks.133.mjs:2615-2618
+// vl - Get LSP manager instance
+// Location: chunks.138.mjs:1249-1252
 // ============================================
 
 // ORIGINAL:
-function md() {
-    if (ev === "failed") return;
-    return jI
+function vl() {
+    if (IZ === "failed") return;
+    return MN
 }
 
 // READABLE:
 function getLspManager() {
     // Don't return instance if initialization failed
-    if (lspManagerState === "failed") return;
+    if (lspManagerState === "failed") return undefined;
     return lspManagerInstance;
 }
 
-// Mapping: md→getLspManager
+// Mapping: vl→getLspManager
 
 
 // ============================================
-// W51 - Get manager status
-// Location: chunks.133.mjs:2620-2634
+// qT6 - Get manager status
+// Location: chunks.138.mjs:1254-1268
 // ============================================
 
 // ORIGINAL:
-function W51() {
-    if (ev === "failed") return {
+function qT6() {
+    if (IZ === "failed") return {
         status: "failed",
-        error: vP6 || Error("Initialization failed")
+        error: kl6 || Error("Initialization failed")
     };
-    if (ev === "not-started") return {
+    if (IZ === "not-started") return {
         status: "not-started"
     };
-    if (ev === "pending") return {
+    if (IZ === "pending") return {
         status: "pending"
     };
     return {
@@ -711,18 +712,18 @@ function getLspManagerStatus() {
     return { status: "success" };
 }
 
-// Mapping: W51→getLspManagerStatus
+// Mapping: qT6→getLspManagerStatus
 
 
 // ============================================
-// qF4 - Wait for manager to be ready
-// Location: chunks.133.mjs:2636-2639
+// Ja4 - Wait for manager to be ready
+// Location: chunks.138.mjs:1281-1284
 // ============================================
 
 // ORIGINAL:
-async function qF4() {
-    if (ev === "success" || ev === "failed") return;
-    if (ev === "pending" && EP6) await EP6
+async function Ja4() {
+    if (IZ === "success" || IZ === "failed") return;
+    if (IZ === "pending" && UV1) await UV1
 }
 
 // READABLE:
@@ -736,8 +737,53 @@ async function waitForLspManager() {
     }
 }
 
-// Mapping: qF4→waitForLspManager
+// Mapping: Ja4→waitForLspManager
+
+
+// ============================================
+// dV1 - Reinitialize LSP server manager
+// Location: chunks.138.mjs:1303-1309
+// ============================================
+
+// ORIGINAL:
+function dV1() {
+    if (IZ === "not-started") return;
+    if (k("[LSP MANAGER] reinitializeLspServerManager() called"), MN) MN.shutdown().catch((A) => {
+        k(`[LSP MANAGER] old instance shutdown during reinit failed: ${_1(A)}`)
+    });
+    MN = void 0, IZ = "not-started", kl6 = void 0, dm8()
+}
+
+// READABLE:
+function reinitializeLspServerManager() {
+    // Skip if not initialized
+    if (lspManagerState === "not-started") return;
+
+    log("[LSP MANAGER] reinitializeLspServerManager() called");
+
+    // Shutdown existing instance in background (don't wait)
+    if (lspManagerInstance) {
+        lspManagerInstance.shutdown().catch((error) => {
+            log(`[LSP MANAGER] old instance shutdown during reinit failed: ${error.message}`);
+        });
+    }
+
+    // Reset state and reinitialize
+    lspManagerInstance = undefined;
+    lspManagerState = "not-started";
+    lspManagerLastError = undefined;
+    initializeLspServerManager();  // dm8
+}
+
+// Mapping: dV1→reinitializeLspServerManager, dm8→initializeLspServerManager
 ```
+
+**When reinitialize is used:**
+- When plugin configurations change and servers need to be reloaded
+- After workspace folder changes
+- When LSP server configurations are updated dynamically
+
+**Key behavior:** The old instance is shut down asynchronously (fire-and-forget), and a new initialization starts immediately. This means the reinit is non-blocking and the new manager starts fresh.
 
 ---
 

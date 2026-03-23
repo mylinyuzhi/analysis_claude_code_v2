@@ -613,113 +613,155 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Mk5 | loadKeybindingsAsync | chunks.54.mjs:1635 | function |
-| YS1 | loadKeybindingsSync | chunks.54.mjs:1700 | function |
-| kq7 | getCachedBindings | chunks.54.mjs:1695 | function |
-| R71 | getKeybindingsFilePath | chunks.54.mjs:1627 | function |
-| tqA | getDefaultKeybindings | chunks.54.mjs:1631 | function |
-| Hv | isKeybindingCustomizationEnabled | chunks.54.mjs:1601 | function |
-| kJ1 | DEFAULT_KEYBINDINGS | chunks.54.mjs:1127 | constant |
-| yq7 | getValidationWarnings | chunks.54.mjs:1812 | function |
-| Dk5 | isErrorLike | chunks.54.mjs:1613 | function |
+| tu9 | loadKeybindingsAsync | chunks.89.mjs:3143 | function |
+| $p6 | loadKeybindingsSync | chunks.89.mjs:3208 | function |
+| m34 | getCachedBindings | chunks.89.mjs:3203 | function |
+| b36 | getKeybindingsFilePath | chunks.89.mjs:3135 | function |
+| rN8 | getDefaultBindings | chunks.89.mjs:3139 | function |
+| pk | isKeybindingCustomizationEnabled | chunks.89.mjs:3109 | function |
+| XW6 | DEFAULT_KEYBINDINGS | chunks.89.mjs:2614 | constant |
 
 ### File Watching
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Lq7 | watchKeybindingsFile | chunks.54.mjs:1752 | function |
-| Pk5 | stopWatchingKeybindings | chunks.54.mjs:1782 | function |
-| Nq7 | handleKeybindingsFileChange | chunks.54.mjs:1793 | function |
-| Wk5 | handleKeybindingsFileDelete | chunks.54.mjs:1803 | function |
-| Rq7 | subscribeToKeybindingsChanges | chunks.54.mjs:1787 | function |
-| Jk5 | WATCH_STABILITY_THRESHOLD_MS | chunks.54.mjs:1816 | constant (500) |
-| Xk5 | WATCH_POLL_INTERVAL_MS | chunks.54.mjs:1818 | constant (200) |
-| L71 | fileWatcher | chunks.54.mjs:1820 | variable |
-| fq7 | isWatcherInitialized | chunks.54.mjs:1822 | variable |
-| Tq7 | isWatcherCleaned | chunks.54.mjs:1824 | variable |
+| B34 | watchKeybindingsFile | chunks.89.mjs:3260 | function |
+| I34 | handleKeybindingsFileChange | chunks.90.mjs:14 | function |
+| Am9 | handleKeybindingsFileDelete | chunks.90.mjs:24 | function |
+| eu9 | stopWatchingKeybindings | chunks.90.mjs:3 | function |
+| S34 | isWatcherInitialized | chunks.90.mjs:43 | variable (false initially) |
+| b34 | isWatcherCleaned | chunks.90.mjs:45 | variable (false initially) |
+| I36 | fileWatcherInstance | chunks.90.mjs:41 | variable (null initially) |
+
+### File Watcher Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ru9 | WRITE_STABILITY_THRESHOLD_MS | chunks.90.mjs:37 | constant (500) |
+| ou9 | WRITE_POLL_INTERVAL_MS | chunks.90.mjs:39 | constant (200) |
 
 ### State & Caching
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ZM | cachedBindings | chunks.54.mjs:1826 | variable |
-| GW | cachedWarnings | chunks.54.mjs:1828 | variable |
-| KS1 | changeListeners | chunks.54.mjs:1830 | variable |
-| Vq7 | lastTelemetryDate | chunks.54.mjs:1832 | variable |
-| Cq7 | seenFallbacks | chunks.54.mjs:1881 | variable |
+| Y0 | cachedBindings | chunks.90.mjs:47 | variable (null initially) |
+| _Z | cachedWarnings | chunks.90.mjs:49-51 | variable ([] initially) |
+| Op6 | reloadSubscribers | chunks.90.mjs:51 | variable (Set) |
+| C34 | lastTelemetryDate | chunks.90.mjs:53 | variable (null initially) |
+| g34 | subscribeToKeybindingsChanges | chunks.90.mjs:8 | function |
+| F34 | getCachedWarnings | chunks.90.mjs:33 | function |
 
 ### Validation
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| aE5 | isValidKeybindingBlock | chunks.54.mjs:1386 | function |
-| sE5 | isValidKeybindingBlockArray | chunks.54.mjs:1392 | function |
-| tE5 | isValidContext | chunks.54.mjs:1396 | function |
-| eE5 | parseAndValidateKeystroke | chunks.54.mjs:1400 | function |
-| Ak5 | validateKeybindingBlock | chunks.54.mjs:1420 | function |
-| qk5 | validateKeybindingsArray | chunks.54.mjs:1510 | function |
-| Kk5 | detectDuplicateBindings | chunks.54.mjs:1522 | function |
-| Yk5 | detectReservedKeyConflicts | chunks.54.mjs:1546 | function |
-| aqA | detectMalformedJSON | chunks.54.mjs:1482 | function |
-| zk5 | flattenKeybindingsForValidation | chunks.54.mjs:1565 | function |
-| sqA | validateKeybindingsComprehensive | chunks.54.mjs:1579 | function |
-| Gq7 | VALID_CONTEXTS | chunks.54.mjs:1598 | constant |
-| jk5 | isValidKeybindingStructure | chunks.54.mjs:1617 | function |
-| Eq7 | isValidKeybindingArray | chunks.54.mjs:1623 | function |
+| xu9 | isValidKeybindingBlock | chunks.89.mjs:2884 | function |
+| uu9 | isValidKeybindingsArray | chunks.89.mjs:2890 | function |
+| mu9 | isValidContext | chunks.89.mjs:2894 | function |
+| Bu9 | parseAndValidateKeystroke | chunks.89.mjs:2898 | function |
+| gu9 | validateKeybindingBlock | chunks.89.mjs:2918 | function |
+| Fu9 | validateKeybindingsArray | chunks.89.mjs:3018 | function |
+| pu9 | detectDuplicateBindings | chunks.89.mjs:3030 | function |
+| Qu9 | detectReservedKeyConflicts | chunks.89.mjs:3054 | function |
+| iN8 | detectMalformedJSON | chunks.89.mjs:2990 | function |
+| nN8 | validateKeybindingsComprehensive | chunks.89.mjs | function |
+| h34 | VALID_CONTEXTS | chunks.89.mjs:3104 | constant |
+| R34 | VALID_CONTEXTS_ARRAY | chunks.89.mjs:3106 | constant |
 
 ### Reserved Shortcuts
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Wq7 | getReservedShortcuts | chunks.54.mjs:1304 | function |
-| k71 | normalizeKeystroke | chunks.54.mjs:1311 | function |
-| qS1 | RESERVED_UNIX_SHORTCUTS | chunks.54.mjs:1335 | constant |
-| rqA | RESERVED_UNIX_COMMON | chunks.54.mjs:1347 | constant |
-| oqA | RESERVED_MACOS_SHORTCUTS | chunks.54.mjs:1355 | constant |
+| L34 | getReservedShortcuts | chunks.89.mjs:2802 | function |
+| C36 | normalizeKeyString | chunks.89.mjs:2809 | function |
+| wp6 | RESERVED_HARDCODED_SHORTCUTS | chunks.89.mjs:2833 | constant |
+| cN8 | RESERVED_UNIX_SHORTCUTS | chunks.89.mjs:2845 | constant |
+| lN8 | RESERVED_MACOS_SHORTCUTS | chunks.89.mjs:2853 | constant |
 
-### Keystroke Parsing
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| iC1 | parseKeystroke | chunks.53.mjs:2752 | function |
-| rN5 | parseChordString | chunks.53.mjs:2810 | function |
-| oN5 | stringifyKeystroke | chunks.53.mjs:2815 | function |
-| aN5 | getDisplayKeyName | chunks.53.mjs:2825 | function |
-| aK6 | flattenKeybindings | chunks.53.mjs:2864 | function |
-| oK6 | stringifyChord | chunks.53.mjs:2860 | function |
-| v77 | getKeyNameFromEvent | chunks.53.mjs:2875 | function |
-
-### Matching & Resolution
+### Keystroke Parsing (chunks.65.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| sK6 | findKeybindingForAction | chunks.53.mjs:2893 | function |
-| sN5 | eventToKeystroke | chunks.53.mjs:2901 | function |
-| tN5 | isPrefixMatch | chunks.53.mjs:2914 | function |
-| eN5 | isExactMatch | chunks.53.mjs:2928 | function |
-| tK6 | resolveKeystroke | chunks.53.mjs:2942 | function |
-| C6Y | CHORD_TIMEOUT_MS | chunks.110.mjs:1045 | constant (1000) |
+| Qu6 | parseKeystroke | chunks.65.mjs:533 | function |
+| pj8 | parseChordString | chunks.65.mjs:596 | function |
+| wl3 | stringifyKeystroke | chunks.65.mjs:601 | function |
+| Ol3 | getDisplayKeyName | chunks.65.mjs:612 | function |
+| D$1 | stringifyChord | chunks.65.mjs:647 | function |
+| X$1 | flattenKeybindings | chunks.65.mjs:651 | function |
+| Qj8 | getKeyNameFromEvent | chunks.65.mjs:671 | function |
+| $l3 | getModifiers | chunks.65.mjs:662 | function |
 
-### React Context & UI
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| dX | KeybindingSetup | chunks.110.mjs:931 | component |
-| x6Y | KeybindingHandler | chunks.110.mjs:988 | component |
-| A36 | KeybindingContext | chunks.53.mjs:2983 | component |
-| k77 | KeybindingContextObject | chunks.53.mjs:3081 | constant |
-| S6Y | logKeybindingWarnings | chunks.110.mjs:890 | function |
-| VL | useKeybindingContext | chunks.53.mjs:3058 | function |
-| q36 | useRegisterContext | chunks.53.mjs:3062 | function |
-
-### Telemetry & Utilities
+### Keystroke Matching (chunks.65.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| RK | getDisplayTextWithFallback | chunks.54.mjs:1847 | function |
-| m0 | getKeybindingForActionSync | chunks.54.mjs:1863 | function |
-| vq7 | logCustomKeybindingsLoaded | chunks.54.mjs:1605 | function |
-| AT5 | noop | chunks.53.mjs:3056 | function |
+| Hl3 | eventToKeystroke | chunks.65.mjs:718 | function |
+| W$1 | keystrokesMatch | chunks.65.mjs:732 | function |
+| jl3 | isPrefixMatch | chunks.65.mjs:736 | function |
+| Jl3 | isExactMatch | chunks.65.mjs:747 | function |
+| Z$1 | resolveKeystroke | chunks.65.mjs:758 | function |
+| P$1 | findKeybindingForAction | chunks.65.mjs:710 | function |
+| gL7 | modifiersMatch | chunks.65.mjs:691 | function |
+| FL7 | eventMatchesKeystroke | chunks.65.mjs:700 | function |
+
+### React Context & UI (chunks.65.mjs, chunks.117.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aj | KeybindingSetup | chunks.117.mjs:1879 | component |
+| N4Y | KeybindingHandler | chunks.117.mjs:1936 | component |
+| G$1 | KeybindingContext | chunks.65.mjs:799 | component |
+| Wv | useKeybindingContext | chunks.65.mjs:874 | hook |
+| f$1 | useRegisterContext | chunks.65.mjs:878 | hook |
+| Rq | useKeybindingDisplayText | chunks.65.mjs:1191 | hook |
+| PX | useKeybindingDisplayTextSync | chunks.90.mjs:69 | function (sync version with telemetry) |
+| D8 | useKeybindingAction | chunks.65.mjs:905 | hook (register action handler) |
+| a1 | ShortcutDisplay | chunks.65.mjs:1155 | component |
+| O8 | KeybindingHint | chunks.65.mjs:1215 | component |
+| C8 | KeybindingHintsList | chunks.65.mjs:1246 | component |
+| Dl3 | renderHintItem | chunks.65.mjs:1271 | function (renders hint with separator) |
+| S3 | KeybindingSection | chunks.65.mjs:1120 | component (section wrapper with divider) |
+| m8 | InputGuideContainer | chunks.65.mjs:1287 | component (modal with input hints) |
+| oJ | TranscriptToggleHint | chunks.90.mjs:107 | component |
+| G4Y | CHORD_TIMEOUT_MS | chunks.117.mjs:1993 | constant (1000) |
+| jA | useInput | chunks.117.mjs | hook (Ink's raw keyboard input) |
+| A6 | useMemoSlot | chunks.65.mjs | hook (custom memoization for performance) |
+| QL7 | KeybindingContextObject | chunks.65.mjs:902 | object (React.createContext result) |
+| Uu6 | emptyFunction | chunks.65.mjs:797 | constant (no-op function) |
+| Ml3 | noopHandler | chunks.65.mjs:872 | function (returned when registry unavailable) |
+
+### Platform-Specific Keybindings
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Cu9 | imagePasteKey | chunks.89.mjs:2614 | variable |
+| bu9 | modeCycleKey | chunks.89.mjs:2614 | variable |
+| Iu9 | supportsShiftTab | chunks.89.mjs:2614 | variable |
+
+### Telemetry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| x34 | logCustomKeybindingsLoaded | chunks.89.mjs:3113 | function |
+| p34 | fallbackTelemetrySent | chunks.90.mjs:91 | variable (Set) |
+| d | sendTelemetryEvent | telemetry | function |
+
+### Voice Integration (v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Evz | VoiceKeybindingHandler | chunks.195.mjs:1807 | component |
+| kvz | useVoiceIntegration | chunks.195.mjs | hook |
+| Nvz | PTT_ACTIVATION_THRESHOLD | chunks.195.mjs:1922 | constant (5) |
+| Sgq | PTT_WARMUP_THRESHOLD | chunks.195.mjs:1924 | constant (2) |
+| vvz | PTT_RESET_TIMEOUT_MS | chunks.195.mjs:1920 | constant (120) |
+| Vvz | DEFAULT_PTT_KEYSTROKE | chunks.195.mjs:1936 | constant ({key:" "}) |
+
+> **Note**: Voice PTT (Push-to-Talk) uses a repeated-keypress detection algorithm:
+> - Press key 2+ times within 120ms window to show "warming up" indicator
+> - Press key 5+ times to activate voice recording
+> - Single-character PTT keys (e.g., 'v') trigger character stripping from input
+> - See [32_keybindings/ui_interaction.md](../32_keybindings/ui_interaction.md) for full algorithm
 
 ---
 
@@ -2339,7 +2381,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | p | handleRestoreOptionSelected | chunks.185.mjs:1269-1320 | async function (dispatch restore/summarize based on selected option) |
 | YI1 | isOnlyOneMessageAfterIndex | chunks.185.mjs:1704-1724 | function (check if only trivial messages exist after index; enables fast-path restore) |
 | KXz | getMessagesDiffStats | chunks.185.mjs:1659-1690 | function (compute diff stats for files changed between two messages) |
-| XV6 | shouldShowMessageInChat | chunks.185.mjs:1692-1702 | function (visibility filter for chat display; also used for rewind message selection) |
+| XV6 | isSelectableMessage | chunks.185.mjs:1692-1702 | function (filter for rewindable user messages; exported as selectableUserMessagesFilter) |
 | Ys8 | VISIBLE_MESSAGE_COUNT | chunks.185.mjs:1730 | constant (= 7; messages visible per page; scroll window centers on selected) |
 
 ### Slash Command (chunks.165.mjs)
@@ -2370,12 +2412,26 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | FE1 | runPostCompactHooks | chunks.175.mjs:2713-2732 | async function (execute PostCompact hooks after summarization) |
 | na | computeDiff | chunks.56.mjs:2072-2074 | function (Myers diff algorithm - from diff library) |
 
+### Rewind UI Components (chunks.185.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| zs8 | RewindMessageSelector | chunks.185.mjs:1179 | function (main React component for rewind UI) |
+| g | generateRestoreOptions | chunks.185.mjs:1207-1235 | function (build option list: both/code/conversation/summarize/nevermind) |
+| p | handleRestoreOptionSelected | chunks.185.mjs:1269-1312 | async function (dispatch restore/summarize callbacks) |
+| b | handleMessageSelection | chunks.185.mjs:1248-1268 | async function (load diff stats, show options menu) |
+| B | fastPathRestore | chunks.185.mjs:1239-1246 | async function (restore conversation without showing options) |
+| qXz | DiffStatsPreview | chunks.185.mjs:1471-1518 | function (display "The code will be restored +N -M in file.ts") |
+| zhq | DiffStatsDisplay | chunks.185.mjs:1520-1540 | function (colored +N -M diff stats) |
+| Khq | UserMessagePreview | chunks.185.mjs:1542-1640 | function (truncated preview of user message for list) |
+| Ys8 | VISIBLE_MESSAGE_COUNT | chunks.185.mjs:1730 | constant (= 7; messages visible per page) |
+
 ### Message Filtering Helpers (chunks.185.mjs, chunks.173.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Hz6 | isCompactSummaryMessage | chunks.173.mjs:1275-1277 | function (check if message is compact summary text) |
-| wl6 | isToolResultMessage | chunks.173.mjs:1587-1589 | function (check if message has toolUseResult) |
+| Hz6 | isEmptyMessage | chunks.173.mjs:1275-1277 | function (check if message has empty text content; used to filter from selector) |
+| wl6 | isToolUseMessage | chunks.173.mjs:1587-1589 | function (check if message is a tool_result continuation; not an independent user prompt) |
 | Yhq | isTextBlock | chunks.185.mjs:1175-1177 | function (check if content block is text type) |
 
 ### Internal XML Tag Constants (chunks.14.mjs) — Used by isSelectableMessage
@@ -2406,3 +2462,26 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | thq | handleRewindRequest | chunks.187.mjs:1271-1303 | async function (API endpoint for SDK/CLI rewind requests; checks checkpointing enabled, validates snapshot exists, optionally returns diff stats or executes restore) |
+
+### Message Creation Helpers (chunks.173.mjs, chunks.185.mjs)
+
+> Used by RewindMessageSelector to create virtual "current" message placeholder.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| p1 | createUserMessage | chunks.173.mjs:1378-1412 | function (create user message object with uuid, timestamp, content; default uuid from SE/generateUUID) |
+| SE | generateUUID | chunks.173.mjs | function (generate random UUID; used by p1 as default) |
+| AXz | generateUuidMemo | chunks.185.mjs | function (useMemo callback for generating UUID once per component mount) |
+
+### Keybinding Context (chunks.89.mjs, chunks.181.mjs)
+
+> Keybinding contexts and actions for the rewind UI.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| - | MessageSelector | chunks.181.mjs:648 | context (keybinding context name for rewind message selector) |
+| - | messageSelector:up | chunks.89.mjs:2749 | action (move selection up) |
+| - | messageSelector:down | chunks.89.mjs:2750 | action (move selection down) |
+| - | messageSelector:top | chunks.89.mjs:2755 | action (jump to first message) |
+| - | messageSelector:bottom | chunks.89.mjs:2759 | action (jump to last message) |
+| - | messageSelector:select | chunks.89.mjs:2763 | action (select highlighted message) |

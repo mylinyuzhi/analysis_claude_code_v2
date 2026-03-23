@@ -11,6 +11,22 @@ Key UI components in this document:
 - `generateRestoreOptions` (g) - Build option list based on checkpoint availability
 - `handleMessageSelection` (b) - Process message selection and show options
 - `handleRestoreOptionSelected` (p) - Dispatch restore/summarize callbacks
+- `isSelectableMessage` (XV6) - Filter for rewindable user messages
+- `isOnlyOneMessageAfterIndex` (YI1) - Fast-path restore check
+- `getMessagesDiffStats` (KXz) - Compute diff stats between messages
+
+---
+
+## Table of Contents
+
+1. [Entry Points](#1-entry-points)
+2. [RewindMessageSelector Component](#2-rewindmessageselector-component-zs8)
+3. [Message List Rendering](#3-message-list-rendering)
+4. [Restore Options Menu](#4-restore-options-menu)
+5. [Keyboard Navigation](#5-keyboard-navigation)
+6. [Helper Components](#6-helper-components)
+7. [State Management](#7-state-management)
+8. [Fast-Path Optimization](#8-fast-path-optimization)
 
 ---
 
@@ -24,12 +40,14 @@ Pressing `Esc` twice opens the message selector. This is handled at the app-leve
 - First `Esc` sends the `"confirm:no"` action (cancel in-progress operations)
 - Second `Esc` (when no other modal is open) triggers `openMessageSelector()`
 
+The `D8` function registers the `"confirm:no"` action handler within the component.
+
 ### 1b. Slash Command: `/rewind` (alias: `/checkpoint`)
 
 ```javascript
 // ============================================
-// Rewind slash command definition
-// Location: chunks.165.mjs:701-710
+// rewindCommandDefinition - Slash command registration
+// Location: chunks.165.mjs:699-710
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -47,29 +65,27 @@ _Az = {
 }
 
 // READABLE (for understanding):
-{
+const rewindCommandDefinition = {
     description: "Restore the code and/or conversation to a previous point",
     name: "rewind",
     aliases: ["checkpoint"],
     userFacingName: () => "rewind",
-    argumentHint: "",              // No arguments
-    isEnabled: () => true,         // Always available
-    type: "local",                 // Local command, not remote
+    argumentHint: "",
+    isEnabled: () => true,
+    type: "local",
     isHidden: false,
-    supportsNonInteractive: false, // Requires interactive terminal
-    load: () => Promise.resolve().then(() => commandModule)  // Lazy load
-}
+    supportsNonInteractive: false,
+    load: () => Promise.resolve().then(() => rewindCommandModule)
+};
+
+// Mapping: _Az→rewindCommandDefinition, pXq→rewindCommandModule
 ```
 
-The `openMessageSelector` callback is injected into the slash command context from the main app component.
-
-### 1c. Slash Command Handler: `rewindCommandHandler` (zAz)
-
-**Location:** chunks.165.mjs:687-691
+**Command Handler (zAz):**
 
 ```javascript
 // ============================================
-// rewindCommandHandler - Execute /rewind slash command
+// rewindCommandHandler - Handler for /rewind command
 // Location: chunks.165.mjs:687-691
 // ============================================
 
@@ -83,108 +99,27 @@ async function zAz(A, q) {
 
 // READABLE (for understanding):
 async function rewindCommandHandler(args, context) {
-    // Open the message selector UI if available
     if (context.openMessageSelector) {
         context.openMessageSelector();
     }
-    // Return "skip" to indicate no message should be sent to LLM
-    return {
-        type: "skip"
-    };
+    return { type: "skip" };  // Don't submit a message
 }
 
-// Mapping: zAz→rewindCommandHandler, A→args, q→context
-```
-
-**What it does:** Handles the `/rewind` (or `/checkpoint`) slash command by opening the message selector UI.
-
-**How it works:**
-1. Checks if `openMessageSelector` callback is available in context
-2. Calls `openMessageSelector()` to show the rewind UI
-3. Returns `{ type: "skip" }` to indicate no LLM message should be sent
-
-**Why "skip" return type:** The rewind UI is an interactive overlay that doesn't require an LLM response. The "skip" type tells the command processor to not create a user message.
-
-**Module structure:**
-```javascript
-// Location: chunks.165.mjs:685
-pXq = {}  // rewindCommandModule - lazy-loaded container
-
-// The command definition (_Az) references this module:
-load: () => Promise.resolve().then(() => pXq)
+// Mapping: zAz→rewindCommandHandler, q→context
 ```
 
 ---
 
-## 2. Keyboard Bindings
+## 2. RewindMessageSelector Component (zs8)
 
-### Message Selector Keybindings
+**Location:** chunks.185.mjs:1179-1469
 
-**Location:** chunks.89.mjs:2747-2764
-
-```javascript
-// ============================================
-// Message Selector keyboard bindings
-// Location: chunks.89.mjs:2747-2764
-// ============================================
-
-{
-    context: "MessageSelector",
-    bindings: {
-        up: "messageSelector:up",
-        down: "messageSelector:down",
-        k: "messageSelector:up",
-        j: "messageSelector:down",
-        "ctrl+p": "messageSelector:up",
-        "ctrl+n": "messageSelector:down",
-        "ctrl+up": "messageSelector:top",
-        "shift+up": "messageSelector:top",
-        "meta+up": "messageSelector:top",
-        "shift+k": "messageSelector:top",
-        "ctrl+down": "messageSelector:bottom",
-        "shift+down": "messageSelector:bottom",
-        "meta+down": "messageSelector:bottom",
-        "shift+j": "messageSelector:bottom",
-        enter: "messageSelector:select"
-    }
-}
-```
-
-### Keybinding Actions
-
-| Action | Keys | Behavior |
-|--------|------|----------|
-| `messageSelector:up` | `↑`, `k`, `Ctrl+p` | Move selection up one message |
-| `messageSelector:down` | `↓`, `j`, `Ctrl+n` | Move selection down one message |
-| `messageSelector:top` | `Ctrl+↑`, `Shift+↑`, `⌘+↑`, `Shift+k` | Jump to first message |
-| `messageSelector:bottom` | `Ctrl+↓`, `Shift+↓`, `⌘+↓`, `Shift+j` | Jump to last message |
-| `messageSelector:select` | `Enter` | Select highlighted message |
-
-### Cancel Actions
-
-| Action | Keys | Behavior |
-|--------|------|----------|
-| `confirm:no` | `Esc` | Cancel/close message selector |
-| - | `Ctrl+c` | Same as Esc (via terminal) |
-
-**Why multiple keybindings:**
-- Vim-style (`j`/`k`) for power users
-- Arrow keys for intuitive navigation
-- Ctrl variants for users who prefer them
-- Shift/Ctrl+arrow for jump-to-edge (common in editors)
-
----
-
-## 2. Main UI Component: `RewindMessageSelector` (zs8)
-
-**File**: chunks.185.mjs:1179
-**Type**: React functional component
-**Rendering**: Ink/React terminal UI
+The main React component that renders the message selection UI and restore options.
 
 ```javascript
 // ============================================
-// RewindMessageSelector - Main component
-// Location: chunks.185.mjs:1179-1350
+// RewindMessageSelector - Main component for rewind UI
+// Location: chunks.185.mjs:1179-1469
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -215,49 +150,54 @@ function zs8({
         [V, L] = XH.useState(null),
         [h, R] = XH.useState("both"),
         [u, I] = XH.useState("");
-    // ... component body
+    // ... (continues with rendering logic)
 }
 
 // READABLE (for understanding):
 function RewindMessageSelector({
-    messages,
-    onPreRestore,
-    onRestoreMessage,
-    onRestoreCode,
-    onSummarize,
-    onClose
+    messages,           // All conversation messages
+    onPreRestore,       // Callback before restore starts
+    onRestoreMessage,   // Callback to restore conversation
+    onRestoreCode,      // Callback to restore files
+    onSummarize,        // Callback to summarize from point
+    onClose             // Callback to close the UI
 }) {
-    // File history state from React store
-    let fileHistory = useStore((state) => state.fileHistory);
+    // Access fileHistory from global state
+    let fileHistory = useSelector((state) => state.fileHistory);
 
-    // Error message state
-    let [errorMessage, setErrorMessage] = useState(undefined);
+    // Error state
+    let [error, setError] = useState(undefined);
 
-    // Checkpointing enabled?
-    let isCheckpointingEnabled = isFileCheckpointingEnabled();
+    // Is checkpointing enabled?
+    let checkpointingEnabled = isFileCheckpointingEnabled();
 
-    // Generate UUID for "current" virtual message
-    let currentUuid = useMemo(generateUuid, []);
+    // Memoized UUID for "current prompt" placeholder
+    let currentPromptUuid = useMemo(generateUuidMemo, []);
 
-    // Filter to selectable messages + add virtual "current" entry
-    let filteredMessages = useMemo(() => [
+    // Build selectable message list
+    // 1. Filter to user messages (exclude tool_result, meta, etc.)
+    // 2. Add a "current prompt" placeholder at the end
+    let selectableMessages = useMemo(() => [
         ...messages.filter(isSelectableMessage),
-        { ...createEmptyMessage({ content: "" }), uuid: currentUuid }
-    ], [messages, currentUuid]);
+        {
+            ...createUserMessage({ content: "" }),
+            uuid: currentPromptUuid
+        }
+    ], [messages, currentPromptUuid]);
 
-    // Current highlight index
-    let [currentIndex, setCurrentIndex] = useState(filteredMessages.length - 1);
+    // Currently highlighted message index
+    let [highlightedIndex, setHighlightedIndex] = useState(selectableMessages.length - 1);
 
-    // Scroll window offset (7 items visible)
+    // Scroll window calculation (centers highlighted message)
     let scrollOffset = Math.max(0, Math.min(
-        currentIndex - Math.floor(VISIBLE_COUNT / 2),
-        filteredMessages.length - VISIBLE_COUNT
+        highlightedIndex - Math.floor(VISIBLE_MESSAGE_COUNT / 2),
+        selectableMessages.length - VISIBLE_MESSAGE_COUNT
     ));
 
-    // Has multiple messages to select?
-    let hasMultipleMessages = filteredMessages.length > 1;
+    // Can we rewind? (Need at least one message)
+    let canRewind = selectableMessages.length > 1;
 
-    // Selected message (after Enter pressed)
+    // Selected message for restore options
     let [selectedMessage, setSelectedMessage] = useState(undefined);
 
     // Diff stats for selected message
@@ -266,81 +206,300 @@ function RewindMessageSelector({
     // Loading state
     let [isLoading, setIsLoading] = useState(false);
 
-    // Which action is loading
-    let [loadingAction, setLoadingAction] = useState(null);
+    // Operation type being performed
+    let [operationType, setOperationType] = useState(null);
 
-    // Restore mode selection
-    let [restoreMode, setRestoreMode] = useState("both");
+    // Focused restore option
+    let [focusedOption, setFocusedOption] = useState("both");
 
     // Summarize context input
     let [summarizeContext, setSummarizeContext] = useState("");
 
-    // ... component body continues
+    // ... (rendering logic continues)
 }
 
 // Mapping: zs8→RewindMessageSelector, A→messages, q→onPreRestore, K→onRestoreMessage,
-//          Y→onRestoreCode, z→onSummarize, _→onClose, w→fileHistory, O→errorMessage,
-//          H→isCheckpointingEnabled, j→currentUuid, J→filteredMessages, M→currentIndex,
-//          W→selectedMessage, G→diffStats, v→isLoading, V→loadingAction, h→restoreMode,
-//          u→summarizeContext, iz→isFileCheckpointingEnabled, M1→useStore, XV6→isSelectableMessage
+//          Y→onRestoreCode, z→onSummarize, _→onClose, M1→useSelector, iz→isFileCheckpointingEnabled,
+//          XV6→isSelectableMessage, p1→createUserMessage, Ys8→VISIBLE_MESSAGE_COUNT
 ```
 
-### Component Props
+### Props Interface
 
-| Prop | Type | Purpose |
-|------|------|---------|
-| `messages` | Message[] | All messages in conversation |
-| `onPreRestore` | () => void | Called before restore starts (cancels LLM stream) |
-| `onRestoreMessage` | (msg) => Promise | Slice messages and restore state |
-| `onRestoreCode` | (msg) => Promise | Restore files via rewindHandler |
-| `onSummarize` | (msg, ctx?) => Promise | Run targeted summarization |
-| `onClose` | () => void | Close the selector modal |
-
-### Component State
-
-| State Variable | Readable Name | Initial | Purpose |
-|---------------|---------------|---------|---------|
-| `O, $` | `errorMessage, setErrorMessage` | `undefined` | Error to show in UI |
-| `M, D` | `currentIndex, setCurrentIndex` | `length - 1` | Highlighted row |
-| `W, Z` | `selectedMessage, setSelectedMessage` | `undefined` | Confirmed selection |
-| `G, f` | `diffStats, setDiffStats` | `undefined` | Diff preview data |
-| `v, N` | `isLoading, setIsLoading` | `false` | Loading spinner |
-| `V, L` | `loadingAction, setLoadingAction` | `null` | Which action loading |
-| `h, R` | `restoreMode, setRestoreMode` | `"both"` | Selected restore option |
-| `u, I` | `summarizeContext, setSummarizeContext` | `""` | User-typed context |
-
-### Scroll Window: `Ys8 = 7` Items Per Page
-
-The visible portion of the message list is a sliding window of 7 items:
-
+```typescript
+interface RewindMessageSelectorProps {
+    messages: TenguMessage[];           // All messages in conversation
+    onPreRestore: () => void;           // Called before any restore operation
+    onRestoreMessage: (message: TenguMessage) => Promise<void>;  // Slice conversation
+    onRestoreCode: (message: TenguMessage) => Promise<void>;     // Restore files
+    onSummarize: (message: TenguMessage, context?: string) => Promise<void>;  // Summarize
+    onClose: () => void;                // Close the UI
+}
 ```
-scrollOffset = max(0, min(currentIndex - floor(7/2), totalMessages - 7))
-```
-
-This keeps the highlighted item centered in the window as the user scrolls.
 
 ---
 
-## 3. Restore Options Generation — `generateRestoreOptions` (g)
+## 3. Message List Rendering
+
+### Filtering: isSelectableMessage (XV6)
+
+**Location:** chunks.185.mjs:1692-1702
+
+```javascript
+// ============================================
+// isSelectableMessage - Filter for rewindable messages
+// Location: chunks.185.mjs:1692-1702
+// ============================================
+
+// ORIGINAL (for source lookup):
+function XV6(A) {
+    if (A.type !== "user") return !1;
+    if (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result") return !1;
+    if (Hz6(A)) return !1;
+    if (A.isMeta) return !1;
+    let q = A.message.content,
+        K = typeof q === "string" ? null : q[q.length - 1],
+        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
+    if (Y.indexOf(`<${WP}>`) !== -1 || Y.indexOf(`<${oA6}>`) !== -1 || Y.indexOf(`<${rHA}>`) !== -1 || Y.indexOf(`<${oHA}>`) !== -1 || Y.indexOf(`<${EH}>`) !== -1 || Y.indexOf(`<${vV}>`) !== -1 || Y.indexOf(`<${fj}`) !== -1) return !1;
+    return !0
+}
+
+// READABLE (for understanding):
+function isSelectableMessage(message) {
+    // Must be a user message
+    if (message.type !== "user") return false;
+
+    // Exclude tool_result messages (these are part of assistant responses)
+    if (Array.isArray(message.message.content)
+        && message.message.content[0]?.type === "tool_result") {
+        return false;
+    }
+
+    // Exclude empty messages
+    if (isEmptyMessage(message)) return false;
+
+    // Exclude meta messages (system reminders, etc.)
+    if (message.isMeta) return false;
+
+    // Extract text content
+    let content = message.message.content;
+    let lastBlock = typeof content === "string" ? null : content[content.length - 1];
+    let text = typeof content === "string"
+        ? content.trim()
+        : (lastBlock && isTextBlock(lastBlock) ? lastBlock.text.trim() : "");
+
+    // Exclude messages containing special XML tags
+    // These indicate internal operations, not user prompts
+    const EXCLUDED_TAGS = [
+        "<bash-input>",      // Bash command execution
+        "<command-name>",    // Slash command
+        "<bash-tool-call>",  // Tool call from bash
+        "<init-command>",    // Init command
+        "<memory-edit>",     // Memory edit
+        "<synthesis>",       // Synthesis operation
+        "<agent-memory"      // Agent memory operation
+    ];
+
+    for (let tag of EXCLUDED_TAGS) {
+        if (text.indexOf(tag) !== -1) return false;
+    }
+
+    return true;
+}
+
+// Mapping: XV6→isSelectableMessage, A→message, Hz6→isEmptyMessage, Yhq→isTextBlock
+//          WP→"bash-input", oA6→"command-name", rHA→"bash-tool-call", etc.
+```
+
+**What gets excluded:**
+1. Non-user messages (assistant, system, etc.)
+2. Tool result messages (continuations of previous prompts)
+3. Empty messages
+4. Meta messages (system reminders, hooks output)
+5. Internal operations (bash-input, slash commands, memory edits, etc.)
+
+### Scroll Window Calculation
+
+```javascript
+// Visible messages per page
+const VISIBLE_MESSAGE_COUNT = 7;  // Ys8
+
+// Calculate scroll offset to center highlighted message
+let scrollOffset = Math.max(0, Math.min(
+    highlightedIndex - Math.floor(VISIBLE_MESSAGE_COUNT / 2),
+    selectableMessages.length - VISIBLE_MESSAGE_COUNT
+));
+
+// Render only visible slice
+selectableMessages.slice(scrollOffset, scrollOffset + VISIBLE_MESSAGE_COUNT).map(...)
+```
+
+### Diff Stats Per Message
+
+Each message in the list shows diff stats for files changed between that message and the next:
+
+```javascript
+// Calculate diff stats for each message
+useEffect(() => {
+    async function computeAllDiffStats() {
+        if (!checkpointingEnabled) return;
+
+        Promise.all(selectableMessages.map(async (msg, index) => {
+            if (msg.uuid !== currentPromptUuid) {
+                let hasSnapshot = snapshotExistsForMessage(fileHistory, msg.uuid);
+                let nextMsg = selectableMessages.at(index + 1);
+                let nextUuid = nextMsg?.uuid !== currentPromptUuid ? nextMsg?.uuid : undefined;
+
+                let stats = hasSnapshot
+                    ? getMessagesDiffStats(messages, msg.uuid, nextUuid)
+                    : undefined;
+
+                if (stats !== undefined) {
+                    setDiffStatsCache((cache) => ({
+                        ...cache,
+                        [index]: stats
+                    }));
+                } else {
+                    setDiffStatsCache((cache) => ({
+                        ...cache,
+                        [index]: undefined
+                    }));
+                }
+            }
+        }));
+    }
+    computeAllDiffStats();
+}, [selectableMessages, messages, fileHistory, checkpointingEnabled]);
+```
+
+### getMessagesDiffStats (KXz)
+
+**Location:** chunks.185.mjs:1659-1690
+
+```javascript
+// ============================================
+// getMessagesDiffStats - Compute diff stats between messages
+// Location: chunks.185.mjs:1659-1690
+// ============================================
+
+// ORIGINAL (for source lookup):
+function KXz(A, q, K) {
+    let Y = A.findIndex(($) => $.uuid === q);
+    if (Y === -1) return;
+    let z = K ? A.findIndex(($) => $.uuid === K) : A.length;
+    if (z === -1) z = A.length;
+    let _ = [],
+        w = 0,
+        O = 0;
+    for (let $ = Y + 1; $ < z; $++) {
+        let H = A[$];
+        if (!H || !wl6(H)) continue;
+        let j = H.toolUseResult;
+        if (!j || !j.filePath || !j.structuredPatch) continue;
+        if (!_.includes(j.filePath)) _.push(j.filePath);
+        try {
+            if ("type" in j && j.type === "create") w += j.content.split(/\r?\n/).length;
+            else
+                for (let J of j.structuredPatch) {
+                    let M = J.lines.filter((X) => X.startsWith("+")).length,
+                        D = J.lines.filter((X) => X.startsWith("-")).length;
+                    w += M, O += D
+                }
+        } catch {
+            continue
+        }
+    }
+    return {
+        filesChanged: _,
+        insertions: w,
+        deletions: O
+    }
+}
+
+// READABLE (for understanding):
+function getMessagesDiffStats(messages, startMessageId, endMessageId) {
+    // Find message indices
+    let startIndex = messages.findIndex((m) => m.uuid === startMessageId);
+    if (startIndex === -1) return undefined;
+
+    let endIndex = endMessageId
+        ? messages.findIndex((m) => m.uuid === endMessageId)
+        : messages.length;
+    if (endIndex === -1) endIndex = messages.length;
+
+    let filesChanged = [],
+        insertions = 0,
+        deletions = 0;
+
+    // Scan messages between start and end
+    for (let i = startIndex + 1; i < endIndex; i++) {
+        let message = messages[i];
+        if (!message || !isToolUseMessage(message)) continue;
+
+        let toolResult = message.toolUseResult;
+        if (!toolResult || !toolResult.filePath || !toolResult.structuredPatch) continue;
+
+        // Track unique files
+        if (!filesChanged.includes(toolResult.filePath)) {
+            filesChanged.push(toolResult.filePath);
+        }
+
+        try {
+            // Handle file creation
+            if ("type" in toolResult && toolResult.type === "create") {
+                insertions += toolResult.content.split(/\r?\n/).length;
+            } else {
+                // Count +/- lines from structured patch
+                for (let hunk of toolResult.structuredPatch) {
+                    let added = hunk.lines.filter((line) => line.startsWith("+")).length;
+                    let removed = hunk.lines.filter((line) => line.startsWith("-")).length;
+                    insertions += added;
+                    deletions += removed;
+                }
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    return { filesChanged, insertions, deletions };
+}
+
+// Mapping: KXz→getMessagesDiffStats, A→messages, q→startMessageId, K→endMessageId,
+//          wl6→isToolUseMessage, _→filesChanged, w→insertions, O→deletions
+```
+
+**Key insight:** This function extracts diff stats from the `structuredPatch` field on tool results, which is computed during tool execution. This is more accurate than `calculateFileDiffStats` which compares files on disk.
+
+---
+
+## 4. Restore Options Menu
+
+### generateRestoreOptions (g)
 
 **Location:** chunks.185.mjs:1207-1235
 
 ```javascript
 // ============================================
-// generateRestoreOptions - Build restore action list
+// generateRestoreOptions - Build restore option list
 // Location: chunks.185.mjs:1207-1235
 // ============================================
 
 // ORIGINAL (for source lookup):
-function g(J1) {
-    let N6 = J1 ? [
-        { value: "both", label: "Restore code and conversation" },
-        { value: "conversation", label: "Restore conversation" },
-        { value: "code", label: "Restore code" }
-    ] : [
-        { value: "conversation", label: "Restore conversation" }
-    ];
-    N6.push({
+function g(z6) {
+    let N6 = z6 ? [{
+        value: "both",
+        label: "Restore code and conversation"
+    }, {
+        value: "conversation",
+        label: "Restore conversation"
+    }, {
+        value: "code",
+        label: "Restore code"
+    }] : [{
+        value: "conversation",
+        label: "Restore conversation"
+    }];
+    return N6.push({
         value: "summarize",
         label: "Summarize from here",
         type: "input",
@@ -350,24 +509,31 @@ function g(J1) {
         allowEmptySubmitToCancel: !0,
         showLabelWithValue: !0,
         labelValueSeparator: ": "
-    });
-    N6.push({ value: "nevermind", label: "Never mind" });
-    return N6;
+    }), N6.push({
+        value: "nevermind",
+        label: "Never mind"
+    }), N6
 }
 
 // READABLE (for understanding):
 function generateRestoreOptions(hasCodeChanges) {
-    let options = hasCodeChanges
-        ? [
-            { value: "both",         label: "Restore code and conversation" },
+    let options = [];
+
+    if (hasCodeChanges) {
+        // Full option set when files have changed
+        options = [
+            { value: "both", label: "Restore code and conversation" },
             { value: "conversation", label: "Restore conversation" },
-            { value: "code",         label: "Restore code" }
-        ]
-        : [
+            { value: "code", label: "Restore code" }
+        ];
+    } else {
+        // Only conversation options when no code changes
+        options = [
             { value: "conversation", label: "Restore conversation" }
         ];
+    }
 
-    // Summarize option with inline input
+    // Add summarize option with input field
     options.push({
         value: "summarize",
         label: "Summarize from here",
@@ -380,25 +546,29 @@ function generateRestoreOptions(hasCodeChanges) {
         labelValueSeparator: ": "
     });
 
-    // Cancel option
-    options.push({ value: "nevermind", label: "Never mind" });
+    // Add cancel option
+    options.push({
+        value: "nevermind",
+        label: "Never mind"
+    });
 
     return options;
 }
 
-// Mapping: g→generateRestoreOptions, J1→hasCodeChanges, N6→options, I→setSummarizeContext
+// Mapping: g→generateRestoreOptions, z6→hasCodeChanges, N6→options, I→setSummarizeContext
 ```
 
-**Dynamic options based on file history:**
-- `hasCodeChanges` = checkpointing is enabled AND this message has a snapshot with file changes
-- If `hasCodeChanges = false`, "Restore code" options are hidden — only conversation restore is offered
+**Option Behavior:**
 
-**Summarize option with inline input:**
-The "Summarize from here" option has `type: "input"` which renders an interactive text box. The user can type optional context to guide the summary.
+| Option | Code Changes? | Action |
+|--------|---------------|--------|
+| "both" | Required | Restore files + slice conversation |
+| "conversation" | Any | Slice conversation (files unchanged) |
+| "code" | Required | Restore files (conversation unchanged) |
+| "summarize" | Any | Compact messages from start to selected |
+| "nevermind" | Any | Cancel, close options menu |
 
----
-
-## 4. Message Selection Handler — `handleMessageSelection` (b)
+### handleMessageSelection (b)
 
 **Location:** chunks.185.mjs:1248-1268
 
@@ -442,64 +612,57 @@ async function handleMessageSelection(message) {
         is_current_prompt: false
     });
 
-    // Message no longer exists?
+    // Message no longer in list? Close
     if (!messages.includes(message)) {
         onClose();
         return;
     }
 
-    // Checkpointing disabled? Just restore conversation
-    if (!isCheckpointingEnabled) {
-        await handleRestoreMessage(message);
+    // Checkpointing disabled? Fast-path restore
+    if (!checkpointingEnabled) {
+        await fastPathRestore(message);
         return;
     }
 
-    // Get diff stats via dry-run
-    let diffResult = getDryRunDiffStats(fileHistory, message.uuid);
+    // Get diff stats for this message
+    let diffStats = getDryRunDiffStats(fileHistory, message.uuid);
+    let hasNoCodeChanges = !diffStats?.filesChanged || diffStats.filesChanged.length === 0;
 
-    // No file changes and only one message to remove?
-    let noFileChanges = !diffResult?.filesChanged || diffResult.filesChanged.length === 0;
-    let isSingleMessage = isOnlyOneMessageAfterIndex(messages, messageIndex);
+    // Check if only trivial messages after this point
+    let onlyTrivialAfter = isOnlyOneMessageAfterIndex(messages, messageIndex);
 
-    // Fast path: no file changes, just conversation restore
-    if (noFileChanges && isSingleMessage) {
-        await handleRestoreMessage(message);
+    // Fast-path: no code changes AND only trivial messages after
+    // Skip options menu, restore directly
+    if (hasNoCodeChanges && onlyTrivialAfter) {
+        await fastPathRestore(message);
     } else {
-        // Show option menu
+        // Show options menu
         setSelectedMessage(message);
-        setDiffStats(diffResult);
+        setDiffStats(diffStats);
     }
 }
 
 // Mapping: b→handleMessageSelection, z6→message, A→messages, N6→messageIndex,
-//          $6→indexFromEnd, H→isCheckpointingEnabled, w→fileHistory,
-//          n→diffResult, o→noFileChanges, a→isSingleMessage,
-//          eN1→getDryRunDiffStats, YI1→isOnlyOneMessageAfterIndex,
-//          B→handleRestoreMessage, Z→setSelectedMessage, f→setDiffStats
+//          H→checkpointingEnabled, w→fileHistory, eN1→getDryRunDiffStats,
+//          YI1→isOnlyOneMessageAfterIndex, Z→setSelectedMessage, f→setDiffStats
 ```
 
-**Decision logic:**
-1. If checkpointing is disabled → go straight to conversation restore
-2. Run dry-run diff to check if any files changed
-3. If no changes AND only one message to remove → fast path, skip option menu
-4. Otherwise → show option menu with diff stats
-
----
-
-## 5. Restore Option Handler — `handleRestoreOptionSelected` (p)
+### handleRestoreOptionSelected (p)
 
 **Location:** chunks.185.mjs:1269-1320
 
 ```javascript
 // ============================================
-// handleRestoreOptionSelected - Dispatch restore/summarize
+// handleRestoreOptionSelected - Dispatch restore action
 // Location: chunks.185.mjs:1269-1320
 // ============================================
 
 // ORIGINAL (for source lookup):
 async function p(z6) {
-    if (d("tengu_message_selector_restore_option_selected", { option: z6 }), !W) {
-        O("Message not found.");
+    if (d("tengu_message_selector_restore_option_selected", {
+            option: z6
+        }), !W) {
+        $("Message not found.");
         return
     }
     if (z6 === "nevermind") {
@@ -507,1084 +670,722 @@ async function p(z6) {
         return
     }
     if (z6 === "summarize") {
-        q(), N(!0), L("summarize"), O(void 0);
+        q(), N(!0), L("summarize"), $(void 0);
         try {
             let n = u.trim() || void 0;
             await z(W, n), N(!1), L(null), Z(void 0), _()
         } catch (n) {
-            _6(n), N(!1), L(null), O(`Failed to summarize:\n${n}`)
+            _6(n), N(!1), L(null), Z(void 0), $(`Failed to summarize:
+${n}`)
         }
         return
     }
-    q(), N(!0), O(void 0);
-    let N6 = null, $6 = null;
-    if (z6 === "code" || z6 === "both") try { await Y(W) } catch (n) { N6 = n, _6(N6) }
-    if (z6 === "conversation" || z6 === "both") try { await K(W) } catch (n) { $6 = n, _6($6) }
-    if (N(!1), Z(void 0), $6 && N6) O(`Failed to restore the conversation and code:\n${$6}\n${N6}`);
-    else if ($6) O(`Failed to restore the conversation:\n${$6}`);
-    else if (N6) O(`Failed to restore the code:\n${N6}`);
+    q(), N(!0), $(void 0);
+    let N6 = null,
+        $6 = null;
+    if (z6 === "code" || z6 === "both") try {
+        await Y(W)
+    } catch (n) {
+        N6 = n, _6(N6)
+    }
+    if (z6 === "conversation" || z6 === "both") try {
+        await K(W)
+    } catch (n) {
+        $6 = n, _6($6)
+    }
+    if (N(!1), Z(void 0), $6 && N6) $(`Failed to restore the conversation and code:
+${$6}
+${N6}`);
+    else if ($6) $(`Failed to restore the conversation:
+${$6}`);
+    else if (N6) $(`Failed to restore the code:
+${N6}`);
     else _()
 }
 
 // READABLE (for understanding):
-async function handleRestoreOptionSelected(selectedOption) {
-    telemetry("tengu_message_selector_restore_option_selected", { option: selectedOption });
+async function handleRestoreOptionSelected(option) {
+    telemetry("tengu_message_selector_restore_option_selected", { option });
 
     if (!selectedMessage) {
-        setErrorMessage("Message not found.");
+        setError("Message not found.");
         return;
     }
 
-    // Cancel: go back to message list
-    if (selectedOption === "nevermind") {
+    // Cancel
+    if (option === "nevermind") {
         setSelectedMessage(undefined);
         return;
     }
 
-    // Summarize: run targeted compaction
-    if (selectedOption === "summarize") {
+    // Summarize
+    if (option === "summarize") {
         onPreRestore();
         setIsLoading(true);
-        setLoadingAction("summarize");
-        setErrorMessage(undefined);
+        setOperationType("summarize");
+        setError(undefined);
 
         try {
-            let ctx = summarizeContext.trim() || undefined;
-            await onSummarize(selectedMessage, ctx);
+            let context = summarizeContext.trim() || undefined;
+            await onSummarize(selectedMessage, context);
             setIsLoading(false);
-            setLoadingAction(null);
+            setOperationType(null);
             setSelectedMessage(undefined);
             onClose();
-        } catch (e) {
-            logError(e);
+        } catch (err) {
+            logError(err);
             setIsLoading(false);
-            setLoadingAction(null);
-            setErrorMessage(`Failed to summarize:\n${e}`);
+            setOperationType(null);
+            setSelectedMessage(undefined);
+            setError(`Failed to summarize:\n${err}`);
         }
         return;
     }
 
-    // Restore operations
+    // Code/Conversation restore
     onPreRestore();
     setIsLoading(true);
-    setErrorMessage(undefined);
+    setError(undefined);
 
     let codeError = null;
     let conversationError = null;
 
-    // Code restore
-    if (selectedOption === "code" || selectedOption === "both") {
-        try { await onRestoreCode(selectedMessage); }
-        catch (e) { codeError = e; logError(e); }
+    // Restore code (if requested)
+    if (option === "code" || option === "both") {
+        try {
+            await onRestoreCode(selectedMessage);
+        } catch (err) {
+            codeError = err;
+            logError(codeError);
+        }
     }
 
-    // Conversation restore
-    if (selectedOption === "conversation" || selectedOption === "both") {
-        try { await onRestoreMessage(selectedMessage); }
-        catch (e) { conversationError = e; logError(e); }
+    // Restore conversation (if requested)
+    if (option === "conversation" || option === "both") {
+        try {
+            await onRestoreMessage(selectedMessage);
+        } catch (err) {
+            conversationError = err;
+            logError(conversationError);
+        }
     }
 
     setIsLoading(false);
     setSelectedMessage(undefined);
 
-    // Error handling
+    // Report errors
     if (conversationError && codeError) {
-        setErrorMessage(`Failed to restore the conversation and code:\n${conversationError}\n${codeError}`);
+        setError(`Failed to restore the conversation and code:\n${conversationError}\n${codeError}`);
     } else if (conversationError) {
-        setErrorMessage(`Failed to restore the conversation:\n${conversationError}`);
+        setError(`Failed to restore the conversation:\n${conversationError}`);
     } else if (codeError) {
-        setErrorMessage(`Failed to restore the code:\n${codeError}`);
+        setError(`Failed to restore the code:\n${codeError}`);
     } else {
         onClose();
     }
 }
 
-// Mapping: p→handleRestoreOptionSelected, z6→selectedOption, W→selectedMessage,
-//          Z→setSelectedMessage, O→setErrorMessage, q→onPreRestore,
-//          N→setIsLoading, L→setLoadingAction, u→summarizeContext,
-//          z→onSummarize, Y→onRestoreCode, K→onRestoreMessage, _→onClose
-```
-
-### Dispatch Decision Tree
-
-```
-selectedOption
-├── "nevermind"      → setSelectedMessage(undefined)  [back to list]
-├── "summarize"      → onPreRestore()
-│                       → setIsLoading(true, "summarize")
-│                       → await onSummarize(msg, ctx)
-│                       → onClose() on success
-│                       → setErrorMessage() on error
-├── "code"           → onPreRestore()
-│                       → await onRestoreCode(msg)
-│                       → onClose() or show error
-├── "conversation"   → onPreRestore()
-│                       → await onRestoreMessage(msg)
-│                       → onClose() or show error
-└── "both"           → onPreRestore()
-                        → await onRestoreCode(msg)      [continue even if fails]
-                        → await onRestoreMessage(msg)   [continue even if fails]
-                        → show combined error if both fail
-                        → onClose() if both succeed
-```
-
-**Error isolation for "both":** Code and conversation restore are called **sequentially with independent error capture**. If code restore fails, conversation restore still runs.
-
----
-
-## 6. Message List Rendering
-
-The scrollable message list renders each item with:
-- A pointer indicator (`▶`) for the currently highlighted row
-- A `MessagePreview` component showing the message text, truncated to fit
-- A diff stats line showing file changes
-
-```
-  ▶ fix the authentication bug in login.ts                   [highlighted]
-      auth.ts +12 -3
-
-    add error handling for API timeouts
-      api.ts +8 -0, config.ts +2 -1
-
-    refactor the database connection pool
-      db.ts +45 -22, pool.ts +18 -5
-```
-
-**Diff display logic:**
-- If `filesChanged.length === 1`: show `basename(path) +ins -del`
-- If `filesChanged.length > 1`: show `N files changed +ins -del`
-- If no code changes: show "No code changes"
-- If no checkpoint available for this message: show ⚠️ "No code restore"
-
----
-
-## 7. Complete User Interaction Flow
-
-```
-State: User is in the middle of a conversation
-
-1. User presses Esc+Esc (or types /rewind)
-   ├── App calls openMessageSelector()
-   └── RewindMessageSelector renders
-
-2. Message list appears:
-   - All user messages listed, newest at bottom
-   - Virtual "current" entry at bottom (selected by default)
-   - Diff stats loaded asynchronously per message
-
-3. User navigates with ↑/↓ keys
-   - Highlighted row changes (currentIndex updates)
-   - Diff stats preview shown for highlighted message
-
-4. User presses Enter to select a message
-   - handleMessageSelection() called
-   - If checkpointing off OR no changes: fast path to restore
-   - Otherwise: show option menu
-
-5. Option menu appears:
-   ┌──────────────────────────────────────┐
-   │  Restore code and conversation       │ ← if hasCodeChanges
-   │  Restore conversation                │
-   │  Restore code                        │ ← if hasCodeChanges
-   │  Summarize from here: [           ]  │ ← with inline input
-   │  Never mind                          │
-   └──────────────────────────────────────┘
-
-6a. "Restore code and conversation":
-    - onRestoreCode → sN1 (rewindHandler) → Zn4 (rewindAndRestoreFiles)
-    - onRestoreMessage → slice messages, restore todos/permissions
-    - onClose() → selector unmounts
-
-6b. "Restore conversation":
-    - onRestoreMessage only (no file restore)
-    - onClose()
-
-6c. "Restore code":
-    - onRestoreCode only (no conversation change)
-    - onClose()
-
-6d. "Summarize from here [user types context]":
-    - onSummarize(msg, ctx) → Fa4 (summarizationEngineFunction)
-    - Creates compact_boundary marker
-    - onClose()
-
-6e. "Never mind":
-    - setSelectedMessage(undefined) → back to message list
-
-7. Any Esc press (when at message list, not option menu):
-    - onClose() → selector unmounts, return to normal input
+// Mapping: p→handleRestoreOptionSelected, z6→option, W→selectedMessage,
+//          q→onPreRestore, K→onRestoreMessage, Y→onRestoreCode, z→onSummarize,
+//          _→onClose, N→setIsLoading, L→setOperationType, Z→setSelectedMessage
 ```
 
 ---
 
-## 8. System Reminder Integration
+## 5. Keyboard Navigation
 
-After summarize, a `compact_boundary` system message is created to mark where the conversation was compacted. This message contains:
-- The original message count
-- Token counts before/after
-- A link to the session transcript file
-- The user-provided context (if any)
-
-See [07_compact/](../07_compact/) for details on the summarization pipeline.
-
----
-
-## 9. Message Filtering Logic
-
-### isSelectableMessage (XV6)
-
-The message list only shows certain message types. The filtering is done by `XV6` (isSelectableMessage):
-
-**Location:** chunks.185.mjs:1692-1702
+### Keybinding Registration
 
 ```javascript
 // ============================================
-// isSelectableMessage - Filter for selectable messages
-// Location: chunks.185.mjs:1692-1702
+// Keyboard bindings for MessageSelector context
+// Location: chunks.185.mjs:1329-1341
+// ============================================
+
+// Register "confirm:no" handler (Esc key)
+D8("confirm:no", handleCancel, {
+    context: "Confirmation",
+    isActive: !selectedMessage  // Only when options menu not shown
+});
+
+// Register messageSelector actions
+tA({
+    "messageSelector:up": moveUp,
+    "messageSelector:down": moveDown,
+    "messageSelector:top": jumpToTop,
+    "messageSelector:bottom": jumpToBottom,
+    "messageSelector:select": selectHighlighted
+}, {
+    context: "MessageSelector",
+    isActive: !isLoading && !error && !selectedMessage && canRewind
+});
+```
+
+### Keybinding Definitions (chunks.89.mjs:2744-2763)
+
+```javascript
+// ============================================
+// Keybinding definitions for MessageSelector
+// Location: chunks.89.mjs:2744-2763
+// ============================================
+
+{
+    context: "MessageSelector",
+    bindings: {
+        up: "messageSelector:up",
+        down: "messageSelector:down",
+        k: "messageSelector:up",        // Vim-style
+        j: "messageSelector:down",      // Vim-style
+        "ctrl+p": "messageSelector:up", // Emacs-style
+        "ctrl+n": "messageSelector:down", // Emacs-style
+        "ctrl+up": "messageSelector:top",
+        "shift+up": "messageSelector:top",
+        "meta+up": "messageSelector:top",
+        "shift+k": "messageSelector:top",  // Vim-style
+        "ctrl+down": "messageSelector:bottom",
+        "shift+down": "messageSelector:bottom",
+        "meta+down": "messageSelector:bottom",
+        "shift+j": "messageSelector:bottom",  // Vim-style
+        enter: "messageSelector:select"
+    }
+}
+```
+
+### Action Handlers
+
+```javascript
+// Move selection up
+let moveUp = useCallback(() => setHighlightedIndex((i) => Math.max(0, i - 1)), []);
+
+// Move selection down
+let moveDown = useCallback(
+    () => setHighlightedIndex((i) => Math.min(selectableMessages.length - 1, i + 1)),
+    [selectableMessages.length]
+);
+
+// Jump to first message
+let jumpToTop = useCallback(() => setHighlightedIndex(0), []);
+
+// Jump to last message
+let jumpToBottom = useCallback(
+    () => setHighlightedIndex(selectableMessages.length - 1),
+    [selectableMessages.length]
+);
+
+// Select highlighted message
+let selectHighlighted = useCallback(() => {
+    let message = selectableMessages[highlightedIndex];
+    if (message) handleMessageSelection(message);
+}, [selectableMessages, highlightedIndex, handleMessageSelection]);
+```
+
+---
+
+## 6. Helper Components
+
+### DiffStatsPreview (qXz)
+
+**Location:** chunks.185.mjs:1471-1518
+
+Displays "The code will be restored +N -M in file.ts":
+
+```javascript
+// ============================================
+// DiffStatsPreview - Display diff stats for restore
+// Location: chunks.185.mjs:1471-1518
+// ============================================
+
+function DiffStatsPreview({ diffStatsForRestore }) {
+    if (diffStatsForRestore === undefined) return;
+
+    if (!diffStatsForRestore.filesChanged || !diffStatsForRestore.filesChanged[0]) {
+        return <Text dimColor>The code has not changed (nothing will be restored).</Text>;
+    }
+
+    let numFiles = diffStatsForRestore.filesChanged.length;
+    let fileName;
+
+    if (numFiles === 1) {
+        fileName = path.basename(diffStatsForRestore.filesChanged[0]);
+    } else if (numFiles === 2) {
+        fileName = `${path.basename(diffStatsForRestore.filesChanged[0])} and ${path.basename(diffStatsForRestore.filesChanged[1])}`;
+    } else {
+        fileName = `${path.basename(diffStatsForRestore.filesChanged[0])} and ${numFiles - 1} other files`;
+    }
+
+    return (
+        <Text dimColor>
+            The code will be restored <DiffStatsDisplay diffStats={diffStatsForRestore} /> in {fileName}.
+        </Text>
+    );
+}
+```
+
+### DiffStatsDisplay (zhq)
+
+**Location:** chunks.185.mjs:1520-1540
+
+Displays colored +/- counts:
+
+```javascript
+// ============================================
+// DiffStatsDisplay - Colored +N -M display
+// Location: chunks.185.mjs:1520-1540
+// ============================================
+
+function DiffStatsDisplay({ diffStats }) {
+    if (!diffStats || !diffStats.filesChanged) return;
+
+    return (
+        <>
+            <Text color="diffAddedWord">+{diffStats.insertions} </Text>
+            <Text color="diffRemovedWord">-{diffStats.deletions}</Text>
+        </>
+    );
+}
+```
+
+### Khq - UserMessagePreview
+
+**Location:** chunks.185.mjs:1542-1657
+
+Renders a preview of the user message with special handling for different message types:
+
+```javascript
+// ============================================
+// UserMessagePreview - Render message preview
+// Location: chunks.185.mjs:1542-1657
+// ============================================
+
+function UserMessagePreview({ userMessage, color, dimColor, isCurrent, paddingRight }) {
+    let { columns } = useTerminalSize();
+
+    // Special rendering for "current prompt" placeholder
+    if (isCurrent) {
+        return (
+            <Box width="100%">
+                <Text italic color={color} dimColor={dimColor}>(current)</Text>
+            </Box>
+        );
+    }
+
+    let content = userMessage.message.content;
+    let lastBlock = typeof content === "string" ? null : content[content.length - 1];
+
+    // Extract text
+    let text = typeof content === "string"
+        ? content.trim()
+        : (lastBlock && isTextBlock(lastBlock) ? lastBlock.text.trim() : "(no prompt)");
+
+    let normalizedText = normalizeText(text);
+
+    // Empty message
+    if (isEmptyText(normalizedText)) {
+        return (
+            <Box flexDirection="row" width="100%">
+                <Text italic color={color} dimColor={dimColor}>((empty message))</Text>
+            </Box>
+        );
+    }
+
+    // Bash command
+    if (normalizedText.includes("<bash-input>")) {
+        let command = extractTagContent(normalizedText, "bash-input");
+        if (command) {
+            return (
+                <Box flexDirection="row" width="100%">
+                    <Text color="bashBorder">!</Text>
+                    <Text color={color} dimColor={dimColor}> {command}</Text>
+                </Box>
+            );
+        }
+    }
+
+    // Slash command
+    if (normalizedText.includes("<command-name>")) {
+        let cmdName = extractTagContent(normalizedText, "command-name");
+        let cmdArgs = extractTagContent(normalizedText, "command-args");
+        let isSkill = extractTagContent(normalizedText, "skill-format") === "true";
+
+        if (cmdName) {
+            if (isSkill) {
+                return <Text color={color} dimColor={dimColor}>Skill({cmdName})</Text>;
+            } else {
+                return <Text color={color} dimColor={dimColor}>/{cmdName} {cmdArgs}</Text>;
+            }
+        }
+    }
+
+    // Regular message - truncate and wrap
+    let displayText = paddingRight
+        ? truncateText(normalizedText, columns - paddingRight, true)
+        : normalizedText.slice(0, 500).split("\n").slice(0, 4).join("\n");
+
+    return (
+        <Box flexDirection="row" width="100%">
+            <Text color={color} dimColor={dimColor}>{displayText}</Text>
+        </Box>
+    );
+}
+```
+
+---
+
+## 7. State Management
+
+### Component State
+
+```javascript
+// State declarations from RewindMessageSelector
+
+// Error message to display
+let [error, setError] = useState(undefined);
+
+// Currently selected message for restore options
+let [selectedMessage, setSelectedMessage] = useState(undefined);
+
+// Diff stats for selected message
+let [diffStats, setDiffStats] = useState(undefined);
+
+// Loading state during restore/summarize
+let [isLoading, setIsLoading] = useState(false);
+
+// Current operation type (for UI display)
+let [operationType, setOperationType] = useState(null);
+
+// Focused restore option
+let [focusedOption, setFocusedOption] = useState("both");
+
+// Context input for summarize
+let [summarizeContext, setSummarizeContext] = useState("");
+
+// Currently highlighted message index
+let [highlightedIndex, setHighlightedIndex] = useState(selectableMessages.length - 1);
+
+// Cache of diff stats per message index
+let [diffStatsCache, setDiffStatsCache] = useState({});
+```
+
+### External State Access
+
+```javascript
+// Access fileHistory from global state via Zustand selector
+let fileHistory = useSelector((state) => state.fileHistory);
+```
+
+---
+
+## 8. Fast-Path Optimization
+
+### isOnlyOneMessageAfterIndex (YI1)
+
+**Location:** chunks.185.mjs:1704-1724
+
+```javascript
+// ============================================
+// isOnlyOneMessageAfterIndex - Check for fast-path restore
+// Location: chunks.185.mjs:1704-1724
 // ============================================
 
 // ORIGINAL (for source lookup):
-function XV6(A) {
-    if (A.type !== "user") return !1;
-    if (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result") return !1;
-    if (Hz6(A)) return !1;
-    if (A.isMeta) return !1;
-    let q = A.message.content,
-        K = typeof q === "string" ? null : q[q.length - 1],
-        Y = typeof q === "string" ? q.trim() : K && Yhq(K) ? K.text.trim() : "";
-    if (Y.indexOf(`<${WP}>`) !== -1 || Y.indexOf(`<${oA6}>`) !== -1 || Y.indexOf(`<${rHA}>`) !== -1 || Y.indexOf(`<${oHA}>`) !== -1 || Y.indexOf(`<${EH}>`) !== -1 || Y.indexOf(`<${vV}>`) !== -1 || Y.indexOf(`<${fj}`) !== -1) return !1;
+function YI1(A, q) {
+    for (let K = q + 1; K < A.length; K++) {
+        let Y = A[K];
+        if (!Y) continue;
+        if (Hz6(Y)) continue;
+        if (wl6(Y)) continue;
+        if (Y.type === "progress") continue;
+        if (Y.type === "system") continue;
+        if (Y.type === "attachment") continue;
+        if (Y.type === "user" && Y.isMeta) continue;
+        if (Y.type === "assistant") {
+            let z = Y.message.content;
+            if (Array.isArray(z)) {
+                if (z.some((w) => w.type === "text" && w.text.trim() || w.type === "tool_use")) return !1
+            }
+            continue
+        }
+        if (Y.type === "user") return !1
+    }
     return !0
 }
 
 // READABLE (for understanding):
-function isSelectableMessage(message) {
-    // Must be a user message
-    if (message.type !== "user") return false;
-    // Skip tool_result messages (not user prompts)
-    if (Array.isArray(message.message.content) && message.message.content[0]?.type === "tool_result") return false;
-    // Skip compact summary messages
-    if (isCompactSummary(message)) return false;
-    // Skip meta messages (system reminders)
-    if (message.isMeta) return false;
+function isOnlyOneMessageAfterIndex(messages, targetIndex) {
+    // Scan all messages after targetIndex
+    for (let i = targetIndex + 1; i < messages.length; i++) {
+        let message = messages[i];
 
-    // Check for special XML tags that indicate internal messages
-    let content = message.message.content;
-    let lastBlock = typeof content === "string" ? null : content[content.length - 1];
-    let textContent = typeof content === "string" ? content.trim() : lastBlock?.text?.trim() || "";
+        if (!message) continue;
 
-    // Skip messages containing special internal tags
-    // Actual tag values from chunks.14.mjs:627-663:
-    //   WP="local-command-stdout", oA6="local-command-stderr"
-    //   rHA="bash-stdout", oHA="bash-stderr"
-    //   EH="task-notification", vV="tick", fj="teammate-message"
-    const internalTags = [
-        "<local-command-stdout>",  // WP - internal command output
-        "<local-command-stderr>",  // oA6 - internal command errors
-        "<bash-stdout>",           // rHA - bash command output
-        "<bash-stderr>",           // oHA - bash command errors
-        "<task-notification>",     // EH - task system notifications
-        "<tick>",                  // vV - tick/debug markers
-        "<teammate-message>"       // fj - teammate agent messages
-    ];
-    for (let tag of internalTags) {
-        if (textContent.indexOf(tag) !== -1) return false;
+        // Skip empty messages
+        if (isEmptyMessage(message)) continue;
+
+        // Skip tool_use messages (these are part of assistant responses)
+        if (isToolUseMessage(message)) continue;
+
+        // Skip trivial message types
+        if (message.type === "progress") continue;
+        if (message.type === "system") continue;
+        if (message.type === "attachment") continue;
+
+        // Skip meta user messages
+        if (message.type === "user" && message.isMeta) continue;
+
+        // Check assistant messages for content
+        if (message.type === "assistant") {
+            let content = message.message.content;
+            if (Array.isArray(content)) {
+                // If assistant has any text or tool_use, it's a real response
+                let hasRealContent = content.some(
+                    (block) => (block.type === "text" && block.text.trim())
+                            || block.type === "tool_use"
+                );
+                if (hasRealContent) return false;
+            }
+            continue;
+        }
+
+        // Any other user message is significant
+        if (message.type === "user") return false;
     }
 
+    // Only trivial messages found after target
     return true;
 }
 
-// Mapping: XV6→isSelectableMessage, A→message, Hz6→isCompactSummary,
-//          WP→"local-command-stdout", oA6→"local-command-stderr",
-//          rHA→"bash-stdout", oHA→"bash-stderr", EH→"task-notification",
-//          vV→"tick", fj→"teammate-message"
+// Mapping: YI1→isOnlyOneMessageAfterIndex, A→messages, q→targetIndex,
+//          Hz6→isEmptyMessage, wl6→isToolUseMessage
 ```
 
-**Why these types:**
-- **User messages** — These are the checkpoints where the user can restore to
-- **compact_boundary** — Users can restore to a compaction point
+**What is considered "trivial":**
+- `progress` messages (loading indicators)
+- `system` messages
+- `attachment` messages
+- Meta `user` messages
+- Empty `assistant` messages
 
-**Excluded types:**
-- `isMeta: true` user messages — These are system reminders injected into the conversation
-- `toolUseResult` messages — These are tool outputs, not user prompts
-- `assistant` messages — Restoration happens at user prompt boundaries
-- `progress` messages — Transient status updates
-- `system` messages (except compact_boundary) — System notifications
-
-### Virtual "Current" Entry
-
-The UI adds a virtual entry at the bottom of the list representing "current state":
-
-```javascript
-// Location: chunks.185.mjs:1191-1196
-let filteredMessages = useMemo(() => [
-    ...messages.filter(isSelectableMessage),
-    { ...createEmptyMessage({ content: "" }), uuid: currentUuid }
-], [messages, currentUuid]);
-```
-
-This allows the user to select "current" which is useful for:
-- "Summarize from here" — Summarize everything before now
-- "Restore code" — Restore files without removing any messages
+**Why this optimization:**
+When the user selects the last user message (or only trivial messages follow), there's nothing meaningful to restore. The UI can skip the options menu and restore directly, saving a click.
 
 ---
 
-## 10. Telemetry Events
-
-The UI emits the following telemetry events:
-
-| Event | When Triggered | Properties |
-|-------|----------------|------------|
-| `tengu_message_selector_opened` | Component mounts | (none) |
-| `tengu_message_selector_selected` | User presses Enter on a message | `index_from_end`, `message_type`, `is_current_prompt` |
-| `tengu_message_selector_restore_option_selected` | User picks an option | `option` |
-| `tengu_message_selector_cancelled` | User presses Esc to close | (none) |
-
-### Event Flow Example
-
-```
-User opens rewind UI:
-  → tengu_message_selector_opened {}
-
-User presses ↓ twice:
-  (no events - navigation is local)
-
-User presses Enter on 3rd message from end:
-  → tengu_message_selector_selected {
-        index_from_end: 3,
-        message_type: "user",
-        is_current_prompt: false
-    }
-
-User selects "Restore code and conversation":
-  → tengu_message_selector_restore_option_selected { option: "both" }
-
-User presses Esc instead:
-  → tengu_message_selector_cancelled {}
-```
-
----
-
-## 11. Diff Preview Loading
-
-The diff stats for each message are loaded asynchronously to avoid blocking the UI:
-
-```javascript
-// Location: chunks.185.mjs:1343-1363
-useEffect(() => {
-    async function loadDiffStats() {
-        if (!isCheckpointingEnabled) return;
-
-        Promise.all(filteredMessages.map(async (msg, index) => {
-            if (msg.uuid !== currentUuid) {
-                let snapshotExists = snapshotExistsForMessage(fileHistory, msg.uuid);
-                let nextMsg = filteredMessages.at(index + 1);
-                let stats = snapshotExists
-                    ? getMessagesDiffStats(messages, msg.uuid, nextMsg?.uuid !== currentUuid ? nextMsg?.uuid : undefined)
-                    : undefined;
-
-                if (stats !== undefined) {
-                    setDiffStatsByIndex(prev => ({ ...prev, [index]: stats }));
-                } else {
-                    setDiffStatsByIndex(prev => ({ ...prev, [index]: undefined }));
-                }
-            }
-        }));
-    }
-    loadDiffStats();
-}, [filteredMessages, messages, currentUuid, fileHistory, isCheckpointingEnabled]);
-```
-
-**Why async loading:**
-- Calculating diff stats requires reading backup files from disk
-- Loading all stats synchronously would delay the UI render
-- Stats are cached in state after loading
-
----
-
-## 12. Loading States and Error Handling
-
-### Loading State Variables
-
-The component tracks multiple loading states:
-
-```javascript
-// From chunks.185.mjs:1202-1205
-let [isLoading, setIsLoading] = useState(false);       // General loading
-let [loadingAction, setLoadingAction] = useState(null); // Which action is loading
-let [errorMessage, setErrorMessage] = useState(undefined); // Error to display
-let [restoreMode, setRestoreMode] = useState("both");  // Selected restore option
-```
-
-### Loading Actions
-
-| Action | loadingAction Value | UI Feedback |
-|--------|---------------------|-------------|
-| Restore conversation | `null` | No specific spinner |
-| Restore code | `null` | No specific spinner |
-| Summarize | `"summarize"` | "Summarizing…" spinner |
-
-### Loading UI
-
-When `isLoading: true` and `loadingAction: "summarize"`:
-
-```javascript
-// From chunks.185.mjs:1406-1409
-{isLoading && loadingAction === "summarize" ? (
-    <Row>
-        <Spinner />
-        <Text>Summarizing…</Text>
-    </Row>
-) : (
-    <OptionsSelector ... />
-)}
-```
-
-### Error Display
-
-Errors are shown inline in the UI:
-
-```javascript
-// From chunks.185.mjs:1377-1379
-{errorMessage && (
-    <Fragment>
-        <Text color="error">Error: {errorMessage}</Text>
-    </Fragment>
-)}
-```
-
-**Error messages:**
-- `"Message not found."` - Selected message no longer exists
-- `"Failed to restore the conversation: ..."` - Restore failed
-- `"Failed to restore the code: ..."` - Code restore failed
-- `"Failed to summarize: ..."` - Summarization failed
-- Combined errors for "both" restore
-
-### Pre-Restore Callback
-
-The `onPreRestore` callback is called before any restore operation:
-
-```javascript
-// From chunks.185.mjs:1240, 1281, 1291
-q();  // onPreRestore callback
-```
-
-**What it does:**
-1. Aborts any in-progress LLM stream
-2. Clears tool permission queue
-3. Clears queued commands
-4. Prepares clean state for restoration
-
-### Error Isolation Pattern
-
-For "Restore code and conversation" option, errors are isolated:
-
-```javascript
-// From chunks.185.mjs:1292-1311
-let codeError = null;
-let conversationError = null;
-
-// Try code restore
-if (option === "code" || option === "both") {
-    try { await onRestoreCode(selectedMessage); }
-    catch (e) { codeError = e; logError(e); }
-}
-
-// Try conversation restore (continues even if code failed)
-if (option === "conversation" || option === "both") {
-    try { await onRestoreMessage(selectedMessage); }
-    catch (e) { conversationError = e; logError(e); }
-}
-
-// Show combined error if both failed
-if (conversationError && codeError) {
-    setErrorMessage(`Failed to restore both:\n${conversationError}\n${codeError}`);
-}
-```
-
-**Why this pattern:**
-- User gets partial restore if one operation fails
-- All errors are logged for debugging
-- UI shows exactly what failed
-
----
-
-## 13. Keyboard Navigation Details
-
-### Keybinding Registration
-
-Keybindings are registered with context isolation:
-
-```javascript
-// From chunks.185.mjs:1332-1341
-useKeybindings({
-    "messageSelector:up": moveUp,
-    "messageSelector:down": moveDown,
-    "messageSelector:top": jumpToTop,
-    "messageSelector:bottom": jumpToBottom,
-    "messageSelector:select": selectCurrent
-}, {
-    context: "MessageSelector",
-    isActive: !isLoading && !errorMessage && !selectedMessage && hasMultipleMessages
-});
-```
-
-### Cancel Keybinding
-
-The cancel action uses a separate registration:
-
-```javascript
-// From chunks.185.mjs:1329-1331
-registerAction("confirm:no", handleCancel, {
-    context: "Confirmation",
-    isActive: !selectedMessage
-});
-```
-
-**Why separate:**
-- `confirm:no` is a global action (Esc key)
-- Different context prevents conflicts
-- `isActive` ensures cancel only works when not in option menu
-
-### Navigation Implementation
-
-```javascript
-// From chunks.185.mjs:1321-1324
-const moveUp = useCallback(() => setCurrentIndex(i => Math.max(0, i - 1)), []);
-const moveDown = useCallback(() => setCurrentIndex(i => Math.min(messages.length - 1, i + 1)), [messages.length]);
-const jumpToTop = useCallback(() => setCurrentIndex(0), []);
-const jumpToBottom = useCallback(() => setCurrentIndex(messages.length - 1), [messages.length]);
-```
-
-**All navigation is local state updates** - no async operations, instant response.
-
----
-
-## 14. Virtual "Current" Entry
-
-The UI adds a virtual entry representing "current state":
-
-```javascript
-// From chunks.185.mjs:1191-1196
-let filteredMessages = useMemo(() => [
-    ...messages.filter(isSelectableMessage),
-    { ...createEmptyMessage({ content: "" }), uuid: currentUuid }
-], [messages, currentUuid]);
-```
-
-**Why this entry:**
-1. Allows "Summarize from here" at the current position
-2. Allows "Restore code" without removing any messages
-3. User sees "current" as an option in the list
-
-**Rendering difference:**
-- Regular messages show timestamp and preview
-- Virtual "current" shows special indicator
-
----
-
-## 15. Complete Keyboard Event Flow
-
-This section documents the complete keyboard event handling from the keypress to the action.
-
-### 15.1 Keyboard Event Processing Pipeline
-
-```
-User presses key
-         │
-         ▼
-    Terminal input
-         │
-         ▼
-    Ink keybinding handler
-         │
-         ├─> Check active context
-         │     │
-         │     ├─> "MessageSelector" context → messageSelector:* actions
-         │     └─> "Confirmation" context → confirm:* actions
-         │
-         ├─> Check isActive condition
-         │     │
-         │     ├─> !isLoading && !errorMessage && !selectedMessage && hasMultipleMessages
-         │     │
-         │     └─> If false: ignore keypress
-         │
-         ▼
-    Dispatch action
-         │
-         ▼
-    Registered callback
-         │
-         ▼
-    State update (React re-render)
-```
-
-### 15.2 Action Registration Code
-
-**Location:** chunks.185.mjs:1329-1341
-
-```javascript
-// ============================================
-// Keybinding registration for message selector
-// Location: chunks.185.mjs:1329-1341
-// ============================================
-
-// ORIGINAL (for source lookup):
-D8("confirm:no", U, {
-    context: "Confirmation",
-    isActive: !W
-}), tA({
-    "messageSelector:up": r,
-    "messageSelector:down": e,
-    "messageSelector:top": Y6,
-    "messageSelector:bottom": H6,
-    "messageSelector:select": J6
-}, {
-    context: "MessageSelector",
-    isActive: !v && !O && !W && P
-});
-
-// READABLE (for understanding):
-// Cancel keybinding (Esc)
-registerAction("confirm:no", handleCancel, {
-    context: "Confirmation",
-    isActive: !selectedMessage  // Only when not in option menu
-});
-
-// Navigation keybindings
-useKeybindings({
-    "messageSelector:up": moveUp,
-    "messageSelector:down": moveDown,
-    "messageSelector:top": jumpToTop,
-    "messageSelector:bottom": jumpToBottom,
-    "messageSelector:select": selectCurrent
-}, {
-    context: "MessageSelector",
-    isActive: !isLoading && !errorMessage && !selectedMessage && hasMultipleMessages
-});
-
-// Mapping: D8→registerAction, tA→useKeybindings, U→handleCancel, r→moveUp,
-//          e→moveDown, Y6→jumpToTop, H6→jumpToBottom, J6→selectCurrent,
-//          v→isLoading, O→errorMessage, W→selectedMessage, P→hasMultipleMessages
-```
-
-### 15.3 Navigation State Machine
+## Summary: UI State Machine
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        MESSAGE SELECTOR STATES                       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   [IDLE] ────── Esc+Esc ──────> [MESSAGE_LIST_ACTIVE]               │
-│                                      │                               │
-│                                      │ ↑/↓/j/k                       │
-│                                      │ (updates currentIndex)        │
-│                                      ▼                               │
-│                               [SCROLLING]                            │
-│                                      │                               │
-│                                      │ Enter                         │
-│                                      ▼                               │
-│                           ┌──────────┴──────────┐                    │
-│                           │                     │                    │
-│                    [FAST_PATH_RESTORE]    [OPTION_MENU_ACTIVE]       │
-│                    (no file changes,      (show options)             │
-│                     single message)             │                    │
-│                           │                     │ ↑/↓                │
-│                           │                     ▼                    │
-│                           │              [SELECTING_OPTION]          │
-│                           │                     │                    │
-│                           │                     │ Enter              │
-│                           │                     ▼                    │
-│                           │           ┌────────┴────────┐            │
-│                           │           │                 │            │
-│                           │    [EXECUTING_RESTORE] [CANCELLED]       │
-│                           │           │                 │            │
-│                           └───────────┴─────────────────┘            │
-│                                       │                              │
-│                                       ▼                              │
-│                                  [CLOSED] ───> Return to IDLE         │
-│                                                                      │
+│                    REWIND UI STATE MACHINE                           │
 └─────────────────────────────────────────────────────────────────────┘
-```
 
-### 15.4 Fast-Path Decision Tree
+Initial State: Closed
 
-The fast-path optimization skips the option menu when the restore is trivial:
-
-```
-handleMessageSelection(message)
-         │
-         ├─> Checkpointing disabled?
-         │     │
-         │     └─> YES → Fast path: conversation restore only
-         │
-         ├─> Get dry-run diff stats
-         │     │
-         │     └─> filesChanged.length === 0?
-         │           │
-         │           └─> NO → Show option menu
-         │
-         ├─> Only one message after index?
-         │     │
-         │     └─> NO → Show option menu
-         │
-         └─> YES to both → Fast path: conversation restore only
-```
-
-**Code implementation:**
-
-```javascript
-// From handleMessageSelection at line 1263-1267
-let diffResult = getDryRunDiffStats(fileHistory, message.uuid);
-let noFileChanges = !diffResult?.filesChanged || diffResult.filesChanged.length === 0;
-let isSingleMessage = isOnlyOneMessageAfterIndex(messages, messageIndex);
-
-if (noFileChanges && isSingleMessage) {
-    await handleRestoreMessage(message);  // Fast path
-} else {
-    setSelectedMessage(message);          // Show option menu
-    setDiffStats(diffResult);
-}
+User triggers /rewind or Esc+Esc
+        │
+        ▼
+┌───────────────────────────────────┐
+│  State: MESSAGE_LIST              │
+│                                   │
+│  • Show scrollable message list   │
+│  • Highlighted index = last       │
+│  • Compute diff stats in bg       │
+│                                   │
+│  Keyboard:                        │
+│  • up/down: navigate list         │
+│  • enter: select message          │
+│  • esc: close                     │
+└───────────────────────────────────┘
+        │
+        │ User presses Enter
+        ▼
+┌───────────────────────────────────┐
+│  Check: Fast-path eligible?       │
+│                                   │
+│  • No code changes?               │
+│  • Only trivial messages after?   │
+└───────────────────────────────────┘
+        │
+   ┌────┴────┐
+   │         │
+   ▼         ▼
+  Yes        No
+   │         │
+   │         ▼
+   │  ┌───────────────────────────────────┐
+   │  │  State: OPTIONS_MENU              │
+   │  │                                   │
+   │  │  • Show restore options           │
+   │  │  • Diff stats preview             │
+   │  │  • Summarize input field          │
+   │  │                                   │
+   │  │  Keyboard:                        │
+   │  │  • up/down: navigate options      │
+   │  │  • enter: select option           │
+   │  │  • esc: back to message list      │
+   │  └───────────────────────────────────┘
+   │         │
+   │         │ User selects option
+   │         ▼
+   │  ┌───────────────────────────────────┐
+   │  │  State: LOADING                   │
+   │  │                                   │
+   │  │  • Show "Restoring..."            │
+   │  │  • Execute restore/summarize      │
+   │  │  • Handle errors                  │
+   │  └───────────────────────────────────┘
+   │         │
+   └─────────┤
+             │
+             ▼
+    ┌───────────────────────────────────┐
+    │  State: CLOSED                    │
+    │                                   │
+    │  • Call onClose callback          │
+    │  • Return to main conversation    │
+    └───────────────────────────────────┘
 ```
 
 ---
 
-## 16. Virtual "Current" Entry Deep-Dive
+## 9. Helper Functions from Other Modules
 
-The message list includes a virtual entry representing "current state" which deserves special attention.
+The rewind UI uses helper functions from `chunks.173.mjs` to filter and identify message types.
 
-### 16.1 Why a Virtual Entry?
+### isEmptyMessage (Hz6)
 
-The virtual "current" entry serves three purposes:
-
-1. **"Summarize from here" at current position** - Users can compact everything before now without selecting an old message
-2. **"Restore code" without removing messages** - Users can undo file changes but keep conversation
-3. **Clear visual indicator** - Shows where new messages will appear
-
-### 16.2 Virtual Entry Creation
-
-**Location:** chunks.185.mjs:1191-1196
+**Location:** chunks.173.mjs:1275-1277
 
 ```javascript
 // ============================================
-// Virtual "current" entry creation
-// Location: chunks.185.mjs:1191-1196
+// isEmptyMessage - Check if message has empty content
+// Location: chunks.173.mjs:1275-1277
 // ============================================
 
 // ORIGINAL (for source lookup):
-let J = XH.useMemo(() => [...A.filter(XV6), {
-    ...p1({
-        content: ""
-    }),
-    uuid: j
-}], [A, j])
+function Hz6(A) {
+    return A.type !== "progress" && A.type !== "attachment" && A.type !== "system" && Array.isArray(A.message.content) && A.message.content[0]?.type === "text" && TF6.has(A.message.content[0].text)
+}
 
 // READABLE (for understanding):
-let filteredMessages = useMemo(() => [
-    ...messages.filter(isSelectableMessage),  // All selectable user messages
-    {
-        ...createUserMessage({ content: "" }), // Empty user message
-        uuid: currentUuid                       // Generated UUID for "current"
-    }
-], [messages, currentUuid]);
+function isEmptyMessage(message) {
+    // Exclude non-content message types
+    if (message.type === "progress") return false;
+    if (message.type === "attachment") return false;
+    if (message.type === "system") return false;
 
-// Mapping: J→filteredMessages, A→messages, XV6→isSelectableMessage,
-//          p1→createUserMessage, j→currentUuid
-```
+    // Check if content is an array with a text block
+    if (!Array.isArray(message.message.content)) return false;
+    let firstBlock = message.message.content[0];
+    if (firstBlock?.type !== "text") return false;
 
-### 16.3 Special Handling for Virtual Entry
-
-The virtual entry is handled differently in several places:
-
-**1. Diff stats calculation:**
-```javascript
-// From line 1347-1351
-if (msg.uuid !== currentUuid) {  // Skip virtual entry
-    let snapshotExists = snapshotExistsForMessage(fileHistory, msg.uuid);
-    // ... calculate diff stats
+    // Check if text is in the known empty strings set
+    return EMPTY_MESSAGE_STRINGS.has(firstBlock.text);
 }
+
+// Mapping: Hz6→isEmptyMessage, A→message, TF6→EMPTY_MESSAGE_STRINGS
 ```
 
-**2. Message selection:**
+**What it does:** Identifies messages that have no meaningful content (empty text blocks).
+
+**How it works:**
+1. Excludes `progress`, `attachment`, and `system` type messages (they're not empty, just special)
+2. Checks if the first content block is text
+3. Checks if the text is in a predefined set of empty strings
+
+**Used by:** `isSelectableMessage` and `isOnlyOneMessageAfterIndex` to filter out empty messages.
+
+### isToolUseMessage (wl6)
+
+**Location:** chunks.173.mjs:1587-1589
+
 ```javascript
-// When selecting the virtual "current" entry:
-// - No conversation restore (no messages to remove)
-// - Code restore works normally
-// - Summarize works (summarizes everything)
+// ============================================
+// isToolUseMessage - Check if message is a tool_result
+// Location: chunks.173.mjs:1587-1589
+// ============================================
+
+// ORIGINAL (for source lookup):
+function wl6(A) {
+    return A.type === "user" && (Array.isArray(A.message.content) && A.message.content[0]?.type === "tool_result" || Boolean(A.toolUseResult))
+}
+
+// READABLE (for understanding):
+function isToolUseMessage(message) {
+    if (message.type !== "user") return false;
+
+    // Check if content array has tool_result as first element
+    if (Array.isArray(message.message.content) &&
+        message.message.content[0]?.type === "tool_result") {
+        return true;
+    }
+
+    // Or if it has a toolUseResult property
+    return Boolean(message.toolUseResult);
+}
+
+// Mapping: wl6→isToolUseMessage, A→message
 ```
 
-**3. Rendering:**
-The virtual entry is rendered with a special indicator to distinguish it from real messages.
+**What it does:** Identifies user messages that contain tool results (continuations of assistant responses).
+
+**Why this matters:**
+- Tool result messages are not independent user prompts
+- They're part of the previous assistant's tool use flow
+- Selecting them for rewind would be confusing (they're not real conversation turns)
+
+**Used by:** `isSelectableMessage` and `isOnlyOneMessageAfterIndex` to filter out tool result messages.
+
+### Yhq - isTextBlock
+
+**Location:** chunks.185.mjs:1175-1177
+
+```javascript
+// ============================================
+// isTextBlock - Check if content block is text type
+// Location: chunks.185.mjs:1175-1177
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Yhq(A) {
+    return A.type === "text"
+}
+
+// READABLE (for understanding):
+function isTextBlock(block) {
+    return block.type === "text";
+}
+
+// Mapping: Yhq→isTextBlock, A→block
+```
+
+**What it does:** Simple type guard for text content blocks.
+
+**Used by:** `isSelectableMessage` and `UserMessagePreview` to extract text from content blocks.
 
 ---
 
-## 17. Accessibility Considerations
-
-### 17.1 Screen Reader Support
-
-The message selector uses semantic rendering:
-- Each message is a selectable item
-- The highlighted item has focus indication
-- Status changes are announced
-
-### 17.2 Keyboard-Only Navigation
-
-All functionality is accessible via keyboard:
-- `↑/↓` or `j/k` for navigation
-- `Enter` for selection
-- `Esc` for cancel/back
-- `Shift+↑/↓` for jump to edge
-
-### 17.3 Visual Indicators
-
-The UI provides clear visual feedback:
-- Highlighted row has `▶` pointer
-- Diff stats show file change preview
-- Loading spinner during operations
-- Error messages in red
-
----
-
-## Related Symbols
+## 10. Related Symbols Summary
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Rewind module section
-> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI rendering
 
-Key UI components:
-- `RewindMessageSelector` (zs8) - chunks.185.mjs:1179 - Main React component
-- `generateRestoreOptions` (g) - chunks.185.mjs:1207 - Build restore option list
-- `handleMessageSelection` (b) - chunks.185.mjs:1248 - Process message selection
-- `handleRestoreOptionSelected` (p) - chunks.185.mjs:1269 - Dispatch restore/summarize
-- `isSelectableMessage` (XV6) - chunks.185.mjs:1692 - Filter for rewindable messages
-- `isOnlyOneMessageAfterIndex` (YI1) - chunks.185.mjs:1704 - Fast-path check
-- `getMessagesDiffStats` (KXz) - chunks.185.mjs:1659 - Compute diff stats for message range
-- `VISIBLE_MESSAGE_COUNT` (Ys8) - chunks.185.mjs:1730 - Constant: 7 (messages per page)
-
-Slash command handler:
-- `rewindCommandHandler` (zAz) - chunks.165.mjs:687 - Opens message selector, returns "skip"
-- `rewindCommandDefinition` (_Az) - chunks.165.mjs:699 - Command definition with aliases
-- `rewindCommandModule` (pXq) - chunks.165.mjs:685 - Lazy-loaded module container
-
-API handler:
-- `handleRewindRequest` (thq) - chunks.187.mjs:1271 - SDK/CLI endpoint for rewind
-
-Key file history functions:
-- `isFileCheckpointingEnabled` (iz) - chunks.135.mjs:1977 - Master guard
-- `getDryRunDiffStats` (eN1) - chunks.135.mjs:2107 - Preview diff stats
-- `snapshotExistsForMessage` (tN1) - chunks.135.mjs:2102 - Check snapshot existence
-- `hasChangesToRestore` (Wn4) - chunks.135.mjs:2114 - Check if files changed
+Key UI symbols in this document:
+- `RewindMessageSelector` (zs8) - Main component — chunks.185.mjs:1179-1469
+- `generateRestoreOptions` (g) - Build option list — chunks.185.mjs:1207-1235
+- `handleMessageSelection` (b) - Process selection — chunks.185.mjs:1248-1268
+- `handleRestoreOptionSelected` (p) - Dispatch action — chunks.185.mjs:1269-1312
+- `DiffStatsPreview` (qXz) - Preview display — chunks.185.mjs:1471-1518
+- `getMessagesDiffStats` (KXz) - Compute diff stats — chunks.185.mjs:1659-1690
+- `isSelectableMessage` (XV6) - Filter messages — chunks.185.mjs:1692-1702
+- `isOnlyOneMessageAfterIndex` (YI1) - Fast-path check — chunks.185.mjs:1704-1724
+- `isEmptyMessage` (Hz6) - Empty check — chunks.173.mjs:1275-1277
+- `isToolUseMessage` (wl6) - Tool result check — chunks.173.mjs:1587-1589
+- `isTextBlock` (Yhq) - Text block check — chunks.185.mjs:1175-1177
+- `VISIBLE_MESSAGE_COUNT` (Ys8) = 7 — chunks.185.mjs:1730
 
 ---
 
-## 17. State Management Integration
+## Version History
 
-### 17.1 React Store Access Pattern
-
-The RewindMessageSelector component accesses the FileHistory state through a Zustand-like store:
-
-```javascript
-// ============================================
-// Store access in RewindMessageSelector
-// Location: chunks.185.mjs:1187-1188
-// ============================================
-
-// ORIGINAL (for source lookup):
-let w = M1((z6) => z6.fileHistory),
-
-// READABLE (for understanding):
-let fileHistory = useStore((state) => state.fileHistory);
-
-// Mapping: w→fileHistory, M1→useStore, z6→state
-```
-
-**Why Zustand-like pattern:**
-1. **Selective re-render** - Only re-renders when `fileHistory` changes
-2. **No prop drilling** - Direct access to global state
-3. **Type safety** - TypeScript can infer state shape
-
-### 17.2 Functional State Updates
-
-All state updates use functional updates to ensure atomicity:
-
-```javascript
-// From trackFileEdit (R66) at chunks.135.mjs:1988-2014
-updateFileHistoryState((prevState) => {
-    // Compute newState from prevState
-    return {
-        ...prevState,
-        snapshots: [...prevState.snapshots.slice(0, -1), newSnapshot],
-        trackedFiles: new Set(prevState.trackedFiles).add(normalizedPath)
-    };
-});
-```
-
-**Why functional updates:**
-1. **Concurrency safety** - Multiple trackFileEdit calls can overlap safely
-2. **React batching** - Compatible with React's automatic batching
-3. **Undo/redo compatibility** - State history can be maintained
-
-### 17.3 State Shape for FileHistory
-
-```typescript
-interface FileHistoryState {
-    // Set of normalized file paths being tracked
-    trackedFiles: Set<string>;
-
-    // Array of message-level snapshots (max 100 in memory)
-    snapshots: Snapshot[];
-
-    // Monotonic counter incremented on each snapshot
-    // Used as React key for reconciliation
-    snapshotSequence: number;
-}
-
-interface Snapshot {
-    // UUID of the user message this snapshot is associated with
-    messageId: string;
-
-    // Map of normalized path → backup record
-    trackedFileBackups: {
-        [normalizedPath: string]: BackupRecord | null;
-    };
-
-    // When this snapshot was created
-    timestamp: Date;
-}
-
-interface BackupRecord {
-    // Filename in ~/.claude/file-history/{sessionId}/
-    // null means "file didn't exist at this point"
-    backupFileName: string | null;
-
-    // Version number (incremented each message the file changes)
-    version: number;
-
-    // When this backup was created
-    backupTime: Date;
-}
-```
-
-### 17.4 onPreRestore Callback Flow
-
-The `onPreRestore` callback is critical for clean state restoration:
-
-```javascript
-// ============================================
-// onPreRestore callback flow
-// Location: Passed from app component to RewindMessageSelector
-// ============================================
-
-// Called BEFORE any restore operation
-function onPreRestore() {
-    // 1. Abort any in-progress LLM stream
-    abortController.abort();
-
-    // 2. Clear tool permission queue
-    permissionQueue.clear();
-
-    // 3. Clear queued commands
-    commandQueue.clear();
-
-    // 4. Set UI state to indicate restoration in progress
-    setIsRestoring(true);
-}
-```
-
-**Why this order:**
-1. **LLM abort first** - Prevents race conditions with partial responses
-2. **Permission queue second** - No new permissions during restore
-3. **Command queue third** - No pending commands after restore
-4. **UI state last** - Visual feedback to user
-
-### 17.5 State Restoration Sequence
-
-When user selects "Restore code and conversation":
-
-```
-1. onPreRestore()
-   └─> Clear active operations
-
-2. onRestoreCode(message)
-   ├─> rewindHandler(message.uuid)
-   │   └─> rewindAndRestoreFiles(fileHistory, snapshot, dryRun=false)
-   │       ├─> For each tracked file:
-   │       │   ├─> Delete if backupFileName === null
-   │       │   └─> Restore from backup otherwise
-   │       └─> Return { filesChanged, insertions, deletions }
-   └─> File system is now at snapshot state
-
-3. onRestoreMessage(message)
-   ├─> Slice messages array at message index
-   │   └─> messages = messages.slice(0, messageIndex)
-   ├─> Restore auxiliary state:
-   │   ├─> Todos (from snapshot.savedTodos)
-   │   ├─> Permission mode (reset if changed)
-   │   └─> Prompt text (re-inject to input)
-   └─> Conversation is now at snapshot state
-
-4. onClose()
-   └─> Selector unmounts, return to normal input
-```
-
-### 17.6 React Reconciliation Optimization
-
-The `snapshotSequence` counter provides a stable key for React reconciliation:
-
-```javascript
-// When creating a new snapshot:
-newHistory = {
-    ...currentHistory,
-    snapshots: [...currentHistory.snapshots, newSnapshot],
-    snapshotSequence: (currentHistory.snapshotSequence ?? 0) + 1
-};
-
-// In UI components, used as dependency:
-useEffect(() => {
-    // Re-run when snapshots change
-    loadDiffStats();
-}, [fileHistory.snapshotSequence]);
-```
-
-**Why not use `snapshots.length`:**
-- `snapshots.length` can stay the same (old ones discarded)
-- `snapshotSequence` always increments
-- More reliable for detecting "something changed"
-
----
-
-## 18. Cross-Feature Integration Reference
-
-### Integration with System Reminder (04_system_reminder)
-
-| Component | Integration |
-|-----------|-------------|
-| Session persistence | `recordFileHistorySnapshot` writes to JSONL |
-| Session hydration | `hydrateFileHistoryFromSnapshots` restores state |
-| Session migration | `migrateFileHistoryToNewSession` copies backups |
-
-### Integration with Compact (07_compact)
-
-| Component | Integration |
-|-----------|-------------|
-| "Summarize from here" | Calls `performPartialCompaction` |
-| Boundary marker | `createCompactBoundary` creates system message |
-| Summary LLM call | `generateSummaryWithLLM` generates summary |
-
-### Integration with File Tools (05_tools)
-
-| Tool | Integration |
-|------|-------------|
-| Write | `trackFileEdit` called before write |
-| Edit | `trackFileEdit` called before edit |
-| NotebookEdit | `trackFileEdit` called before cell edit |
-
----
-
-## 19. See Also
-
-- [implementation.md](./implementation.md) - Core implementation details
-- [overview.md](./overview.md) - Feature overview and architecture
-- [../04_system_reminder/](../04_system_reminder/) - Session persistence
-- [../07_compact/](../07_compact/) - Compaction documentation
-- [../15_state_management/](../15_state_management/) - React state schema
-- [../00_overview/symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Symbol mappings
+| Version | Changes |
+|---------|---------|
+| v2.1.76 | Added Hz6/wl6 helper function documentation; Verified all symbol line numbers; Added Yhq documentation |

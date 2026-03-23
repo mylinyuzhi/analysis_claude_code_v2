@@ -150,120 +150,192 @@
 ## Module: LSP Integration
 
 > Full analysis: [27_lsp_integration/](../27_lsp_integration/)
+> **NOTE**: File locations corrected in v2.1.76 analysis. LSP core is in `chunks.138.mjs`, LSP Tool in `chunks.144.mjs`.
 
-### Core Layer (chunks.133.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| um4 | createLspProcessWrapper | chunks.133.mjs:1614 | function |
-| Fm4 | createLspClient | chunks.133.mjs:1785 | function |
-| HvY | loadPluginLspConfig | chunks.133.mjs:1980 | function |
-| GP6 | vscode_languageserver_protocol | chunks.133.mjs:881 | library |
-| Zm4 | vscode_jsonrpc | chunks.133.mjs:3 | library |
-| lm4 | LspServerManager | chunks.133.mjs:2172 | function |
-| dm4 | loadLspConfigs | chunks.133.mjs:2144 | function |
-| om4 | registerDiagnostics | chunks.133.mjs:2350 | function |
-| sm4 | checkDiagnosticsRegistry | chunks.133.mjs:2412 | function |
-| em4 | registerNotificationHandlers | chunks.133.mjs:2532 | function |
-| tm4 | clearPendingDiagnostics | chunks.133.mjs:2459 | function |
-| NP6 | clearDeliveredDiagnosticsForUri | chunks.133.mjs:2463 | function |
-| nm4 | LSP_MAX_DIAGNOSTICS_TOTAL | chunks.133.mjs:2469 | constant (30) |
-| VP6 | LSP_MAX_DIAGNOSTICS_PER_FILE | chunks.133.mjs:2467 | constant (10) |
-| WvY | convertDiagnosticUriToPath | chunks.133.mjs:2502 | function |
-| jvY | deduplicateDiagnostics | chunks.133.mjs:2388 | function |
-| OvY | expandPluginRootVar | chunks.133.mjs:2079 | function |
-| _vY | expandLspConfigVars | chunks.133.mjs:2083 | function |
-| JvY | namespacePluginServers | chunks.133.mjs:2114 | function |
-| Um4 | loadSinglePluginLspConfig | chunks.133.mjs:2127 | function |
-| $vY | resolvePluginLspServersField | chunks.133.mjs:2017 | function |
-| wvY | safePluginRelativePath | chunks.133.mjs:1972 | function |
-| qvY | CONTENT_MODIFIED_ERROR_CODE | chunks.133.mjs:1959 | constant (-32801) |
-| fkA | LSP_MAX_RETRIES | chunks.133.mjs:1961 | constant (3) |
-| KvY | LSP_RETRY_BASE_DELAY_MS | chunks.133.mjs:1963 | constant (500) |
-| VP6 | LSP_MAX_DIAGNOSTICS_PER_FILE | chunks.133.mjs:2467 | constant (10) |
-| nm4 | LSP_MAX_DIAGNOSTICS_TOTAL | chunks.133.mjs:2469 | constant (30) |
-| DvY | LSP_DIAGNOSTICS_LRU_SIZE | chunks.133.mjs:2471 | constant (500) |
-| cQ1 | pendingDiagnosticsMap | chunks.133.mjs:2473 | variable (Map) |
-| MW1 | deliveredDiagnosticsLru | chunks.133.mjs:2475 | variable (LRU Map) |
-| startupTimeout | startupTimeout | chunks.133.mjs | config key (LSP server startup timeout) |
-
-### LSP Helpers (chunks.144.mjs)
+### Core Layer (chunks.138.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| x1q | isDefinitionLink | chunks.144.mjs:111 | function (checks if LSP result has targetUri) |
-| KF8 | formatDefinitionNotFound | chunks.144.mjs:115 | function |
+| co4 | createLspProcessWrapper | chunks.138.mjs:218-379 | function (process spawning, stdio transport, queued handlers) |
+| no4 | createLspClient | chunks.138.mjs:389-563 | function (high-level client factory with retry logic) |
+| AyY | withTimeout | chunks.138.mjs:565-570 | function (timeout wrapper for LSP promises) |
+| Nl6 | loadPluginLspConfig | chunks.138.mjs:593-628 | function (load .lsp.json from plugin) |
+| zyY | resolvePluginLspServersField | chunks.138.mjs:630-690 | function (resolve manifest.lspServers field) |
+| _yY | expandLspConfigVars | chunks.138.mjs:692-722 | function (expand ${CLAUDE_PLUGIN_ROOT} and env vars) |
+| wyY | namespacePluginServers | chunks.138.mjs:724-735 | function (prefix server names with plugin:) |
+| YyY | safePluginRelativePath | chunks.138.mjs:585-591 | function (path traversal protection) |
+| ao4 | loadSinglePluginLspConfig | chunks.138.mjs:737-745 | function (load and namespace one plugin's config) |
+| so4 | loadLspConfigs | chunks.138.mjs:756-796 | function (aggregate configs from all plugins) |
+| eo4 | LspServerManager | chunks.138.mjs:806-969 | function (manager factory with file sync methods) |
 
-### Singleton Manager (chunks.133.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| KF4 | initializeLspServerManager | chunks.133.mjs:2641 | function |
-| YF4 | shutdownLspServerManager | chunks.133.mjs:2658 | function |
-| md | getLspManager | chunks.133.mjs:2615 | function |
-| W51 | getLspManagerStatus | chunks.133.mjs:2620 | function |
-| qF4 | waitForLspManager | chunks.133.mjs:2636 | function |
-| jI | lspManagerInstance | chunks.133.mjs:2669 | variable (singleton) |
-| ev | lspManagerState | chunks.133.mjs:2671 | variable ("not-started"\|"pending"\|"success"\|"failed") |
-| vP6 | lspManagerLastError | chunks.133.mjs:2673 | variable |
-| TP6 | lspInitGeneration | chunks.133.mjs:2675 | variable (number) |
-| EP6 | lspInitPromise | chunks.133.mjs:2677 | variable (Promise) |
-
-### LSP Tool (chunks.140.mjs)
+### Diagnostic System (chunks.138.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| vRA | LspTool | chunks.140.mjs:698 | object (tool) |
-| VRA | LSP_TOOL_NAME | chunks.140.mjs:226 | constant ("LSP") |
-| NRA | LSP_TOOL_DESCRIPTION | chunks.140.mjs:228 | constant (string) |
-| ECY | lspInputSchema | chunks.140.mjs:687 | variable (Zod lazy) |
-| kCY | lspOutputSchema | chunks.140.mjs:692 | variable (Zod lazy) |
-| Dd4 | lspInputSchemaStrict | chunks.140.mjs:732 | variable (referenced) |
-| LCY | buildLspRequestParams | chunks.140.mjs:454 | function |
-| yCY | formatLspResult | chunks.140.mjs:567 | function |
-| NCY | LspResultSummaryComponent | chunks.140.mjs:285 | component |
-| VCY | OPERATION_LABELS | chunks.140.mjs:413 | constant (object) |
-| Cd4 | renderLspToolUseMessage | chunks.140.mjs:347 | function |
-| Sd4 | renderLspToolUseRejectedMessage | chunks.140.mjs:366 | function |
-| hd4 | renderLspToolUseErrorMessage | chunks.140.mjs:370 | function |
-| Id4 | renderLspToolUseProgressMessage | chunks.140.mjs:382 | function |
-| xd4 | renderLspToolResultMessage | chunks.140.mjs:386 | function |
-| Ld4 | extractSymbolAtPosition | chunks.140.mjs:248 | function |
-| Zd4 | formatFindReferencesResult | chunks.140.mjs:3 | function |
-| fd4 | formatHoverResult | chunks.140.mjs:40 | function |
-| Nd4 | formatDocumentSymbolResult | chunks.140.mjs:96 | function |
-| fRA | formatWorkspaceSymbolResult | chunks.140.mjs:107 | function |
-| Vd4 | formatSymbolHierarchy | chunks.140.mjs:84 | function |
-| ZRA | formatGoToDefinitionResult | chunks.140.mjs:575 | function (referenced) |
-| ud4 | normalizeLocation | chunks.140.mjs:559 | function |
-| RCY | isLocationLink | chunks.140.mjs:555 | function |
-| cW1 | symbolKindToString | chunks.140.mjs:53 | function |
-| Td4 | formatCallHierarchyResult | chunks.140.mjs:629 | function (referenced) |
-| vd4 | formatIncomingCallsResult | chunks.140.mjs:635 | function (referenced) |
-| Ed4 | formatOutgoingCallsResult | chunks.140.mjs:187 | function |
-| Bd4 | countHierarchicalSymbols | chunks.140.mjs:544 | function |
-| CW6 | countUniqueFiles | chunks.140.mjs:551 | function |
-| CCY | countCallHierarchyFiles | chunks.140.mjs:654 | function |
-| SCY | countIncomingCallerFiles | chunks.140.mjs:659 | function |
-| hCY | countOutgoingCalleeFiles | chunks.140.mjs:664 | function |
-| vCY | pathToFileUrl | chunks.140.mjs:455 | function (referenced) |
-| TRA | nodePathModule | chunks.140.mjs:800 | variable (path module) |
-| TCY | readFileForLsp | chunks.140.mjs:796 | function (referenced) |
-| yd4 | getLspUserFacingName | chunks.140.mjs:343 | function |
+| Ya4 | registerDiagnostics | chunks.138.mjs:978-989 | function (buffer incoming publishDiagnostics) |
+| Ka4 | severityStringToInt | chunks.138.mjs:991-1004 | function ("Error"→1, "Warning"→2, etc.) |
+| za4 | hashDiagnostic | chunks.138.mjs:1006-1014 | function (SHA hash for deduplication) |
+| HyY | deduplicateDiagnostics | chunks.138.mjs:1016-1038 | function (two-level dedup: in-flight + delivered) |
+| _a4 | checkDiagnosticsRegistry | chunks.138.mjs:1040-1087 | function (fetch, dedup, volume-limit, clear pending) |
+| wa4 | clearPendingDiagnostics | chunks.138.mjs:1089-1091 | function (clear registry) |
+| Oa4 | resetAllDiagnosticsState | chunks.138.mjs:1093-1095 | function (clear both pending and delivered) |
+| pV1 | clearDeliveredDiagnosticsForUri | chunks.138.mjs:1097-1099 | function (clear delivered cache for file URI) |
+| JyY | severityIntToString | chunks.138.mjs:1121-1134 | function (1→"Error", 2→"Warning", 3→"Info", 4→"Hint") |
+| MyY | convertDiagnosticUriToPath | chunks.138.mjs:1136-1164 | function (file:// URI to file path) |
+| $a4 | registerNotificationHandlers | chunks.138.mjs:1166-1240 | function (wire publishDiagnostics handlers) |
+| luY | getLSPDiagnosticAttachments | chunks.147.mjs:800-820 | function (System Reminder attachment builder) |
 
-### Diagnostics Attachment (chunks.142.mjs)
+### Diagnostic Constants & State (chunks.138.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| WIY | getLSPDiagnosticAttachments | chunks.142.mjs:2473 | function |
+| FV1 | LSP_MAX_DIAGNOSTICS_PER_FILE | chunks.138.mjs:1101 | constant (10) |
+| qa4 | LSP_MAX_DIAGNOSTICS_TOTAL | chunks.138.mjs:1103 | constant (30) |
+| $yY | LSP_DIAGNOSTICS_LRU_SIZE | chunks.138.mjs:1105 | constant (500) |
+| Tl | pendingDiagnosticsMap | chunks.138.mjs:1107 | variable (Map) |
+| F66 | deliveredDiagnosticsLru | chunks.138.mjs:1109 | variable (LRU Map) |
+
+### Retry Constants (chunks.138.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tEY | CONTENT_MODIFIED_ERROR_CODE | chunks.138.mjs:572 | constant (-32801) |
+| Qm8 | LSP_MAX_RETRIES | chunks.138.mjs:574 | constant (3) |
+| eEY | LSP_RETRY_BASE_DELAY_MS | chunks.138.mjs:576 | constant (500) |
+
+### Singleton Manager (chunks.138.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vl | getLspManager | chunks.138.mjs:1249-1252 | function (singleton accessor) |
+| qT6 | getLspManagerStatus | chunks.138.mjs:1254-1268 | function (state query) |
+| ja4 | isLspEnabled | chunks.138.mjs:1270-1279 | function (check if any server is healthy) |
+| Ja4 | waitForLspManager | chunks.138.mjs:1281-1284 | function (wait for pending init) |
+| dm8 | initializeLspServerManager | chunks.138.mjs:1286-1301 | function (singleton init with generation counter) |
+| dV1 | reinitializeLspServerManager | chunks.138.mjs:1303-1309 | function (force reinit) |
+| Ma4 | shutdownLspServerManager | chunks.138.mjs:1311-1320 | function (clean shutdown) |
+| MN | lspManagerInstance | chunks.138.mjs:1322 | variable (singleton) |
+| IZ | lspManagerState | chunks.138.mjs:1324 | variable ("not-started"\|"pending"\|"success"\|"failed") |
+| kl6 | lspManagerLastError | chunks.138.mjs:1326 | variable |
+| QV1 | lspInitGeneration | chunks.138.mjs:1328 | variable (race condition guard) |
+| UV1 | lspInitPromise | chunks.138.mjs:1330 | variable (Promise) |
+
+### LSP Tool (chunks.144.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wF8 | LspTool | chunks.144.mjs:877-1051 | object (tool definition) |
+| Ai6 | LSP_TOOL_NAME | chunks.144.mjs:359 | constant ("LSP") |
+| zF8 | LSP_TOOL_DESCRIPTION | chunks.144.mjs:361-379 | constant (tool description string) |
+| C1q | lspInputSchemaLazy | chunks.144.mjs:5-61 | function (lazy Zod schema factory for all 9 LSP operations: goToDefinition, findReferences, hover, etc.) |
+| r1q | getLspUserFacingName | chunks.144.mjs:482-484 | function (returns "LSP") |
+| o1q | renderLspToolUseMessage | chunks.144.mjs:486-503 | function (progress display) |
+| a1q | renderLspToolUseRejectedMessage | chunks.144.mjs:505-507 | function (permission denied) |
+| s1q | renderLspToolUseErrorMessage | chunks.144.mjs:509-519 | function (error rendering) |
+| t1q | renderLspToolUseProgressMessage | chunks.144.mjs:521-523 | function (returns null) |
+| e1q | renderLspToolResultMessage | chunks.144.mjs:525-536 | function (result summary) |
+| JIY | LspResultSummaryComponent | chunks.144.mjs:424-480 | component (compact/verbose result display) |
+| jIY | OPERATION_LABELS | chunks.144.mjs:552-590 | constant (singular/plural labels map) |
+| i1q | extractSymbolAtPosition | chunks.144.mjs:381-414 | function (token extraction from file for progress display) |
+| l1q | SYMBOL_EXTRACTION_BUFFER_SIZE | chunks.144.mjs:416 | constant (65536 bytes) |
+| WIY | buildLspRequestParams | chunks.144.mjs:593-681 | function (build method/params for operation) |
+| fIY | formatLspResult | chunks.144.mjs:745-830 | function (format and count results) |
+| XIY | lspInputSchema | chunks.144.mjs:866-871 | variable (Zod lazy schema) |
+| PIY | lspOutputSchema | chunks.144.mjs:871-877 | variable (Zod lazy schema) |
+
+### LSP Result Formatters (chunks.144.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| el6 | formatUri | chunks.144.mjs:64-83 | function (URI → readable file path with relative path support) |
+| m1q | groupResultsByUri | chunks.144.mjs:85-95 | function (group LSP results by file URI) |
+| rk1 | formatLocationLine | chunks.144.mjs:97-102 | function (Location → "file:line:char" string) |
+| b1q | normalizeLocationLink | chunks.144.mjs:104-109 | function (LocationLink → Location) |
+| x1q | isLocationLink | chunks.144.mjs:111-113 | function (check if targetUri exists) |
+| KF8 | formatGoToDefinitionResult | chunks.144.mjs:115-133 | function (format definition locations) |
+| B1q | formatFindReferencesResult | chunks.144.mjs:135-158 | function (format references grouped by file) |
+| HIY | formatHoverContents | chunks.144.mjs:160-170 | function (extract text from MarkupContent/string) |
+| g1q | formatHoverResult | chunks.144.mjs:172-183 | function (format hover info with position) |
+| ET6 | symbolKindToString | chunks.144.mjs:185-214 | function (LSP SymbolKind enum → human name) |
+| F1q | formatDocumentSymbol | chunks.144.mjs:216-226 | function (format hierarchical symbol with children) |
+| p1q | formatDocumentSymbolResult | chunks.144.mjs:228-236 | function (format document symbols outline) |
+| YF8 | formatWorkspaceSymbolResult | chunks.144.mjs:238-261 | function (format workspace symbols grouped by file) |
+| u1q | formatCallHierarchyItem | chunks.144.mjs:263-273 | function (format single call hierarchy item) |
+| Q1q | formatPrepareCallHierarchyResult | chunks.144.mjs:275-282 | function (format call hierarchy items) |
+| U1q | formatIncomingCallsResult | chunks.144.mjs:284-317 | function (format callers grouped by file) |
+| d1q | formatOutgoingCallsResult | chunks.144.mjs:319-352 | function (format callees grouped by file) |
+
+### LSP Utility Functions (chunks.144.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| K8q | countHierarchicalSymbols | chunks.144.mjs:683-688 | function (recursive symbol count) |
+| ok1 | countUniqueFiles | chunks.144.mjs:690-692 | function (unique URI count) |
+| ZIY | fileUriToPath | chunks.144.mjs:694-701 | function (decode file:// URI) |
+| q8q | filterGitIgnoredFiles | chunks.144.mjs:703-731 | function (git check-ignore filter) |
+| GIY | isDefinitionLink | chunks.144.mjs:733-735 | function (check if LocationLink) |
+| ak1 | normalizeLocation | chunks.144.mjs:737-743 | function (LocationLink → Location) |
+| TIY | countCallHierarchyFiles | chunks.144.mjs:832-835 | function |
+| vIY | countIncomingCallerFiles | chunks.144.mjs:837-840 | function |
+| NIY | countOutgoingCalleeFiles | chunks.144.mjs:842-845 | function |
 
 ### LSP Config Schema (chunks.15.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ew1 | lspServerConfigSchema | chunks.15.mjs:274 | object (Zod strictObject) |
-| ZOK | fileExtensionSchema | chunks.15.mjs:272 | variable (Zod string) |
-| fOK | pluginLspServersSchema | chunks.15.mjs:295 | object (Zod) |
+| DJ6 | lspServerConfigSchema | chunks.15.mjs:274 | object (Zod strictObject) |
+
+### LSP Utility Functions (chunks.138.mjs, chunks.144.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kT | LRUCache | chunks.138.mjs:1116 | class (LRU cache for F66) |
+| B6 | hashObject | chunks.138.mjs:1007 | function (SHA256 hash for diagnostic deduplication) |
+| jyY | fileUriToPath | chunks.138.mjs:1139 | function (convert file:// URI to path, used in MyY) |
+| Vl6 | pathToFileUrl | chunks.138.mjs:881 | function (convert path to file:// URI, used in manager) |
+| DIY | pathToFileUrl | chunks.144.mjs:594 | function (convert path to file:// URI, used in WIY) |
+| $IY | relativePath | chunks.144.mjs:79 | function (compute relative path for display) |
+| OyY | generateDiagnosticId | chunks.138.mjs:982 | function (generate unique ID for diagnostic registration) |
+| $1 | getFileSystem | chunks.144.mjs:383 | function (fs accessor for file operations) |
+| L4 | resolvePath | chunks.144.mjs:384 | function (path.resolve wrapper) |
+| RA | runCommand | chunks.144.mjs:714 | function (spawn command with timeout and cwd) |
+| MIY | readFile | cli.chunks.mjs:5648 | function (fs.promises.readFile for file content) |
+| _F8 | path | chunks.144.mjs:981 | module (Node.js path module, used for extname) |
+
+### LSP UI Integration (chunks.195.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ITz | LSP_ERROR_POLL_INTERVAL | chunks.195.mjs:203 | constant (5000ms) |
+| useLspErrorNotifications | useLspErrorNotifications | chunks.195.mjs:155-194 | hook (React hook for polling LSP errors) |
+| OX | useInterval | chunks.195.mjs:174-192 | hook (polling with null-for-disable pattern) |
+| o4 | useNotifications | chunks.195.mjs:180 | hook (toast notification dispatcher) |
+| t4 | isHeadlessMode | chunks.195.mjs:175 | function (SDK mode guard check) |
+| M1 | useAppState | chunks.195.mjs:397 | hook (Zustand state selector) |
+| Uu1 | hasShownRecommendationThisSession | chunks.195.mjs:393 | variable (session flag for recommendations) |
+
+### LSP Plugin Recommendations (chunks.195.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kBq | checkBinaryAvailable | chunks.195.mjs:217-225 | function (check if command/binary exists in PATH) |
+| mTz | isOfficialMarketplace | chunks.195.mjs:235-237 | function (check if marketplace is official) |
+| BTz | parseLspServersConfig | chunks.195.mjs:239-251 | function (parse lspServers field from plugin) |
+| LBq | extractLspServerInfo | chunks.195.mjs:257-272 | function (extract extensions and command from config) |
+| gTz | getAllLspPlugins | chunks.195.mjs:274-301 | function (fetch all LSP plugins from all marketplaces) |
+| IBq | useLspPluginRecommendation | chunks.195.mjs:392-474 | hook (React hook for LSP plugin recommendations) |
+| RBq | getLspPluginRecommendations | chunks.195.mjs:303-353 | function (find matching LSP plugins from marketplace) |
+| hBq | ignoreLspRecommendation | chunks.195.mjs:355-363 | function (add plugin to never-suggest list) |
+| SBq | dismissLspRecommendation | chunks.195.mjs:366-373 | function (increment ignored count) |
+| FTz | isLspRecommendationDisabled | chunks.195.mjs:376-379 | function (check if recommendations disabled) |
+| lTz | installLspPlugin | chunks.195.mjs:488-519 | function (install plugin from marketplace) |
+| uBq | LspPluginRecommendationPrompt | chunks.195.mjs:544-611 | component (recommendation UI prompt) |
+| cTz | selectTrackedFiles | chunks.195.mjs:484-486 | selector (fileHistory.trackedFiles) |
+| uTz | MAX_IGNORE_COUNT | chunks.195.mjs:381 | constant (5) |
+| UTz | RECOMMENDATION_TIMEOUT_MS | chunks.195.mjs:523 | constant (28000) |
+| iTz | RECOMMENDATION_AUTO_DISMISS_MS | chunks.195.mjs:615 | constant (30000) |
+| dTz | disableAllLspRecommendations | chunks.195.mjs:476-481 | function (settings update for disable) |
+| VBq | binaryCheckCache | chunks.195.mjs:227 | variable (Map cache for binary checks) |
 
 ---
 

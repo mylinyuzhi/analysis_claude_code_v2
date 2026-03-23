@@ -36,10 +36,10 @@ Key functions in this document:
 - `InternalApp` (v26) - Main TUI component managing input lifecycle
 - `handleReadable` (method) - Stdin read event handler
 - `processInput` (method) - Main input processing dispatcher
-- `resolveKeystroke` (tK6) - Keybinding matcher
-- `eventToKeystroke` (sN5) - Converts DOM event to keystroke
+- `resolveKeystroke` (Z$1) - Keybinding matcher
+- `eventToKeystroke` (Hl3) - Converts DOM event to keystroke
 - `extractKeyName` (v77) - Key name normalization
-- `KeybindingHandler` (x6Y) - Event listener component
+- `KeybindingHandler` (N4Y) - Event listener component
 
 ---
 
@@ -208,7 +208,7 @@ handleInput = (rawInput) => {
 
 ## Stage 6: Keybinding Matching
 
-**Location**: KeybindingHandler (x6Y) → resolveKeystroke (tK6)
+**Location**: KeybindingHandler (N4Y) → resolveKeystroke (Z$1)
 
 **Context building**: Before calling `resolveKeystroke`, the handler collects all active contexts:
 
@@ -239,7 +239,7 @@ let allContexts = [...contextSet, ...activeContexts, "Global"];
 
 ## Stage 7: Action Execution
 
-**Location**: KeybindingHandler (x6Y), handler registry lookup
+**Location**: KeybindingHandler (N4Y), handler registry lookup
 
 **Dispatch algorithm**:
 1. Look up action name in `handlerRegistry.get(actionName)`
@@ -280,7 +280,7 @@ Terminal Keypress (e.g., Ctrl+K)
   Otherwise → pass to keybinding handler
          |
          v
-[Stage 6: Keybinding Matching (x6Y → tK6)]
+[Stage 6: Keybinding Matching (N4Y → Z$1)]
   activeContexts: ["Chat", "Global"]
   isPrefixMatch([ctrl+k], {chord:[ctrl+k,ctrl+c]}) → true
   → { type: "chord_started", pending: [ctrl+k] }
@@ -332,4 +332,4 @@ Terminal Keypress (e.g., Ctrl+K)
 5. **Paste protection**: Bracket paste mode prevents key-by-key processing of pasted text
 6. **Tab is reserved**: Focus system consumes Tab/Shift+Tab before keybinding handler
 
-**Last Updated**: 2026-03-15 (Claude Code v2.1.76)
+**Last Updated**: 2026-03-23 (Claude Code v2.1.76)

@@ -4,11 +4,7 @@
 
 Claude Code v2.1.76 implements a **polyglot LSP client** that delegates language intelligence to external Language Server Protocol servers. Rather than bundling its own static analysis engines, the system spawns standard LSP servers (TypeScript, Go, Python, Rust, etc.) and acts as their client — giving Claude IDE-level intelligence about the codebase it is working in.
 
-All LSP logic is bundled in `chunks.133.mjs`, which includes vendored copies of:
-- `vscode-jsonrpc` (Zm4) — JSON-RPC 2.0 transport over streams
-- `vscode-languageserver-protocol` (GP6) — LSP protocol type definitions
-
-The tool surface is defined in `chunks.140.mjs` (the LSP Tool object), and the system prompt injection of diagnostics is handled in `chunks.142.mjs`.
+All LSP logic is in **`chunks.138.mjs`**, and the LSP Tool surface is defined in **`chunks.144.mjs`**.
 
 ## Related Symbols
 
@@ -16,1039 +12,2048 @@ The tool surface is defined in `chunks.140.mjs` (the LSP Tool object), and the s
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integration infrastructure
 
 Key functions in this document:
-- `createLspProcessWrapper` (um4) - Low-level stdio transport, process lifecycle, queued handlers
-- `createLspClient` (Fm4) - High-level server instance: init, restart, request retry
-- `LspServerManager` (lm4) - Polyglot coordinator: extension→server routing, file sync
-- `loadLspConfigs` (dm4) - Aggregates plugin-provided LSP configs
-- `loadPluginLspConfig` (HvY) - Reads `.lsp.json` from a single plugin
-- `registerDiagnostics` (om4) - Buffers incoming `publishDiagnostics` notifications
-- `checkDiagnosticsRegistry` (sm4) - Deduplicates, volume-limits, delivers diagnostics
-- `registerNotificationHandlers` (em4) - Wires up async diagnostic listeners on all servers
-- `initializeLspServerManager` (KF4) - Singleton init with generation counter
-- `shutdownLspServerManager` (YF4) - Graceful teardown
-- `getLspManager` (md) - Singleton accessor used by tools
-- `getLspManagerStatus` (W51) - Status check (`not-started`/`pending`/`success`/`failed`)
-- `waitForLspManager` (qF4) - Awaitable pending state
-- `LspTool` (vRA) - The agent-facing tool object (`chunks.140.mjs`)
-- `buildLspRequestParams` (LCY) - Maps operation name → JSON-RPC method + params
-- `formatLspResult` (yCY) - Formats raw LSP response into human-readable string
-- `getLSPDiagnosticAttachments` (WIY) - Injects diagnostics into system prompt
+- `createLspProcessWrapper` (co4) - Low-level stdio transport, process lifecycle
+- `createLspClient` (no4) - High-level server instance: init, restart, request retry
+- `LspServerManager` (eo4) - Polyglot coordinator: extension→server routing, file sync
+- `loadLspConfigs` (so4) - Aggregates plugin-provided LSP configs
+- `loadPluginLspConfig` (Nl6) - Reads `.lsp.json` from a single plugin
+- `registerDiagnostics` (Ya4) - Buffers incoming `publishDiagnostics` notifications
+- `checkDiagnosticsRegistry` (_a4) - Deduplicates, volume-limits, delivers diagnostics
+- `registerNotificationHandlers` ($a4) - Wires up async diagnostic listeners on all servers
+- `initializeLspServerManager` (dm8) - Singleton init with generation counter
 
 ---
 
-## Architecture Overview
+## 1. LSP Process Wrapper
 
-```
-Plugin manifest (.lsp.json / lspServers field)
-           │
-           ▼
-   loadLspConfigs (dm4)
-           │ collects all server configs
-           ▼
-   LspServerManager (lm4)
-   ┌────────────────────────────────────┐
-   │  Map<serverName, LspClient(Fm4)>  │
-   │  Map<extension, serverName[]>      │  ← extension routing
-   │  Map<fileUri, serverName>          │  ← open files registry
-   └────────────────────────────────────┘
-           │
-           ▼ (per-server)
-   createLspClient / LspServerInstance (Fm4)
-           │
-           ▼
-   createLspProcessWrapper (um4)
-           │ spawns child process
-           ▼
-   [LSP Server Process]  ←──── stdio (JSON-RPC) ────────►  vscode-jsonrpc (Zm4)
-   (tsserver, gopls, ...)
-```
+### Process Lifecycle Management
 
----
-
-## Layer 1: Low-Level Process Wrapper (um4)
-
-### createLspProcessWrapper
-
-**What it does:** Wraps a spawned child process into an async JSON-RPC channel. Handles queued notification/request handlers that register before the process is ready.
-
-**How it works:**
+The `createLspProcessWrapper` (co4) function creates a low-level wrapper around the LSP server process. It handles:
+- Process spawning via Node.js `spawn`
+- Stdio transport (stdin/stdout pipes)
+- Error handling and connection state
+- Queued handlers for notifications and requests
 
 ```javascript
 // ============================================
-// createLspProcessWrapper - Stdio-based LSP process manager
-// Location: chunks.133.mjs:1614-1775
+// createLspProcessWrapper - Low-level LSP process and transport
+// Location: chunks.138.mjs:218-379
 // ============================================
 
-// ORIGINAL (for source lookup):
-function um4(A) {
+// ORIGINAL:
+function co4(A) {
     let q, K, Y, z = !1,
-        w = !1,
-        H, $ = !1,
-        O = [],  // pendingNotificationHandlers
-        _ = [];  // pendingRequestHandlers
+        _ = !1,
+        w, O = !1,
+        $ = [],
+        H = [];
 
-    function J() {
-        if (w) throw H || Error(`LSP server ${A} failed to start`)
+    function j() {
+        if (_) throw w || Error(`LSP server ${A} failed to start`)
     }
     return {
-        get capabilities() { return Y },
-        get isInitialized() { return z },
-        async start(X, D, j) { /* ... */ },
-        async initialize(X) { /* ... */ },
-        async sendRequest(X, D) { /* ... */ },
-        async sendNotification(X, D) { /* ... */ },
-        onNotification(X, D) { /* registers or queues */ },
-        onRequest(X, D) { /* registers or queues */ },
-        async stop() { /* ... */ }
+        get capabilities() {
+            return Y
+        },
+        get isInitialized() {
+            return z
+        },
+        async start(J, M, D) {
+            try {
+                if (q = aEY(J, M, {
+                        stdio: ["pipe", "pipe", "pipe"],
+                        env: D?.env ? {
+                            ...globalThis.process.env,
+                            ...D.env
+                        } : void 0,
+                        cwd: D?.cwd,
+                        windowsHide: !0
+                    }), !q.stdout || !q.stdin) throw Error("LSP server process stdio not available");
+                let X = q;
+                if (await new Promise((Z, G) => {
+                        let f = () => {
+                                N(), Z()
+                            },
+                            v = (V) => {
+                                N(), G(V)
+                            },
+                            N = () => {
+                                X.removeListener("spawn", f), X.removeListener("error", v)
+                            };
+                        X.once("spawn", f), X.once("error", v)
+                    }), q.stderr) q.stderr.on("data", (Z) => {
+                    let G = Z.toString().trim();
+                    if (G) k(`[LSP SERVER ${A}] ${G}`)
+                });
+                q.on("error", (Z) => {
+                    if (!O) _ = !0, w = Z, _6(Error(`LSP server ${A} failed to start: ${Z.message}`))
+                }), q.on("exit", (Z, G) => {
+                    if (Z !== 0 && Z !== null && !O) z = !1, _ = !1, w = void 0, _6(Error(`LSP server ${A} crashed with exit code ${Z}`))
+                }), q.stdin.on("error", (Z) => {
+                    if (!O) k(`LSP server ${A} stdin error: ${Z.message}`)
+                });
+                let P = new g66.StreamMessageReader(q.stdout),
+                    W = new g66.StreamMessageWriter(q.stdin);
+                K = g66.createMessageConnection(P, W), K.onError(([Z, G, f]) => {
+                    if (!O) _ = !0, w = Z, _6(Error(`LSP server ${A} connection error: ${Z.message}`))
+                }), K.onClose(() => {
+                    if (!O) z = !1, k(`LSP server ${A} connection closed`)
+                }), K.listen(), K.trace(g66.Trace.Verbose, {
+                    log: (Z) => {
+                        k(`[LSP PROTOCOL ${A}] ${Z}`)
+                    }
+                }).catch((Z) => {
+                    k(`Failed to enable tracing for ${A}: ${Z.message}`)
+                });
+                for (let {
+                        method: Z,
+                        handler: G
+                    }
+                    of $) K.onNotification(Z, G), k(`Applied queued notification handler for ${A}.${Z}`);
+                $.length = 0;
+                for (let {
+                        method: Z,
+                        handler: G
+                    }
+                    of H) K.onRequest(Z, G), k(`Applied queued request handler for ${A}.${Z}`);
+                H.length = 0, k(`LSP client started for ${A}`)
+            } catch (X) {
+                throw _6(Error(`LSP server ${A} failed to start: ${X.message}`)), X
+            }
+        },
+        async initialize(J) {
+            if (!K) throw Error("LSP client not started");
+            j();
+            try {
+                let M = await K.sendRequest("initialize", J);
+                return Y = M.capabilities, await K.sendNotification("initialized", {}), z = !0, k(`LSP server ${A} initialized`), M
+            } catch (M) {
+                throw _6(Error(`LSP server ${A} initialize failed: ${M.message}`)), M
+            }
+        },
+        async sendRequest(J, M) {
+            if (!K) throw Error("LSP client not started");
+            if (j(), !z) throw Error("LSP server not initialized");
+            try {
+                return await K.sendRequest(J, M)
+            } catch (D) {
+                throw _6(Error(`LSP server ${A} request ${J} failed: ${D.message}`)), D
+            }
+        },
+        async sendNotification(J, M) {
+            if (!K) throw Error("LSP client not started");
+            j();
+            try {
+                await K.sendNotification(J, M)
+            } catch (D) {
+                _6(Error(`LSP server ${A} notification ${J} failed: ${D.message}`)), k(`Notification ${J} failed but continuing`)
+            }
+        },
+        onNotification(J, M) {
+            if (!K) {
+                $.push({
+                    method: J,
+                    handler: M
+                }), k(`Queued notification handler for ${A}.${J} (connection not ready)`);
+                return
+            }
+            j(), K.onNotification(J, M)
+        },
+        onRequest(J, M) {
+            if (!K) {
+                H.push({
+                    method: J,
+                    handler: M
+                }), k(`Queued request handler for ${A}.${J} (connection not ready)`);
+                return
+            }
+            j(), K.onRequest(J, M)
+        },
+        async stop() {
+            let J;
+            O = !0;
+            try {
+                if (K) await K.sendRequest("shutdown", {}), await K.sendNotification("exit", {})
+            } catch (M) {
+                let D = M;
+                _6(Error(`LSP server ${A} stop failed: ${D.message}`)), J = D
+            } finally {
+                if (K) {
+                    try {
+                        K.dispose()
+                    } catch (M) {
+                        k(`Connection disposal failed for ${A}: ${M.message}`)
+                    }
+                    K = void 0
+                }
+                if (q) {
+                    if (q.removeAllListeners("error"), q.removeAllListeners("exit"), q.stdin) q.stdin.removeAllListeners("error");
+                    if (q.stderr) q.stderr.removeAllListeners("data");
+                    try {
+                        q.kill()
+                    } catch (M) {
+                        k(`Process kill failed for ${A} (may already be dead): ${M.message}`)
+                    }
+                    q = void 0
+                }
+                if (z = !1, Y = void 0, O = !1, J) _ = !0, w = J;
+                k(`LSP client stopped for ${A}`)
+            }
+            if (J) throw J
+        }
     }
-}
-
-// READABLE (for understanding):
-function createLspProcessWrapper(serverName) {
-    let childProcess,          // q: spawned Node.js ChildProcess
-        connection,            // K: vscode-jsonrpc MessageConnection
-        capabilities,          // Y: negotiated server capabilities
-        isInitialized = false, // z: has 'initialized' ack been sent?
-        hasFailed = false,     // w: process crashed/errored?
-        lastError,             // H: last error object
-        isStopping = false,    // $: graceful stop in progress
-        pendingNotifHandlers = [], // O: queued before connection ready
-        pendingReqHandlers = [];   // _: queued before connection ready
-
-    function assertNotFailed() {
-        if (hasFailed) throw lastError || Error(`LSP server ${serverName} failed to start`);
-    }
-    // ...
-}
-
-// Mapping: um4→createLspProcessWrapper, A→serverName, q→childProcess,
-//          K→connection, Y→capabilities, z→isInitialized, w→hasFailed,
-//          H→lastError, $→isStopping, O→pendingNotifHandlers, _→pendingReqHandlers
-```
-
-### Startup Sequence (start method)
-
-**How it works:**
-1. Spawn child process with `stdio: ["pipe","pipe","pipe"]` and `windowsHide: true`
-2. Wait for `spawn` event via Promise — gates on actual process startup, not just command launch
-3. Attach stderr listener → logs `[LSP SERVER ${name}] ...` lines from the server
-4. Attach `error` / `exit` event handlers for crash detection
-5. Create `StreamMessageReader(stdout)` + `StreamMessageWriter(stdin)` via vscode-jsonrpc
-6. Create `MessageConnection` from reader/writer, enable verbose tracing to internal log
-7. Flush queued notification/request handlers (registered before connection was ready)
-
-**Why the spawn-event gate matters:** Node.js's `spawn()` returns before the process is running. Without waiting for `spawn`, you might try to send JSON-RPC before the pipe is writable, producing silent drops. The Promise wrapper ensures initialization is sequential.
-
-**Handler queuing design:** When `onNotification()` is called before `start()` completes (e.g., to register `publishDiagnostics` handlers immediately after creating the client), handlers are buffered in `O` / `_` arrays and replayed once the connection is ready. This prevents a race condition where diagnostics arrive before handlers are registered.
-
-### Initialize Method
-
-```javascript
-// ORIGINAL:
-async initialize(X) {
-    if (!K) throw Error("LSP client not started");
-    J(); // assertNotFailed
-    try {
-        let D = await K.sendRequest("initialize", X);
-        return Y = D.capabilities, await K.sendNotification("initialized", {}), z = !0, ...D
-    } catch (D) { throw K1(Error(...)), D }
 }
 
 // READABLE:
-async initialize(initParams) {
-    const result = await connection.sendRequest("initialize", initParams);
-    capabilities = result.capabilities;           // store negotiated caps
-    await connection.sendNotification("initialized", {});  // LSP handshake
-    isInitialized = true;
-    return result;
+function createLspProcessWrapper(serverName) {
+    let process;              // q - child process
+    let connection;           // K - JSON-RPC message connection
+    let capabilities;         // Y - server capabilities from initialize
+    let isInitialized = false; // z
+    let hasFailed = false;    // _
+    let lastError;            // w
+    let isShuttingDown = false; // O
+    let queuedNotificationHandlers = []; // $
+    let queuedRequestHandlers = [];      // H
+
+    function checkFailed() {
+        if (hasFailed) throw lastError || Error(`LSP server ${serverName} failed to start`);
+    }
+
+    return {
+        get capabilities() { return capabilities; },
+        get isInitialized() { return isInitialized; },
+
+        async start(command, args, options) {
+            try {
+                // Spawn process with stdio pipes
+                process = spawn(command, args, {
+                    stdio: ["pipe", "pipe", "pipe"],
+                    env: options?.env ? { ...process.env, ...options.env } : undefined,
+                    cwd: options?.cwd,
+                    windowsHide: true
+                });
+
+                if (!process.stdout || !process.stdin) {
+                    throw Error("LSP server process stdio not available");
+                }
+
+                // Wait for spawn event
+                await new Promise((resolve, reject) => {
+                    const onSpawn = () => { cleanup(); resolve(); };
+                    const onError = (err) => { cleanup(); reject(err); };
+                    const cleanup = () => {
+                        process.removeListener("spawn", onSpawn);
+                        process.removeListener("error", onError);
+                    };
+                    process.once("spawn", onSpawn);
+                    process.once("error", onError);
+                });
+
+                // Handle stderr output (server logs)
+                if (process.stderr) {
+                    process.stderr.on("data", (data) => {
+                        const msg = data.toString().trim();
+                        if (msg) log(`[LSP SERVER ${serverName}] ${msg}`);
+                    });
+                }
+
+                // Handle process errors
+                process.on("error", (err) => {
+                    if (!isShuttingDown) {
+                        hasFailed = true;
+                        lastError = err;
+                        logError(Error(`LSP server ${serverName} failed to start: ${err.message}`));
+                    }
+                });
+
+                // Handle process exit
+                process.on("exit", (code, signal) => {
+                    if (code !== 0 && code !== null && !isShuttingDown) {
+                        isInitialized = false;
+                        hasFailed = false;
+                        lastError = undefined;
+                        logError(Error(`LSP server ${serverName} crashed with exit code ${code}`));
+                    }
+                });
+
+                // Handle stdin errors
+                process.stdin.on("error", (err) => {
+                    if (!isShuttingDown) {
+                        log(`LSP server ${serverName} stdin error: ${err.message}`);
+                    }
+                });
+
+                // Create JSON-RPC connection over stdio
+                const reader = new StreamMessageReader(process.stdout);
+                const writer = new StreamMessageWriter(process.stdin);
+                connection = createMessageConnection(reader, writer);
+
+                connection.onError(([err]) => {
+                    if (!isShuttingDown) {
+                        hasFailed = true;
+                        lastError = err;
+                        logError(Error(`LSP server ${serverName} connection error: ${err.message}`));
+                    }
+                });
+
+                connection.onClose(() => {
+                    if (!isShuttingDown) {
+                        isInitialized = false;
+                        log(`LSP server ${serverName} connection closed`);
+                    }
+                });
+
+                connection.listen();
+
+                // Enable verbose tracing
+                connection.trace(Trace.Verbose, {
+                    log: (msg) => log(`[LSP PROTOCOL ${serverName}] ${msg}`)
+                }).catch((err) => {
+                    log(`Failed to enable tracing for ${serverName}: ${err.message}`);
+                });
+
+                // Apply queued handlers
+                for (const { method, handler } of queuedNotificationHandlers) {
+                    connection.onNotification(method, handler);
+                    log(`Applied queued notification handler for ${serverName}.${method}`);
+                }
+                queuedNotificationHandlers.length = 0;
+
+                for (const { method, handler } of queuedRequestHandlers) {
+                    connection.onRequest(method, handler);
+                    log(`Applied queued request handler for ${serverName}.${method}`);
+                }
+                queuedRequestHandlers.length = 0;
+
+                log(`LSP client started for ${serverName}`);
+            } catch (err) {
+                logError(Error(`LSP server ${serverName} failed to start: ${err.message}`));
+                throw err;
+            }
+        },
+
+        async initialize(params) {
+            if (!connection) throw Error("LSP client not started");
+            checkFailed();
+            try {
+                const result = await connection.sendRequest("initialize", params);
+                capabilities = result.capabilities;
+                await connection.sendNotification("initialized", {});
+                isInitialized = true;
+                log(`LSP server ${serverName} initialized`);
+                return result;
+            } catch (err) {
+                logError(Error(`LSP server ${serverName} initialize failed: ${err.message}`));
+                throw err;
+            }
+        },
+
+        async sendRequest(method, params) {
+            if (!connection) throw Error("LSP client not started");
+            checkFailed();
+            if (!isInitialized) throw Error("LSP server not initialized");
+            try {
+                return await connection.sendRequest(method, params);
+            } catch (err) {
+                logError(Error(`LSP server ${serverName} request ${method} failed: ${err.message}`));
+                throw err;
+            }
+        },
+
+        async sendNotification(method, params) {
+            if (!connection) throw Error("LSP client not started");
+            checkFailed();
+            try {
+                await connection.sendNotification(method, params);
+            } catch (err) {
+                logError(Error(`LSP server ${serverName} notification ${method} failed: ${err.message}`));
+                log(`Notification ${method} failed but continuing`);
+            }
+        },
+
+        onNotification(method, handler) {
+            if (!connection) {
+                queuedNotificationHandlers.push({ method, handler });
+                log(`Queued notification handler for ${serverName}.${method} (connection not ready)`);
+                return;
+            }
+            checkFailed();
+            connection.onNotification(method, handler);
+        },
+
+        onRequest(method, handler) {
+            if (!connection) {
+                queuedRequestHandlers.push({ method, handler });
+                log(`Queued request handler for ${serverName}.${method} (connection not ready)`);
+                return;
+            }
+            checkFailed();
+            connection.onRequest(method, handler);
+        },
+
+        async stop() {
+            let stopError;
+            isShuttingDown = true;
+            try {
+                if (connection) {
+                    await connection.sendRequest("shutdown", {});
+                    await connection.sendNotification("exit", {});
+                }
+            } catch (err) {
+                logError(Error(`LSP server ${serverName} stop failed: ${err.message}`));
+                stopError = err;
+            } finally {
+                // Dispose connection
+                if (connection) {
+                    try { connection.dispose(); } catch (e) {}
+                    connection = undefined;
+                }
+                // Kill process
+                if (process) {
+                    process.removeAllListeners("error");
+                    process.removeAllListeners("exit");
+                    if (process.stdin) process.stdin.removeAllListeners("error");
+                    if (process.stderr) process.stderr.removeAllListeners("data");
+                    try { process.kill(); } catch (e) {}
+                    process = undefined;
+                }
+                isInitialized = false;
+                capabilities = undefined;
+                isShuttingDown = false;
+                if (stopError) {
+                    hasFailed = true;
+                    lastError = stopError;
+                }
+                log(`LSP client stopped for ${serverName}`);
+            }
+            if (stopError) throw stopError;
+        }
+    };
 }
+
+// Mapping: co4→createLspProcessWrapper, aEY→spawn, g66→vscode-languageserver-protocol, k→log, _6→logError
 ```
 
-**Key insight:** The two-step handshake (`initialize` request → `initialized` notification) is required by the LSP spec. Setting `isInitialized = true` only after the `initialized` notification prevents any requests from being dispatched before the server is ready.
+### Key Design Insights
 
-### Stop Method
+**Queued Handlers Pattern:** The wrapper allows registering notification/request handlers before the connection is established. This is critical because:
+1. LSP servers may send notifications immediately after initialization
+2. The `publishDiagnostics` notification arrives asynchronously
+3. Handlers must be registered before `initialize` completes
 
-The stop sequence follows the LSP shutdown protocol:
-1. Set `isStopping = true` (suppresses crash detection for the managed teardown)
-2. Send `shutdown` request (server flushes pending work)
-3. Send `exit` notification (server terminates)
-4. Dispose `MessageConnection`
-5. `kill()` the child process
-6. Clear all event listeners
-
-**Why `isStopping` flag?** Without it, the `exit` event (exit code 0 from a clean shutdown) would trigger crash recovery logic, causing spurious error logs or restart attempts.
+**Graceful Shutdown Sequence:**
+1. Set `isShuttingDown = true` to suppress error logs
+2. Send `shutdown` request (LSP protocol requirement)
+3. Send `exit` notification (LSP protocol requirement)
+4. Dispose connection
+5. Kill process
+6. Reset all state
 
 ---
 
-## Layer 2: Server Instance with Retry Logic (Fm4)
+## 2. LSP Client Factory
 
-### createLspClient (High-Level)
+### High-Level Server Instance
 
-**What it does:** Adds state machine (`stopped→starting→running→stopping→stopped/error`), restart tracking, and ContentModified retry logic on top of `createLspProcessWrapper`.
+The `createLspClient` (no4) function creates a high-level LSP client with:
+- Server state machine (stopped → starting → running → error)
+- Retry logic for ContentModified errors
+- Restart support with max restart limit
+- Startup timeout support
 
 ```javascript
 // ============================================
-// createLspClient (LspServerInstance) - State-managed server wrapper
-// Location: chunks.133.mjs:1785-1957
+// createLspClient - High-level LSP client factory with retry logic
+// Location: chunks.138.mjs:389-563
 // ============================================
 
 // ORIGINAL:
-function Fm4(A, q) {
-    if (q.restartOnCrash !== void 0) throw Error(`...restartOnCrash is not yet implemented...`);
-    if (q.startupTimeout !== void 0) throw Error(`...startupTimeout is not yet implemented...`);
-    if (q.shutdownTimeout !== void 0) throw Error(`...shutdownTimeout is not yet implemented...`);
-    let K = um4(A),     // createLspProcessWrapper
-        Y = "stopped",  // state
-        z, w, H = 0;    // startTime, lastError, restartCount
-    // ...
+function no4(A, q) {
+    if (q.restartOnCrash !== void 0) throw Error(`LSP server '${A}': restartOnCrash is not yet implemented. Remove this field from the configuration.`);
+    if (q.shutdownTimeout !== void 0) throw Error(`LSP server '${A}': shutdownTimeout is not yet implemented. Remove this field from the configuration.`);
+    let K = co4(A),
+        Y = "stopped",
+        z, _, w = 0;
+    async function O() {
+        if (Y === "running" || Y === "starting") return;
+        let P;
+        try {
+            Y = "starting", k(`Starting LSP server instance: ${A}`), await K.start(q.command, q.args || [], {
+                env: q.env,
+                cwd: q.workspaceFolder
+            });
+            let W = q.workspaceFolder || G1(),
+                Z = sEY(W).href,
+                G = {
+                    processId: process.pid,
+                    initializationOptions: q.initializationOptions ?? {},
+                    workspaceFolders: [{
+                        uri: Z,
+                        name: io4.basename(W)
+                    }],
+                    rootPath: W,
+                    rootUri: Z,
+                    capabilities: {
+                        workspace: {
+                            configuration: !1,
+                            workspaceFolders: !1
+                        },
+                        textDocument: {
+                            synchronization: {
+                                dynamicRegistration: !1,
+                                willSave: !1,
+                                willSaveWaitUntil: !1,
+                                didSave: !0
+                            },
+                            publishDiagnostics: {
+                                relatedInformation: !0,
+                                tagSupport: {
+                                    valueSet: [1, 2]
+                                },
+                                versionSupport: !1,
+                                codeDescriptionSupport: !0,
+                                dataSupport: !1
+                            },
+                            hover: {
+                                dynamicRegistration: !1,
+                                contentFormat: ["markdown", "plaintext"]
+                            },
+                            definition: {
+                                dynamicRegistration: !1,
+                                linkSupport: !0
+                            },
+                            references: {
+                                dynamicRegistration: !1
+                            },
+                            documentSymbol: {
+                                dynamicRegistration: !1,
+                                hierarchicalDocumentSymbolSupport: !0
+                            },
+                            callHierarchy: {
+                                dynamicRegistration: !1
+                            }
+                        },
+                        general: {
+                            positionEncodings: ["utf-16"]
+                        }
+                    }
+                };
+            if (P = K.initialize(G), q.startupTimeout !== void 0) await AyY(P, q.startupTimeout, `LSP server '${A}' timed out after ${q.startupTimeout}ms during initialization`);
+            else await P;
+            Y = "running", z = new Date, k(`LSP server instance started: ${A}`)
+        } catch (W) {
+            throw K.stop().catch(() => {}), P?.catch(() => {}), Y = "error", _ = W, _6(W), W
+        }
+    }
+    async function $() {
+        if (Y === "stopped" || Y === "stopping") return;
+        try {
+            Y = "stopping", await K.stop(), Y = "stopped", k(`LSP server instance stopped: ${A}`)
+        } catch (P) {
+            throw Y = "error", _ = P, _6(P), P
+        }
+    }
+    async function H() {
+        try {
+            await $()
+        } catch (W) {
+            let Z = Error(`Failed to stop LSP server '${A}' during restart: ${W.message}`);
+            throw _6(Z), Z
+        }
+        w++;
+        let P = q.maxRestarts ?? 3;
+        if (w > P) {
+            let W = Error(`Max restart attempts (${P}) exceeded for server '${A}'`);
+            throw _6(W), W
+        }
+        try {
+            await O()
+        } catch (W) {
+            let Z = Error(`Failed to start LSP server '${A}' during restart (attempt ${w}/${P}): ${W.message}`);
+            throw _6(Z), Z
+        }
+    }
+
+    function j() {
+        return Y === "running" && K.isInitialized
+    }
+    async function J(P, W) {
+        if (!j()) {
+            let f = Error(`Cannot send request to LSP server '${A}': server is ${Y}${_?`, last error: ${_.message}`:""}`);
+            throw _6(f), f
+        }
+        let Z;
+        for (let f = 0; f <= Qm8; f++) try {
+            return await K.sendRequest(P, W)
+        } catch (v) {
+            Z = v;
+            let N = v.code;
+            if (typeof N === "number" && N === tEY && f < Qm8) {
+                let L = eEY * Math.pow(2, f);
+                k(`LSP request '${P}' to '${A}' got ContentModified error, retrying in ${L}ms (attempt ${f+1}/${Qm8})…`), await new Promise((h) => setTimeout(h, L));
+                continue
+            }
+            break
+        }
+        let G = Error(`LSP request '${P}' failed for server '${A}': ${Z?.message??"unknown error"}`);
+        throw _6(G), G
+    }
+    async function M(P, W) {
+        if (!j()) {
+            let Z = Error(`Cannot send notification to LSP server '${A}': server is ${Y}`);
+            throw _6(Z), Z
+        }
+        try {
+            await K.sendNotification(P, W)
+        } catch (Z) {
+            let G = Error(`LSP notification '${P}' failed for server '${A}': ${Z.message}`);
+            throw _6(G), G
+        }
+    }
+
+    function D(P, W) {
+        K.onNotification(P, W)
+    }
+
+    function X(P, W) {
+        K.onRequest(P, W)
+    }
+    return {
+        name: A,
+        config: q,
+        get state() {
+            return Y
+        },
+        get startTime() {
+            return z
+        },
+        get lastError() {
+            return _
+        },
+        get restartCount() {
+            return w
+        },
+        start: O,
+        stop: $,
+        restart: H,
+        isHealthy: j,
+        sendRequest: J,
+        sendNotification: M,
+        onNotification: D,
+        onRequest: X
+    }
 }
 
 // READABLE:
 function createLspClient(serverName, config) {
-    // Guard: reject not-yet-implemented config fields
-    if (config.restartOnCrash !== undefined) throw Error("restartOnCrash not yet implemented");
+    // Validate unsupported features
+    if (config.restartOnCrash !== undefined) {
+        throw Error(`LSP server '${serverName}': restartOnCrash is not yet implemented. Remove this field from the configuration.`);
+    }
+    if (config.shutdownTimeout !== undefined) {
+        throw Error(`LSP server '${serverName}': shutdownTimeout is not yet implemented. Remove this field from the configuration.`);
+    }
 
-    let processWrapper = createLspProcessWrapper(serverName);
-    let state = "stopped";      // Y: "stopped"|"starting"|"running"|"stopping"|"error"
-    let startTime;              // z: Date when server became running
-    let lastError;              // w: last Error object
-    let restartCount = 0;       // H: number of restarts attempted
-    // ...
-}
-// Mapping: Fm4→createLspClient, A→serverName, q→config, K→processWrapper,
-//          Y→state, z→startTime, w→lastError, H→restartCount
-```
+    const wrapper = createLspProcessWrapper(serverName);  // co4
+    let state = "stopped";        // Y
+    let startTime;                // z
+    let lastError;                // _
+    let restartCount = 0;         // w
 
-### Client Capabilities Advertised to Server
+    async function start() {
+        if (state === "running" || state === "starting") return;
 
-The initialization parameters sent in the `initialize` request define what Claude Code tells the LSP server it can handle:
+        let initPromise;
+        try {
+            state = "starting";
+            log(`Starting LSP server instance: ${serverName}`);
 
-```javascript
-const initParams = {
-    processId: process.pid,
-    initializationOptions: config.initializationOptions ?? {},
-    workspaceFolders: [{
-        uri: `file://${workspacePath}`,
-        name: path.basename(workspacePath)
-    }],
-    rootPath: workspacePath,        // legacy field, still expected by many servers
-    rootUri: `file://${workspacePath}`,
-    capabilities: {
-        workspace: {
-            configuration: false,   // Claude Code does NOT handle workspace/configuration requests
-            workspaceFolders: false  // Claude Code does NOT update workspace folder list
-        },
-        textDocument: {
-            synchronization: {
-                dynamicRegistration: false,
-                willSave: false,        // no pre-save hooks
-                willSaveWaitUntil: false,
-                didSave: true           // ONLY sends didSave notifications
-            },
-            publishDiagnostics: {
-                relatedInformation: true,
-                tagSupport: { valueSet: [1, 2] },  // Unnecessary=1, Deprecated=2
-                versionSupport: false,
-                codeDescriptionSupport: true,
-                dataSupport: false
-            },
-            hover: {
-                dynamicRegistration: false,
-                contentFormat: ["markdown", "plaintext"]
-            },
-            definition:     { dynamicRegistration: false, linkSupport: true },
-            references:     { dynamicRegistration: false },
-            documentSymbol: { dynamicRegistration: false, hierarchicalDocumentSymbolSupport: true },
-            callHierarchy:  { dynamicRegistration: false }
-        },
-        general: {
-            positionEncodings: ["utf-16"]  // LSP default; critical for correct char offsets
+            await wrapper.start(config.command, config.args || [], {
+                env: config.env,
+                cwd: config.workspaceFolder
+            });
+
+            const workspaceFolder = config.workspaceFolder || getCwd();  // G1
+            const rootUri = pathToFileUrl(workspaceFolder).href;         // sEY
+
+            const initParams = {
+                processId: process.pid,
+                initializationOptions: config.initializationOptions ?? {},
+                workspaceFolders: [{
+                    uri: rootUri,
+                    name: path.basename(workspaceFolder)  // io4
+                }],
+                rootPath: workspaceFolder,
+                rootUri: rootUri,
+                capabilities: {
+                    workspace: {
+                        configuration: false,
+                        workspaceFolders: false
+                    },
+                    textDocument: {
+                        synchronization: {
+                            dynamicRegistration: false,
+                            willSave: false,
+                            willSaveWaitUntil: false,
+                            didSave: true  // Only notify on save, not every keystroke
+                        },
+                        publishDiagnostics: {
+                            relatedInformation: true,
+                            tagSupport: { valueSet: [1, 2] },
+                            versionSupport: false,
+                            codeDescriptionSupport: true,
+                            dataSupport: false
+                        },
+                        hover: {
+                            dynamicRegistration: false,
+                            contentFormat: ["markdown", "plaintext"]
+                        },
+                        definition: {
+                            dynamicRegistration: false,
+                            linkSupport: true
+                        },
+                        references: { dynamicRegistration: false },
+                        documentSymbol: {
+                            dynamicRegistration: false,
+                            hierarchicalDocumentSymbolSupport: true
+                        },
+                        callHierarchy: { dynamicRegistration: false }
+                    },
+                    general: {
+                        positionEncodings: ["utf-16"]
+                    }
+                }
+            };
+
+            initPromise = wrapper.initialize(initParams);
+
+            // Apply startup timeout if configured
+            if (config.startupTimeout !== undefined) {
+                initPromise = withTimeout(  // AyY
+                    initPromise,
+                    config.startupTimeout,
+                    `LSP server '${serverName}' timed out after ${config.startupTimeout}ms during initialization`
+                );
+            }
+
+            await initPromise;
+            state = "running";
+            startTime = new Date();
+            log(`LSP server instance started: ${serverName}`);
+
+        } catch (error) {
+            // Cleanup on failure
+            wrapper.stop().catch(() => {});
+            initPromise?.catch(() => {});
+            state = "error";
+            lastError = error;
+            logError(error);
+            throw error;
         }
     }
-};
+
+    async function stop() {
+        if (state === "stopped" || state === "stopping") return;
+        try {
+            state = "stopping";
+            await wrapper.stop();
+            state = "stopped";
+            log(`LSP server instance stopped: ${serverName}`);
+        } catch (error) {
+            state = "error";
+            lastError = error;
+            logError(error);
+            throw error;
+        }
+    }
+
+    async function restart() {
+        // Stop first
+        try {
+            await stop();
+        } catch (err) {
+            const error = Error(`Failed to stop LSP server '${serverName}' during restart: ${err.message}`);
+            logError(error);
+            throw error;
+        }
+
+        // Check restart limit
+        restartCount++;
+        const maxRestarts = config.maxRestarts ?? 3;
+        if (restartCount > maxRestarts) {
+            const error = Error(`Max restart attempts (${maxRestarts}) exceeded for server '${serverName}'`);
+            logError(error);
+            throw error;
+        }
+
+        // Start again
+        try {
+            await start();
+        } catch (err) {
+            const error = Error(`Failed to start LSP server '${serverName}' during restart (attempt ${restartCount}/${maxRestarts}): ${err.message}`);
+            logError(error);
+            throw error;
+        }
+    }
+
+    function isHealthy() {
+        return state === "running" && wrapper.isInitialized;
+    }
+
+    async function sendRequest(method, params) {
+        if (!isHealthy()) {
+            const error = Error(`Cannot send request to LSP server '${serverName}': server is ${state}${lastError ? `, last error: ${lastError.message}` : ""}`);
+            logError(error);
+            throw error;
+        }
+
+        let lastAttemptError;
+        // Retry loop with exponential backoff
+        for (let attempt = 0; attempt <= LSP_MAX_RETRIES; attempt++) {  // Qm8 = 3
+            try {
+                return await wrapper.sendRequest(method, params);
+            } catch (error) {
+                lastAttemptError = error;
+                const errorCode = error.code;
+
+                // Only retry for ContentModified error (-32801)
+                if (typeof errorCode === "number" && errorCode === CONTENT_MODIFIED_ERROR_CODE && attempt < LSP_MAX_RETRIES) {  // tEY = -32801
+                    const delay = LSP_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);  // eEY = 500
+                    log(`LSP request '${method}' to '${serverName}' got ContentModified error, retrying in ${delay}ms (attempt ${attempt+1}/${LSP_MAX_RETRIES})…`);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                    continue;
+                }
+                break;
+            }
+        }
+
+        const error = Error(`LSP request '${method}' failed for server '${serverName}': ${lastAttemptError?.message ?? "unknown error"}`);
+        logError(error);
+        throw error;
+    }
+
+    async function sendNotification(method, params) {
+        if (!isHealthy()) {
+            const error = Error(`Cannot send notification to LSP server '${serverName}': server is ${state}`);
+            logError(error);
+            throw error;
+        }
+        try {
+            await wrapper.sendNotification(method, params);
+        } catch (error) {
+            const wrappedError = Error(`LSP notification '${method}' failed for server '${serverName}': ${error.message}`);
+            logError(wrappedError);
+            throw wrappedError;
+        }
+    }
+
+    function onNotification(method, handler) {
+        wrapper.onNotification(method, handler);
+    }
+
+    function onRequest(method, handler) {
+        wrapper.onRequest(method, handler);
+    }
+
+    return {
+        name: serverName,
+        config: config,
+        get state() { return state; },
+        get startTime() { return startTime; },
+        get lastError() { return lastError; },
+        get restartCount() { return restartCount; },
+        start,
+        stop,
+        restart,
+        isHealthy,
+        sendRequest,
+        sendNotification,
+        onNotification,
+        onRequest
+    };
+}
+
+// Mapping: no4→createLspClient, co4→createLspProcessWrapper, G1→getCwd, sEY→pathToFileUrl, io4→path, AyY→withTimeout, Qm8→LSP_MAX_RETRIES, tEY→CONTENT_MODIFIED_ERROR_CODE, eEY→LSP_RETRY_BASE_DELAY_MS
 ```
 
-**Why `workspace.configuration: false`?** The `workspace/configuration` request would require Claude Code to maintain a persistent settings store per server. Instead, the manager intercepts these requests and returns `null` for every item (a no-op). This prevents servers that depend on configuration from crashing, while avoiding the complexity of a config management system.
+### Client Capabilities Deep Dive
 
-**Why `synchronization.didSave` only?** Sending `didChange` on every keystroke (like a real editor) would require Claude Code to track document versions and emit incremental or full-document updates for every file write. Since the agent writes files atomically (via FileWrite/FileEdit), a single `didSave` notification after the write is sufficient.
+The `capabilities` object in the initialize params defines what features the client supports:
 
-**`workspace/configuration` interception:** The manager registers a request handler for each server:
-```javascript
-server.onRequest("workspace/configuration", (params) => {
-    return params.items.map(() => null);
-});
-```
-This stub prevents TypeScript Language Server (and others) from stalling indefinitely waiting for config.
+| Capability | Value | Reason |
+|------------|-------|--------|
+| `didSave` | `true` | Sync only on save (not every keystroke) |
+| `willSave` | `false` | No pre-save notifications needed |
+| `configuration` | `false` | Server can't request config from client |
+| `workspaceFolders` | `false` | Server can't change workspace folders |
+| `hover.contentFormat` | `["markdown", "plaintext"]` | Prefer markdown, fallback to plaintext |
+| `definition.linkSupport` | `true` | Support LocationLink (vscode-style) |
+| `hierarchicalDocumentSymbolSupport` | `true` | Support nested symbols in outline |
+| `tagSupport.valueSet` | `[1, 2]` | Support Unnecessary and Deprecated tags |
+| `positionEncodings` | `["utf-16"]` | Standard UTF-16 position encoding |
 
-### ContentModified Retry Algorithm
+**Why `didSave: true` but `willSave: false`:**
+- `didSave: true` - Server receives notification after file is saved to disk
+- `willSave: false` - No pre-save notification needed (Claude doesn't need to know before save)
 
-**What it does:** Retries failed LSP requests when the server reports it is busy re-indexing.
+---
 
-**How it works:**
+## 3. Timeout Wrapper
 
 ```javascript
 // ============================================
-// sendRequestWithRetry - ContentModified exponential backoff
-// Location: chunks.133.mjs:1892-1912
+// withTimeout - Promise timeout wrapper
+// Location: chunks.138.mjs:565-570
 // ============================================
 
 // ORIGINAL:
-async function X(P, W) {
-    if (!J()) {
-        let Z = Error(`Cannot send request to LSP server '${A}': server is ${Y}...`);
-        throw K1(Z), Z
-    }
-    let G;
-    for (let Z = 0; Z <= fkA; Z++) try {
-        return await K.sendRequest(P, W)
-    } catch (N) {
-        G = N;
-        let T = N.code;
-        if (typeof T === "number" && T === qvY && Z < fkA) {
-            let y = KvY * Math.pow(2, Z);
-            h(`LSP request '${P}' to '${A}' got ContentModified error, retrying in ${y}ms ...`),
-            await new Promise((B) => setTimeout(B, y));
-            continue
-        }
-        break
-    }
-    throw K1(f), f
+function AyY(A, q, K) {
+    let Y, z = new Promise((_, w) => {
+        Y = setTimeout((O, $) => O(Error($)), q, w, K)
+    });
+    return Promise.race([A, z]).finally(() => clearTimeout(Y))
 }
 
 // READABLE:
-async function sendRequestWithRetry(method, params) {
-    const MAX_RETRIES = 3;    // fkA = 3
-    const BASE_DELAY = 500;   // KvY = 500ms
-    const CONTENT_MODIFIED = -32801;  // qvY = LSP error code
+function withTimeout(promise, timeoutMs, errorMessage) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(
+            (rejectFn, msg) => rejectFn(Error(msg)),
+            timeoutMs,
+            reject,
+            errorMessage
+        );
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
 
-    let lastError;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-            return await processWrapper.sendRequest(method, params);
-        } catch (error) {
-            lastError = error;
-            if (error.code === CONTENT_MODIFIED && attempt < MAX_RETRIES) {
-                const delay = BASE_DELAY * Math.pow(2, attempt); // 500, 1000, 2000ms
-                await sleep(delay);
+// Mapping: AyY→withTimeout
+```
+
+**How it works:**
+1. Creates a promise that rejects after `timeoutMs`
+2. Races the original promise against the timeout promise
+3. Clears the timeout in `finally` (prevents memory leak)
+
+---
+
+## 4. Retry Constants
+
+```javascript
+// ============================================
+// LSP Retry Configuration Constants
+// Location: chunks.138.mjs:572-576
+// ============================================
+
+// ORIGINAL:
+tEY = -32801
+Qm8 = 3
+eEY = 500
+
+// READABLE:
+const CONTENT_MODIFIED_ERROR_CODE = -32801;  // LSP standard error code
+const LSP_MAX_RETRIES = 3;                    // Maximum retry attempts
+const LSP_RETRY_BASE_DELAY_MS = 500;          // Base delay for exponential backoff
+
+// Mapping: tEY→CONTENT_MODIFIED_ERROR_CODE, Qm8→LSP_MAX_RETRIES, eEY→LSP_RETRY_BASE_DELAY_MS
+```
+
+**ContentModified Error (-32801):**
+This is an LSP 3.0 standard error code. It means:
+> "The server detected that the content of a document has changed and the request was for an outdated version."
+
+The client should retry the request after waiting for the server to process the pending changes.
+
+---
+
+## 5. Safe Plugin Path Validation
+
+```javascript
+// ============================================
+// safePluginRelativePath - Path traversal protection
+// Location: chunks.138.mjs:585-591
+// ============================================
+
+// ORIGINAL:
+function YyY(A, q) {
+    let K = Um8(A),
+        Y = Um8(A, q),
+        z = KyY(K, Y);
+    if (z.startsWith("..") || Um8(z) === z) return null;
+    return Y
+}
+
+// READABLE:
+function safePluginRelativePath(pluginRoot, relativePath) {
+    const absoluteRoot = path.resolve(pluginRoot);           // Um8
+    const targetPath = path.resolve(pluginRoot, relativePath); // Um8
+    const relative = path.relative(absoluteRoot, targetPath);  // KyY
+
+    // Reject if path escapes plugin directory
+    if (relative.startsWith("..") || path.resolve(relative) === relative) {
+        return null;  // Path traversal detected
+    }
+    return targetPath;
+}
+
+// Mapping: YyY→safePluginRelativePath, Um8→path.resolve, KyY→path.relative
+```
+
+**Security insight:** This prevents malicious plugins from reading files outside their directory using paths like `../../../etc/passwd`.
+
+---
+
+## 6. Plugin LSP Config Loading
+
+```javascript
+// ============================================
+// loadPluginLspConfig - Load LSP config from a single plugin
+// Location: chunks.138.mjs:593-628
+// ============================================
+
+// ORIGINAL:
+async function Nl6(A, q = []) {
+    let K = {},
+        Y = qyY(A.path, ".lsp.json");
+    try {
+        let z = await oo4(Y, "utf-8"),
+            _ = i1(z),
+            w = C.record(C.string(), DJ6()).safeParse(_);
+        if (w.success) Object.assign(K, w.data);
+        else {
+            let O = `LSP config validation failed for .lsp.json in plugin ${A.name}: ${w.error.message}`;
+            _6(Error(O)), q.push({
+                type: "lsp-config-invalid",
+                plugin: A.name,
+                serverName: ".lsp.json",
+                validationError: w.error.message,
+                source: "plugin"
+            })
+        }
+    } catch (z) {
+        if (z.code !== "ENOENT") {
+            // ... error handling ...
+        }
+    }
+    if (A.manifest.lspServers) {
+        let z = await zyY(A.manifest.lspServers, A.path, A.name, q);
+        if (z) Object.assign(K, z)
+    }
+    return Object.keys(K).length > 0 ? K : void 0
+}
+
+// READABLE:
+async function loadPluginLspConfig(plugin, errors = []) {
+    const configs = {};
+
+    // 1. Try loading .lsp.json file
+    const lspConfigPath = path.join(plugin.path, ".lsp.json");  // qyY
+    try {
+        const content = await fs.readFile(lspConfigPath, "utf-8");  // oo4
+        const parsed = JSON.parse(content);  // i1
+        const result = z.record(z.string(), lspServerConfigSchema).safeParse(parsed);  // DJ6
+
+        if (result.success) {
+            Object.assign(configs, result.data);
+        } else {
+            const message = `LSP config validation failed for .lsp.json in plugin ${plugin.name}: ${result.error.message}`;
+            logError(Error(message));
+            errors.push({
+                type: "lsp-config-invalid",
+                plugin: plugin.name,
+                serverName: ".lsp.json",
+                validationError: result.error.message,
+                source: "plugin"
+            });
+        }
+    } catch (error) {
+        // ENOENT = file doesn't exist, that's OK
+        if (error.code !== "ENOENT") {
+            errors.push({
+                type: "lsp-config-invalid",
+                plugin: plugin.name,
+                serverName: ".lsp.json",
+                validationError: error.message,
+                source: "plugin"
+            });
+        }
+    }
+
+    // 2. Try loading from manifest.lspServers field
+    if (plugin.manifest.lspServers) {
+        const manifestConfigs = await resolvePluginLspServersField(  // zyY
+            plugin.manifest.lspServers,
+            plugin.path,
+            plugin.name,
+            errors
+        );
+        if (manifestConfigs) {
+            Object.assign(configs, manifestConfigs);
+        }
+    }
+
+    return Object.keys(configs).length > 0 ? configs : undefined;
+}
+
+// Mapping: Nl6→loadPluginLspConfig, qyY→path.join, oo4→fs.readFile, i1→JSON.parse, DJ6→lspServerConfigSchema, zyY→resolvePluginLspServersField
+```
+
+---
+
+## 7. Resolve manifest.lspServers Field
+
+```javascript
+// ============================================
+// resolvePluginLspServersField - Resolve manifest.lspServers field
+// Location: chunks.138.mjs:630-690
+// ============================================
+
+// ORIGINAL:
+async function zyY(A, q, K, Y) {
+    let z = {},
+        _ = Array.isArray(A) ? A : [A];
+    for (let w of _)
+        if (typeof w === "string") {
+            let O = YyY(q, w);
+            if (!O) {
+                let $ = `Security: Path traversal attempt blocked in plugin ${K}: ${w}`;
+                _6(Error($)), k($, { level: "warn" }), Y.push({
+                    type: "lsp-config-invalid",
+                    plugin: K,
+                    serverName: w,
+                    validationError: "Invalid path: must be relative and within plugin directory",
+                    source: "plugin"
+                });
+                continue
+            }
+            // ... load config from path ...
+        } else
+            for (let [O, $] of Object.entries(w)) {
+                // ... validate inline config ...
+            }
+    return Object.keys(z).length > 0 ? z : void 0
+}
+
+// READABLE:
+async function resolvePluginLspServersField(lspServers, pluginPath, pluginName, errors) {
+    const configs = {};
+    const items = Array.isArray(lspServers) ? lspServers : [lspServers];
+
+    for (const item of items) {
+        if (typeof item === "string") {
+            // String path: resolve and load file
+            const safePath = safePluginRelativePath(pluginPath, item);  // YyY
+            if (!safePath) {
+                const message = `Security: Path traversal attempt blocked in plugin ${pluginName}: ${item}`;
+                logError(Error(message));
+                log(message, { level: "warn" });
+                errors.push({
+                    type: "lsp-config-invalid",
+                    plugin: pluginName,
+                    serverName: item,
+                    validationError: "Invalid path: must be relative and within plugin directory",
+                    source: "plugin"
+                });
                 continue;
             }
-            break;  // any other error: don't retry
+            // Load config from safePath...
+        } else if (typeof item === "object") {
+            // Inline config: validate directly
+            for (const [serverName, serverConfig] of Object.entries(item)) {
+                const result = lspServerConfigSchema.safeParse(serverConfig);  // DJ6
+                if (result.success) {
+                    configs[serverName] = result.data;
+                } else {
+                    errors.push({
+                        type: "lsp-config-invalid",
+                        plugin: pluginName,
+                        serverName: serverName,
+                        validationError: result.error.message,
+                        source: "plugin"
+                    });
+                }
+            }
         }
     }
-    throw new Error(`LSP request '${method}' failed: ${lastError?.message}`);
+
+    return Object.keys(configs).length > 0 ? configs : undefined;
 }
 
-// Mapping: fkA→MAX_RETRIES(3), KvY→BASE_DELAY(500), qvY→CONTENT_MODIFIED(-32801)
+// Mapping: zyY→resolvePluginLspServersField, YyY→safePluginRelativePath, DJ6→lspServerConfigSchema
 ```
-
-**Why exponential backoff for ContentModified?**
-- LSP error code `-32801` (`ContentModified`) means the server discarded the request because the document state changed during processing (e.g., the indexer is still running).
-- A fixed delay would cause thundering herd — all queued retries fire at the same moment.
-- Exponential backoff (500ms → 1000ms → 2000ms) gives the server progressively more time to finish indexing.
-- Three retries max prevents indefinite blocking of the agent loop.
-
-### Restart Logic
-
-```javascript
-// ============================================
-// restartLspServer - Max-attempts bounded restart
-// Location: chunks.133.mjs:1868-1887
-// ============================================
-
-// ORIGINAL:
-async function _() {
-    try { await O() } catch (W) { ... }
-    H++;  // increment restartCount
-    let P = q.maxRestarts ?? 3;
-    if (H > P) throw Error(`Max restart attempts (${P}) exceeded for '${A}'`);
-    try { await $() } catch (W) { ... }
-}
-
-// READABLE:
-async function restartServer() {
-    await stopServer();
-    restartCount++;
-    const maxRestarts = config.maxRestarts ?? 3;
-    if (restartCount > maxRestarts) {
-        throw Error(`Max restart attempts (${maxRestarts}) exceeded for '${serverName}'`);
-    }
-    await startServer();
-}
-```
-
-**Note:** `restartOnCrash` is explicitly rejected with an error message. This means auto-restart on crash is NOT yet implemented — the config field is reserved for a future feature. The restart API exists only for manual invocation.
 
 ---
 
-## Layer 3: Polyglot Server Manager (lm4)
-
-### LspServerManager
-
-**What it does:** The central coordinator. Maintains three maps: servers by name, extension→server routing, and open files tracking. Provides the unified interface for file synchronization and request routing.
+## 8. Variable Expansion
 
 ```javascript
 // ============================================
-// LspServerManager - Multi-server coordinator
-// Location: chunks.133.mjs:2172-2341
+// expandLspConfigVars - Expand all variables in config
+// Location: chunks.138.mjs:692-722
 // ============================================
 
 // ORIGINAL:
-function lm4() {
-    let A = new Map,   // serverInstances: name → LspServerInstance
-        q = new Map,   // extensionMap: ".ts" → ["ts-server", ...]
-        K = new Map;   // openFiles: "file:///..." → serverName
-
-    async function Y() { /* initialize: load configs, create instances, start all */ }
-    async function z() { /* shutdown: stop all running servers */ }
-    function w(M) { /* getServerForFile: extension lookup */ }
-    async function H(M) { /* ensureServerStarted */ }
-    async function $(M, P, W) { /* sendRequest: file→server→request */ }
-    function O() { /* getAllServers: returns the full Map */ }
-    async function _(M, P) { /* openFile: didOpen notification */ }
-    async function J(M, P) { /* changeFile: didChange notification */ }
-    async function X(M) { /* saveFile: didSave notification */ }
-    async function D(M) { /* closeFile: didClose notification */ }
-    function j(M) { /* isFileOpen: checks openFiles map */ }
-    return { initialize: Y, shutdown: z, getServerForFile: w,
-             ensureServerStarted: H, sendRequest: $, getAllServers: O,
-             openFile: _, changeFile: J, saveFile: X, closeFile: D, isFileOpen: j }
-}
-
-// Mapping: lm4→LspServerManager, A→serverInstances, q→extensionMap, K→openFiles
-```
-
-### Initialize Algorithm
-
-**What it does:** Loads all plugin-provided LSP configs, creates `LspServerInstance` objects, and starts them concurrently.
-
-**How it works:**
-1. Call `loadLspConfigs()` (dm4) → get `{ [serverName]: config }` from all enabled plugins
-2. For each server config:
-   - Validate: `command` is required; `extensionToLanguage` must have at least one entry
-   - Build extension→server mapping: for each extension in `extensionToLanguage`, append serverName to `extensionMap`
-   - Create `LspServerInstance` via `createLspClient(name, config)` (Fm4)
-   - Register `workspace/configuration` stub request handler
-   - Call `server.start()` asynchronously (non-blocking — failures logged but don't abort init)
-3. Log total server count
-
-**Design choice:** Starting all servers concurrently (via `.catch()` instead of `await`) means initialization doesn't block. Servers that fail to start set their state to `"error"` and the tool's `isEnabled()` check will skip them. This is a fast-fail-gracefully approach.
-
-### File Extension Routing Algorithm
-
-```javascript
-// ORIGINAL:
-function w(M) {
-    let P = Bd.extname(M).toLowerCase(),  // e.g. ".ts"
-        W = q.get(P);                      // extensionMap lookup
-    if (!W || W.length === 0) return;
-    let G = W[0];  // first registered server for this extension
-    if (!G) return;
-    return A.get(G)  // return the LspServerInstance
+function _yY(A, q, K, Y) {
+    let z = [],
+        _ = ($) => {
+            let H = ZL($, q);
+            if (K) H = zz1(H, K);
+            let { expanded: j, missingVars: J } = _Z6(H);
+            return z.push(...J), j
+        },
+        w = { ...A };
+    if (w.command) w.command = _(w.command);
+    if (w.args) w.args = w.args.map(($) => _($));
+    let O = {
+        CLAUDE_PLUGIN_ROOT: q,
+        ...w.env || {}
+    };
+    for (let [$, H] of Object.entries(O))
+        if ($ !== "CLAUDE_PLUGIN_ROOT") O[$] = _(H);
+    if (w.env = O, w.workspaceFolder) w.workspaceFolder = _(w.workspaceFolder);
+    if (z.length > 0) {
+        let H = `Missing environment variables in plugin LSP config: ${[...new Set(z)].join(", ")}`;
+        _6(Error(H)), k(H, { level: "warn" })
+    }
+    return w
 }
 
 // READABLE:
-function getServerForFile(filePath) {
-    const ext = path.extname(filePath).toLowerCase();  // e.g. ".ts"
-    const serverNames = extensionMap.get(ext);         // ["typescript-language-server"]
-    if (!serverNames || serverNames.length === 0) return undefined;
-    return serverInstances.get(serverNames[0]);        // first match wins
-}
-```
+function expandLspConfigVars(config, pluginRootPath, workspaceFolder, errors) {
+    const missingVars = [];
 
-**Why first-wins?** Multiple plugins could provide servers for the same extension (e.g., two TypeScript server variants). Taking the first registered one prevents conflicts. The registration order follows plugin load order.
+    const expandString = (value) => {
+        // First expand ${CLAUDE_PLUGIN_ROOT}
+        let expanded = value.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRootPath);  // ZL
 
-### File Synchronization Protocol
+        // Expand ${WORKSPACE_FOLDER} if provided
+        if (workspaceFolder) {
+            expanded = expanded.replace(/\$\{WORKSPACE_FOLDER\}/g, workspaceFolder);  // zz1
+        }
 
-The manager implements the document lifecycle:
+        // Then expand environment variables ${VAR}
+        const { expanded: result, missingVars: vars } = expandEnvVars(expanded);  // _Z6
+        missingVars.push(...vars);
+        return result;
+    };
 
-```
-openFile(path, content)   → textDocument/didOpen    (version: 1)
-changeFile(path, content) → textDocument/didChange  (full replacement, version: 1)
-saveFile(path)            → textDocument/didSave
-closeFile(path)           → textDocument/didClose
-```
+    const expanded = { ...config };
 
-**openFile logic:**
-```javascript
-async function openFile(filePath, content) {
-    const server = await ensureServerStarted(filePath);
-    if (!server) return;
-    const fileUri = `file://${path.resolve(filePath)}`;
-    if (openFiles.get(fileUri) === server.name) {
-        return;  // already open on this server, skip didOpen
+    // Expand command
+    if (expanded.command) {
+        expanded.command = expandString(expanded.command);
     }
-    const ext = path.extname(filePath).toLowerCase();
-    const languageId = server.config.extensionToLanguage[ext] || "plaintext";
-    await server.sendNotification("textDocument/didOpen", {
-        textDocument: { uri: fileUri, languageId, version: 1, text: content }
-    });
-    openFiles.set(fileUri, server.name);
+
+    // Expand args
+    if (expanded.args) {
+        expanded.args = expanded.args.map(expandString);
+    }
+
+    // Expand environment variables (including CLAUDE_PLUGIN_ROOT)
+    const env = {
+        CLAUDE_PLUGIN_ROOT: pluginRootPath,
+        ...expanded.env || {}
+    };
+    for (const [key, value] of Object.entries(env)) {
+        if (key !== "CLAUDE_PLUGIN_ROOT") {
+            env[key] = expandString(value);
+        }
+    }
+    expanded.env = env;
+
+    // Expand workspaceFolder
+    if (expanded.workspaceFolder) {
+        expanded.workspaceFolder = expandString(expanded.workspaceFolder);
+    }
+
+    // Report missing variables
+    if (missingVars.length > 0) {
+        const uniqueMissing = [...new Set(missingVars)];
+        const message = `Missing environment variables in plugin LSP config: ${uniqueMissing.join(", ")}`;
+        logError(Error(message));
+        log(message, { level: "warn" });
+    }
+
+    return expanded;
 }
+
+// Mapping: _yY→expandLspConfigVars, ZL→expandPluginRootVar, zz1→expandWorkspaceFolderVar, _Z6→expandEnvVars
 ```
 
-**changeFile vs openFile:** Before sending `didChange`, the manager checks if the file is already open on the correct server. If not (e.g., after a server restart), it falls back to `openFile`. This handles the case where the server was restarted between file open and file change.
-
-**Version pinned at 1:** The LSP spec requires incrementing document versions with each change. Claude Code always sends `version: 1` because it treats each write as a complete document replacement (no incremental patching). LSP servers are expected to tolerate this.
+**Variable expansion order:**
+1. `${CLAUDE_PLUGIN_ROOT}` → Plugin directory path
+2. `${WORKSPACE_FOLDER}` → Workspace folder path (if provided)
+3. `${ENV_VAR}` → Value from process environment
 
 ---
 
-## Layer 4: Configuration Loading Pipeline (dm4 / HvY)
-
-### loadLspConfigs
-
-**What it does:** Aggregates LSP server configurations from all enabled plugins.
+## 9. Server Namespacing
 
 ```javascript
 // ============================================
-// loadLspConfigs - Plugin LSP config aggregator
-// Location: chunks.133.mjs:2144-2163
+// namespacePluginServers - Namespace server names by plugin
+// Location: chunks.138.mjs:724-735
 // ============================================
 
 // ORIGINAL:
-async function dm4() {
-    let A = {};  // result: { [serverName]: config }
+function wyY(A, q) {
+    let K = {};
+    for (let [Y, z] of Object.entries(A)) {
+        let _ = `plugin:${q}:${Y}`;
+        K[_] = {
+            ...z,
+            scope: "dynamic",
+            source: q
+        }
+    }
+    return K
+}
+
+// READABLE:
+function namespacePluginServers(configs, pluginName) {
+    const namespaced = {};
+    for (const [serverName, config] of Object.entries(configs)) {
+        const namespacedName = `plugin:${pluginName}:${serverName}`;
+        namespaced[namespacedName] = {
+            ...config,
+            scope: "dynamic",  // Mark as plugin-provided (vs built-in)
+            source: pluginName // Track origin for debugging
+        };
+    }
+    return namespaced;
+}
+
+// Mapping: wyY→namespacePluginServers
+```
+
+**Why namespacing:**
+- Prevents name collisions between plugins
+- Allows multiple plugins to define servers with the same base name
+- Enables tracking of server origin for debugging
+- Format: `plugin:{pluginName}:{serverName}`
+
+---
+
+## 10. Aggregate LSP Config Loading
+
+```javascript
+// ============================================
+// loadLspConfigs - Load all LSP configs from all plugins
+// Location: chunks.138.mjs:756-796
+// ============================================
+
+// ORIGINAL:
+async function so4() {
+    let A = {};
     try {
-        let { enabled: q } = await iY();  // getLoadedPlugins
-        for (let K of q) {
-            let Y = [], z = await Um4(K, Y);  // loadPluginLspConfig
-            if (z && Object.keys(z).length > 0) Object.assign(A, z);
-            if (Y.length > 0) h(`${Y.length} error(s) loading LSP servers from plugin: ${K.name}`)
-        }
-    } catch (q) { /* log error */ }
+        let { enabled: q } = await _z(),
+            K = await Promise.all(q.map(async (Y) => {
+                let z = [];
+                return {
+                    plugin: Y,
+                    configs: await ao4(Y, z),
+                    errors: z
+                }
+            }));
+        for (let { plugin: Y, configs: z, errors: _ } of K)
+            if (z && Object.keys(z).length > 0 && (Object.assign(A, z), k(`Loaded ${Object.keys(z).length} LSP server(s) from plugin: ${Y.name}`)), _.length > 0) k(`${_.length} error(s) loading LSP servers from plugin: ${Y.name}`);
+        k(`Total LSP servers loaded: ${Object.keys(A).length}`)
+    } catch (q) {
+        _6(q instanceof Error ? q : Error(`Failed to load LSP servers: ${String(q)}`)), k(`Error loading LSP servers: ${q instanceof Error?q.message:String(q)}`)
+    }
     return { servers: A }
 }
 
 // READABLE:
 async function loadLspConfigs() {
     const allServers = {};
-    const { enabled: enabledPlugins } = await getLoadedPlugins();
-    for (const plugin of enabledPlugins) {
-        const errors = [];
-        const pluginServers = await loadSinglePluginLspConfig(plugin, errors);
-        if (pluginServers) Object.assign(allServers, pluginServers);
-        // errors are logged but don't abort
+
+    try {
+        const { enabled: plugins } = await getPluginState();  // _z
+
+        const results = await Promise.all(plugins.map(async (plugin) => {
+            const errors = [];
+            const pluginConfigs = await loadSinglePluginLspConfig(plugin, errors);  // ao4
+            return { plugin, configs: pluginConfigs, errors };
+        }));
+
+        for (const { plugin, configs, errors } of results) {
+            if (configs && Object.keys(configs).length > 0) {
+                Object.assign(allServers, configs);
+                log(`Loaded ${Object.keys(configs).length} LSP server(s) from plugin: ${plugin.name}`);
+            }
+            if (errors.length > 0) {
+                log(`${errors.length} error(s) loading LSP servers from plugin: ${plugin.name}`);
+            }
+        }
+
+        log(`Total LSP servers loaded: ${Object.keys(allServers).length}`);
+
+    } catch (error) {
+        logError(error instanceof Error ? error : Error(`Failed to load LSP servers: ${String(error)}`));
+        log(`Error loading LSP servers: ${error.message}`);
     }
+
     return { servers: allServers };
 }
+
+// Mapping: so4→loadLspConfigs, _z→getPluginState, ao4→loadSinglePluginLspConfig
 ```
 
-### loadPluginLspConfig (HvY)
+---
 
-Reads LSP config from two sources per plugin:
-1. `.lsp.json` file in the plugin root (a JSON record of server name → config)
-2. `lspServers` field in the plugin manifest (can be a path, inline record, or array of paths/records)
+## 11. LSP Tool: Symbol Extraction Algorithm
+
+### What it does
+
+The `extractSymbolAtPosition` (i1q) function reads a source file and extracts the token (symbol name) at a given line and character position. This is used for UI display before the LSP request completes, showing the user what symbol the operation is targeting.
+
+### Algorithm Analysis
 
 ```javascript
+// ============================================
+// extractSymbolAtPosition - Extract token at cursor position
+// Location: chunks.144.mjs:381-414
+// ============================================
+
 // ORIGINAL:
-async function HvY(A, q = []) {
-    let K = {};  // collected configs
-    let Y = YvY(A.path, ".lsp.json");  // join(pluginPath, ".lsp.json")
+function i1q(A, q, K) {
     try {
-        let z = await gm4(Y, "utf-8"),
-            w = _A(z),  // JSON.parse
-            H = u.record(u.string(), ew1).safeParse(w);  // Zod validation
-        if (H.success) Object.assign(K, H.data);
-        else { /* push validation error */ }
-    } catch (z) {
-        if (z.code !== "ENOENT") { /* log non-ENOENT errors */ }
-        // ENOENT is normal: plugin doesn't have .lsp.json
+        let Y = $1(),
+            z = L4(A),
+            {
+                buffer: _,
+                bytesRead: w
+            } = Y.readSync(z, {
+                length: l1q
+            }),
+            $ = _.toString("utf-8", 0, w).split(`
+`);
+        if (q < 0 || q >= $.length) return null;
+        if (w === l1q && q === $.length - 1) return null;
+        let H = $[q];
+        if (!H || K < 0 || K >= H.length) return null;
+        let j = /[\w$'!]+|[+\-*/%&|^~<>=]+/g,
+            J;
+        while ((J = j.exec(H)) !== null) {
+            let M = J.index,
+                D = M + J[0].length;
+            if (K >= M && K < D) {
+                let X = J[0];
+                return X.length > 30 ? X.slice(0, 27) + "..." : X
+            }
+        }
+        return null
+    } catch (Y) {
+        if (Y instanceof Error) k(`Symbol extraction failed for ${A}:${q}:${K}: ${Y.message}`, {
+            level: "warn"
+        });
+        return null
     }
-    if (A.manifest.lspServers) {
-        let z = await $vY(A.manifest.lspServers, A.path, A.name, q);
-        if (z) Object.assign(K, z);
-    }
-    return Object.keys(K).length > 0 ? K : undefined;
 }
+
+// READABLE:
+function extractSymbolAtPosition(filePath, lineIndex, charIndex) {
+    try {
+        // 1. Get file handle and resolve path
+        const fs = getFileSystem();
+        const resolvedPath = resolvePath(filePath);
+
+        // 2. Read up to 64KB from file (performance optimization)
+        const { buffer, bytesRead } = fs.readSync(resolvedPath, {
+            length: SYMBOL_EXTRACTION_BUFFER_SIZE  // l1q = 65536
+        });
+
+        // 3. Convert to string and split by lines
+        const content = buffer.toString("utf-8", 0, bytesRead);
+        const lines = content.split("\n");
+
+        // 4. Validate line bounds
+        if (lineIndex < 0 || lineIndex >= lines.length) return null;
+
+        // 5. Detect truncated file (file larger than 64KB and line is last)
+        if (bytesRead === SYMBOL_EXTRACTION_BUFFER_SIZE && lineIndex === lines.length - 1) {
+            return null;  // Can't reliably determine symbol in truncated region
+        }
+
+        // 6. Get target line
+        const line = lines[lineIndex];
+        if (!line || charIndex < 0 || charIndex >= line.length) return null;
+
+        // 7. Token regex: match identifiers and operators
+        //    [\w$'!]+     - word characters, $, ', ! (for Lisp-like languages)
+        //    |[+\-*/%&|^~<>=]+ - operators
+        const tokenRegex = /[\w$'!]+|[+\-*/%&|^~<>=]+/g;
+
+        let match;
+        while ((match = tokenRegex.exec(line)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+
+            // 8. Check if charIndex falls within this token
+            if (charIndex >= start && charIndex < end) {
+                const token = match[0];
+                // 9. Truncate if too long (UI display optimization)
+                return token.length > 30 ? token.slice(0, 27) + "..." : token;
+            }
+        }
+
+        return null;  // No token at position
+
+    } catch (error) {
+        if (error instanceof Error) {
+            log(`Symbol extraction failed for ${filePath}:${lineIndex}:${charIndex}: ${error.message}`, { level: "warn" });
+        }
+        return null;
+    }
+}
+
+// Mapping: i1q→extractSymbolAtPosition, $1→getFileSystem, L4→resolvePath, l1q→SYMBOL_EXTRACTION_BUFFER_SIZE (65536)
 ```
 
-### Variable Expansion in LSP Configs (OvY / _vY)
+### Key Algorithm Decisions
 
-Configs may reference `${CLAUDE_PLUGIN_ROOT}` and other env vars. Before use, all config strings are expanded:
+**Why 64KB buffer limit:**
+- Most source files have important content near the top
+- Reading entire large files is slow and wasteful
+- If file is larger and symbol is past 64KB, it's acceptable to fail gracefully
+
+**Token regex pattern:**
+```javascript
+/[\w$'!]+|[+\-*/%&|^~<>=]+/g
+```
+- `[\w$'!]+` - Identifiers: word chars, $ (JS/PHP), ' (Lisp), ! (Ruby)
+- `|[+\-*/%&|^~<>=]+` - Operators: for hovering over operators
+
+**30-character truncation:**
+- Long generated names (e.g., minified code) break UI layout
+- Truncates to 27 + "..." for readability
+
+### Usage Flow
+
+```
+Agent calls LSP Tool with { operation: "goToDefinition", filePath: "App.tsx", line: 42, character: 7 }
+         │
+         ▼
+renderLspToolUseMessage (o1q) called BEFORE LSP request completes
+         │
+         ├─► extractSymbolAtPosition("App.tsx", 41, 6)  // 0-indexed
+         │       │
+         │       ├─► Read first 64KB of App.tsx
+         │       ├─► Get line 41
+         │       ├─► Find token at column 6
+         │       └─► Return "useState"
+         │
+         └─► Display: 'operation: "goToDefinition", symbol: "useState", in: "App.tsx"'
+```
+
+---
+
+## 12. LSP Tool: Request Parameter Building
+
+### What it does
+
+The `buildLspRequestParams` (WIY) function converts a high-level LSP operation (e.g., `goToDefinition`) into the specific LSP protocol method and parameters.
+
+### Complete Implementation
 
 ```javascript
+// ============================================
+// buildLspRequestParams - Build LSP request for each operation
+// Location: chunks.144.mjs:593-681
+// ============================================
+
 // ORIGINAL:
-function OvY(A, q) {
-    return A.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, q)
-}
-
-// _vY expands a single server config:
-// 1. Replace ${CLAUDE_PLUGIN_ROOT} in command, args, env values, workspaceFolder
-// 2. Collect names of any missing env vars → emit a warning
-// 3. Inject CLAUDE_PLUGIN_ROOT into the env object
-```
-
-### Server Namespacing (JvY)
-
-Each plugin's servers are namespaced to prevent collisions:
-```javascript
-// Input:  { "typescript": { command: "tsserver", ... } }
-// Output: { "plugin:my-plugin:typescript": { ...config, scope: "dynamic", source: "my-plugin" } }
-function namespacePluginServers(servers, pluginName) {
-    const result = {};
-    for (const [name, config] of Object.entries(servers)) {
-        result[`plugin:${pluginName}:${name}`] = {
-            ...config,
-            scope: "dynamic",
-            source: pluginName
+function WIY(A, q) {
+    let K = DIY(q).href,
+        Y = {
+            line: A.line - 1,
+            character: A.character - 1
         };
-    }
-    return result;
-}
-```
-
-### Security: Path Traversal Prevention in lspServers
-
-When `lspServers` references a file path string, the path is validated against the plugin root:
-```javascript
-function wvY(pluginPath, configPath) {
-    const absolute = resolve(pluginPath);
-    const joined = resolve(pluginPath, configPath);
-    const relative = relative(absolute, joined);
-    // If relative path starts with ".." → escaping the plugin dir → BLOCK
-    if (relative.startsWith("..") || isAbsolute(relative)) return null;
-    return joined;
-}
-```
-Any path traversal attempt is blocked, logged, and reported as a validation error.
-
----
-
-## Layer 5: LSP Server Config Schema (ew1)
-
-Defined in `chunks.15.mjs:274-293` using Zod strict validation:
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `command` | string | ✓ | No spaces; use `args` for arguments |
-| `args` | string[] | - | Command-line arguments |
-| `extensionToLanguage` | `{".ext": "langId"}` | ✓ | At least one mapping; extensions must start with `.` |
-| `transport` | `"stdio"` \| `"socket"` | - | Default: `"stdio"` |
-| `env` | `{string: string}` | - | Additional env vars |
-| `initializationOptions` | unknown | - | Passed verbatim in `initialize` request |
-| `settings` | unknown | - | For `workspace/didChangeConfiguration` (reserved) |
-| `workspaceFolder` | string | - | Overrides default CWD |
-| `startupTimeout` | number | - | **Not yet implemented** — rejected at runtime |
-| `shutdownTimeout` | number | - | **Not yet implemented** — rejected at runtime |
-| `restartOnCrash` | boolean | - | **Not yet implemented** — rejected at runtime |
-| `maxRestarts` | number | - | Default: 3 |
-
----
-
-## Layer 6: Passive Diagnostics System
-
-### Full Pipeline
-
-```
-LSP Server ──publishDiagnostics──► em4 (registerNotificationHandlers)
-                                          │ calls om4 (registerDiagnostics)
-                                          │         │ stores in cQ1 (Map)
-                                          ▼
-                                   sm4 (checkDiagnosticsRegistry)
-                                   │ deduplicates via hashing
-                                   │ volume-limits (VP6=10/file, nm4=30 total)
-                                   │ sort by severity
-                                   ▼
-                                   WIY (getLSPDiagnosticAttachments)
-                                   │ called per agent turn
-                                   ▼
-                                   System prompt as `lsp_diagnostics` attachment
-```
-
-### registerNotificationHandlers (em4)
-
-**What it does:** After the LSP manager is initialized, wires up `textDocument/publishDiagnostics` listeners on every registered server.
-
-**How it works:**
-```javascript
-// ORIGINAL (simplified):
-function em4(A) {
-    let q = A.getAllServers(), K = [], Y = 0, z = new Map;  // errors, successCount, failureTracker
-    for (let [H, $] of q.entries()) try {
-        if (!$ || typeof $.onNotification !== "function") {
-            K.push({ serverName: H, error: "..." });
-            continue
-        }
-        $.onNotification("textDocument/publishDiagnostics", async (O) => {
-            // validate O has uri + diagnostics
-            let _ = O, J = WvY(_),   // convertDiagnosticUriToPath
-                X = J[0];
-            if (!X || X.diagnostics.length === 0) return;
-            om4({ serverName: H, files: J });   // register
-            z.delete(H);  // reset consecutive failure counter
-        });
-        Y++
-    } catch (O) { K.push({ serverName: H, error: O.message }) }
-    // log: Y/q.size succeeded
-}
-
-// READABLE:
-function registerNotificationHandlers(manager) {
-    const servers = manager.getAllServers();
-    for (const [serverName, server] of servers.entries()) {
-        server.onNotification("textDocument/publishDiagnostics", async (params) => {
-            const diagnosticFiles = convertDiagnosticParamsToFiles(params);
-            if (!diagnosticFiles[0] || diagnosticFiles[0].diagnostics.length === 0) return;
-            registerDiagnostics({ serverName, files: diagnosticFiles });
-        });
-    }
-}
-```
-
-**Consecutive failure tracking:** If the diagnostic handler throws 3+ times for the same server, a `WARNING` is logged. This surfaces persistent issues (e.g., malformed params from a buggy LSP server) without crashing.
-
-### registerDiagnostics (om4) — The Pending Registry
-
-```javascript
-// ============================================
-// registerDiagnostics - Buffers incoming diagnostics
-// Location: chunks.133.mjs:2350-2361
-// ============================================
-
-// ORIGINAL:
-function om4({ serverName: A, files: q }) {
-    let K = XvY();  // generateUUID
-    cQ1.set(K, {
-        serverName: A,
-        files: q,
-        timestamp: Date.now(),
-        attachmentSent: false
-    })
-}
-
-// READABLE:
-function registerDiagnostics({ serverName, files }) {
-    const id = generateUUID();
-    pendingDiagnosticsMap.set(id, {  // cQ1: Map<uuid, DiagnosticSet>
-        serverName,
-        files,
-        timestamp: Date.now(),
-        attachmentSent: false   // marks when delivered to agent
-    });
-}
-```
-
-### checkDiagnosticsRegistry (sm4) — Dedup + Volume Limit
-
-**What it does:** The core delivery algorithm. Collects all un-sent diagnostics, deduplicates, volume-limits, and returns the final payload.
-
-**How it works:**
-1. **Collect** all `DiagnosticSet` records where `attachmentSent === false`
-2. **Deduplicate** via `jvY()`:
-   - Hash each diagnostic: `SHA(message + severity + range + source + code)`
-   - Skip if same hash already seen for this URI (current batch) or already delivered (LRU cache `MW1`)
-3. **Sort** each file's diagnostics by severity (Error=1 > Warning=2 > Info=3 > Hint=4)
-4. **Volume-limit**:
-   - Per-file cap: `VP6 = 10` diagnostics
-   - Global cap: `nm4 = 30` diagnostics total
-5. **Mark** all processed records as `attachmentSent = true`
-6. **Update** delivered-set LRU cache `MW1` (max 500 entries, `DvY = 500`)
-7. **Return** merged payload: `[{ serverName: "server1, server2", files: [...] }]`
-
-```javascript
-// ORIGINAL (simplified):
-function sm4() {
-    let A = [], q = new Set, K = [];
-    for (let _ of cQ1.values())
-        if (!_.attachmentSent) A.push(..._.files), q.add(_.serverName), K.push(_);
-    if (A.length === 0) return [];
-    let Y = jvY(A);   // deduplicate
-    for (let _ of K) _.attachmentSent = !0;
-    // sort + volume limit
-    for (let _ of Y) {
-        _.diagnostics.sort((X, D) => rm4(X.severity) - rm4(D.severity));
-        if (_.diagnostics.length > VP6)
-            _.diagnostics = _.diagnostics.slice(0, VP6);  // cap at 10/file
-        let J = nm4 - H;
-        if (_.diagnostics.length > J)
-            _.diagnostics = _.diagnostics.slice(0, J);    // cap at 30 total
-        H += _.diagnostics.length
-    }
-    // update MW1 (LRU) with delivered hashes
-    return [{ serverName: Array.from(q).join(", "), files: Y }]
-}
-```
-
-**Why LRU for delivered diagnostics?** The `MW1` cache with `max: 500` bounds memory. Without eviction, a workspace with 500+ files would grow the delivered-set indefinitely, eventually causing memory pressure on long-running sessions.
-
-**Why sort by severity?** The agent prompt has a token budget. By placing Error-level diagnostics first, the most actionable information survives the per-file cap even if Hints are trimmed.
-
----
-
-## Layer 7: Singleton Manager Lifecycle
-
-### initializeLspServerManager (KF4)
-
-**What it does:** Creates the singleton `LspServerManager` and starts async initialization. Uses a generation counter to handle rapid re-init (e.g., after config change).
-
-```javascript
-// ============================================
-// initializeLspServerManager - Singleton init with generation guard
-// Location: chunks.133.mjs:2641-2656
-// ============================================
-
-// ORIGINAL:
-function KF4() {
-    if (jI !== void 0 && ev !== "failed") return;  // already init'd
-    if (ev === "failed") jI = void 0, vP6 = void 0; // clear failure state
-    jI = lm4();   // create new manager
-    ev = "pending";
-    let A = ++TP6;  // generation counter
-    EP6 = jI.initialize().then(() => {
-        if (A === TP6) {  // still current generation?
-            ev = "success";
-            if (jI) em4(jI);   // registerNotificationHandlers
-        }
-    }).catch((q) => {
-        if (A === TP6) ev = "failed", vP6 = q, jI = void 0
-    })
-}
-
-// Readable state machine:
-// jI (manager instance), ev (state), vP6 (error), TP6 (generation), EP6 (init Promise)
-```
-
-**Generation counter design:** `TP6` increments on each `initializeLspServerManager()` call. The `then`/`catch` callbacks only apply their state change if `A === TP6` (i.e., they are from the current generation). This prevents a stale init from overwriting the state of a newer one — critical if `YF4` (shutdown) is called immediately after `KF4`.
-
-**State machine:**
-```
-"not-started" → KF4() → "pending" → success → "success" → em4() registers handlers
-                                    → failure → "failed"  (jI = undefined)
-"failed" → KF4() → clears error → "pending" → ...
-```
-
-### getLspManager (md)
-
-```javascript
-function md() {
-    if (ev === "failed") return undefined;
-    return jI;  // may be undefined if pending
-}
-```
-
-**Why return `undefined` on `"failed"` explicitly?** The tool's `call()` method checks `!w` (no manager) and returns a user-visible error message rather than throwing. This makes LSP failures graceful — the agent gets an explanatory message instead of an unhandled exception.
-
-### Startup Integration (chunks.189.mjs)
-
-`KF4()` is called during the main REPL startup sequence:
-```javascript
-// chunks.189.mjs:1409
-if (KF4(), !z1) {
-    // ... MCP setup, UI rendering, etc.
-}
-```
-It fires asynchronously in parallel with other startup tasks (MCP server connect, UI render). By the time the user first invokes the LSP tool, the initialization is usually complete.
-
-`YF4()` (shutdown) is registered via `Tq(YF4)` — the process exit cleanup registry:
-```javascript
-// chunks.175.mjs:2339
-Tq(YF4)  // = registerProcessExitCleanup(shutdownLspServerManager)
-```
-
----
-
-## Layer 8: The LSP Tool (vRA in chunks.140.mjs)
-
-### Tool Metadata
-
-```javascript
-const LspTool = {
-    name: "LSP",              // VRA
-    maxResultSizeChars: 100000,
-    isLsp: true,
-    isReadOnly() { return true },
-    isConcurrencySafe() { return true },
-    userFacingName() { return "LSP" },
-}
-```
-
-### isEnabled Check
-
-```javascript
-isEnabled() {
-    if (getLspManagerStatus().status === "failed") return false;
-    const manager = getLspManager();
-    if (!manager) return false;
-    const servers = manager.getAllServers();
-    if (servers.size === 0) return false;
-    // Tool is enabled if ANY server is not in error state
-    return Array.from(servers.values()).some(s => s.state !== "error");
-}
-```
-
-**Why `some(s => s.state !== "error")`?** A workspace might have TypeScript and Python servers. If the Python server fails to start but TypeScript is healthy, the tool should still be available for `.ts` files. The check requires at least one functional server.
-
-### Supported Operations (LCY → buildLspRequestParams)
-
-```javascript
-// ============================================
-// buildLspRequestParams - Operation → JSON-RPC method mapper
-// Location: chunks.140.mjs:454-541
-// ============================================
-
-// ORIGINAL:
-function LCY(A, q) {
-    let K = vCY(q).href,   // pathToFileURL(filePath).href
-        Y = { line: A.line - 1, character: A.character - 1 };  // 1-based → 0-based
     switch (A.operation) {
-        case "goToDefinition":      return { method: "textDocument/definition", params: {...} };
-        case "findReferences":      return { method: "textDocument/references", params: { ..., context: { includeDeclaration: true } } };
-        case "hover":               return { method: "textDocument/hover", params: {...} };
-        case "documentSymbol":      return { method: "textDocument/documentSymbol", params: {...} };
-        case "workspaceSymbol":     return { method: "workspace/symbol", params: { query: "" } };
-        case "goToImplementation":  return { method: "textDocument/implementation", params: {...} };
-        case "prepareCallHierarchy":return { method: "textDocument/prepareCallHierarchy", params: {...} };
-        case "incomingCalls":       return { method: "textDocument/prepareCallHierarchy", params: {...} };
-        case "outgoingCalls":       return { method: "textDocument/prepareCallHierarchy", params: {...} };
+        case "goToDefinition":
+            return {
+                method: "textDocument/definition", params: {
+                    textDocument: { uri: K },
+                    position: Y
+                }
+            };
+        case "findReferences":
+            return {
+                method: "textDocument/references", params: {
+                    textDocument: { uri: K },
+                    position: Y,
+                    context: { includeDeclaration: !0 }
+                }
+            };
+        case "hover":
+            return {
+                method: "textDocument/hover", params: {
+                    textDocument: { uri: K },
+                    position: Y
+                }
+            };
+        case "documentSymbol":
+            return {
+                method: "textDocument/documentSymbol", params: {
+                    textDocument: { uri: K }
+                }
+            };
+        case "workspaceSymbol":
+            return {
+                method: "workspace/symbol", params: {
+                    query: ""
+                }
+            };
+        case "goToImplementation":
+            return {
+                method: "textDocument/implementation", params: {
+                    textDocument: { uri: K },
+                    position: Y
+                }
+            };
+        case "prepareCallHierarchy":
+            return {
+                method: "textDocument/prepareCallHierarchy", params: {
+                    textDocument: { uri: K },
+                    position: Y
+                }
+            };
+        case "incomingCalls":
+        case "outgoingCalls":
+            return {
+                method: "textDocument/prepareCallHierarchy", params: {
+                    textDocument: { uri: K },
+                    position: Y
+                }
+            };
     }
 }
+
+// READABLE:
+function buildLspRequestParams(input, filePath) {
+    // 1. Convert file path to URI
+    const uri = pathToFileUrl(filePath).href;
+
+    // 2. Convert to LSP 0-indexed position (API uses 1-indexed)
+    const position = {
+        line: input.line - 1,
+        character: input.character - 1
+    };
+
+    // 3. Build request based on operation
+    switch (input.operation) {
+        case "goToDefinition":
+            return {
+                method: "textDocument/definition",
+                params: {
+                    textDocument: { uri },
+                    position
+                }
+            };
+
+        case "findReferences":
+            return {
+                method: "textDocument/references",
+                params: {
+                    textDocument: { uri },
+                    position,
+                    context: { includeDeclaration: true }  // Include definition in results
+                }
+            };
+
+        case "hover":
+            return {
+                method: "textDocument/hover",
+                params: {
+                    textDocument: { uri },
+                    position
+                }
+            };
+
+        case "documentSymbol":
+            // No position needed - returns all symbols in document
+            return {
+                method: "textDocument/documentSymbol",
+                params: {
+                    textDocument: { uri }
+                }
+            };
+
+        case "workspaceSymbol":
+            // No file or position - searches entire workspace
+            // Empty query returns all symbols (can be filtered by LSP server)
+            return {
+                method: "workspace/symbol",
+                params: {
+                    query: ""
+                }
+            };
+
+        case "goToImplementation":
+            return {
+                method: "textDocument/implementation",
+                params: {
+                    textDocument: { uri },
+                    position
+                }
+            };
+
+        case "prepareCallHierarchy":
+            return {
+                method: "textDocument/prepareCallHierarchy",
+                params: {
+                    textDocument: { uri },
+                    position
+                }
+            };
+
+        case "incomingCalls":
+        case "outgoingCalls":
+            // Both start with prepareCallHierarchy to get the call hierarchy item
+            // The LspTool.call() handles the second request (incomingCalls/outgoingCalls)
+            // based on the prepareCallHierarchy result
+            return {
+                method: "textDocument/prepareCallHierarchy",
+                params: {
+                    textDocument: { uri },
+                    position
+                }
+            };
+    }
+}
+
+// Mapping: WIY→buildLspRequestParams, DIY→pathToFileUrl
 ```
 
-**Call hierarchy two-step:** For `incomingCalls` and `outgoingCalls`, `LCY` maps both to `textDocument/prepareCallHierarchy` as the first request. The tool's `call()` then uses the returned `CallHierarchyItem` to make a second request to `callHierarchy/incomingCalls` or `callHierarchy/outgoingCalls`:
+### Operation → LSP Method Mapping
+
+| Operation | LSP Method | Position Required? | Notes |
+|-----------|------------|-------------------|-------|
+| `goToDefinition` | `textDocument/definition` | Yes | Returns Location or LocationLink[] |
+| `findReferences` | `textDocument/references` | Yes | `includeDeclaration: true` |
+| `hover` | `textDocument/hover` | Yes | Returns Hover or null |
+| `documentSymbol` | `textDocument/documentSymbol` | No | Returns DocumentSymbol[] |
+| `workspaceSymbol` | `workspace/symbol` | No | Returns SymbolInformation[] |
+| `goToImplementation` | `textDocument/implementation` | Yes | Returns Location[] |
+| `prepareCallHierarchy` | `textDocument/prepareCallHierarchy` | Yes | Returns CallHierarchyItem[] |
+| `incomingCalls` | `callHierarchy/incomingCalls` | Yes (via prepare) | Returns CallHierarchyIncomingCall[] |
+| `outgoingCalls` | `callHierarchy/outgoingCalls` | Yes (via prepare) | Returns CallHierarchyOutgoingCall[] |
+
+### Position Conversion
+
+**Important:** LSP uses 0-indexed positions, but the tool API uses 1-indexed (like editors):
 
 ```javascript
-// In LspTool.call():
-if (operation === "incomingCalls" || operation === "outgoingCalls") {
-    const hierarchyItems = await manager.sendRequest(filePath, "textDocument/prepareCallHierarchy", params);
-    if (!hierarchyItems || hierarchyItems.length === 0) return "No call hierarchy item found";
-    const secondMethod = operation === "incomingCalls"
-        ? "callHierarchy/incomingCalls"
-        : "callHierarchy/outgoingCalls";
-    result = await manager.sendRequest(filePath, secondMethod, { item: hierarchyItems[0] });
-}
+// API input: { line: 42, character: 7 }  // 1-indexed
+// LSP params: { line: 41, character: 6 }  // 0-indexed
 ```
-
-**Why not a direct `callHierarchy/incomingCalls`?** The LSP spec requires prepare first — the server returns a canonical `CallHierarchyItem` (which may differ from the raw position), and that item is passed to the second call. Skipping prepare would violate the protocol.
-
-**`workspaceSymbol` query is `""`:** This requests all workspace symbols. A non-empty query would filter — but since Claude Code wants the full picture, it always asks for everything.
-
-### Tool call() Main Flow
-
-```javascript
-async call(input, context) {
-    const filePath = resolvePath(input.filePath);
-
-    // 1. Wait if manager is pending
-    if (getLspManagerStatus().status === "pending") await waitForLspManager();
-
-    const manager = getLspManager();
-    if (!manager) return { data: { result: "LSP server manager not initialized", ... } };
-
-    // 2. Map operation → method+params
-    const { method, params } = buildLspRequestParams(input, filePath);
-
-    // 3. Auto-open file if not already open
-    if (!manager.isFileOpen(filePath)) {
-        const content = await readFile(filePath, "utf-8");
-        await manager.openFile(filePath, content);
-    }
-
-    // 4. Send request (with retry logic in LspServerInstance)
-    let result = await manager.sendRequest(filePath, method, params);
-
-    // 5. Special handling for call hierarchy (two-step)
-    if (operation === "incomingCalls" || operation === "outgoingCalls") {
-        // ... second request as described above
-    }
-
-    // 6. Format result
-    const { formatted, resultCount, fileCount } = formatLspResult(operation, result, cwd);
-    return { data: { operation, result: formatted, filePath, resultCount, fileCount } };
-}
-```
-
-**Auto-open on first access:** If the LSP tool is invoked on a file the manager hasn't seen yet, it reads the file and sends `didOpen`. This is important because LSP servers may not return results for files they haven't indexed. Without `didOpen`, `textDocument/hover` on an unregistered file often returns `null`.
-
-### Input/Output Schema
-
-**Input** (ECY — Zod strict object):
-```
-operation: "goToDefinition" | "findReferences" | "hover" | "documentSymbol" |
-           "workspaceSymbol" | "goToImplementation" | "prepareCallHierarchy" |
-           "incomingCalls" | "outgoingCalls"
-filePath:  string (absolute or relative)
-line:      positive integer (1-based)
-character: positive integer (1-based)
-```
-
-**Output** (kCY):
-```
-operation:    string (echoed)
-result:       string (formatted output)
-filePath:     string
-resultCount?: number
-fileCount?:   number
-```
-
-**1-based → 0-based conversion:** The agent inputs use 1-based line/character (editor convention). `LCY` converts: `{ line: A.line - 1, character: A.character - 1 }`. LSP itself uses 0-based positions.
-
-### Symbol Kind Mapping (cW1)
-
-LSP returns `DocumentSymbol.kind` as an integer (1–26). The formatter maps these:
-
-```
-1=File, 2=Module, 3=Namespace, 4=Package, 5=Class, 6=Method, 7=Property,
-8=Field, 9=Constructor, 10=Enum, 11=Interface, 12=Function, 13=Variable,
-14=Constant, 15=String, 16=Number, 17=Boolean, 18=Array, 19=Object,
-20=Key, 21=Null, 22=EnumMember, 23=Struct, 24=Event, 25=Operator, 26=TypeParameter
-```
-
-Hierarchical symbols are recursively formatted with 2-space indentation per level.
 
 ---
 
-## File Synchronization: Edit Tool → LSP Integration
+## 13. LSP Tool: Result Formatting
 
-When `FileEditTool` (chunks.134.mjs) or `FileWriteTool` (chunks.146.mjs) writes a file, they notify the LSP manager:
+### What it does
+
+The `formatLspResult` (fIY) function takes the raw LSP server response and formats it for display, while also computing result counts and file counts for the UI summary.
+
+### Complete Implementation
 
 ```javascript
-// chunks.134.mjs:2361-2366 (FileEditTool.call)
-const manager = getLspManager();  // md()
-if (manager) {
-    clearDeliveredDiagnosticsForUri(`file://${filePath}`);  // NP6()
-    manager.changeFile(filePath, newContent)
-        .catch(err => logError(err));
-    manager.saveFile(filePath)
-        .catch(err => logError(err));
+// ============================================
+// formatLspResult - Format LSP response for display
+// Location: chunks.144.mjs:745-830
+// ============================================
+
+// ORIGINAL:
+function fIY(A, q, K) {
+    switch (A) {
+        case "goToDefinition": {
+            let z = (Array.isArray(q) ? q : q ? [q] : []).map(ak1),
+                _ = z.filter((O) => !O || !O.uri);
+            if (_.length > 0) _6(Error(`LSP server returned ${_.length} location(s) with undefined URI for goToDefinition on ${K}. This indicates malformed data from the LSP server.`));
+            let w = z.filter((O) => O && O.uri);
+            return {
+                formatted: KF8(q, K),
+                resultCount: w.length,
+                fileCount: ok1(w)
+            }
+        }
+        case "findReferences": {
+            let Y = q || [],
+                z = Y.filter((w) => !w || !w.uri);
+            if (z.length > 0) _6(Error(`LSP server returned ${z.length} location(s) with undefined URI for findReferences on ${K}. This indicates malformed data from the LSP server.`));
+            let _ = Y.filter((w) => w && w.uri);
+            return {
+                formatted: B1q(q, K),
+                resultCount: _.length,
+                fileCount: ok1(_)
+            }
+        }
+        case "hover":
+            return {
+                formatted: g1q(q, K), resultCount: q ? 1 : 0, fileCount: q ? 1 : 0
+            };
+        case "documentSymbol": {
+            let Y = q || [],
+                _ = Y.length > 0 && Y[0] && "range" in Y[0] ? K8q(Y) : Y.length;
+            return {
+                formatted: p1q(q, K),
+                resultCount: _,
+                fileCount: Y.length > 0 ? 1 : 0
+            }
+        }
+        case "workspaceSymbol": {
+            let Y = q || [],
+                z = Y.filter((O) => !O || !O.location || !O.location.uri);
+            if (z.length > 0) _6(Error(`LSP server returned ${z.length} symbol(s) with undefined location URI for workspaceSymbol on ${K}. This indicates malformed data from the LSP server.`));
+            let _ = Y.filter((O) => O && O.location && O.location.uri),
+                w = _.map((O) => O.location);
+            return {
+                formatted: YF8(q, K),
+                resultCount: _.length,
+                fileCount: ok1(w)
+            }
+        }
+        case "goToImplementation": {
+            let z = (Array.isArray(q) ? q : q ? [q] : []).map(ak1),
+                _ = z.filter((O) => !O || !O.uri);
+            if (_.length > 0) _6(Error(`LSP server returned ${_.length} location(s) with undefined URI for goToImplementation on ${K}. This indicates malformed data from the LSP server.`));
+            let w = z.filter((O) => O && O.uri);
+            return {
+                formatted: KF8(q, K),
+                resultCount: w.length,
+                fileCount: ok1(w)
+            }
+        }
+        case "prepareCallHierarchy": {
+            let Y = q || [];
+            return {
+                formatted: Q1q(q, K),
+                resultCount: Y.length,
+                fileCount: Y.length > 0 ? TIY(Y) : 0
+            }
+        }
+        case "incomingCalls": {
+            let Y = q || [];
+            return {
+                formatted: U1q(q, K),
+                resultCount: Y.length,
+                fileCount: Y.length > 0 ? vIY(Y) : 0
+            }
+        }
+        case "outgoingCalls": {
+            let Y = q || [];
+            return {
+                formatted: d1q(q, K),
+                resultCount: Y.length,
+                fileCount: Y.length > 0 ? NIY(Y) : 0
+            }
+        }
+    }
+}
+
+// READABLE:
+function formatLspResult(operation, result, filePath) {
+    switch (operation) {
+        case "goToDefinition":
+        case "goToImplementation": {
+            // Result can be: Location, Location[], LocationLink, LocationLink[], or null
+            const locations = (Array.isArray(result) ? result : result ? [result] : [])
+                .map(normalizeLocation);  // ak1: LocationLink → Location
+
+            // Log malformed data (helps debug broken LSP servers)
+            const invalid = locations.filter((loc) => !loc || !loc.uri);
+            if (invalid.length > 0) {
+                logError(Error(`LSP server returned ${invalid.length} location(s) with undefined URI for ${operation} on ${filePath}. This indicates malformed data from the LSP server.`));
+            }
+
+            const valid = locations.filter((loc) => loc && loc.uri);
+
+            return {
+                formatted: formatGoToDefinitionResult(result, filePath),  // KF8
+                resultCount: valid.length,
+                fileCount: countUniqueFiles(valid)  // ok1
+            };
+        }
+
+        case "findReferences": {
+            const refs = result || [];
+
+            // Validate and filter
+            const invalid = refs.filter((ref) => !ref || !ref.uri);
+            if (invalid.length > 0) {
+                logError(Error(`LSP server returned ${invalid.length} location(s) with undefined URI for findReferences on ${filePath}`));
+            }
+            const valid = refs.filter((ref) => ref && ref.uri);
+
+            return {
+                formatted: formatFindReferencesResult(result, filePath),  // B1q
+                resultCount: valid.length,
+                fileCount: countUniqueFiles(valid)
+            };
+        }
+
+        case "hover":
+            // Hover returns single result or null
+            return {
+                formatted: formatHoverResult(result, filePath),  // g1q
+                resultCount: result ? 1 : 0,
+                fileCount: result ? 1 : 0
+            };
+
+        case "documentSymbol": {
+            const symbols = result || [];
+
+            // Count hierarchical symbols (DocumentSymbol has children)
+            const totalCount = symbols.length > 0 && symbols[0] && "range" in symbols[0]
+                ? countHierarchicalSymbols(symbols)  // K8q: recursive count
+                : symbols.length;
+
+            return {
+                formatted: formatDocumentSymbolResult(result, filePath),  // p1q
+                resultCount: totalCount,
+                fileCount: symbols.length > 0 ? 1 : 0  // Single file
+            };
+        }
+
+        case "workspaceSymbol": {
+            const symbols = result || [];
+
+            // Validate
+            const invalid = symbols.filter((s) => !s || !s.location || !s.location.uri);
+            if (invalid.length > 0) {
+                logError(Error(`LSP server returned ${invalid.length} symbol(s) with undefined location URI for workspaceSymbol on ${filePath}`));
+            }
+            const valid = symbols.filter((s) => s && s.location && s.location.uri);
+            const locations = valid.map((s) => s.location);
+
+            return {
+                formatted: formatWorkspaceSymbolResult(result, filePath),  // YF8
+                resultCount: valid.length,
+                fileCount: countUniqueFiles(locations)
+            };
+        }
+
+        case "prepareCallHierarchy": {
+            const items = result || [];
+            return {
+                formatted: formatPrepareCallHierarchyResult(result, filePath),  // Q1q
+                resultCount: items.length,
+                fileCount: items.length > 0 ? countCallHierarchyFiles(items) : 0  // TIY
+            };
+        }
+
+        case "incomingCalls": {
+            const calls = result || [];
+            return {
+                formatted: formatIncomingCallsResult(result, filePath),  // U1q
+                resultCount: calls.length,
+                fileCount: calls.length > 0 ? countIncomingCallerFiles(calls) : 0  // vIY
+            };
+        }
+
+        case "outgoingCalls": {
+            const calls = result || [];
+            return {
+                formatted: formatOutgoingCallsResult(result, filePath),  // d1q
+                resultCount: calls.length,
+                fileCount: calls.length > 0 ? countOutgoingCalleeFiles(calls) : 0  // NIY
+            };
+        }
+    }
+}
+
+// Mapping: fIY→formatLspResult, ak1→normalizeLocation, KF8→formatGoToDefinitionResult, B1q→formatFindReferencesResult, g1q→formatHoverResult, p1q→formatDocumentSymbolResult, YF8→formatWorkspaceSymbolResult, Q1q→formatPrepareCallHierarchyResult, U1q→formatIncomingCallsResult, d1q→formatOutgoingCallsResult, ok1→countUniqueFiles, K8q→countHierarchicalSymbols, TIY→countCallHierarchyFiles, vIY→countIncomingCallerFiles, NIY→countOutgoingCalleeFiles, _6→logError
+```
+
+### Return Value Structure
+
+```javascript
+{
+    formatted: string,      // Human-readable formatted result
+    resultCount: number,    // Number of results (for UI: "Found N references")
+    fileCount: number       // Number of unique files (for UI: "across N files")
 }
 ```
 
-**Why clear delivered diagnostics?** After a file edit, old diagnostics for that file are stale. `NP6()` removes the file's hash set from the LRU cache `MW1`, so the next `publishDiagnostics` notification for the same file will be delivered as fresh (not deduplicated away).
+### Malformed Data Handling
 
-**Why both `changeFile` and `saveFile`?** Some LSP servers (e.g., tsserver) only re-analyze on `didSave`. Others index on `didChange`. Sending both ensures maximum compatibility.
+The formatter is defensive against broken LSP servers:
+1. Logs errors for locations with undefined URIs
+2. Filters out invalid results before counting
+3. Still includes all results in formatted output (fail-open)
 
-**Non-blocking with `.catch()`:** Both notifications are fire-and-forget. Failing to notify the LSP server of a file change is not fatal — the tool will still work, just with potentially stale data.
-
----
-
-## Diagnostics Injection into System Prompt
-
-### Pipeline Integration
+### File Counting Functions
 
 ```javascript
-// chunks.142.mjs:1962 — buildAttachments()
-const D = isMainAgent ? [
-    // ...other attachments...
-    gw("lsp_diagnostics", async () => WIY(sessionContext)),
-    // ...
-] : [];
+// countUniqueFiles (ok1) - Unique URIs in Location[]
+function countUniqueFiles(locations) {
+    return new Set(locations.map((loc) => loc.uri)).size;
+}
+
+// countHierarchicalSymbols (K8q) - Recursive symbol count
+function countHierarchicalSymbols(symbols) {
+    let count = symbols.length;
+    for (const symbol of symbols) {
+        if (symbol.children && symbol.children.length > 0) {
+            count += countHierarchicalSymbols(symbol.children);
+        }
+    }
+    return count;
+}
+
+// countCallHierarchyFiles (TIY) - Unique URIs in CallHierarchyItem[]
+function countCallHierarchyFiles(items) {
+    const uris = items.map((item) => item.uri).filter((uri) => uri);
+    return new Set(uris).size;
+}
+
+// countIncomingCallerFiles (vIY) - Unique caller URIs
+function countIncomingCallerFiles(calls) {
+    const uris = calls.map((call) => call.from?.uri).filter((uri) => uri);
+    return new Set(uris).size;
+}
+
+// countOutgoingCalleeFiles (NIY) - Unique callee URIs
+function countOutgoingCalleeFiles(calls) {
+    const uris = calls.map((call) => call.to?.uri).filter((uri) => uri);
+    return new Set(uris).size;
+}
 ```
-
-`WIY` (getLSPDiagnosticAttachments) calls `sm4()` (checkDiagnosticsRegistry) and formats results. Diagnostics appear as a `type: "diagnostics"` system reminder injected before the assistant turn.
-
-**Timing:** Diagnostics are collected fresh on every agent turn (before each LLM API call). This means if a server pushes diagnostics between turns, they appear in the next turn's system prompt — providing real-time feedback on the agent's edits.
 
 ---
 
-## Summary: Key Design Decisions
+## Source Locations Summary
 
-| Decision | Rationale |
-|----------|-----------|
-| `didSave` only (not `didChange`) | Avoids version tracking complexity; atomic file writes make full sync sufficient |
-| Lazy server start | Servers only start when a file of their extension is first accessed, saving resources for unused languages |
-| `workspace/configuration` stub returning `null` | Prevents server stalls without requiring a full settings management system |
-| 3-retry exponential backoff for ContentModified | Balances responsiveness against thundering herd during indexing |
-| Diagnostic deduplication via hashing | Prevents duplicate errors from filling the agent's context window |
-| 10/file + 30 total diagnostic cap | Constrains token usage while surfacing the most actionable errors |
-| LRU(500) for delivered diagnostics | Bounds memory for long-running sessions with many files |
-| Generation counter in singleton init | Handles rapid re-initialization without race conditions |
-| Path traversal check on plugin LSP config paths | Sandboxes plugins to their own directory |
+| Function | Symbol | Location |
+|----------|--------|----------|
+| createLspProcessWrapper | co4 | chunks.138.mjs:218-379 |
+| createLspClient | no4 | chunks.138.mjs:389-563 |
+| withTimeout | AyY | chunks.138.mjs:565-570 |
+| CONTENT_MODIFIED_ERROR_CODE | tEY | chunks.138.mjs:572 |
+| LSP_MAX_RETRIES | Qm8 | chunks.138.mjs:574 |
+| LSP_RETRY_BASE_DELAY_MS | eEY | chunks.138.mjs:576 |
+| safePluginRelativePath | YyY | chunks.138.mjs:585-591 |
+| loadPluginLspConfig | Nl6 | chunks.138.mjs:593-628 |
+| resolvePluginLspServersField | zyY | chunks.138.mjs:630-690 |
+| expandLspConfigVars | _yY | chunks.138.mjs:692-722 |
+| namespacePluginServers | wyY | chunks.138.mjs:724-735 |
+| loadSinglePluginLspConfig | ao4 | chunks.138.mjs:737-745 |
+| loadLspConfigs | so4 | chunks.138.mjs:756-796 |
+| LspServerManager | eo4 | chunks.138.mjs:806-969 |
+| extractSymbolAtPosition | i1q | chunks.144.mjs:381-414 |
+| SYMBOL_EXTRACTION_BUFFER_SIZE | l1q | chunks.144.mjs:416 |
+| buildLspRequestParams | WIY | chunks.144.mjs:593-681 |
+| formatLspResult | fIY | chunks.144.mjs:745-830 |
+| countHierarchicalSymbols | K8q | chunks.144.mjs:683-688 |
+| countUniqueFiles | ok1 | chunks.144.mjs:690-692 |
+
+---
+
+**Last Updated**: 2026-03-23
+**Version**: Claude Code 2.1.76
+**Status**: ✅ Complete - All symbols cross-validated against source code
+**Status**: Complete - All code verified against source

@@ -10,35 +10,35 @@ Claude Code's keybinding system includes comprehensive validation and error repo
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions and constants in this document:
-- `Mk5` (chunks.54.mjs:1635-1693) - Async keybindings loader with validation
-- `YS1` (chunks.54.mjs:1700-1750) - Sync keybindings loader
-- `Ak5` (chunks.54.mjs:1420-1480) - Validates a single keybinding block
-- `eE5` (chunks.54.mjs:1396-1418) - Validates a single keystroke string
-- `aqA` (chunks.54.mjs:1482-1508) - Detects duplicate keys in JSON
-- `sqA` (chunks.54.mjs:1519-1610) - Validates against reserved shortcuts
-- `S6Y` (chunks.110.mjs:890-930) - Warning notification display
-- `Nq7` (chunks.54.mjs:1793-1801) - Hot-reload error handling
+- `tu9` (chunks.89.mjs:3143) - loadKeybindingsAsync with validation
+- `$p6` (chunks.89.mjs:3208) - loadKeybindingsSync
+- `gu9` (chunks.89.mjs:2918) - validateKeybindingBlock
+- `Bu9` (chunks.89.mjs:2898) - parseAndValidateKeystroke
+- `pu9` (chunks.89.mjs:3030) - detectDuplicateBindings
+- `Qu9` (chunks.89.mjs:3054) - detectReservedKeyConflicts
+- `f4Y` (chunks.117.mjs) - Warning notification display hook
+- `I34` (chunks.90.mjs:14) - Hot-reload error handling
 
 ## 1. Configuration Errors
 
 ### Invalid JSON Syntax
 
-**Detection**: JSON parsing happens in `Mk5()` and `YS1()` using `_A()` (JSON.parse wrapper):
+**Detection**: JSON parsing happens in `loadKeybindingsAsync()` (tu9) and `loadKeybindingsSync()` ($p6):
 
 ```javascript
 // ============================================
-// Mk5 - Async keybindings loader with JSON error handling
-// Location: chunks.54.mjs:1635-1693
+// tu9 - loadKeybindingsAsync with JSON error handling
+// Location: chunks.89.mjs:3143-3200
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function Mk5() {
-    let A = tqA();
-    if (!Hv()) return {
+async function tu9() {
+    let A = rN8();
+    if (!pk()) return {
         bindings: A,
         warnings: []
     };
-    let q = R71();
+    let q = b36();
     try {
         let K = await wk5(q, "utf-8"),
             Y = _A(K),
@@ -75,14 +75,14 @@ async function loadKeybindingsAsync() {
     let defaultBindings = getDefaultKeybindings();
 
     // If customization is disabled, return defaults
-    if (!isCustomizationEnabled()) {
+    if (!isKeybindingCustomizationEnabled()) {
         return {
             bindings: defaultBindings,
             warnings: []
         };
     }
 
-    let configPath = getKeybindingsPath();
+    let configPath = getKeybindingsFilePath();
     try {
         let jsonContent = await readFile(configPath, "utf-8");
         let parsed = JSON.parse(jsonContent);
