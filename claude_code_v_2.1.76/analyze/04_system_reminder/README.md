@@ -46,7 +46,7 @@ This module provides comprehensive documentation of the system reminder architec
 | [**types_mode_control.md**](./types_mode_control.md) | `plan_mode`, `plan_mode_reentry`, `plan_mode_exit`, `plan_file_reference`, `delegate_mode`, `delegate_mode_exit` | Variant selection, full/sparse/subagent; /plan with description argument (v2.1.76) |
 | [**types_skills_memory.md**](./types_skills_memory.md) | `invoked_skills`, `skill_listing`, `nested_memory`, `mcp_resource`, `ultramemory`, `dynamic_skill`, `agent_mention` | Memory loading, MCP resources, cooldown; CLAUDE_SKILL_DIR, InstructionsLoaded, last-modified headers (v2.1.76) |
 | [**types_hooks.md**](./types_hooks.md) | `async_hook_response`, `hook_blocking_error`, `hook_success`, `hook_additional_context`, `hook_stopped_continuation`, `post_compact`, `elicitation`, `elicitation_result`, `instructions_loaded`, `config_change`, `worktree_create`, `worktree_remove` | Hook response delivery, blocking behavior; new hook types (v2.1.76) |
-| [**types_status_budget.md**](./types_status_budget.md) | `token_usage`, `budget_usd`, `compaction_reminder`, `critical_system_reminder`, `queued_command`, `output_style`, `verify_plan_reminder`, `session_name`, `cron_job` | Resource tracking, queued messages; session_name and cron_job (v2.1.76) |
+| [**types_status_budget.md**](./types_status_budget.md) | `token_usage`, `budget_usd`, `compaction_reminder`, `critical_system_reminder`, `queued_command`, `output_style`, `verify_plan_reminder`, `session_name` | Resource tracking, queued messages; session_name (v2.1.76) |
 | [**types_silent.md**](./types_silent.md) | All silent types | Why silent types exist, internal state tracking |
 
 ### Quick Reference
@@ -162,7 +162,6 @@ Examples of what system reminders convey:
 - `critical_system_reminder` - Critical alerts
 - `queued_command` - Queued user message
 - `session_name` - Current session name (v2.1.76 new)
-- `cron_job` - /loop cron job reminder (v2.1.76 new)
 - `output_token_usage` - Output token tracking (v2.1.76 new)
 - `date_change` - Date change notification (v2.1.76 new)
 - `ultrathink_effort` - Reasoning effort level (v2.1.76 new)

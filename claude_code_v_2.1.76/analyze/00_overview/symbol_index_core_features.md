@@ -1563,7 +1563,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 ## Module: Loop/Cron System
 
-> Full analysis: [36_loop_cron/](../36_loop_cron/), [08_subagent/slash_command_integration.md](../08_subagent/slash_command_integration.md)
+> Full analysis: [36_loop_cron/](../36_loop_cron/)
 > **NEW in 2.1.71** - Recurring task scheduling via /loop command and Cron tools
 
 ### Cron Tool Names & Constants
@@ -1573,33 +1573,175 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | ER | TOOL_NAME_CRON_CREATE | chunks.91.mjs:192 | constant ("CronCreate") |
 | ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
 | SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
-| - | CLAUDE_CODE_DISABLE_CRON | process.env | environment variable |
+| RV8 | CRON_CREATE_DESCRIPTION | chunks.91.mjs:198 | constant (tool description) |
+| hV8 | CRON_CREATE_PROMPT | chunks.91.mjs:213-248 | constant (tool prompt template) |
+| SV8 | CRON_DELETE_DESCRIPTION | chunks.91.mjs:202 | constant |
+| IV8 | CRON_LIST_DESCRIPTION | chunks.91.mjs:206 | constant |
+| CV8 | CRON_DELETE_PROMPT | chunks.91.mjs:248 | constant |
+| bV8 | CRON_LIST_PROMPT | chunks.91.mjs:248 | constant |
+| no6 | DEFAULT_LOOP_INTERVAL | chunks.181.mjs:1662 | constant ("10m") |
+| rA1 | WORKLOAD_TYPE_CRON | chunks.18.mjs:1894 | constant ("cron") |
+| j7q | MAX_SCHEDULED_JOBS | chunks.145.mjs:919 | constant (50) |
+| Chq | THREE_DAYS_MS | chunks.186.mjs:275 | constant (259200000) |
+| Shq | FIRE_CHECK_INTERVAL_MS | chunks.186.mjs:269 | constant (1000) |
 
 ### Cron Tools
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| - | CronCreateTool | chunks.139.mjs | tool object |
-| - | CronDeleteTool | chunks.139.mjs | tool object |
-| - | CronListTool | chunks.139.mjs | tool object |
-| - | cronJobRegistry | chunks.89.mjs | variable (Map: id → cronJob) |
-| - | createCronJob | chunks.89.mjs | function |
-| - | deleteCronJob | chunks.89.mjs | function |
-| - | listCronJobs | chunks.89.mjs | function |
+| TbY | CronCreateTool | chunks.145.mjs:950-1045 | object |
+| VbY | CronDeleteTool | chunks.145.mjs:1066-1145 | object |
+| ybY | CronListTool | chunks.145.mjs:1173-1244 | object |
+| ZbY | fullCronCreateSchema | chunks.145.mjs:938-943 | schema (includes durable) |
+| GbY | cronCreateInputSchema | chunks.145.mjs:943-944 | schema (agent-facing) |
+| fbY | cronCreateOutputSchema | chunks.145.mjs:945-950 | schema |
+| vbY | cronDeleteInputSchema | chunks.145.mjs:1062-1064 | schema |
+| NbY | cronDeleteOutputSchema | chunks.145.mjs:1064-1066 | schema |
+| kbY | cronListInputSchema | chunks.145.mjs:1164 | schema (empty) |
+| EbY | cronListOutputSchema | chunks.145.mjs:1165-1172 | schema |
 
-### Loop Command
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| - | loopCommandDefinition | chunks.163.mjs | object (slash command definition) |
-| - | parseLoopInterval | chunks.163.mjs | function (parses "5m", "1h" → ms) |
-| - | loopCommandHandler | chunks.163.mjs | function |
-
-### Integration with Team Tools
+### Cron Expression Parsing
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| ji6 | parseCronExpression | chunks.145.mjs:543-559 | function |
+| HbY | parseCronField | chunks.145.mjs:506-541 | function |
+| tAq | findNextCronTime | chunks.145.mjs:561-595 | function |
+| IT6 | getNextCronMatch | chunks.145.mjs:792-797 | function |
+| CT6 | formatCronHumanReadable | chunks.145.mjs:613-651 | function |
+| $bY | CRON_FIELD_BOUNDS | chunks.145.mjs:658-674 | constant (array) |
+| sAq | DAY_NAMES | chunks.145.mjs:674 | constant (["Sunday", ...]) |
+
+### Scheduler Implementation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ds8 | createCronScheduler | chunks.186.mjs:110-248 | function |
+| Ws8 | getCronJitterConfig | chunks.186.mjs:288-292 | function |
+| XF8 | calculateNextRecurringTime | chunks.145.mjs:804-811 | function |
+| K7q | calculateNextOneShotTime | chunks.145.mjs:813-819 | function |
+| q7q | hashJobId | chunks.145.mjs:799-802 | function |
+| Ihq | isTaskExpired | chunks.186.mjs:106-108 | function |
+| Y7q | findMissedOneShots | chunks.145.mjs:821-837 | function |
+| bhq | formatMissedTasksMessage | chunks.186.mjs:251-266 | function |
+| Lz6 | DEFAULT_JITTER_CONFIG | chunks.145.mjs:841-847 | object |
+| fXz | FILE_STABILITY_THRESHOLD_MS | chunks.186.mjs:271 | constant (300) |
+| TXz | LOCK_RETRY_INTERVAL_MS | chunks.186.mjs:273 | constant (5000) |
+
+### Task Storage
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ck6 | getSessionCronTasks | chunks.1.mjs:2897-2898 | function |
+| Bu1 | addSessionCronTask | chunks.1.mjs:2901-2902 | function |
+| lk6 | removeSessionCronTasks | chunks.1.mjs:2905-2911 | function |
+| dk6 | setScheduledTasksEnabled | chunks.1.mjs:2889-2890 | function |
+| pw6 | getScheduledTasksEnabled | chunks.1.mjs:2893-2894 | function |
+| Mi6 | loadDurableTasks | chunks.145.mjs:681-721 | function |
+| eAq | saveDurableTasks | chunks.145.mjs:736-748 | function |
+| zE1 | hasScheduledTasks | chunks.145.mjs:723-734 | function |
+| A7q | createCronTask | chunks.145.mjs:751-770 | function |
+| yz6 | deleteCronTasks | chunks.145.mjs:772-780 | function |
+| bT6 | getAllCronTasks | chunks.145.mjs:782-790 | function |
+| WbY | SCHEDULED_TASKS_FILE | chunks.145.mjs:840 | constant |
+| MbY | generateUUID | chunks.145.mjs:752 | function (used for task ID generation) |
+
+### /loop Command
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gJz | registerLoopSkill | chunks.181.mjs:1640-1660 | function |
+| BJz | buildLoopPrompt | chunks.181.mjs:1592-1638 | function |
+| mJz | LOOP_USAGE_MESSAGE | chunks.181.mjs:1669-1681 | constant |
+| rw | registerSkill | chunks.165.mjs:2546-2586 | function (generic skill registration) |
+| lPq | registeredSkills | chunks.165.mjs | array (global skill registry) |
+
+### Process & Lock Utilities
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cA1 | isProcessAlive | chunks.186.mjs | function (check if process is running) |
+
+### UI Rendering
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| z7q | renderCronCreateUseMessage | chunks.145.mjs:850-852 | function |
+| _7q | renderCronCreateResultMessage | chunks.145.mjs:854-860 | function |
+| w7q | renderCronDeleteUseMessage | chunks.145.mjs:862-864 | function |
+| O7q | renderCronDeleteResultMessage | chunks.145.mjs:866-870 | function |
+| $7q | renderCronListUseMessage | chunks.145.mjs:872-874 | function |
+| H7q | renderCronListResultMessage | chunks.145.mjs:876-887 | function |
+| xT6 | renderToolUseProgressMessage | chunks.145.mjs:889-891 | function |
+| uT6 | renderToolUseRejectedMessage | chunks.145.mjs:893-895 | function |
+| mT6 | renderToolUseErrorMessage | chunks.145.mjs:897-904 | function |
+
+### Feature Flags & Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kR | isKairosCronEnabled | chunks.91.mjs:186-188 | function |
+| LB9 | FEATURE_FLAG_CACHE_MS | chunks.91.mjs:190 | constant (300000) |
 | WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | Set (includes CronCreate/Delete/List) |
+| vXz | JITTER_CONFIG_CACHE_MS | chunks.186.mjs:294 | constant (60000) |
+| NXz | JitterConfigSchema | chunks.186.mjs:304-310 | Zod schema |
+| Ps8 | MAX_JITTER_CAP_MS | chunks.186.mjs:296 | constant (1800000 = 30 min) |
+
+### Lock Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Rhq | readLockFile | chunks.186.mjs:3-12 | function |
+| Ehq | tryAcquireLock | chunks.186.mjs:14-38 | function |
+| Ms8 | acquireSchedulerLock | chunks.186.mjs:47-68 | function |
+| za6 | releaseSchedulerLock | chunks.186.mjs:70-79 | function |
+| js8 | scheduleLockHeartbeat | chunks.186.mjs:41-45 | function |
+| jI1 | heartbeatHandle | chunks.186.mjs:85 | variable |
+| Ka6 | lockedBySession | chunks.186.mjs:87 | variable |
+| ZXz | LOCK_FILE_PATH | chunks.186.mjs:97 | constant |
+| GXz | LOCK_SCHEMA | chunks.186.mjs:97-101 | schema |
+| bl | getScheduledTasksPath | chunks.145.mjs:677-679 | function |
+| Ya6 | getLockPath | chunks.186.mjs | function |
+| DF8 | pathJoin | utility | function |
+
+### UI Utility Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R3 | truncate | chunks.41.mjs:1965-1977 | function (truncates text with ellipsis, Unicode-aware) |
+| BZ | React | external | library (Ink uses React) |
+| t1 | Box | Ink | component (flex container) |
+| T | Text | Ink | component (styled text) |
+| T3 | Spinner | chunks.89.mjs:2585 | component (loading spinner for rejected messages) |
+| eK | ErrorDisplay | chunks.90.mjs:385 | component (error message styling) |
+
+### React Hook for Cron Scheduling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| yvz | useScheduledTasks | chunks.195.mjs:1948-1986 | React hook |
+| vb1 | React (Ink context) | chunks.195.mjs:1988 | import |
+| S5 | useStore | chunks.195.mjs:1954 | Redux hook |
+| xA | useDispatch | chunks.195.mjs:1955 | Redux hook |
+
+### Teammate Task Routing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _g | findTaskById | chunks.113.mjs:1370-1377 | function |
+| LJ6 | isTaskTerminal | chunks.41.mjs:2402-2404 | function |
+| tQ6 | dispatchTaskPrompt | chunks.113.mjs:1357-1367 | function |
+| O.agentId | taskAgentId | chunks.195.mjs:1968 | property |
+| w0 | enqueueMessage | chunks.90.mjs:2823-2827 | function |
+| rA1 | WORKLOAD_TYPE_CRON | chunks.18.mjs:1894 | constant ("cron") |
+
+### Telemetry Events
+
+| Event Name | Trigger | Properties |
+|------------|---------|------------|
+| `tengu_scheduled_task_missed` | Missed one-shot tasks detected | `count`, `taskIds` |
+| `tengu_scheduled_task_fire` | A scheduled task fires | `recurring`, `taskId` |
+| `tengu_scheduled_task_expired` | Recurring task expires (3-day limit) | `taskId`, `ageHours` |
 
 ---
 

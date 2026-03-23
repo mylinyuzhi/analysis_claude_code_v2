@@ -162,7 +162,7 @@ normalizeAttachmentForAPI(attachment)
     │     ├─> New hook types (v2.1.76): post_compact, elicitation, elicitation_result,
     │     │                             instructions_loaded, config_change, worktree_create, worktree_remove
     │     ├─> Budget types: token_usage, budget_usd, output_token_usage
-    │     ├─> New status types (v2.1.76): session_name, cron_job, date_change, ultrathink_effort
+    │     ├─> New status types (v2.1.76): session_name, date_change, ultrathink_effort
     │     ├─> MCP integration types (v2.1.76): deferred_tools_delta, mcp_instructions_delta
     │     ├─> Other types: mcp_resource, agent_mention, diagnostics, queued_command, ultramemory
     │     └─> Silent types: already_read_file, command_permissions, edited_image_file, context_efficiency, etc.

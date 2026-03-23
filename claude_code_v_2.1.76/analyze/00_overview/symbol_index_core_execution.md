@@ -545,10 +545,10 @@
 | ed | TOOL_NAME_CRON_DELETE | chunks.91.mjs:194 | constant ("CronDelete") |
 | ybY | CronListTool | chunks.145.mjs:1173 | tool object |
 | SW6 | TOOL_NAME_CRON_LIST | chunks.91.mjs:196 | constant ("CronList") |
-| ji6 | validateCronExpression | chunks.145.mjs | function (validates 5-field cron) |
-| IT6 | getNextCronRun | chunks.145.mjs | function (calculates next fire time) |
-| CT6 | getHumanSchedule | chunks.145.mjs | function (human-readable schedule) |
-| kR | isCronEnabled | chunks.91.mjs:187 | function (feature flag check) |
+| ji6 | parseCronExpression | chunks.145.mjs:543-559 | function (parses 5-field cron) |
+| IT6 | getNextCronMatch | chunks.145.mjs:792-797 | function (calculates next fire time) |
+| CT6 | formatCronHumanReadable | chunks.145.mjs:613-651 | function (human-readable schedule) |
+| kR | isKairosCronEnabled | chunks.91.mjs:186-188 | function (feature flag check) |
 
 ### Plan Mode Tools
 

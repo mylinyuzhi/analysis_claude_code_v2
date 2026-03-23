@@ -73,7 +73,6 @@ The system reminder pipeline has three layers:
                      ├─> diagnostics (cuY/luY)
                      ├─> token_usage (qmY)
                      ├─> queued_commands (OuY)
-                     ├─> cron_job reminders (v2.1.76)
                      └─> ... (11 producers total)
                      [Skipped if subagent]
                │
@@ -125,7 +124,7 @@ The `_uY` function (`assembleAllAttachments`) orchestrates **parallel computatio
 
 1. **User-message-dependent** (`j` array): `at_mentioned_files`, `mcp_resources`, `agent_mentions` -- only computed when a user message (`A`) is present
 2. **Always-computed** (`M` array): `changed_files`, `nested_memory`, `dynamic_skill`, `skill_listing`, `plan_mode`, `plan_mode_exit`, `delegate_mode`, `todo_reminders`, `teammate_mailbox`, `team_context`, `critical_system_reminder`, `session_name` (v2.1.76), `post_compact` (v2.1.76)
-3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands`, `cron_job` (v2.1.76) -- skipped for sub-agents (`H = !q.agentId`)
+3. **Main-agent-only** (`D` array): `ide_selection`, `ide_opened_file`, `output_style`, `diagnostics`, `lsp_diagnostics`, `unified_tasks`, `async_hook_responses`, `token_usage`, `budget_usd`, `verify_plan_reminder`, `queued_commands` -- skipped for sub-agents (`H = !q.agentId`)
 
 Each producer is wrapped in `Hz()` (`timedAttachmentProducer`), which measures execution time and reports telemetry at a 5% sampling rate. If any producer throws, it logs the error and returns an empty array, preventing one failure from blocking all reminders.
 
@@ -616,7 +615,7 @@ The `phY` function (`assembleAttachments`) in `chunks.142.mjs:1948-1965` is the 
 2. **Three parallel groups** are computed:
    - `_` (user-message-dependent): at-mentioned files, MCP resources, agent mentions -- only when processing a user message
    - `X` (always-computed): changed files, nested memory, skills, plan mode, delegate mode, todos, team context, critical reminders, session name (v2.1.76), post_compact responses (v2.1.76)
-   - `D` (main-agent-only): IDE selection, IDE opened file, output style, diagnostics, LSP diagnostics, unified tasks, async hooks, token/budget usage, verify plan, queued commands, cron_job reminders (v2.1.76)
+   - `D` (main-agent-only): IDE selection, IDE opened file, output style, diagnostics, LSP diagnostics, unified tasks, async hooks, token/budget usage, verify plan, queued commands
 
 3. **Parallel execution**: All three groups run via `Promise.all` concurrently, and results are flattened into a single array.
 
@@ -855,7 +854,8 @@ Seven new hook event types were added to the system reminder pipeline. These cor
 ### New Reminder Types
 
 - **session_name** - Injects the current session name as a reminder; helps with session continuity and identification
-- **cron_job** - Reminds the model when running inside a `/loop` cron job context; provides scheduling information
+
+> **Note:** The `cron_job` type was documented as planned for v2.1.76 but was not implemented. Cron jobs use `isMeta: true` message injection instead. See [36_loop_cron/integration.md](../36_loop_cron/integration.md) for details.
 
 ### Skill System Updates
 
