@@ -25,35 +25,71 @@
 > Full analysis: [20_sdk/](../20_sdk/)
 > Deep reverse engineering of the NDJSON streaming protocol, WebSocket transport, and UI linkage.
 
+### SDK Constants (chunks.184.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| kDz | MAX_RESOLVED_TOOL_USE_IDS | chunks.184.mjs:2279 | constant (1000: max tracked tool_use_ids to prevent duplicate responses) |
+| na8 | SANDBOX_NETWORK_ACCESS_TOOL | chunks.184.mjs:2277 | constant ("SandboxNetworkAccess": tool name for sandbox network permission) |
+
+### SDK Mode Detection (chunks.1.mjs, chunks.91.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| q7 | isNonInteractive | chunks.1.mjs:2720-2722 | function (returns `!v1.isInteractive`; global SDK/print mode check; used 30+ times for behavior branching) |
+| DW | isInteractive | chunks.1.mjs:2724-2726 | function (returns `v1.isInteractive`; opposite of q7) |
+| DY4 | isNonInteractiveSession | chunks.91.mjs:45-47 | function (returns `A.isNonInteractiveSession`; session context-specific check) |
+
 ### SDK I/O Transport Classes (chunks.184.mjs, chunks.185.mjs, chunks.187.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| so6 | StdioStreamIO | chunks.184.mjs:1942-2220 | class (base NDJSON transport over stdio; owns Pi6 outbound queue) |
+| so6 | StdioStreamIO | chunks.184.mjs:1942-2228 | class (base NDJSON transport over stdio; owns Pi6 outbound queue) |
 | AI1 | RemoteStreamIO | chunks.185.mjs:672-780 | class (extends so6; bridges selected transport → PassThrough stream; uses URq to select WebSocket/Hybrid/SSE) |
 | to6 | WebSocketTransport | chunks.184.mjs:2298-2762 | class (WebSocket connection with reconnect, message buffer, ping/pong) |
 | eo6 | HybridTransport | chunks.184.mjs:2762-2870 | class (extends to6; reads via WS, writes stream_event via HTTP POST batch; owns Y26 BatchQueue) |
 | z26 | SSETransport | chunks.184.mjs | class (SSE-based transport for CCR v2 protocol) |
 | URq | getTransportForUrl | chunks.185.mjs:296 | function (selects to6/eo6/z26 based on URL and env vars for RemoteStreamIO) |
 | UXz | createStreamIO | chunks.187.mjs:1467-1481 | function (factory: selects StdioStreamIO or RemoteStreamIO based on sdkUrl option) |
-| jc1 | handlePermissionPromptToolResult | chunks.184.mjs:989-1010 | function (processes MCP tool permission result; handles allow/deny/interrupt) |
 | oGz | streamJsonInputHandler | chunks.189.mjs:984-997 | function (routes stdin → stream; text mode buffers, stream-json mode returns raw stream) |
 | createHookCallback | createHookCallback | chunks.184.mjs:2167-2184 | method (on StdioStreamIO: creates callback wrapper for SDK hook execution via control_request) |
 | handleElicitation | handleElicitation | chunks.184.mjs:2185-2201 | method (on StdioStreamIO: sends structured elicitation control_request; awaits user input response) |
 | createSandboxAskCallback | createSandboxAskCallback | chunks.184.mjs:2202-2220 | method (on StdioStreamIO: creates callback for sandbox permission decisions via control_request) |
-| sendMcpMessage | sendMcpMessage | chunks.184.mjs | method (on StdioStreamIO: sends MCP message through SDK control channel) |
-| CJz | initializeSession | chunks.187.mjs | function (processes initialize control request, registers hooks/agents/schema) |
-| hJz | handleSessionResume | chunks.187.mjs | function (handles --continue/--resume/--teleport for print mode) |
-| Ev6 | outputError | chunks.187.mjs | function (formats error output for SDK mode; stream-json vs text) |
-| SJz | setPermissionMode | chunks.187.mjs | function (sets permission mode from SDK request) |
+| sendMcpMessage | sendMcpMessage | chunks.184.mjs:2221-2230 | method (on StdioStreamIO: sends MCP message through SDK control channel; returns mcp_response) |
 | $Jz | tryPermissionHookFirst | chunks.184.mjs | function (attempts hook-based permission before prompt) |
 
-### SDK MCP Transport (chunks.144.mjs, chunks.145.mjs)
+### SDK Permission Handling (chunks.173.mjs, chunks.184.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| wCA | SdkMcpTransport | chunks.144.mjs:1747-1768 | class (MCP transport for SDK mode; routes through sendMcpMessage) |
-| io4 | initializeSdkMcpClients | chunks.145.mjs:1769-1832 | function (initializes MCP clients from SDK configuration) |
+| tJ | checkToolPermission | chunks.173.mjs:3-150 | function (main permission check entry; handles allow/deny/ask decisions; auto-mode classifier integration) |
+| JV6 | processPermissionResult | chunks.184.mjs:1621-1642 | function (processes SDK permission response; updates permissions state; handles deny+interrupt) |
+| EDz | permissionRequestIterator | chunks.184.mjs:2234-2272 | function (iterates hook-based permission requests; yields allow/deny decisions) |
+| ao6 | permissionResponseSchema | chunks.184.mjs:1676 | constant (Zod union schema for allow/deny permission responses) |
+| gN6 | hookCallbackResponseSchema | chunks.175.mjs:285-291 | constant (Zod schema for hook callback responses) |
+
+### SDK Session Management (chunks.187.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| FXz | initializeSession | chunks.187.mjs:1174-1269 | function (processes initialize control request; applies systemPrompt/appendSystemPrompt; registers hooks via createHookCallback; returns session metadata) |
+| thq | handleRewindRequest | chunks.187.mjs:1271-1303 | function (handles file rewind/checkpoint operations; validates and executes rewind) |
+| pXz | handleSetPermissionMode | chunks.187.mjs:1305-1345 | function (sets permission mode; validates bypassPermissions/auto mode availability) |
+| XI1 | outputError | chunks.187.mjs:1347-1369 | function (formats error output for SDK mode; stream-json vs text mode handling) |
+| QXz | handleSessionResume | chunks.187.mjs:1376-1419 | function (handles --continue/--resume/--teleport for print mode; loads previous session) |
+| ehq | removeMessagePair | chunks.187.mjs:1371-1374 | function (removes message pair by uuid from message array) |
+| zV6 | setUIState | chunks.179.mjs:2026-2028 | function (sets UI state for SDK mode; calls hkq callback with state like "requires_action") |
+| WD | randomUUID | cli.chunks.mjs:8728 | function (import from crypto; generates UUIDs for SDK events and control requests) |
+| R1 | getSessionId | chunks.1.mjs:2337 | function (returns v1.sessionId; used in SDK events for session correlation) |
+| SJq | parseRateLimitInfo | chunks.161.mjs:2906-2935 | function (parses API rate limit response into structured rate_limit_event payload) |
+| Nt | rateLimitEventEmitter | chunks.85.mjs:2451 | variable (Set used as event emitter for rate limit event subscription) |
+
+### SDK MCP Transport (chunks.169.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oi8 | SdkMcpTransport | chunks.169.mjs:1506-1527 | class (MCP transport for SDK mode; routes MCP messages through sendMcpMessage control channel) |
+| WGq | initializeSdkMcpClients | chunks.169.mjs:2437-2499 | function (initializes MCP clients from SDK configuration; creates SdkMcpTransport instances) |
 | rH6 | McpClient | chunks.145.mjs | class (MCP client for tool discovery and execution) |
 | wI | discoverMcpTools | chunks.145.mjs | function (discovers tools from connected MCP servers) |
 
@@ -61,10 +97,14 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| OJz | WS_MESSAGE_BUFFER_SIZE | chunks.184.mjs:2517 | constant (1000: circular buffer capacity for message replay) |
-| _Jz | WS_BASE_BACKOFF_MS | chunks.184.mjs:2519 | constant (1000: initial reconnection backoff in ms) |
-| JJz | WS_MAX_BACKOFF_MS | chunks.184.mjs:2521 | constant (30000: max reconnection backoff cap in ms) |
-| XJz | WS_MAX_RECONNECT_DURATION_MS | chunks.184.mjs:2523 | constant (600000: total reconnection time budget, 10 minutes) |
+| yDz | WS_MESSAGE_BUFFER_SIZE | chunks.184.mjs:2615 | constant (1000: circular buffer capacity for message replay) |
+| LDz | BASE_BACKOFF_MS | chunks.184.mjs:2617 | constant (1000: initial reconnection backoff in ms) |
+| QRq | MAX_BACKOFF_MS | chunks.184.mjs:2619 | constant (30000: max reconnection backoff cap in ms) |
+| RDz | MAX_RECONNECT_DURATION_MS | chunks.184.mjs:2621 | constant (600000: total reconnection time budget, 10 minutes) |
+| pRq | SYSTEM_SLEEP_DETECTION_MS | chunks.184.mjs:2639 | constant (60000: gap threshold to detect system sleep and reset reconnect budget) |
+| CDz | PERMANENT_CLOSE_CODES | chunks.184.mjs:2639 | constant (Set: 1002, 4001, 4003 - codes that prevent reconnection) |
+| hDz | WS_CONNECT_TIMEOUT_MS | chunks.184.mjs:2623 | constant (10000: connection establishment timeout) |
+| SDz | WS_KEEPALIVE_TIMEOUT_MS | chunks.184.mjs:2625 | constant (300000: 5 minute keepalive timeout) |
 | IDz | STREAM_EVENT_BUFFER_TIMEOUT_MS | chunks.184.mjs | constant (100: ms to buffer stream_event before HTTP POST flush in HybridTransport) |
 | bDz | HYBRID_FLUSH_TIMEOUT_MS | chunks.184.mjs | constant (15000: per-batch HTTP POST timeout for HybridTransport) |
 | xDz | HYBRID_CLOSE_FLUSH_TIMEOUT_MS | chunks.184.mjs | constant (3000: close flush timeout for graceful HybridTransport shutdown) |
@@ -76,8 +116,32 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | xN6 | handleToolUseStream | chunks.173.mjs:2384-2488 | function (central dispatcher: stream_event → UI state transitions, text/tool/thinking callbacks) ✅ |
+| af | wrapInXmlTag | chunks.173.mjs:2490-2494 | function (wraps content in `<system-reminder>` XML tags for API injection) |
+| b5 | wrapWithSystemReminderTags | chunks.173.mjs:2496-2523 | function (wraps message arrays with XML tags; handles string and array content) |
 
 > **Correction (2026-03-22):** The symbol `iW1` was previously incorrectly mapped here. `iW1` at chunks.110.mjs:1656 is a different function. The correct streaming event handler is `xN6` (handleToolUseStream).
+
+### UI State Machine (chunks.196.mjs)
+
+> Full analysis: [20_sdk/sdk_ui_state_machine.md](../20_sdk/sdk_ui_state_machine.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| d7 | uiState | chunks.196.mjs:96 | variable (React state: "requesting" \| "thinking" \| "responding" \| "tool-input" \| "tool-use") |
+| W4 | setUIState | chunks.196.mjs:96 | function (setter for uiState React state) |
+| Dz | uiStateRef | chunks.196.mjs:97 | variable (React ref: synchronous access to uiState for non-React callbacks) |
+| JK | toolUses | chunks.196.mjs:99 | variable (React state: array of in-progress tool use entries during streaming) |
+| F3 | setToolUses | chunks.196.mjs:99 | function (setter for toolUses React state) |
+| MK | thinkingState | chunks.196.mjs:100 | variable (React state: { thinking, isStreaming, streamingEndedAt } or null) |
+| k3 | setThinkingState | chunks.196.mjs:100 | function (setter for thinkingState React state) |
+
+### Rate Limit Events (chunks.85.mjs, chunks.161.mjs, chunks.187.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Nt | rateLimitEventEmitter | chunks.85.mjs:2451 | variable (Set of callback functions for rate limit event subscription) |
+| Jf | DEFAULT_RATE_LIMIT_STATE | chunks.85.mjs:2450 | constant (default state: { status: "allowed", unifiedRateLimitFallbackAvailable: false }) |
+| SJq | parseRateLimitInfo | chunks.161.mjs:2906-2935 | function (parses API rate limit response into structured rate_limit_event payload) |
 
 ### Outbound Queue Classes (chunks.145.mjs, chunks.184.mjs)
 
@@ -87,7 +151,7 @@
 |------------|----------|-----------|------|
 | Pi6 | AsyncQueue | chunks.145.mjs:2959 | class (async-iterable FIFO queue; StdioStreamIO outbound buffer and runHeadless output collector) |
 | so6 | StdioStreamIO | chunks.184.mjs:1942 | class (owner of AsyncQueue outbound; primary definition in chunks.184.mjs) |
-| BXz | runHeadless | chunks.145.mjs | function (non-interactive execution loop; uses AsyncQueue to collect all output messages) |
+| BXz | runHeadless | chunks.187.mjs:3-300 | function (non-interactive execution loop; uses AsyncQueue to collect all output messages; handles rate_limit events) |
 | Y26 | BatchQueue | chunks.184.mjs:2642 | class (HTTP POST batch uploader with backpressure, retry, and exponential backoff) |
 | eo6 | HybridTransport | chunks.184.mjs | class (owns BatchQueue uploader for telemetry/event delivery) |
 | MV6 | RetryAfterError | chunks.184.mjs:2731 | class (Error subclass with retryAfterMs field; signals server-directed retry delay) |
@@ -1184,7 +1248,7 @@
 > - [02_ui/integration_summary.md](../02_ui/integration_summary.md) - Cross-module integration
 > - [04_system_reminder/ui_linkage.md](../04_system_reminder/ui_linkage.md) - System reminder UI visibility
 
-### REPL Core (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
+### REPL Core (chunks.196.mjs, chunks.179.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
@@ -1192,6 +1256,7 @@
 | ra6 | getInputDialogType | chunks.196.mjs:387-404 | function (priority dialog dispatcher) ✅ |
 | TM | handleCancel | chunks.196.mjs:420-432 | function (escape/cancel with per-dialog behavior) ✅ |
 | xN6 | handleToolUseStream | chunks.173.mjs:2384-2480 | function (streaming event processor) ✅ |
+| zV6 | setUIState | chunks.179.mjs:2026-2028 | function (calls UI state callback to update indicator) ✅ |
 | HIq | ToolPermissionDialog | chunks.190.mjs:899 | component (tool use approval dialog) ✅ |
 | fIq | PromptDialog | chunks.190.mjs:2125 | component (tool prompt selection dialog) ✅ |
 | ct8 | SandboxPermissionDialog | chunks.194.mjs:2899 | component (network/sandbox approval dialog) ✅ |
@@ -1299,6 +1364,22 @@
 | Wz | isBriefOnly | - | 237 | Brief mode active: `M1((P1) => P1.isBriefOnly)` ✅ |
 | X6 | pendingWorkerRequest | - | 34 | Worker waiting for leader response ✅ |
 | z6 | pendingSandboxRequest | - | 34 | Sandbox request pending ✅ |
+
+### AppState Context (chunks.148.mjs) - ✅ NEW 2026-03-24
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| XU6 | AppStateContext | chunks.148.mjs:2647 | context (React context for global store) ✅ |
+| rKq | IsNestedContext | chunks.148.mjs:2647 | context (boolean guard for nested providers) ✅ |
+| Yj | AppStateProvider | chunks.148.mjs:2544-2580 | component (global state context provider) ✅ |
+| Bp8 | useAppStateContext | chunks.148.mjs:2592-2595 | hook (returns full store object) ✅ |
+| M1 | useAppState | chunks.148.mjs:2598-2610 | hook (selector-based state subscription with useSyncExternalStore) ✅ |
+| xA | useSetAppState | chunks.148.mjs:2613-2615 | hook (returns setState function) ✅ |
+| FQ6 | useAppStateOptional | chunks.148.mjs:2621-2627 | hook (optional state access, returns undefined if no provider) ✅ |
+| z16 | getDefaultState | chunks.148.mjs:2456-2530 | function (initial state factory) ✅ |
+| WX1 | createStore | chunks.148.mjs:2553 | function (creates Zustand-like store) ✅ |
+| _BY | sanitizePermissionContext | chunks.148.mjs:2585-2589 | function (normalizes toolPermissionContext) ✅ |
+| wBY | emptySubscribe | chunks.148.mjs:2636 | constant (() => () => {}) fallback for no-provider case ✅ |
 
 ### REPL Core Functions (chunks.196.mjs)
 

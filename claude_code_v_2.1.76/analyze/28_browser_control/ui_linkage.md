@@ -62,7 +62,7 @@ pHq = v(() => {
     RKz = {
         name: "chrome",
         description: "Claude in Chrome (Beta) settings",
-        isEnabled: () => !w4(),         // disabled in WSL
+        isEnabled: () => !q7(),        // disabled in SDK/print mode
         isHidden: !1,
         type: "local-jsx",
         load: () => Promise.resolve().then(() => (gHq(), QHq)),
@@ -74,7 +74,7 @@ pHq = v(() => {
 chromeSettingsMeta = {
     name: "chrome",
     description: "Claude in Chrome (Beta) settings",
-    isEnabled: () => !isWSL(),      // Chrome not supported on WSL
+    isEnabled: () => !isNonInteractive(),  // Chrome not available in SDK mode
     isHidden: false,                // always visible in settings
     type: "local-jsx",              // renders React component
     load: () => Promise.resolve().then(() => {
@@ -83,7 +83,7 @@ chromeSettingsMeta = {
     }),
     userFacingName: () => "chrome"
 }
-// Mapping: RKz/UHq→chromeSettingsMeta, B6→initDeps, w4→isWSL,
+// Mapping: RKz/UHq→chromeSettingsMeta, B6→initDeps, q7→isNonInteractive,
 //   gHq→initChromeUiDeps, QHq→CHROME_SETTINGS_MODULE
 ```
 

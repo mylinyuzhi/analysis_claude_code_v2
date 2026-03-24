@@ -443,7 +443,7 @@ const CLAUDE_CODE_GUIDE_AGENT = {
 
 // ORIGINAL (for source lookup):
 function APA() {
-    if (J6(process.env.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS) && w4()) return [];
+    if (J6(process.env.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS) && q7()) return [];
     let A = [Tn7, ZB1, En7, bv, PJ6];
     if (process.env.CLAUDE_CODE_ENTRYPOINT !== "sdk-ts" &&
         process.env.CLAUDE_CODE_ENTRYPOINT !== "sdk-py" &&
@@ -473,7 +473,7 @@ function getBuiltinAgents() {
     return agents;
 }
 
-// Mapping: APA→getBuiltinAgents, J6→parseBool, w4→isNonInteractive, Tn7→BASH_AGENT, ZB1→GENERAL_PURPOSE_AGENT, En7→STATUSLINE_SETUP_AGENT, bv→EXPLORE_AGENT, PJ6→PLAN_AGENT, Rn7→CLAUDE_CODE_GUIDE_AGENT
+// Mapping: APA→getBuiltinAgents, J6→parseBool, q7→isNonInteractive, Tn7→BASH_AGENT, ZB1→GENERAL_PURPOSE_AGENT, En7→STATUSLINE_SETUP_AGENT, bv→EXPLORE_AGENT, PJ6→PLAN_AGENT, Rn7→CLAUDE_CODE_GUIDE_AGENT
 ```
 
 **Why this approach:**

@@ -63,7 +63,7 @@ function yO(A = {}) {
     if (A.skipRetrievingKeyFromApiKeyHelper) {
         if (_R1()) return { key: null, source: "apiKeyHelper" }
     } else {
-        let Y = JR1(w4());
+        let Y = v06(q7());
         if (Y) return { key: Y, source: "apiKeyHelper" }
     }
     let K = XR1();

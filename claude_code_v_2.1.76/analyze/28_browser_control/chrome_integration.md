@@ -268,8 +268,8 @@ The `CHROME_TOOLS` constant (`Qe`) in `chunks.166.mjs:3-457` defines all 17 tool
 // ============================================
 
 // ORIGINAL:
-function UN6(A) {
-    if (w4() && A !== !0) return !1;
+function zh1(A) {
+    if (q7() && A !== !0) return !1;
     if (A === !0) return !0;
     if (A === !1) return !1;
     if (J6(process.env.CLAUDE_CODE_ENABLE_CFC)) return !0;
@@ -281,7 +281,7 @@ function UN6(A) {
 
 // READABLE:
 function isClaudeInChromeEnabled(forcedValue) {
-    if (isWSL() && forcedValue !== true) return false;   // WSL not supported
+    if (isNonInteractive() && forcedValue !== true) return false;   // Disabled in SDK mode
     if (forcedValue === true)  return true;               // CLI --chrome flag
     if (forcedValue === false) return false;              // CLI --no-chrome flag
     if (parseBooleanTrue(process.env.CLAUDE_CODE_ENABLE_CFC))  return true;  // env override
@@ -292,12 +292,12 @@ function isClaudeInChromeEnabled(forcedValue) {
     return false;  // default: disabled
 }
 
-// Mapping: UN6→isClaudeInChromeEnabled, w4→isWSL, J6→parseBooleanTrue,
+// Mapping: zh1→isClaudeInChromeEnabled, q7→isNonInteractive, J6→parseBooleanTrue,
 //   FY→parseBooleanFalse, f6→getLocalSettings
 ```
 
 **Priority order (high to low):**
-1. WSL environment → always false
+1. Non-interactive mode (SDK/print) → always false unless forced
 2. Explicit `forcedValue` (from `--chrome` / `--no-chrome` flag)
 3. `CLAUDE_CODE_ENABLE_CFC` env var
 4. `claudeInChromeDefaultEnabled` in local settings

@@ -14,7 +14,7 @@ The SDK communication protocol is **newline-delimited JSON (NDJSON)** — each m
 
 Key functions in this document:
 - `StdioStreamIO` (so6) - Protocol processor (processLine, sendRequest, write)
-- `initializeSession` (CJz) - Handles initialize control request
+- `initializeSession` (FXz) - Handles initialize control request
 - `streamJsonInputHandler` (oGz) - Routes stdin → stream
 - `runHeadless` (BXz) - Drives non-interactive execution loop
 - `createStreamIO` (UXz) - Transport factory
@@ -95,7 +95,7 @@ The first `control_request` sent by SDK wrappers. Must arrive before any user me
 }
 ```
 
-**What `initializeSession` (CJz) does with this:**
+**What `initializeSession` (FXz) does with this:**
 1. Checks if already initialized → returns error if so
 2. Applies `systemPrompt` / `appendSystemPrompt` to session options
 3. Parses custom agents from JSON → pushes to agent list
@@ -107,11 +107,11 @@ The first `control_request` sent by SDK wrappers. Must arrive before any user me
 ```javascript
 // ============================================
 // initializeSession - Processes initialize control request
-// Location: chunks.179.mjs:1654-1734
+// Location: chunks.187.mjs:1174-1269
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function CJz(A, q, K, Y, z, w, H, $, O, _, J) {
+async function FXz(A, q, K, Y, z, w, H, $, O, _, J) {
     if (K) {
         Y.enqueue({ type: "control_response", response: { subtype: "error", error: "Already initialized", request_id: q, pending_permission_requests: H.getPendingPermissionRequests() } });
         return
@@ -157,7 +157,7 @@ async function initializeSession(request, requestId, isAlreadyInitialized, outpu
     outputQueue.enqueue({ type: "control_response", response: { subtype: "success", request_id: requestId, response: sessionMetadata } });
 }
 
-// Mapping: CJz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
+// Mapping: FXz→initializeSession, A→request, q→requestId, K→isAlreadyInitialized, Y→outputQueue, z→commands, w→models, H→streamIO, O→sessionOptions, _→agentList
 ```
 
 **Initialize response payload:**
@@ -545,6 +545,143 @@ interface SDKRateLimitEvent {
 - SDK clients previously had no visibility into rate-limit state without inspecting raw HTTP headers
 - The `rate_limit` event decouples the SDK abstraction from transport-level details
 - `tokens_remaining` is optional because some API tiers report only request-level limits
+
+**Implementation Details:**
+
+The `parseRateLimitInfo` (SJq) function extracts rate limit information from API responses:
+
+```javascript
+// ============================================
+// parseRateLimitInfo - Extracts rate limit info from API response
+// Location: chunks.161.mjs:2906-2935
+// ============================================
+
+// ORIGINAL (for source lookup):
+function SJq(A) {
+    if (!A) return;
+    return {
+        status: A.status,
+        ...A.resetsAt !== void 0 && {
+            resetsAt: A.resetsAt
+        },
+        ...A.rateLimitType !== void 0 && {
+            rateLimitType: A.rateLimitType
+        },
+        ...A.utilization !== void 0 && {
+            utilization: A.utilization
+        },
+        ...A.overageStatus !== void 0 && {
+            overageStatus: A.overageStatus
+        },
+        ...A.overageResetsAt !== void 0 && {
+            overageResetsAt: A.overageResetsAt
+        },
+        ...A.overageDisabledReason !== void 0 && {
+            overageDisabledReason: A.overageDisabledReason
+        },
+        ...A.isUsingOverage !== void 0 && {
+            isUsingOverage: A.isUsingOverage
+        },
+        ...A.surpassedThreshold !== void 0 && {
+            surpassedThreshold: A.surpassedThreshold
+        }
+    }
+}
+
+// READABLE (for understanding):
+function parseRateLimitInfo(rateLimitData) {
+    if (!rateLimitData) return undefined;
+
+    return {
+        status: rateLimitData.status,
+        // Only include fields that are present (sparse object pattern)
+        ...(rateLimitData.resetsAt !== undefined && { resetsAt: rateLimitData.resetsAt }),
+        ...(rateLimitData.rateLimitType !== undefined && { rateLimitType: rateLimitData.rateLimitType }),
+        ...(rateLimitData.utilization !== undefined && { utilization: rateLimitData.utilization }),
+        ...(rateLimitData.overageStatus !== undefined && { overageStatus: rateLimitData.overageStatus }),
+        ...(rateLimitData.overageResetsAt !== undefined && { overageResetsAt: rateLimitData.overageResetsAt }),
+        ...(rateLimitData.overageDisabledReason !== undefined && { overageDisabledReason: rateLimitData.overageDisabledReason }),
+        ...(rateLimitData.isUsingOverage !== undefined && { isUsingOverage: rateLimitData.isUsingOverage }),
+        ...(rateLimitData.surpassedThreshold !== undefined && { surpassedThreshold: rateLimitData.surpassedThreshold })
+    };
+}
+
+// Mapping: SJq→parseRateLimitInfo, A→rateLimitData
+```
+
+**Rate Limit Event Flow in runHeadless (BXz):**
+
+```javascript
+// ============================================
+// Rate limit event emission in runHeadless
+// Location: chunks.187.mjs:36-44
+// ============================================
+
+// ORIGINAL (for source lookup):
+let f = (T6) => {
+    let D6 = SJq(T6);
+    if (D6) Z.enqueue({
+        type: "rate_limit_event",
+        rate_limit_info: D6,
+        uuid: WD(),
+        session_id: R1()
+    })
+};
+
+// READABLE (for understanding):
+let emitRateLimitEvent = (rateLimitData) => {
+    let parsedInfo = parseRateLimitInfo(rateLimitData);
+    if (parsedInfo) {
+        outboundQueue.enqueue({
+            type: "rate_limit_event",
+            rate_limit_info: parsedInfo,
+            uuid: randomUUID(),
+            session_id: getSessionId()
+        });
+    }
+};
+
+// Mapping: f→emitRateLimitEvent, T6→rateLimitData, D6→parsedInfo, Z→outboundQueue,
+//          SJq→parseRateLimitInfo, WD→randomUUID, R1→getSessionId
+```
+
+**Key insight:** The rate limit system uses a callback pattern where `emitRateLimitEvent` is registered with the API layer. When rate limit headers are received, the callback transforms the raw data via `parseRateLimitInfo` and enqueues a `rate_limit_event` message to the outbound stream.
+
+**Event Emitter Pattern (Nt):**
+
+The rate limit event emitter uses a `Set` as a simple event bus:
+
+```javascript
+// ============================================
+// Rate limit event emitter setup
+// Location: chunks.85.mjs:2451
+// ============================================
+
+// ORIGINAL (for source lookup):
+Jf = {
+    status: "allowed",
+    unifiedRateLimitFallbackAvailable: !1,
+    isUsingOverage: !1
+}, Nt = new Set
+
+// READABLE (for understanding):
+const DEFAULT_RATE_LIMIT_STATE = {
+    status: "allowed",
+    unifiedRateLimitFallbackAvailable: false,
+    isUsingOverage: false
+};
+const rateLimitEventEmitter = new Set(); // Set of callback functions
+
+// Mapping: Jf→DEFAULT_RATE_LIMIT_STATE, Nt→rateLimitEventEmitter
+```
+
+**Rate Limit Status Values:**
+
+| Status | Meaning |
+|--------|---------|
+| `allowed` | Normal operation, within limits |
+| `overage` | Exceeded limits, using overage capacity |
+| `rate_limited` | Hard rate limit hit, must wait for reset |
 
 ---
 
@@ -997,3 +1134,162 @@ async function streamJsonInputHandler(userPrompt, inputFormat) {
 ```
 
 **Key insight:** For `stream-json` input, the function returns the raw Node.js `ReadStream` object. For `text` input, it buffers the entire stdin and concatenates it with the command-line prompt.
+
+---
+
+## System Reminder Transmission in SDK Mode
+
+### How System Reminders Flow to SDK Clients
+
+System reminders (injected context messages with `isMeta: true`) are transmitted to SDK clients through the normal message pipeline. However, there are important differences in how they appear in SDK vs interactive mode:
+
+```javascript
+// ============================================
+// System reminder message in SDK output
+// ============================================
+
+{
+    "type": "user",
+    "message": {
+        "role": "user",
+        "content": "<system-reminder>\nPlan mode is active...\n</system-reminder>"
+    },
+    "isMeta": true,  // SDK clients can use this flag to filter
+    "session_id": "<uuid>",
+    "uuid": "<uuid>"
+}
+```
+
+### Silent Reminder Types in SDK Mode
+
+Some reminder types are **silent** in SDK mode — they produce no output at all:
+
+| Type | Interactive Mode | SDK Mode | Reason |
+|------|------------------|----------|--------|
+| `already_read_file` | Shows in UI | Silent (no message) | Cache hit, no new information |
+| `command_permissions` | Updates UI | Silent | Internal state only |
+| `hook_cancelled` | Shows notification | Silent | Non-blocking event |
+| `autocheckpointing` | Shows status | Silent | Background process |
+| `background_task_status` | Shows in UI | Silent via `system` message | Use `task_notification` instead |
+
+**Why silent types matter for SDK clients:**
+- Reduces message noise in the stream
+- No token cost for redundant information
+- Cleaner conversation transcript
+
+### Meta Message Filtering Pattern
+
+SDK clients can filter out meta messages (system reminders) from their UI:
+
+```typescript
+// TypeScript SDK client - filtering meta messages
+for await (const event of client.stream()) {
+    // Filter out system reminders from display
+    if (event.type === 'user' && event.isMeta) {
+        // This is a system reminder - don't show in chat UI
+        // But DO include it in context for the next API call
+        continue;
+    }
+
+    // Display real user messages
+    displayMessage(event);
+}
+```
+
+### System Reminder Injection Flow in SDK
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│           SYSTEM REMINDER INJECTION IN SDK MODE                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   Agent Loop Turn Start                                                  │
+│        │                                                                 │
+│        ▼                                                                 │
+│   assembleAttachments() - chunks.142.mjs                                │
+│        │                                                                 │
+│        ├── Compute changed_files, todos, plan_mode, etc.                │
+│        │                                                                 │
+│        └── Returns: [{ type: "plan_mode", ... }, ...]                   │
+│                                                                          │
+│   normalizeAttachmentForAPI() - chunks.174.mjs                          │
+│        │                                                                 │
+│        ├── Switch on attachment.type                                    │
+│        │                                                                 │
+│        ├── Creates: { type: "user", message: {...}, isMeta: true }     │
+│        │                                                                 │
+│        └── Wraps text in <system-reminder> XML tags via b5()            │
+│                                                                          │
+│   Message Stream                                                         │
+│        │                                                                 │
+│        ├── Meta messages included in messages[] for API call            │
+│        │                                                                 │
+│        └── Meta messages emitted to SDK stream with isMeta: true       │
+│                                                                          │
+│   SDK Client                                                             │
+│        │                                                                 │
+│        ├── Receives: { type: "user", isMeta: true, ... }                │
+│        │                                                                 │
+│        ├── Filters from UI display (isMeta check)                       │
+│        │                                                                 │
+│        └── May preserve for context injection                           │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Thinking Content as System Reminder
+
+Extended thinking content can be wrapped as a system reminder for context persistence:
+
+```javascript
+// ============================================
+// Thinking content injection as system reminder
+// Location: chunks.173.mjs (via b5/af functions)
+// ============================================
+
+// When thinking completes and should be preserved
+const thinkingReminder = wrapInXmlTag(thinkingContent);
+// Result: "<system-reminder>\n{thinkingContent}\n</system-reminder>"
+
+// This wrapped content can then be injected as a user message
+const injectedMessage = createUserMessage({
+    content: thinkingReminder,
+    isMeta: true
+});
+```
+
+**When this is used:**
+- Thinking content needs to survive compaction
+- Context preservation across long conversations
+- Multi-turn reasoning chains
+
+### SDK vs Interactive Mode Comparison
+
+| Aspect | Interactive Mode | SDK Mode |
+|--------|------------------|----------|
+| Meta message display | Hidden from chat, shown in status bar | Sent in stream with `isMeta: true` |
+| Silent types | May show UI indicator | No message emitted |
+| Thinking panel | Real-time display | `thinking_delta` events + `assistant` message |
+| Permission prompts | Modal dialog | `control_request` message |
+| Hook output | Inline display | `hook_progress`/`hook_response` messages |
+
+### Permission State as System Reminder
+
+Permission decisions can be injected as system reminders to inform future tool calls:
+
+```javascript
+// ============================================
+// Permission decision injection
+// ============================================
+
+// After user allows a tool
+const permissionReminder = createUserMessage({
+    content: wrapInXmlTag(`Permission granted for Bash: rm -rf /tmp/*`),
+    isMeta: true
+});
+
+// This reminder informs the model that permission was granted
+// and similar operations may proceed without asking again
+```
+
+For complete system reminder documentation, see [../04_system_reminder/overview.md](../04_system_reminder/overview.md).

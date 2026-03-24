@@ -69,7 +69,8 @@
 | `chunks.175.mjs` | MCP Hub | `McpHub` (`nXq`), MCP CLI subcommands, tool/resource listing |
 | `chunks.176.mjs` | MCP Context | `MCPContext` (`ZQA`), `onChangeAppStateHandler`, `ElicitationDialog`, RemoteSessionManager |
 | `chunks.178.mjs` | SDK Transport | `StdioStreamIO` (`Mc1`), `WebSocketTransport` (`Pc1`), `SdkUrlStreamIO` (`FQA`), permission handler |
-| `chunks.179.mjs` | SDK / Print Mode | `initializeSession` (`CJz`): processes initialize control request; Print mode agent loop |
+| `chunks.179.mjs` | SDK / Print Mode | Print mode agent loop, session initialization helpers |
+| `chunks.187.mjs` | SDK Core | `initializeSession` (FXz): processes initialize control request; `runHeadless` (BXz); `createStreamIO` (UXz) |
 | `chunks.181.mjs` | Plan Mode UI | `QuestionForm` (`$Wq`), `SingleQuestionComponent` (`YWq`), `ReviewAnswersScreen` (`wWq`) |
 | `chunks.183.mjs` | Mode Cycle / UI | `cycleMode` (`hf1`), `cycleModeWithContext` (`FGq`), footer mode indicator rendering |
 | `chunks.184.mjs` | Auto-compact Logic | Auto-compact dispatcher, compaction trigger, circuit breaker (3 attempts) |

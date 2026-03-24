@@ -37,25 +37,145 @@
 
 ## Module: Prompt Building
 
+> Full analysis: [23_prompt_cache/](../23_prompt_cache/)
+
+### Core Functions
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| A67 | calculatePromptHash | chunks.47.mjs:2528 | function |
-| cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
+| Ml | createCacheControl | chunks.170.mjs:1849 | function (builds cache_control with TTL/scope) |
+| IGq | isPromptCachingEnabled | chunks.170.mjs:1832 | function (per-model caching gate) |
+| o3z | shouldUse1HourTTL | chunks.170.mjs:1864 | function (OAuth + allowlist TTL check) |
+| z9z | applyCacheBreakpointsToMessages | chunks.171.mjs:721 | function (adds cache markers to messages) |
+| _9z | buildSystemPromptWithCache | chunks.171.mjs:799 | function (converts prompt to cache-annotated blocks) |
+| Jn8 | splitSystemPromptForCache | chunks.170.mjs:1483 | function (three-mode prompt splitting) |
+| s3z | formatUserMessageForCache | chunks.170.mjs:1928 | function (user message with cache_control) |
+| t3z | formatAssistantMessageForCache | chunks.170.mjs:1959 | function (assistant message with cache_control) |
+| Mn8 | injectCacheEditsBlock | chunks.170.mjs:1789 | function (injects cache_edits for compaction) |
+| Y9z | isToolResultBlock | chunks.171.mjs:717 | function (type guard for tool_result blocks) |
+| S_6 | SYSTEM_PROMPT_DYNAMIC_BOUNDARY | chunks.168.mjs:2277 | constant ("__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__") |
+
+### Cache Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| C_6 | isFirstPartyProvider | chunks.176.mjs:1638 | function (checks first-party API with beta support) |
+| eu1 | get1HourTTLAllowlist | chunks.1.mjs:3147 | function (returns cached 1-hour TTL allowlist) |
+| Am1 | set1HourTTLAllowlist | chunks.1.mjs:3151 | function (caches 1-hour TTL allowlist) |
+
+### Billing & Attribution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| m21 | getAttributionHeader | chunks.56.mjs:1520 | function (builds x-anthropic-billing-header) |
+| zO8 | calculatePromptHash | chunks.56.mjs:1562 | function (SHA-256 hash for billing) |
+| pu3 | getFirstUserMessageText | chunks.56.mjs:1550 | function (extracts text from first user message) |
+| Bu3 | isAttributionHeaderEnabled | chunks.56.mjs:1515 | function |
+
+### Token Usage & Cost
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Tm3 | aggregateTokenUsage | chunks.57.mjs:3 | function (accumulates token usage from API responses) |
+| s21 | recordTokenUsage | chunks.57.mjs:17 | function (records usage with telemetry) |
+| wT9 | calculateApiCost | chunks.82.mjs:1419 | function (calculates cost including cache tokens) |
+| OT9 | getModelPricing | chunks.82.mjs:1423 | function (returns pricing for model) |
+| PD1 | calculateCostFromUsage | chunks.82.mjs:1446 | function (calculates cost from session usage) |
+| Gm3 | formatUsageByModel | chunks.56.mjs:3037 | function (formats per-model usage for display) |
+| a21 | formatSessionStats | chunks.56.mjs:3065 | function (formats complete session statistics) |
+| gx6 | formatCost | chunks.56.mjs:3033 | function (formats USD cost with precision) |
+
+### System Reminder Attachments
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| qmY | getTokenUsageAttachment | chunks.147.mjs:1108 | function (creates token usage attachment) |
+| YmY | getBudgetUsdAttachment | chunks.147.mjs:1124 | function (creates budget attachment) |
+
+### Compaction Cache Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gqq | generateCompactSummary | chunks.147.mjs:1752 | async function (compaction summary with cache prefix sharing) |
+| Fb | getCacheSafeParams | chunks.146.mjs:1572 | function (builds cache-safe parameters for API calls) |
+| av | forkAgentQuery | chunks.148.mjs:2086 | async function (fork agent for cache preservation) |
+| bX | extractAssistantMessage | chunks.147.mjs | function (extracts assistant message from response) |
+| BE1 | hasValidTextContent | chunks.147.mjs | function (checks for valid text in message) |
+
+### Cold Cache Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| YBY | isCacheCold | chunks.148.mjs:2253 | function (detects cold cache for speculative op suppression) |
+| KBY | CACHE_COLD_THRESHOLD | chunks.148.mjs:2367 | constant (0.5 - 50% cache creation = cold) |
+
+### Token Display Formatting
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| fm3 | roundToPrecision | chunks.56.mjs:3075 | function (rounds number to specified precision) |
+| fq | formatNumber | chunks.56.mjs | function (formats large numbers with K/M suffixes) |
+| $S | getModelUsage | chunks.56.mjs | function (returns per-model token usage) |
+| LD | getTotalSessionCost | chunks.56.mjs | function (returns total session cost in USD) |
+| Ju1 | getSessionTokenTracker | chunks.57.mjs | function (returns session token tracker for model) |
+| ax1 | updateCostTracker | chunks.57.mjs | function (updates cost tracker for budget) |
+| Zu1 | getSessionCostCollector | chunks.57.mjs | function (returns session cost metric collector) |
+| Bw6 | getTokenCollector | chunks.57.mjs | function (returns token metric collector) |
+
+### System Prompt Building
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | dZ | buildSystemPrompt | chunks.169.mjs:236 | function (main entry, selects full vs simplified) |
-| F9z | buildSystemPromptWithCache | chunks.169.mjs:1394 | function |
-| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
-| G9z | buildBasePersonaSection | chunks.169.mjs:436267 | function ("You are an interactive CLI tool...") |
 | hOq | buildSimplifiedSystemPrompt | chunks.169.mjs:225 | function (proactive/simplified variant) |
-| IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function (compact env for simplified prompt) |
-| lq6 | getAttributionHeader | chunks.47.mjs:2484 | function |
+| G9z | buildBasePersonaSection | chunks.169.mjs:436267 | function ("You are an interactive CLI tool...") |
 | nBA | buildFullEnvInfo | chunks.169.mjs:378 | function (XML-format env for standard prompt) |
+| IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function (compact env for simplified prompt) |
+| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
 | ot | buildFinalSystemPrompt | chunks.188.mjs:537 | function (combines custom + default prompts) |
-| Pf5 | isAttributionHeaderEnabled | chunks.47.mjs:2484 | function |
-| xG1 | GLOBAL_CACHE_MARKER | chunks.169.mjs:216 | constant (cache boundary delimiter) |
-| Zf5 | getFirstUserMessageText | chunks.47.mjs:2528 | function (extracts text for hash) |
+| cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
+
+### Configuration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | - | modelOverrides | settings | config key (per-model configuration overrides map) |
 | - | includeGitInstructions | settings | config key (include git-specific instructions in system prompt) |
 | CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS | DISABLE_GIT_INSTRUCTIONS_ENV | process.env | environment variable |
+| kR6 | PROMPT_CACHING_SCOPE_BETA | chunks.18.mjs:1845 | constant ("prompt-caching-scope-2026-01-05") |
+
+### Prompt Caching Environment Variables
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| DISABLE_PROMPT_CACHING | - | process.env | env var (disable all prompt caching) |
+| DISABLE_PROMPT_CACHING_HAIKU | - | process.env | env var (disable caching for Haiku) |
+| DISABLE_PROMPT_CACHING_SONNET | - | process.env | env var (disable caching for Sonnet) |
+| DISABLE_PROMPT_CACHING_OPUS | - | process.env | env var (disable caching for Opus) |
+| ENABLE_PROMPT_CACHING_1H_BEDROCK | - | process.env | env var (enable 1-hour TTL for Bedrock) |
+| CLAUDE_CODE_FORCE_GLOBAL_CACHE | - | process.env | env var (force global cache scope) |
+
+### Prompt Caching Feature Flags
+
+| Flag Name | Description | Default |
+|-----------|-------------|---------|
+| tengu_prompt_cache_1h_config | 1-hour TTL allowlist configuration | `{allowlist: []}` |
+| tengu_system_prompt_global_cache | Enable global scope for system prompt | `false` |
+| tengu_compact_cache_prefix | Enable cache prefix sharing during compaction | `false` |
+
+### Pricing Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| OB | SONNET_PRICING | chunks.82.mjs:1487 | object (Sonnet pricing constants) |
+| I64 | OPUS_PRICING | chunks.82.mjs:1493 | object (Opus pricing constants) |
+| DD1 | SONNET_4_PRICING | chunks.82.mjs:1499 | object (Sonnet 4 pricing constants) |
+| zT9 | OPUS_FAST_PRICING | chunks.82.mjs:1505 | object (Opus fast mode pricing) |
+| Wf8 | HAIKU_PRICING_1 | chunks.82.mjs:1511 | object (Haiku pricing variant 1) |
+| Zf8 | HAIKU_PRICING_2 | chunks.82.mjs:1517 | object (Haiku pricing variant 2) |
+| XD1 | MODEL_FAMILY_PRICING | chunks.82.mjs:1524 | object (model family → pricing map) |
+
+> **Note:** Previous versions incorrectly mapped `s91`, `pOq`, `m9z`, `F9z`, `nSA`, `b9z`, `u9z`, `A67`, `Zf5` to prompt cache functions. These mappings have been corrected above.
 
 ---
 
@@ -306,6 +426,18 @@
 | U84 | updateToolPermissionContext | chunks.172.mjs:2829 | function (merge settings into context) |
 | Xk8 | filterToolsByMode | chunks.93.mjs:1568 | function (filter tools by mode/async context) |
 
+### SDK Permission Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tJ | checkToolPermission | chunks.173.mjs:3-150 | function (main permission check with auto-mode classifier, denial tracking) |
+| EDz | permissionRequestIterator | chunks.184.mjs:2234-2272 | async generator (iterates hook results for permission decision) |
+| b_6 | executePermissionRequestHooks | chunks.175.mjs:2766-2820 | async generator (yields hook permission results) |
+| JV6 | processPermissionResult | chunks.184.mjs:1621-1642 | function (processes SDK permission response, handles updatedPermissions) |
+| VDz | formatDecisionReason | chunks.184.mjs:1924-1940 | function (extracts reason string from decisionReason object) |
+| ao6 | permissionResponseSchema | chunks.184.mjs:1676 | constant (Zod schema for SDK permission response validation) |
+| gN6 | hookCallbackResponseSchema | chunks.175.mjs:285 | constant (Zod schema for hook callback response validation) |
+
 > **Note:** Previous versions incorrectly documented `tD` as `getDefaultTools`. This mapping is incorrect.
 > Tool assembly is a composite operation using `filterToolsByMode` and permission rules.
 
@@ -319,8 +451,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
+| QA | getProvider | chunks.18.mjs:1861 | function (returns "bedrock"/"vertex"/"foundry"/"firstParty") |
 | E4 | getApiProvider | chunks.16.mjs:448 (Ln 49998) | function |
 | OH1 | isFirstPartyDirectConnect | chunks.16.mjs:456 (Ln 50006) | function |
+| iA | isOAuthUser | chunks.177.mjs:3241 | function (checks if user authenticated via OAuth) |
+| w8 | getFeatureFlag | chunks.177.mjs:217 | function (gets feature flag value from settings/cached growthbook) |
 
 ### API Key Resolution
 
@@ -586,7 +721,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| w4 | isNonInteractive | chunks.1.mjs:2730-2732 | function (returns true when in SDK/print mode) |
+| q7 | isNonInteractive | chunks.1.mjs:2720-2722 | function (returns !globalState.isInteractive; true when in SDK/print mode) |
 | bL6 | setInteractive | chunks.1.mjs | function (sets global isInteractive flag) |
 | L59 | getEntrypoint | chunks.75.mjs:1578-1580 | function (returns CLAUDE_CODE_ENTRYPOINT value) |
 | iGz | setEntrypoint | chunks.189.mjs:916-928 | function (detects and sets CLAUDE_CODE_ENTRYPOINT) |
@@ -682,7 +817,6 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | t6 | parseBoolean | chunks.1.mjs:4491-4496 | function (parse string/boolean to boolean; handles "true", "1", "yes", etc.) |
-| q7 | isSDKMode | chunks.1.mjs:2720-2722 | function (check if running in SDK mode via !v1.isInteractive) |
 
 ### Logging & Telemetry (chunks.2.mjs)
 

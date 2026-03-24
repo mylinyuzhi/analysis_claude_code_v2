@@ -1834,33 +1834,118 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| N11 | onCancel | chunks.188.mjs:328-340 | function |
-| Aq | createAbortController | chunks.6.mjs:449-451 | function |
-| O3 | abortController | chunks.188.mjs:99 | state variable |
-| HY | setAbortController | chunks.188.mjs:99 | state setter |
-| O7 | streamMode | chunks.188.mjs:87 | state variable ("requesting"\|"thinking"\|"responding"\|"tool-input"\|"tool-use") |
-| tK | setStreamMode | chunks.188.mjs:87 | state setter |
+| mt8 | cancelHandlerComponent | chunks.193.mjs:2586-2661 | function (React component) |
+| h | handleCancelPress | chunks.193.mjs:2606-2621 | function (closure inside mt8) |
+| TM | onCancel | chunks.196.mjs:420-432 | function (main cancel handler in REPL) |
+| D8 | useKeybindingAction | chunks.65.mjs:905 | hook (register keybinding handler) |
+| M5 | abortController | chunks.196.mjs | state variable (AbortController \| null) |
+| x5 | setAbortController | chunks.196.mjs | state setter |
+| d7 | streamMode | chunks.196.mjs:96 | state variable ("requesting"\|"thinking"\|"responding"\|"tool-input"\|"tool-use") |
+| Dz | streamModeRef | chunks.196.mjs:97 | ref (keeps streamMode current for callbacks) |
+| W4 | setStreamMode | chunks.196.mjs:96 | state setter |
 | XhA | createUserInterruptMessage | chunks.149.mjs:1737-1751 | function |
-| FG1 | createCleanupMessage | chunks.149.mjs | function |
+| FG1 | createCleanupMessage | chunks.117.mjs | function |
 | i4K | setupAbortTimeout | chunks.6.mjs | function |
 | n4K | DEFAULT_TIMEOUT | chunks.6.mjs | constant |
 | YK | resetLoadingState | chunks.188.mjs:218-221 | function |
 | I6 | isQueryRunningRef | chunks.188.mjs:196 | ref (useRef<boolean>) |
 
+### Interrupt Message Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| D66 | INTERRUPTED_BY_USER_TEXT | chunks.174.mjs:984 | constant ("[Request interrupted by user]") |
+| P0 | INTERRUPTED_FOR_TOOL_USE | chunks.174.mjs:986 | constant ("[Request interrupted by user for tool use]") |
+| R96 | REJECTION_MESSAGE | chunks.174.mjs:988 | constant ("The user doesn't want to take this action right now...") |
+| h96 | TOOL_REJECTION_MESSAGE | chunks.174.mjs:990 | constant ("The user doesn't want to proceed with this tool use...") |
+| mQ6 | REJECTION_MESSAGE_WITH_USER_INPUT | chunks.174.mjs:992 | constant (rejection message with user explanation) |
+| Eb | PERMISSION_DENIED_MESSAGE | chunks.174.mjs:995 | constant ("Permission for this tool use was denied...") |
+| rc6 | PERMISSION_DENIED_WITH_INPUT | chunks.174.mjs:997 | constant ("Permission denied with user explanation...") |
+| TF6 | INTERRUPT_MESSAGES_SET | chunks.174.mjs:1099 | Set (contains D66, P0, R96, h96 for fast lookup) |
+| Sp8 | createInterruptToolResults | chunks.148.mjs:855-869 | function (generator for tool_result messages) |
+| Ug | createUserGuidanceMessage | chunks.173.mjs:1425-1434 | function (creates user message with D66/P0 text) |
+| hTq | INTERRUPT_MESSAGE_PATTERN | chunks.175.mjs:139 | RegExp (matches interrupt messages for detection) |
+
+### Notification System
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| o4 | useNotifications | chunks.193.mjs | hook (returns {addNotification, removeNotification}) |
+| G | addNotification | chunks.193.mjs:2603 | function (show notification) |
+| f | removeNotification | chunks.193.mjs:2604 | function (dismiss notification by key) |
+
+### Vim Mode Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| X16 | isVimMode | chunks.153.mjs:995-997 | function (checks if editor mode is vim) |
+| X1 | getEditorConfig | chunks.153.mjs | function (returns editor config) |
+
+### Overlay Blocking
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Qf4 | hasActiveOverlays | chunks.115.mjs:2225-2231 | function (checks activeOverlays.size > 0) |
+| H8Y | selectActiveOverlays | chunks.115.mjs:2229-2231 | function (store selector) |
+
+> **Correction (2026-03-24):** Previous mapping `Qf4` → `isVimMode` was incorrect.
+> Qf4 is actually `hasActiveOverlays` which checks if overlay modals are blocking the UI.
+
 ### UI Layer - Cancel Handler Component
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ngA | cancelHandlerComponent | chunks.185.mjs:2137-2175 | function (React component) |
-| Z | handleCancelPress | chunks.185.mjs:2151-2167 | function (closure inside ngA) |
+| mt8 | cancelHandlerComponent | chunks.193.mjs:2586-2661 | function (React component) |
+| h | handleCancelPress | chunks.193.mjs:2606-2621 | function (closure inside mt8) |
+| r | handleKillAgentsPress | chunks.193.mjs:2629-2656 | function (double-press Ctrl+F handler) |
+| Buq | KILL_AGENTS_CONFIRM_TIMEOUT | chunks.193.mjs:2665 | constant (3000ms) |
+| QV6 | showSpinner | chunks.196.mjs:305 | computed (spinner visibility) |
+| u | isStreaming | chunks.193.mjs:2621 | computed (abortSignal defined && !aborted) |
+| I | hasQueuedCommands | chunks.193.mjs:2621 | computed (queuedCommands.length > 0) |
+
+> **Correction (2026-03-24):** Previous mapping `ngA` → `cancelHandlerComponent` was incorrect.
+> The correct symbol is `mt8` in chunks.193.mjs. The `ngA` symbol does not exist in the source.
+
+### Background Agent Kill (Ctrl+F Double-Press)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| r | handleKillAgentsPress | chunks.193.mjs:2629-2656 | function (double-press handler) |
+| U4q | killAllRunningAgents | chunks.146.mjs:2029-2032 | function (iterates all local_agent tasks) |
+| x66 | killLocalAgentInternal | chunks.146.mjs:2012-2027 | function (actual kill: aborts controller, sets status="killed") |
+| d4q | markAgentNotified | chunks.146.mjs:2034-2043 | function (marks agent as notified=true for UI) |
+| i9 | updateTaskState | chunks.146.mjs | function (task state update helper) |
+| _Y4 | clearAgentNotifications | chunks.90.mjs:2885-2888 | function (clears legacy queue array xY) |
+| Buq | KILL_AGENTS_CONFIRM_TIMEOUT | chunks.193.mjs:2665 | constant (3000ms) |
+
+> **Correction (2026-03-24):** Previous locations and mappings for kill functions were incorrect.
+> - `U4q` (killAllRunningAgents) at chunks.146.mjs:2029 - iterates all tasks, calls `x66` for each running local_agent
+> - `x66` (killLocalAgentInternal) at chunks.146.mjs:2012 - **THE ACTUAL KILL**: aborts controller, unregisters cleanup, sets status="killed"
+> - `d4q` (markAgentNotified) at chunks.146.mjs:2034 - does NOT kill, only marks `notified: true` for UI display
+> - `_Y4` (clearAgentNotifications) at chunks.90.mjs:2885 - clears the legacy queue array `xY`
+>
+> **Kill Flow:** `handleKillAgentsPress` → `U4q` → `x66` (actual kill) → `d4q` (marks for notification)
+
+### Interrupt on Submit (Steering During Tool Execution)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| hasInterruptibleToolInProgress | hasInterruptibleToolInProgress | chunks.196.mjs:1023 | state ref |
+| Uq | interruptibleToolRef | chunks.196.mjs:1023 | ref (current tool state) |
+
+> **Note:** When `hasInterruptibleToolInProgress` is true and user submits input,
+> the system aborts the current turn with `abortController.abort("interrupt")`
+> and immediately queues the new input.
 
 ### Prompt Queue System
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| lB | enqueueCommand | chunks.89.mjs:415-420 | function |
-| KY | isPromptQueueingEnabled | chunks.89.mjs:879-881 | function (always returns false) |
-| Kd7 | cancelRunningAgentTasks | chunks.89.mjs:1388-1391 | function (dead code via KY) |
+| d36 | isPromptQueueingEnabled | chunks.90.mjs:2812-2814 | function (returns xY.length > 0) |
+| qY4 | getLegacyQueueLength | chunks.90.mjs:2808-2810 | function (returns xY.length) |
+| _0 | enqueueToLegacyQueue | chunks.90.mjs:2816-2821 | function (pushes to xY array) |
+| w0 | enqueueTaskNotification | chunks.90.mjs:2823+ | function (enqueues with task-notification mode) |
+| Kd7 | cancelRunningAgentTasks | chunks.89.mjs:1388-1391 | function (dead code via d36) |
 | GjA | clearLegacyQueue | chunks.89.mjs:407-409 | function |
 | WR | enqueueToLegacyQueue | chunks.89.mjs:411-413 | function |
 | up7 | dequeueFromLegacyArray | chunks.89.mjs:401-406 | function |
@@ -1877,6 +1962,10 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Z_6 | dequeueNextCommand | chunks.89.mjs:422-437 | function |
 | V_6 | popAndMergeQueuedCommands | chunks.89.mjs:473-500 | function |
 
+> **Correction (2026-03-24):** The `d36()` function checks `xY.length > 0`, NOT always returns false.
+> It returns true when there are items in the legacy queue array `xY`. The queue pop branch
+> in `handleCancelPress` IS reachable when queued commands exist.
+
 ### Queue Processor Hook
 
 | Obfuscated | Readable | File:Line | Type |
@@ -1887,6 +1976,14 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | rc | popCommandFromQueue | chunks.188.mjs:341-353 | function (useCallback) |
 | wD | lastQueryCompletionTime | chunks.188.mjs:194 | state variable |
 | LP | setLastQueryCompletionTime | chunks.188.mjs:194 | state setter |
+
+### Submit Handler (Steering Trigger on Enter)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _mq | processUserInput | chunks.194.mjs:481-520 | function |
+| _0 | enqueueCommand | chunks.194.mjs:445 | function (setAppState pattern) |
+| sK | createAbortController | chunks.6.mjs:449-451 | function |
 
 ### Stream Event Processing
 
@@ -2235,12 +2332,12 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | zVz | determineEntrypoint | chunks.197.mjs:1895 | function (sets CLAUDE_CODE_ENTRYPOINT: cli/sdk-cli/mcp/github-action) |
-| w4 | isNonInteractive | chunks.1.mjs:2730-2732 | function (returns !globalState.isInteractive; used in 30+ locations) |
+| q7 | isNonInteractive | chunks.1.mjs:2720-2722 | function (returns !globalState.isInteractive; used in 30+ locations) |
 | bL6 | setInteractive | chunks.1.mjs:2738 | function (sets globalState.isInteractive flag) |
 | aN9 | getEntrypoint | chunks.85.mjs:1821 | function (returns CLAUDE_CODE_ENTRYPOINT env var) |
 | APA | getBuiltinAgents | chunks.90.mjs:3049-3054 | function (filters guide agent in SDK mode) |
 | Jr | getExternalUserAgent | chunks.47.mjs:1725-1728 | function (builds SDK user-agent string) |
-| CJz | initializeSession | chunks.179.mjs:1654-1734 | function (processes initialize control_request) |
+| FXz | initializeSession | chunks.187.mjs:1174-1269 | function (processes initialize control_request) |
 | t17 | SDK_SYSTEM_PROMPT_CLI | chunks.47.mjs:2494 | constant (system prompt for CLI-embedded SDK) |
 | e17 | SDK_SYSTEM_PROMPT_AGENT | chunks.47.mjs:2496 | constant (system prompt for custom SDK agents) |
 

@@ -23,9 +23,13 @@ Key functions in this document:
 - `BatchQueue` (Y26) - HTTP POST batch uploader for HybridTransport
 - `AsyncQueue` (Pi6) - StdioStreamIO outbound message queue
 - `getTransportForUrl` (URq) - Selects transport type for AI1
-- `createStreamIO` (UXz) - Factory function
-- `processLine` (method on so6) - Per-line JSON message processor
-- `sendRequest` (method on so6) - Bidirectional permission request sender
+- `createStreamIO` (UXz) - Factory function (chunks.187.mjs:1467)
+- `processLine` (method on so6) - Per-line JSON message processor (chunks.184.mjs:2021-2072)
+- `sendRequest` (method on so6) - Bidirectional permission request sender (chunks.184.mjs:2078-2117)
+- `handleElicitation` (method on so6) - MCP elicitation handler (chunks.184.mjs:2185-2200)
+- `createHookCallback` (method on so6) - SDK hook callback creator (chunks.184.mjs:2167-2184)
+- `sendMcpMessage` (method on so6) - MCP control channel sender (chunks.184.mjs:2219-2227)
+- `createSandboxAskCallback` (method on so6) - Sandbox network permission (chunks.184.mjs:2202-2217)
 
 ---
 
@@ -50,6 +54,100 @@ Key functions in this document:
                                 │                  reads: WebSocket
                            WS read+write           writes: HTTP POST
 ```
+
+---
+
+## getTransportForUrl (URq) — Transport Selection
+
+**Location:** `chunks.185.mjs:296-307`
+
+**What it does:** Selects the appropriate transport class based on environment variables and URL protocol. This factory function is called by `RemoteStreamIO` (AI1) constructor.
+
+```javascript
+// ============================================
+// getTransportForUrl - Transport selection factory
+// Location: chunks.185.mjs:296-307
+// ============================================
+
+// ORIGINAL (for source lookup):
+function URq(A, q = {}, K, Y) {
+    if (t6(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+        let z = new lDz(A.href);
+        if (z.protocol === "wss:") z.protocol = "https:";
+        else if (z.protocol === "ws:") z.protocol = "http:";
+        return z.pathname = z.pathname.replace(/\/$/, "") + "/worker/events/stream",
+               new z26(z, q, K, Y)
+    }
+    if (A.protocol === "ws:" || A.protocol === "wss:") {
+        if (t6(process.env.CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2))
+            return new eo6(A, q, K, Y);
+        return new to6(A, q, K, Y)
+    } else throw Error(`Unsupported protocol: ${A.protocol}`)
+}
+
+// READABLE (for understanding):
+function getTransportForUrl(url, headers = {}, sessionId, refreshHeaders) {
+    // CCR v2 (Cross-Region Replication) uses SSE transport
+    if (parseBoolean(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+        let sseUrl = new URL(url.href);
+        // Convert WebSocket URL to HTTP URL for SSE
+        if (sseUrl.protocol === "wss:") sseUrl.protocol = "https:";
+        else if (sseUrl.protocol === "ws:") sseUrl.protocol = "http:";
+        // Rewrite path: /ws/... → /worker/events/stream
+        sseUrl.pathname = sseUrl.pathname.replace(/\/$/, "") + "/worker/events/stream";
+        return new SSETransport(sseUrl, headers, sessionId, refreshHeaders);
+    }
+
+    // Standard WebSocket transport selection
+    if (url.protocol === "ws:" || url.protocol === "wss:") {
+        // Hybrid mode: read via WebSocket, write via HTTP POST
+        if (parseBoolean(process.env.CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2)) {
+            return new HybridTransport(url, headers, sessionId, refreshHeaders);
+        }
+        // Standard WebSocket: read and write via WebSocket
+        return new WebSocketTransport(url, headers, sessionId, refreshHeaders);
+    }
+
+    throw Error(`Unsupported protocol: ${url.protocol}`);
+}
+
+// Mapping: URq→getTransportForUrl, A→url, q→headers, K→sessionId, Y→refreshHeaders,
+//          t6→parseBoolean, z26→SSETransport, eo6→HybridTransport, to6→WebSocketTransport
+```
+
+### Transport Selection Decision Tree
+
+```
+getTransportForUrl(url, headers, sessionId, refreshHeaders)
+    │
+    ├── CLAUDE_CODE_USE_CCR_V2 = true?
+    │   ├── YES: Convert URL to SSE endpoint → SSETransport (z26)
+    │   │         wss://api.com/ws/abc → https://api.com/ws/abc/worker/events/stream
+    │   │
+    │   └── NO: Continue
+    │
+    ├── Protocol = "ws:" or "wss:"?
+    │   │
+    │   ├── YES: CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2 = true?
+    │   │   ├── YES: HybridTransport (eo6)
+    │   │   │         - Read: WebSocket
+    │   │   │         - Write: HTTP POST
+    │   │   │
+    │   │   └── NO: WebSocketTransport (to6)
+    │   │             - Read + Write: WebSocket
+    │   │
+    │   └── NO: Throw Error ("Unsupported protocol")
+```
+
+### Why Multiple Transport Modes?
+
+| Transport | Read | Write | Use Case |
+|-----------|------|-------|----------|
+| `WebSocketTransport` (to6) | WebSocket | WebSocket | Standard remote SDK |
+| `HybridTransport` (eo6) | WebSocket | HTTP POST | High-throughput, firewalled environments |
+| `SSETransport` (z26) | HTTP SSE | HTTP POST | Cross-region, CDN-friendly |
+
+**Key insight:** HybridTransport exists because HTTP POST is more firewall-friendly than WebSocket for sending large payloads (like file contents), while WebSocket provides low-latency streaming for receiving events. SSE transport is used in cross-region deployments where WebSocket may not be available.
 
 ---
 
@@ -508,6 +606,272 @@ class RemoteStreamIO extends StdioStreamIO {
 
 ---
 
+## HybridTransport (eo6) — Dual-Channel Architecture
+
+### Overview
+
+**What it does:** Extends `WebSocketTransport` (`to6`) to use separate channels for reading and writing:
+- **Read (inbound):** WebSocket — for low-latency streaming of events from server
+- **Write (outbound):** HTTP POST — for reliable, firewall-friendly uploads with batching
+
+**Why this architecture:**
+1. **Firewall compatibility:** HTTP POST works in environments that block WebSocket uploads
+2. **Batching efficiency:** `stream_event` messages are batched (100ms window) to reduce HTTP overhead
+3. **Reliability:** Failed HTTP POSTs are retried with exponential backoff via `BatchQueue` (`Y26`)
+4. **Bandwidth optimization:** Large payloads (file contents) use HTTP instead of WebSocket frames
+
+### Complete Implementation
+
+```javascript
+// ============================================
+// HybridTransport - Dual-channel WebSocket read + HTTP POST write
+// Location: chunks.184.mjs:2762-2860
+// ============================================
+
+// ORIGINAL (for source lookup):
+eo6 = class eo6 extends to6 {
+    postUrl;
+    uploader;
+    streamEventBuffer = [];
+    streamEventTimer = null;
+    constructor(A, q = {}, K, Y, z) {
+        super(A, q, K, Y, z);
+        let { maxConsecutiveFailures: _, onBatchDropped: w } = z ?? {};
+        this.postUrl = uDz(A);
+        this.uploader = new Y26({
+            maxBatchSize: 500,
+            maxQueueSize: 1e5,
+            baseDelayMs: 500,
+            maxDelayMs: 8000,
+            jitterMs: 1000,
+            maxConsecutiveFailures: _,
+            onBatchDropped: (O, $) => {
+                U1("error", "cli_hybrid_batch_dropped_max_failures", { batchSize: O, failures: $ });
+                w?.(O, $)
+            },
+            send: (O) => this.postOnce(O)
+        });
+        k(`HybridTransport: POST URL = ${this.postUrl}`);
+        U1("info", "cli_hybrid_transport_initialized")
+    }
+    async write(A) {
+        if (A.type === "stream_event") {
+            this.streamEventBuffer.push(A);
+            if (!this.streamEventTimer) {
+                this.streamEventTimer = setTimeout(() => this.flushStreamEvents(), IDz);  // 100ms
+            }
+            return;
+        }
+        return await this.uploader.enqueue([...this.takeStreamEvents(), A]), this.uploader.flush();
+    }
+    async writeBatch(A) {
+        return await this.uploader.enqueue([...this.takeStreamEvents(), ...A]), this.uploader.flush();
+    }
+    get droppedBatchCount() { return this.uploader.droppedBatchCount }
+    flush() { return this.uploader.enqueue(this.takeStreamEvents()), this.uploader.flush() }
+    takeStreamEvents() {
+        if (this.streamEventTimer) clearTimeout(this.streamEventTimer), this.streamEventTimer = null;
+        let A = this.streamEventBuffer;
+        return this.streamEventBuffer = [], A;
+    }
+    flushStreamEvents() {
+        this.streamEventTimer = null;
+        this.uploader.enqueue(this.takeStreamEvents());
+    }
+    close() {
+        if (this.streamEventTimer) clearTimeout(this.streamEventTimer), this.streamEventTimer = null;
+        this.streamEventBuffer = [];
+        let A = this.uploader, q;
+        Promise.race([A.flush(), new Promise((K) => { q = setTimeout(K, xDz) })])  // 3s timeout
+            .finally(() => { clearTimeout(q), A.close() });
+        super.close();
+    }
+    async postOnce(A) {
+        let q = UW();  // Get session token
+        if (!q) {
+            k("HybridTransport: No session token available for POST");
+            U1("warn", "cli_hybrid_post_no_token");
+            return;
+        }
+        let K = { Authorization: `Bearer ${q}`, "Content-Type": "application/json" }, Y;
+        try {
+            Y = await X8.post(this.postUrl, { events: A }, { headers: K });
+        } catch (z) {
+            U1("error", "cli_hybrid_post_error", { error: z.message });
+            throw z;
+        }
+    }
+}
+
+// READABLE (for understanding):
+class HybridTransport extends WebSocketTransport {
+    postUrl;                    // HTTP URL derived from WebSocket URL
+    uploader;                   // BatchQueue (Y26) for HTTP POST uploads
+    streamEventBuffer = [];     // Accumulated stream_event messages
+    streamEventTimer = null;    // 100ms debounce timer
+
+    constructor(wsUrl, headers = {}, sessionId, refreshHeaders, options) {
+        super(wsUrl, headers, sessionId, refreshHeaders, options);
+
+        // Convert WebSocket URL to HTTP POST URL
+        // wss://api.com/ws/abc → https://api.com/session/abc/events
+        this.postUrl = computePostUrl(wsUrl);
+
+        // Create batch uploader with retry logic
+        this.uploader = new BatchQueue({
+            maxBatchSize: 500,           // Max events per HTTP POST
+            maxQueueSize: 100000,        // Max events in memory before backpressure
+            baseDelayMs: 500,            // Initial retry delay
+            maxDelayMs: 8000,            // Max retry delay cap
+            jitterMs: 1000,              // Random jitter for retry
+            maxConsecutiveFailures: options?.maxConsecutiveFailures,
+            onBatchDropped: (batchSize, failures) => {
+                telemetry("error", "cli_hybrid_batch_dropped_max_failures", { batchSize, failures });
+                options?.onBatchDropped?.(batchSize, failures);
+            },
+            send: (batch) => this.postOnce(batch)  // Actual HTTP POST
+        });
+    }
+
+    // Override: route writes through HTTP POST instead of WebSocket
+    async write(message) {
+        // Special handling for stream_event: batch for 100ms
+        if (message.type === "stream_event") {
+            this.streamEventBuffer.push(message);
+            if (!this.streamEventTimer) {
+                // Start 100ms debounce timer
+                this.streamEventTimer = setTimeout(() => this.flushStreamEvents(), 100);
+            }
+            return;  // Don't flush immediately
+        }
+
+        // Non-stream_event: flush any buffered events + this message immediately
+        return await this.uploader.enqueue([...this.takeStreamEvents(), message]),
+               this.uploader.flush();
+    }
+
+    // Take all buffered stream events, clear timer
+    takeStreamEvents() {
+        if (this.streamEventTimer) {
+            clearTimeout(this.streamEventTimer);
+            this.streamEventTimer = null;
+        }
+        let events = this.streamEventBuffer;
+        this.streamEventBuffer = [];
+        return events;
+    }
+
+    // Flush buffered stream events to uploader
+    flushStreamEvents() {
+        this.streamEventTimer = null;
+        this.uploader.enqueue(this.takeStreamEvents());
+    }
+
+    close() {
+        // Clear buffer and timer
+        if (this.streamEventTimer) clearTimeout(this.streamEventTimer);
+        this.streamEventTimer = null;
+        this.streamEventBuffer = [];
+
+        // Attempt graceful drain with 3s timeout
+        let uploader = this.uploader;
+        Promise.race([
+            uploader.flush(),
+            new Promise((resolve) => setTimeout(resolve, 3000))
+        ]).finally(() => uploader.close());
+
+        super.close();  // Close WebSocket
+    }
+
+    // Perform actual HTTP POST
+    async postOnce(batch) {
+        let token = getSessionToken();
+        if (!token) {
+            logDebug("HybridTransport: No session token for POST");
+            telemetry("warn", "cli_hybrid_post_no_token");
+            return;
+        }
+
+        let headers = {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        };
+
+        await httpClient.post(this.postUrl, { events: batch }, { headers });
+    }
+}
+
+// Mapping: eo6→HybridTransport, to6→WebSocketTransport, Y26→BatchQueue, uDz→computePostUrl,
+//          IDz→100 (batch delay ms), xDz→3000 (close timeout ms), UW→getSessionToken,
+//          U1→telemetry, k→logDebug, X8→httpClient
+```
+
+### Stream Event Batching Algorithm
+
+**What it does:** Accumulates `stream_event` messages for 100ms before sending, reducing HTTP requests by ~90% for high-frequency streaming.
+
+**How it works:**
+```
+Stream event arrives
+    │
+    ├── Push to streamEventBuffer[]
+    │
+    ├── Timer already running?
+    │   ├── YES: Return (already scheduled)
+    │   └── NO: Start 100ms timer
+    │
+    └── After 100ms:
+        ├── Take all buffered events
+        ├── Enqueue to BatchQueue (uploader)
+        └── BatchQueue sends via HTTP POST
+```
+
+**Why 100ms:**
+- Short enough that UI feels responsive (human perception threshold ~200ms)
+- Long enough to batch multiple events from a single API streaming response
+- Reduces HTTP requests from ~50/second to ~10/second during active streaming
+
+### computePostUrl (uDz) — URL Transformation
+
+```javascript
+// ============================================
+// computePostUrl - Convert WebSocket URL to HTTP POST URL
+// Location: chunks.184.mjs:2740-2745
+// ============================================
+
+// ORIGINAL (for source lookup):
+function uDz(A) {
+    let q = A.protocol === "wss:" ? "https:" : "http:",
+        K = A.pathname;
+    if (K = K.replace("/ws/", "/session/"), !K.endsWith("/events"))
+        K = K.endsWith("/") ? K + "events" : K + "/events";
+    return `${q}//${A.host}${K}${A.search}`
+}
+
+// READABLE (for understanding):
+function computePostUrl(wsUrl) {
+    // Change protocol: wss: → https:, ws: → http:
+    let protocol = wsUrl.protocol === "wss:" ? "https:" : "http:";
+
+    // Transform path: /ws/<id> → /session/<id>/events
+    let path = wsUrl.pathname;
+    path = path.replace("/ws/", "/session/");
+    if (!path.endsWith("/events")) {
+        path = path.endsWith("/") ? path + "events" : path + "/events";
+    }
+
+    return `${protocol}//${wsUrl.host}${path}${wsUrl.search}`;
+}
+
+// Mapping: uDz→computePostUrl, A→wsUrl, q→protocol, K→path
+```
+
+**Example transformations:**
+- `wss://api.example.com/ws/abc123` → `https://api.example.com/session/abc123/events`
+- `ws://localhost:8080/ws/session-xyz?token=abc` → `http://localhost:8080/session/session-xyz/events?token=abc`
+
+---
+
 ## WebSocketTransport (to6) — Connection Management
 
 ### Class Fields and Constants
@@ -828,6 +1192,304 @@ function computePostUrl(wsUrl) {
 }
 ```
 
+### BatchQueue (Y26) — Detailed Algorithm Analysis
+
+**What it does:** A robust HTTP POST batch uploader that collects events into batches, handles network failures with exponential backoff, and manages backpressure when the queue is full.
+
+**Why this design:**
+- **Batching efficiency:** Groups up to 500 events into a single POST, reducing HTTP overhead
+- **Backpressure management:** Blocks producers when queue is full, preventing memory exhaustion
+- **Fault tolerance:** Exponential backoff with jitter prevents thundering herd on server recovery
+- **Graceful degradation:** Drops batches after consecutive failures, allowing the system to continue
+
+#### BatchQueue Class Definition
+
+```javascript
+// ============================================
+// BatchQueue - HTTP POST batch uploader with retry and backpressure
+// Location: chunks.184.mjs:2642-2726
+// ============================================
+
+// ORIGINAL (for source lookup):
+class Y26 {
+    pending = [];
+    draining = !1;
+    closed = !1;
+    backpressureResolvers = [];
+    sleepResolve = null;
+    flushResolvers = [];
+    droppedBatches = 0;
+    config;
+    constructor(A) { this.config = A }
+    get droppedBatchCount() { return this.droppedBatches }
+    async enqueue(A) {
+        if (this.closed) return;
+        let q = Array.isArray(A) ? A : [A];
+        if (q.length === 0) return;
+        while (this.pending.length + q.length > this.config.maxQueueSize && !this.closed)
+            await new Promise((K) => { this.backpressureResolvers.push(K) });
+        if (this.closed) return;
+        this.pending.push(...q), this.drain()
+    }
+    flush() {
+        if (this.pending.length === 0 && !this.draining) return Promise.resolve();
+        return this.drain(), new Promise((A) => { this.flushResolvers.push(A) })
+    }
+    close() {
+        this.closed = !0, this.pending = [], this.sleepResolve?.(), this.sleepResolve = null;
+        for (let A of this.backpressureResolvers) A();
+        this.backpressureResolvers = [];
+        for (let A of this.flushResolvers) A();
+        this.flushResolvers = []
+    }
+    async drain() {
+        if (this.draining || this.closed) return;
+        this.draining = !0;
+        let A = 0;
+        try {
+            while (this.pending.length > 0 && !this.closed) {
+                let q = this.pending.splice(0, this.config.maxBatchSize);
+                try {
+                    await this.config.send(q), A = 0
+                } catch (K) {
+                    if (A++, this.config.maxConsecutiveFailures !== void 0 && A >= this.config.maxConsecutiveFailures) {
+                        this.droppedBatches++, this.config.onBatchDropped?.(q.length, A), A = 0, this.releaseBackpressure();
+                        continue
+                    }
+                    this.pending = q.concat(this.pending);
+                    let Y = K instanceof MV6 ? K.retryAfterMs : void 0;
+                    await this.sleep(this.retryDelay(A, Y));
+                    continue
+                }
+                this.releaseBackpressure()
+            }
+        } finally {
+            if (this.draining = !1, this.pending.length === 0) {
+                for (let q of this.flushResolvers) q();
+                this.flushResolvers = []
+            }
+        }
+    }
+    retryDelay(A, q) {
+        if (q !== void 0) return Math.max(this.config.baseDelayMs, Math.min(q, this.config.maxDelayMs));
+        let K = Math.min(this.config.baseDelayMs * 2 ** (A - 1), this.config.maxDelayMs),
+            Y = Math.random() * this.config.jitterMs;
+        return K + Y
+    }
+    releaseBackpressure() {
+        let A = this.backpressureResolvers;
+        this.backpressureResolvers = [];
+        for (let q of A) q()
+    }
+    sleep(A) {
+        return new Promise((q) => {
+            this.sleepResolve = q, setTimeout((K, Y) => {
+                K.sleepResolve = null, Y()
+            }, A, this, q)
+        })
+    }
+}
+
+// READABLE (for understanding):
+class BatchQueue {
+    pending = [];              // Events waiting to be sent
+    draining = false;          // Is drain() currently running?
+    closed = false;            // Has close() been called?
+    backpressureResolvers = []; // Promises waiting for queue space
+    sleepResolve = null;       // Resolver for sleep during retry
+    flushResolvers = [];       // Promises waiting for flush completion
+    droppedBatches = 0;        // Count of dropped batches
+    config;                    // Configuration object
+
+    constructor(config) {
+        this.config = config;
+    }
+
+    // Add events to queue, blocking if queue is full
+    async enqueue(items) {
+        if (this.closed) return;
+        let itemsArray = Array.isArray(items) ? items : [items];
+        if (itemsArray.length === 0) return;
+
+        // Backpressure: wait if queue would exceed max size
+        while (this.pending.length + itemsArray.length > this.config.maxQueueSize && !this.closed) {
+            await new Promise((resolve) => {
+                this.backpressureResolvers.push(resolve);
+            });
+        }
+        if (this.closed) return;
+
+        this.pending.push(...itemsArray);
+        this.drain();  // Trigger async drain
+    }
+
+    // Wait for all pending items to be sent
+    flush() {
+        if (this.pending.length === 0 && !this.draining) return Promise.resolve();
+        this.drain();
+        return new Promise((resolve) => {
+            this.flushResolvers.push(resolve);
+        });
+    }
+
+    // Cancel all pending items and resolve all waiters
+    close() {
+        this.closed = true;
+        this.pending = [];
+        this.sleepResolve?.();  // Wake up any sleeping retry
+        this.sleepResolve = null;
+        for (let resolver of this.backpressureResolvers) resolver();
+        this.backpressureResolvers = [];
+        for (let resolver of this.flushResolvers) resolver();
+        this.flushResolvers = [];
+    }
+
+    // Main send loop with retry logic
+    async drain() {
+        if (this.draining || this.closed) return;
+        this.draining = true;
+        let consecutiveFailures = 0;
+
+        try {
+            while (this.pending.length > 0 && !this.closed) {
+                // Take up to maxBatchSize items
+                let batch = this.pending.splice(0, this.config.maxBatchSize);
+
+                try {
+                    await this.config.send(batch);
+                    consecutiveFailures = 0;  // Reset on success
+                } catch (error) {
+                    consecutiveFailures++;
+
+                    // Drop batch if too many consecutive failures
+                    if (this.config.maxConsecutiveFailures !== undefined &&
+                        consecutiveFailures >= this.config.maxConsecutiveFailures) {
+                        this.droppedBatches++;
+                        this.config.onBatchDropped?.(batch.length, consecutiveFailures);
+                        consecutiveFailures = 0;
+                        this.releaseBackpressure();
+                        continue;
+                    }
+
+                    // Put batch back at front of queue
+                    this.pending = batch.concat(this.pending);
+
+                    // Check for server-specified retry delay
+                    let retryAfterMs = error instanceof RetryAfterError ? error.retryAfterMs : undefined;
+                    await this.sleep(this.retryDelay(consecutiveFailures, retryAfterMs));
+                    continue;
+                }
+
+                this.releaseBackpressure();
+            }
+        } finally {
+            this.draining = false;
+            if (this.pending.length === 0) {
+                for (let resolver of this.flushResolvers) resolver();
+                this.flushResolvers = [];
+            }
+        }
+    }
+
+    // Calculate retry delay with exponential backoff and jitter
+    retryDelay(attempt, serverRetryAfter) {
+        // Server-specified retry delay takes precedence
+        if (serverRetryAfter !== undefined) {
+            return Math.max(this.config.baseDelayMs,
+                           Math.min(serverRetryAfter, this.config.maxDelayMs));
+        }
+
+        // Exponential backoff: baseDelayMs * 2^(attempt-1)
+        let baseWithBackoff = Math.min(
+            this.config.baseDelayMs * Math.pow(2, attempt - 1),
+            this.config.maxDelayMs
+        );
+
+        // Add jitter to prevent thundering herd
+        let jitter = Math.random() * this.config.jitterMs;
+        return baseWithBackoff + jitter;
+    }
+
+    releaseBackpressure() {
+        let resolvers = this.backpressureResolvers;
+        this.backpressureResolvers = [];
+        for (let resolver of resolvers) resolver();
+    }
+
+    sleep(ms) {
+        return new Promise((resolve) => {
+            this.sleepResolve = resolve;
+            setTimeout((self, resolver) => {
+                self.sleepResolve = null;
+                resolver();
+            }, ms, this, resolve);
+        });
+    }
+}
+
+// Mapping: Y26→BatchQueue, MV6→RetryAfterError
+```
+
+#### Exponential Backoff Algorithm
+
+**The retry formula:**
+```
+delay = min(baseDelay * 2^(attempt-1), maxDelay) + random(0, jitter)
+```
+
+**HybridTransport configuration:**
+- `baseDelayMs: 500` — Start with 500ms
+- `maxDelayMs: 8000` — Cap at 8 seconds
+- `jitterMs: 1000` — Add 0-1000ms random jitter
+
+**Delay progression example:**
+```
+Attempt 1: 500 * 2^0 + jitter = 500 + [0-1000] = 500-1500ms
+Attempt 2: 500 * 2^1 + jitter = 1000 + [0-1000] = 1000-2000ms
+Attempt 3: 500 * 2^2 + jitter = 2000 + [0-1000] = 2000-3000ms
+Attempt 4: 500 * 2^3 + jitter = 4000 + [0-1000] = 4000-5000ms
+Attempt 5+: min(500 * 2^4, 8000) + jitter = 8000 + [0-1000] = 8000-9000ms (capped)
+```
+
+**Why jitter matters:** Without jitter, all clients would retry simultaneously after a server recovery, causing another overload. Random jitter spreads retries over time.
+
+#### Backpressure Mechanism
+
+**What it does:** When `pending.length + newItems.length > maxQueueSize`, the `enqueue()` method blocks until space is available.
+
+**Flow diagram:**
+```
+Producer calls enqueue(items)
+    │
+    ├── Would exceed maxQueueSize (100,000)?
+    │   │
+    │   ├── YES: Add Promise to backpressureResolvers
+    │   │       await Promise  // Block producer
+    │   │       │
+    │   │       └── [Unblocked when releaseBackpressure() called]
+    │   │
+    │   └── NO: Add items to pending array
+    │           Trigger drain()
+    │
+    └── drain() succeeds → releaseBackpressure()
+        → All blocked producers resume
+```
+
+**Key insight:** Backpressure prevents memory exhaustion when the server is slow or unreachable. Instead of queueing unlimited events, producers are blocked, naturally throttling the system.
+
+#### Batch Drop Strategy
+
+When `maxConsecutiveFailures` is set and exceeded:
+1. Increment `droppedBatches` counter
+2. Call `onBatchDropped(batchSize, failureCount)` callback
+3. Reset failure counter
+4. Continue with next batch
+
+**Why drop instead of retry forever:**
+- Prevents stale events from accumulating during extended outages
+- Allows the system to continue processing new events
+- Provides visibility via `onBatchDropped` callback for monitoring
+
 ### close() — Graceful Flush on Shutdown
 
 ```javascript
@@ -845,6 +1507,333 @@ async close() {
 ```
 
 **Key insight:** The 3-second close flush timeout (`xDz`) ensures that stream events produced in the final moments of execution are delivered even if the process is shutting down. Without this, the last batch of events could be lost on abrupt termination.
+
+---
+
+## SSETransport (z26) — Server-Sent Events Transport (CCR v2)
+
+**What it does:** Implements a transport layer using Server-Sent Events (SSE) for receiving messages and HTTP POST for sending. Used when `CLAUDE_CODE_USE_CCR_V2=true` environment variable is set.
+
+**Why SSE vs WebSocket:**
+- SSE is unidirectional (server → client), which matches the read-heavy pattern of event streaming
+- Native browser support and simpler reconnection semantics
+- HTTP/2 multiplexing support
+- Better proxy/firewall compatibility
+
+### Class Fields
+
+```javascript
+class SSETransport {  // z26
+    url;                       // SSE endpoint URL
+    state = "idle";            // "idle" | "reconnecting" | "connected" | "closing" | "closed"
+    onData;                    // callback(dataString) for received messages
+    onCloseCallback;           // callback() when permanently closed
+    onEventCallback;           // callback for SSE event types
+    headers;                   // HTTP headers for requests
+    sessionId;                 // Session ID
+    refreshHeaders;            // function to refresh auth headers
+    abortController = null;    // AbortController for fetch cancellation
+    lastSequenceNum = 0;       // Last received sequence number for resume
+    seenSequenceNums = new Set; // Deduplication tracking
+    reconnectAttempts = 0;     // Exponential backoff counter
+    reconnectStartTime = null; // Timestamp for reconnect budget
+    reconnectTimer = null;     // setTimeout handle
+    livenessTimer = null;      // Keep-alive timer
+    postUrl;                   // HTTP POST endpoint for sending
+}
+```
+
+### connect() — SSE Stream Establishment
+
+```javascript
+// ============================================
+// SSETransport.connect - Opens SSE stream with resume capability
+// Location: chunks.185.mjs:28-83
+// ============================================
+
+// ORIGINAL (for source lookup):
+async connect() {
+    if (this.state !== "idle" && this.state !== "reconnecting") return;
+    this.state = "reconnecting";
+    let A = new URL(this.url.href);
+    if (this.lastSequenceNum > 0) A.searchParams.set("from_sequence_num", String(this.lastSequenceNum));
+    let K = { ...this.headers, Accept: "text/event-stream" };
+    if (this.lastSequenceNum > 0) K["Last-Event-ID"] = String(this.lastSequenceNum);
+    this.abortController = new AbortController;
+    let z = await fetch(A.href, { headers: K, signal: this.abortController.signal });
+    if (!z.ok) {
+        if ([401, 403, 404].includes(z.status)) { this.state = "closed"; this.onCloseCallback?.(); return }
+        this.handleConnectionError(); return
+    }
+    this.state = "connected";
+    await this.readStream(z.body)
+}
+
+// READABLE (for understanding):
+async connect() {
+    if (this.state !== "idle" && this.state !== "reconnecting") return;
+
+    this.state = "reconnecting";
+    let url = new URL(this.url.href);
+
+    // Resume from last sequence number (enables exactly-once delivery)
+    if (this.lastSequenceNum > 0) {
+        url.searchParams.set("from_sequence_num", String(this.lastSequenceNum));
+    }
+
+    let headers = {
+        ...this.headers,
+        Accept: "text/event-stream",
+        "anthropic-version": "2023-06-01"
+    };
+
+    // Last-Event-ID header for standard SSE resume
+    if (this.lastSequenceNum > 0) {
+        headers["Last-Event-ID"] = String(this.lastSequenceNum);
+    }
+
+    this.abortController = new AbortController();
+    let response = await fetch(url.href, { headers, signal: this.abortController.signal });
+
+    // Permanent errors (auth, not found)
+    if (!response.ok) {
+        if ([401, 403, 404].includes(response.status)) {
+            this.state = "closed";
+            this.onCloseCallback?.();
+            return;
+        }
+        this.handleConnectionError();
+        return;
+    }
+
+    this.state = "connected";
+    this.reconnectAttempts = 0;
+    this.reconnectStartTime = null;
+    this.resetLivenessTimer();
+
+    // Read the SSE stream
+    await this.readStream(response.body);
+}
+
+// Mapping: z26→SSETransport, A→url, K→headers, z→response
+```
+
+### Sequence Number Tracking
+
+**What it does:** Tracks `lastSequenceNum` to enable exactly-once delivery semantics. On reconnect, the client sends `from_sequence_num` to resume from the last successfully processed message.
+
+**How it works:**
+1. Each SSE frame has an `id` field containing a sequence number
+2. `lastSequenceNum` is updated when a frame with higher ID is received
+3. `seenSequenceNums` Set tracks recent IDs for duplicate detection
+4. On reconnect, `from_sequence_num` query parameter requests replay from `lastSequenceNum + 1`
+
+```javascript
+// Sequence number update in readStream
+if (frame.id) {
+    let seqNum = parseInt(frame.id, 10);
+    if (!isNaN(seqNum)) {
+        // Duplicate detection
+        if (this.seenSequenceNums.has(seqNum)) {
+            log(`DUPLICATE frame seq=${seqNum}`, { level: "warn" });
+        } else {
+            this.seenSequenceNums.add(seqNum);
+            // LRU cleanup: keep ~1000 entries
+            if (this.seenSequenceNums.size > 1000) {
+                let threshold = this.lastSequenceNum - 200;
+                for (let id of this.seenSequenceNums) {
+                    if (id < threshold) this.seenSequenceNums.delete(id);
+                }
+            }
+        }
+        if (seqNum > this.lastSequenceNum) {
+            this.lastSequenceNum = seqNum;
+        }
+    }
+}
+```
+
+### handleSSEFrame() — Event Routing
+
+```javascript
+// ============================================
+// SSETransport.handleSSEFrame - Routes SSE events
+// Location: chunks.185.mjs:134-150
+// ============================================
+
+// ORIGINAL (for source lookup):
+handleSSEFrame(A, q) {
+    if (A !== "client_event") {
+        k(`Unexpected SSE event type '${A}'`, { level: "warn" });
+        return
+    }
+    let K;
+    try { K = i1(q) } catch (z) { k(`Failed to parse: ${z}`, { level: "error" }); return }
+    this.onData?.(K)
+}
+
+// READABLE (for understanding):
+handleSSEFrame(eventType, data) {
+    // Only "client_event" is expected on the worker stream
+    if (eventType !== "client_event") {
+        log(`Unexpected SSE event type '${eventType}'`, { level: "warn" });
+        return;
+    }
+
+    let message;
+    try {
+        message = JSON.parse(data);
+    } catch (error) {
+        log(`Failed to parse SSE data: ${error}`, { level: "error" });
+        return;
+    }
+
+    // Route to the onData callback (same as WebSocket onmessage)
+    this.onData?.(message);
+}
+
+// Mapping: A→eventType, q→data, K→message, i1→JSON.parse
+```
+
+### write() — HTTP POST for Outbound
+
+SSE is receive-only. Outbound messages use HTTP POST to `postUrl`:
+
+```javascript
+async write(message) {
+    // POST to /session/<id>/events
+    let response = await fetch(this.postUrl, {
+        method: "POST",
+        headers: { ...this.headers, "Content-Type": "application/json" },
+        body: JSON.stringify(message)
+    });
+    if (!response.ok) {
+        log(`SSE POST failed: ${response.status}`, { level: "error" });
+    }
+}
+```
+
+**Key insight:** The asymmetry (SSE for receive, HTTP POST for send) matches the traffic pattern: high-volume streaming from server, lower-frequency control messages to server. This avoids WebSocket frame overhead for the dominant direction.
+
+---
+
+## getTransportForUrl (URq) — Transport Selection Logic
+
+**What it does:** Selects the appropriate transport class based on environment variables and URL protocol.
+
+**How it works:**
+1. If `CLAUDE_CODE_USE_CCR_V2=true`: Use SSETransport (z26)
+2. If URL is `ws://` or `wss://`:
+   - If `CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2=true`: Use HybridTransport (eo6)
+   - Otherwise: Use WebSocketTransport (to6)
+
+```javascript
+// ============================================
+// getTransportForUrl - Transport factory based on environment
+// Location: chunks.185.mjs:296-307
+// ============================================
+
+// ORIGINAL (for source lookup):
+function URq(A, q = {}, K, Y) {
+    if (t6(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+        let z = new lDz(A.href);
+        if (z.protocol === "wss:") z.protocol = "https:";
+        else if (z.protocol === "ws:") z.protocol = "http:";
+        z.pathname = z.pathname.replace(/\/$/, "") + "/worker/events/stream";
+        return new z26(z, q, K, Y)
+    }
+    if (A.protocol === "ws:" || A.protocol === "wss:") {
+        if (t6(process.env.CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2)) return new eo6(A, q, K, Y);
+        return new to6(A, q, K, Y)
+    } else throw Error(`Unsupported protocol: ${A.protocol}`)
+}
+
+// READABLE (for understanding):
+function getTransportForUrl(url, headers = {}, sessionId, refreshHeaders) {
+    // CCR v2: Convert WebSocket URL to SSE URL
+    if (parseBoolean(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+        let sseUrl = new URL(url.href);
+        // wss:// → https://, ws:// → http://
+        if (sseUrl.protocol === "wss:") sseUrl.protocol = "https:";
+        else if (sseUrl.protocol === "ws:") sseUrl.protocol = "http:";
+        // Append SSE stream path
+        sseUrl.pathname = sseUrl.pathname.replace(/\/$/, "") + "/worker/events/stream";
+        return new SSETransport(sseUrl, headers, sessionId, refreshHeaders);
+    }
+
+    // WebSocket-based transports
+    if (url.protocol === "ws:" || url.protocol === "wss:") {
+        // Hybrid: WebSocket read + HTTP POST write
+        if (parseBoolean(process.env.CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2)) {
+            return new HybridTransport(url, headers, sessionId, refreshHeaders);
+        }
+        // Standard WebSocket
+        return new WebSocketTransport(url, headers, sessionId, refreshHeaders);
+    }
+
+    throw Error(`Unsupported protocol: ${url.protocol}`);
+}
+
+// Mapping: URq→getTransportForUrl, A→url, q→headers, K→sessionId, Y→refreshHeaders, z26→SSETransport, eo6→HybridTransport, to6→WebSocketTransport, t6→parseBoolean, lDz→URL
+```
+
+### Transport Selection Matrix
+
+| Environment | Protocol | Transport Class | Read Path | Write Path |
+|-------------|----------|-----------------|-----------|------------|
+| Default | `wss://` | WebSocketTransport | WebSocket | WebSocket |
+| `POST_FOR_SESSION_INGRESS_V2=true` | `wss://` | HybridTransport | WebSocket | HTTP POST |
+| `USE_CCR_V2=true` | `wss://` → `https://` | SSETransport | SSE | HTTP POST |
+
+### CCR v2 Protocol Benefits
+
+**Why CCR v2 uses SSE:**
+1. **Simpler reconnection** — SSE has built-in `Last-Event-ID` resume semantics
+2. **Sequence numbers** — Enables exactly-once delivery tracking
+3. **HTTP/2 support** — Multiplexing with other requests on same connection
+4. **Proxy-friendly** — Standard HTTP, no WebSocket upgrade negotiation
+5. **Browser-native** — EventSource API for web clients
+
+---
+
+## CCRClient (qa6) — CCR v2 Client Logic
+
+**What it does:** Manages CCR v2 protocol specifics including heartbeats, epoch tracking, and internal event handling.
+
+### Key Features
+
+1. **Heartbeat mechanism** — Periodic HTTP POST to maintain liveness
+2. **Epoch tracking** — Detects server-side session resets
+3. **Internal events** — Separate channel for telemetry/debug events
+4. **Delivery tracking** — Confirms message delivery to server
+
+```javascript
+class CCRClient {  // qa6
+    workerEpoch = 0;
+    heartbeatTimer = null;
+    heartbeatInFlight = false;
+    currentState = null;
+    sessionBaseUrl;
+    sessionId;
+    workerState;
+    eventUploader;           // BatchUploader for events
+    internalEventUploader;   // Separate uploader for internal events
+    deliveryUploader;        // Delivery confirmation channel
+    onEpochMismatch;         // Callback when epoch changes
+}
+```
+
+### Epoch Mismatch Handling
+
+When `workerEpoch` changes server-side (e.g., session reset), the client must handle the mismatch:
+
+```javascript
+// On epoch mismatch: exit and let the orchestrator restart
+if (responseEpoch !== this.workerEpoch) {
+    log(`Epoch mismatch: expected ${this.workerEpoch}, got ${responseEpoch}`);
+    this.onEpochMismatch?.();  // Default: process.exit(1)
+}
+```
 
 ---
 
@@ -887,25 +1876,36 @@ function createStreamIO(promptInput, options) {
 
 ```javascript
 // ============================================
-// handlePermissionPromptToolResult - Processes MCP tool permission result
-// Location: chunks.184.mjs:989-1010
+// processPermissionResult - Processes MCP tool permission result
+// Location: chunks.184.mjs:1621-1642
 // ============================================
 
 // ORIGINAL (for source lookup):
-function jc1(A, q, K, Y) {
-    let z = { type: "permissionPromptTool", permissionPromptToolName: q.name, toolResult: A };
+function JV6(A, q, K, Y) {
+    let z = {
+        type: "permissionPromptTool",
+        permissionPromptToolName: q.name,
+        toolResult: A
+    };
     if (A.behavior === "allow") {
-        let w = A.updatedPermissions;
-        if (w) Y.setAppState((H) => ({ ...H, toolPermissionContext: WV(H.toolPermissionContext, w) })), nC(w);
-        return { ...A, decisionReason: z }
-    } else if (A.behavior === "deny" && A.interrupt) {
-        h(`SDK permission prompt deny+interrupt: tool=${q.name} message=${A.message}`), Y.abortController.abort()
+        let _ = A.updatedPermissions;
+        if (_) Y.setAppState((w) => ({
+            ...w,
+            toolPermissionContext: _v(w.toolPermissionContext, _)
+        })), NC(_);
+        return {
+            ...A,
+            decisionReason: z
+        }
+    } else if (A.behavior === "deny" && A.interrupt) k(`SDK permission prompt deny+interrupt: tool=${q.name} message=${A.message}`), Y.abortController.abort();
+    return {
+        ...A,
+        decisionReason: z
     }
-    return { ...A, decisionReason: z }
 }
 
 // READABLE (for understanding):
-function handlePermissionPromptToolResult(toolCallResult, permissionTool, toolInput, sessionContext) {
+function processPermissionResult(toolCallResult, permissionTool, toolInput, sessionContext) {
     let decisionReason = {
         type: "permissionPromptTool",
         permissionPromptToolName: permissionTool.name,
@@ -930,7 +1930,7 @@ function handlePermissionPromptToolResult(toolCallResult, permissionTool, toolIn
     return { ...toolCallResult, decisionReason };
 }
 
-// Mapping: jc1→handlePermissionPromptToolResult, A→toolCallResult, q→permissionTool, K→toolInput, Y→sessionContext, z→decisionReason, WV→mergePermissions, nC→persistPermissions
+// Mapping: JV6→processPermissionResult, A→toolCallResult, q→permissionTool, K→toolInput, Y→sessionContext, z→decisionReason, _v→mergePermissions, NC→persistPermissions
 ```
 
 **Permission tool flow:**

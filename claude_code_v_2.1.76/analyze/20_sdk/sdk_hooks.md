@@ -12,8 +12,8 @@ SDK sessions support hooks that are fundamentally different from shell-based hoo
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Transport layer
 
 Key functions in this document:
-- `createHookCallback` - Creates callback wrapper for SDK hook execution
-- `initializeSession` (CJz) - Registers SDK hooks from initialize request
+- `createHookCallback` - Creates callback wrapper for SDK hook execution (chunks.184.mjs:2167-2184)
+- `initializeSession` (FXz) - Registers SDK hooks from initialize request (chunks.187.mjs:1174-1269)
 - `executePreToolHooks` (qyA) - Runs PreToolUse hooks
 - `executePostToolHooks` (KyA) - Runs PostToolUse hooks
 - `StdioStreamIO.sendRequest` - Sends hook callback control_request
@@ -68,7 +68,7 @@ SDK hooks are registered via the `initialize` control request:
 ```javascript
 // ============================================
 // createHookCallback - Creates SDK hook callback wrapper
-// Location: chunks.178.mjs:1209-1226
+// Location: chunks.184.mjs:2167-2184
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -77,16 +77,12 @@ createHookCallback(A, q) {
         type: "callback",
         timeout: q,
         callback: async (K, Y, z) => {
-            try {
-                return await this.sendRequest({
-                    subtype: "hook_callback",
-                    callback_id: A,
-                    input: K,
-                    tool_use_id: Y || void 0
-                }, zJ6, z)
-            } catch (w) {
-                return console.error(`Error in hook callback ${A}:`, w), {}
-            }
+            return await this.sendRequest({
+                subtype: "hook_callback",
+                callback_id: A,
+                input: K,
+                tool_use_id: Y || void 0
+            }, gN6(), z)
         }
     }
 }
@@ -97,34 +93,29 @@ createHookCallback(callbackId, timeout) {
         type: "callback",
         timeout: timeout,
         callback: async (hookInput, toolUseId, abortSignal) => {
-            try {
-                // Send control_request to SDK client
-                return await this.sendRequest(
-                    {
-                        subtype: "hook_callback",
-                        callback_id: callbackId,
-                        input: hookInput,
-                        tool_use_id: toolUseId || undefined
-                    },
-                    HookCallbackResponseSchema,  // Zod schema for validation
-                    abortSignal
-                );
-            } catch (error) {
-                console.error(`Error in hook callback ${callbackId}:`, error);
-                return {};  // Return empty object on error (safe default)
-            }
+            // Send control_request to SDK client
+            return await this.sendRequest(
+                {
+                    subtype: "hook_callback",
+                    callback_id: callbackId,
+                    input: hookInput,
+                    tool_use_id: toolUseId || undefined
+                },
+                HookCallbackResponseSchema,  // Zod schema for validation
+                abortSignal
+            );
         }
     };
 }
 
-// Mapping: A→callbackId, q→timeout, K→hookInput, Y→toolUseId, z→abortSignal, zJ6→HookCallbackResponseSchema
+// Mapping: A→callbackId, q→timeout, K→hookInput, Y→toolUseId, z→abortSignal, gN6→HookCallbackResponseSchema
 ```
 
 **Key aspects:**
 1. **Returns a hook object** with `type: "callback"` to distinguish from shell hooks
 2. **Wraps sendRequest** to communicate with SDK client via `control_request`
 3. **Includes timeout** from the hook configuration
-4. **Error handling** returns empty object on failure (allows execution to continue)
+4. **Error handling** in outer layer allows execution to continue on failure
 
 ---
 
@@ -135,19 +126,22 @@ createHookCallback(callbackId, timeout) {
 ```javascript
 // ============================================
 // initializeSession - Hook registration section
-// Location: chunks.179.mjs:1687-1700
+// Location: chunks.187.mjs:1210-1222
 // ============================================
 
 // ORIGINAL (for source lookup):
 if (A.hooks) {
-    let N = {};
-    for (let [Z, T] of Object.entries(A.hooks)) {
-        N[Z] = T.map((z) => ({
-            matcher: z.matcher,
-            hooks: z.hookCallbackIds.map((T) => H.createHookCallback(T, z.timeout))
-        }))
-    }
-    fN(N)
+    let W = {};
+    for (let [Z, G] of Object.entries(A.hooks)) W[Z] = G.map((f) => {
+        let v = f.hookCallbackIds.map((N) => {
+            return w.createHookCallback(N, f.timeout)
+        });
+        return {
+            matcher: f.matcher,
+            hooks: v
+        }
+    });
+    KA6(W)
 }
 
 // READABLE (for understanding):
@@ -165,7 +159,7 @@ if (request.hooks) {
     setHooks(hookMap);  // Register hooks globally
 }
 
-// Mapping: A→request, N→hookMap, Z→hookEvent, T→hookConfigs, z→config, H→streamIO, fN→setHooks
+// Mapping: A→request, W→hookMap, Z→hookEvent, G→hookConfigs, f→config, v→hooksArray, w→streamIO, KA6→setHooks
 ```
 
 ---

@@ -8,20 +8,69 @@ When `--sdk-url` points to a WebSocket endpoint, the transport layer uses a **du
 
 The message protocol includes two notable server→client event types introduced in recent versions: `auth_status` (fields: `isAuthenticating`, `output`, `error`) signals authentication state changes, and `prompt_suggestion` carries a follow-up prompt hint emitted after each turn when `promptSuggestions: true` was set in the `initialize` control request.
 
+## Version 2.1.76 New Features
+
+### rate_limit Event Type (NEW)
+
+**What it does:** Emitted when the Claude API returns rate-limit headers. Allows SDK clients to implement backoff logic or surface capacity information without polling.
+
+**When emitted:** After each API response that includes `x-ratelimit-*` headers, before the `assistant` message for that turn.
+
+```javascript
+{
+  "type": "rate_limit",
+  "info": {
+    "requests_remaining": 42,
+    "requests_reset_at": "2025-03-15T12:00:00Z",
+    "tokens_remaining": 100000,
+    "tokens_reset_at": "2025-03-15T12:00:00Z"
+  },
+  "session_id": "<uuid>",
+  "uuid": "<uuid>"
+}
+```
+
+**Key insight:** SDK clients previously had no visibility into rate-limit state without inspecting raw HTTP headers. The `rate_limit` event decouples the SDK abstraction from transport-level details.
+
+### background Flag in Agent Definitions (NEW)
+
+**What it does:** When `background: true` is set on an agent definition, invocations of that agent via the Task tool default to background execution.
+
+**Why this approach:** Certain agent types (e.g., long-running analysis agents) are almost always intended to run asynchronously. The flag bakes this default into the agent definition.
+
+**Per-invocation override:** The Task tool's `run_in_background` parameter still overrides the definition-level default.
+
+### Max Turns and Budget Enforcement Fix
+
+**What changed:** In v2.1.38, max turns and budget limits were defined and checked, but a code path existed where the agent loop could continue past the limit in certain edge cases. In v2.1.76, these checks are now applied unconditionally at the end of every turn.
+
+**Impact:** SDK clients relying on `error_max_turns` or `error_max_budget_usd` result subtypes can now depend on them firing reliably.
+
+### activeForm Field Removed (Breaking Change)
+
+**What changed:** In v2.1.38, certain task creation APIs required an `activeForm` field. This requirement has been removed in v2.1.76.
+
+**Migration:** Remove any `activeForm` field from task creation calls. The field is silently ignored if present.
+
 ## Sub-Documents
 
-| Document | Contents |
-|---|---|
-| [streaming_protocol.md](./streaming_protocol.md) | Complete NDJSON message protocol — all message types, schemas, output format comparison |
-| [transport_layer.md](./transport_layer.md) | StdioStreamIO (so6), WebSocketTransport (to6), HybridTransport (eo6) dual-channel architecture, Pi6/Y26 queue integration |
-| [sdk_outbound_queue.md](./sdk_outbound_queue.md) | Pi6 AsyncQueue + Y26 BatchQueue dual-queue outbound architecture, backpressure, retry with exponential backoff |
-| [ui_linkage.md](./ui_linkage.md) | How SDK stream events drive UI state machine, thinking/text/tool streaming |
-| [agent_definitions.md](./agent_definitions.md) | Built-in agent definitions, custom agent schema, agent loading pipeline, SDK-specific filtering |
-| [sdk_tools_integration.md](./sdk_tools_integration.md) | Tool execution in SDK mode, permission prompt tool, MCP tool integration |
-| [sdk_hooks.md](./sdk_hooks.md) | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
-| [sdk_session_management.md](./sdk_session_management.md) | Session persistence, max turns, budget limits, auto-compact integration; handleRewindRequest, handleSetPermissionMode |
-| [sdk_mcp_integration.md](./sdk_mcp_integration.md) | MCP server integration in SDK mode, sdkMcpServers, sendMcpMessage, SdkMcpTransport (oi8), type="sdk" routing |
-| [sdk_error_recovery.md](./sdk_error_recovery.md) | WebSocket reconnection, abort handling, timeout management, error output formatting |
+| Document | Lines | Contents |
+|---|---|---|
+| [streaming_protocol.md](./streaming_protocol.md) | ~1100 | Complete NDJSON message protocol — all message types, schemas, output format comparison, rate_limit event |
+| [transport_layer.md](./transport_layer.md) | ~1380 | StdioStreamIO (so6), WebSocketTransport (to6), HybridTransport (eo6), SSETransport (z26), CCR v2 protocol |
+| [ui_linkage.md](./ui_linkage.md) | ~1540 | How SDK stream events drive UI state machine, thinking/text/tool streaming, React/Ink component architecture |
+| [sdk_ui_interaction_patterns.md](./sdk_ui_interaction_patterns.md) | ~700 | **NEW** Complete interaction lifecycle, component patterns, multi-tool execution, permission flow diagrams |
+| [sdk_session_management.md](./sdk_session_management.md) | ~1020 | Session persistence, max turns, budget limits, rate_limit events, auto-compact integration |
+| [sdk_tools_integration.md](./sdk_tools_integration.md) | ~870 | Tool execution in SDK mode, permission prompt tool, Promise.race pattern for hook/SDK permissions |
+| [agent_definitions.md](./agent_definitions.md) | ~800 | Built-in agent definitions, custom agent schema, agent loading pipeline, background flag, SDK-specific filtering |
+| [sdk_outbound_queue.md](./sdk_outbound_queue.md) | ~850 | Pi6 AsyncQueue + Y26 BatchQueue dual-queue outbound architecture, backpressure, retry with exponential backoff |
+| [sdk_error_recovery.md](./sdk_error_recovery.md) | ~950 | WebSocket reconnection, abort handling, timeout management, error output formatting |
+| [sdk_mcp_integration.md](./sdk_mcp_integration.md) | ~680 | MCP server integration in SDK mode, sdkMcpServers, sendMcpMessage, SdkMcpTransport (oi8), type="sdk" routing |
+| [sdk_cross_references.md](./sdk_cross_references.md) | ~740 | Cross-module behavior differences, attachment producers in SDK mode, isNonInteractive locations |
+| [sdk_hooks.md](./sdk_hooks.md) | ~470 | SDK hook callback mechanism, hookCallbackIds, createHookCallback method |
+| [sdk_ui_state_machine.md](./sdk_ui_state_machine.md) | ~500 | UI state machine driven by stream events, state transitions, callback interfaces |
+| [sdk_ui_components.md](./sdk_ui_components.md) | ~580 | UI component architecture, SpinnerController, ThinkingPanel, StreamingTextDisplay, ToolUseIndicator |
+| [sdk_ui_rendering.md](./sdk_ui_rendering.md) | ~680 | Output formats (text/json/stream-json), streamlined output, rate_limit/prompt_suggestion handling |
 
 ## Related Symbols
 
@@ -32,7 +81,7 @@ The message protocol includes two notable server→client event types introduced
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `isNonInteractive` (w4) - Returns true when running in SDK/print mode
+- `isNonInteractive` (q7) - Returns true when running in SDK/print mode (chunks.1.mjs:2720)
 - `setInteractive` (bL6) - Sets the interactive flag on global state
 - `getEntrypoint` (L59) - Returns the current entrypoint string
 - `setEntrypoint` (iGz) - Detects and sets CLAUDE_CODE_ENTRYPOINT
@@ -42,12 +91,12 @@ Key functions in this document:
 - `WebSocketTransport` (to6) - WebSocket connection with reconnection/buffering (chunks.184.mjs:2298)
 - `HybridTransport` (eo6) - Reads inbound via WebSocket; writes `stream_event` via Y26 BatchQueue HTTP POST (chunks.184.mjs:2762)
 - `createStreamIO` (UXz) - Factory that selects StdioStreamIO or RemoteStreamIO (chunks.187.mjs:1467)
-- `handleStreamEvent` (iW1) - Central dispatcher: stream events → UI state
-- `initializeHandler` (FXz) - Processes initialize control request (chunks.187.mjs:1174)
+- `handleToolUseStream` (xN6) - Central dispatcher: stream events → UI state (chunks.173.mjs:2384)
+- `initializeSession` (FXz) - Processes initialize control request (chunks.187.mjs:1174)
 - `handleRewindRequest` (thq) - Rolls back file changes to checkpoint (chunks.187.mjs:1271)
 - `handleSetPermissionMode` (pXz) - Validates and applies permission mode transitions (chunks.187.mjs:1305)
 - `streamJsonInputHandler` (oGz) - Routes stdin → stream for different input formats
-- `handlePermissionPromptToolResult` (JV6) - MCP-based permission prompt result handler (chunks.184.mjs:1621)
+- `processPermissionResult` (JV6) - MCP-based permission prompt result handler (chunks.184.mjs:1621)
 - `getExternalUserAgent` (Jr) - Builds user-agent string for SDK requests
 - `getBuiltinAgents` (APA) - Returns list of built-in agents (filters "guide" for SDK)
 - `SDK_SYSTEM_PROMPT_CLI` (t17) - System prompt for CLI-embedded SDK
@@ -133,26 +182,26 @@ After the entrypoint is determined, the main function maps it to a human-readabl
 
 ---
 
-## Non-Interactive Mode Detection (isNonInteractive / w4)
+## Non-Interactive Mode Detection (isNonInteractive / q7)
 
 ### isNonInteractive - The core SDK mode check
 
-**What it does:** A simple boolean getter (`w4()`) that returns `true` when Claude Code is running in non-interactive mode -- which includes all SDK scenarios, `--print` mode, and piped usage.
+**What it does:** A simple boolean getter (`q7()`) that returns `true` when Claude Code is running in non-interactive mode -- which includes all SDK scenarios, `--print` mode, and piped usage.
 
 **How it works:**
-1. Global state object `o6` holds `isInteractive` boolean
-2. `w4()` returns `!o6.isInteractive`
+1. Global state object `v1` holds `isInteractive` boolean
+2. `q7()` returns `!v1.isInteractive`
 3. The flag is set early in `main()` via `bL6(!z)` where `z` is true if any of: `--print`, `--init-only`, `--sdk-url`, or `!process.stdout.isTTY`
 
 ```javascript
 // ============================================
 // isNonInteractive - Check if running in SDK/print mode
-// Location: chunks.1.mjs:2730-2732
+// Location: chunks.1.mjs:2720-2722
 // ============================================
 
 // ORIGINAL (for source lookup):
-function w4() {
-    return !o6.isInteractive
+function q7() {
+    return !v1.isInteractive
 }
 
 // READABLE (for understanding):
@@ -160,7 +209,7 @@ function isNonInteractive() {
     return !globalState.isInteractive;
 }
 
-// Mapping: w4→isNonInteractive, o6→globalState
+// Mapping: q7→isNonInteractive, v1→globalState
 ```
 
 **Why this approach:**
@@ -172,6 +221,37 @@ Rather than checking entrypoint strings everywhere, the system uses a single boo
 - Beta tracing: Only enabled when both environment flags are set AND in SDK mode
 
 **Key insight:** The `isNonInteractive` check is the single most important behavioral fork in the codebase. Almost every user-facing message and many control flow decisions branch on it.
+
+### DY4 - Session-specific non-interactive check
+
+**What it does:** A function that checks the `isNonInteractiveSession` property from a session context object.
+
+```javascript
+// ============================================
+// isNonInteractiveSession - Check session context for SDK mode
+// Location: chunks.91.mjs:45-47
+// ============================================
+
+// ORIGINAL (for source lookup):
+function DY4(A) {
+    return A.isNonInteractiveSession
+}
+
+// READABLE (for understanding):
+function isNonInteractiveSession(sessionContext) {
+    return sessionContext.isNonInteractiveSession;
+}
+
+// Mapping: DY4→isNonInteractiveSession, A→sessionContext
+```
+
+**Difference from q7():**
+- `q7()` checks **global state** (application-wide interactive mode)
+- `DY4(sessionContext)` checks **session context** (session-specific flag)
+
+The session context flag is set based on:
+- `CLAUDE_CODE_ENTRYPOINT` environment variable (`sdk-ts`, `sdk-py`, `sdk-cli`)
+- Explicit session options passed during initialization
 
 ---
 
@@ -411,7 +491,7 @@ function getExternalUserAgent() {
 
 // ORIGINAL (for source lookup):
 function APA() {
-    if (J6(process.env.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS) && w4()) return [];
+    if (J6(process.env.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS) && q7()) return [];
     let A = [Tn7, ZB1, En7, bv, PJ6];
     if (process.env.CLAUDE_CODE_ENTRYPOINT !== "sdk-ts" &&
         process.env.CLAUDE_CODE_ENTRYPOINT !== "sdk-py" &&
@@ -712,7 +792,7 @@ The `isNonInteractive` flag affects tool behavior in several key ways:
 
 ### isNonInteractiveSession Flag Propagation
 
-The `isNonInteractive` flag (accessed via `w4()`) propagates through the tool execution pipeline:
+The `isNonInteractive` flag (accessed via `q7()`) propagates through the tool execution pipeline:
 
 ```javascript
 // ============================================
@@ -729,7 +809,7 @@ if (isNonInteractive()) {
     throw new Error("Failed to read PDF. Double press esc to go back.");
 }
 
-// Mapping: w4→isNonInteractive
+// Mapping: q7→isNonInteractive
 ```
 
 ### Permission Prompt Tool Flow
@@ -761,8 +841,8 @@ async function permissionRequestWithMcpTool(toolName, toolInput, sessionContext)
         abortSignalPromise
     ]);
 
-    // Process response via handlePermissionPromptToolResult
-    return handlePermissionPromptToolResult(
+    // Process response via processPermissionResult
+    return processPermissionResult(
         parsePermissionResponse(response),
         permissionTool,
         toolInput,
@@ -770,32 +850,43 @@ async function permissionRequestWithMcpTool(toolName, toolInput, sessionContext)
     );
 }
 
-// Mapping: jc1→handlePermissionPromptToolResult
+// Mapping: JV6→processPermissionResult
 ```
 
-**Permission tool response handling (`handlePermissionPromptToolResult` / jc1):**
+**Permission tool response handling (`processPermissionResult` / JV6):**
 
 ```javascript
 // ============================================
-// handlePermissionPromptToolResult - Processes MCP tool permission result
-// Location: chunks.178.mjs:989-1010
+// processPermissionResult - Processes MCP tool permission result
+// Location: chunks.184.mjs:1621-1642
 // ============================================
 
 // ORIGINAL (for source lookup):
-function jc1(A, q, K, Y) {
-    let z = { type: "permissionPromptTool", permissionPromptToolName: q.name, toolResult: A };
+function JV6(A, q, K, Y) {
+    let z = {
+        type: "permissionPromptTool",
+        permissionPromptToolName: q.name,
+        toolResult: A
+    };
     if (A.behavior === "allow") {
-        let w = A.updatedPermissions;
-        if (w) Y.setAppState((H) => ({ ...H, toolPermissionContext: WV(H.toolPermissionContext, w) })), nC(w);
-        return { ...A, decisionReason: z }
-    } else if (A.behavior === "deny" && A.interrupt) {
-        h(`SDK permission prompt deny+interrupt: tool=${q.name} message=${A.message}`), Y.abortController.abort()
+        let _ = A.updatedPermissions;
+        if (_) Y.setAppState((w) => ({
+            ...w,
+            toolPermissionContext: _v(w.toolPermissionContext, _)
+        })), NC(_);
+        return {
+            ...A,
+            decisionReason: z
+        }
+    } else if (A.behavior === "deny" && A.interrupt) k(`SDK permission prompt deny+interrupt: tool=${q.name} message=${A.message}`), Y.abortController.abort();
+    return {
+        ...A,
+        decisionReason: z
     }
-    return { ...A, decisionReason: z }
 }
 
 // READABLE (for understanding):
-function handlePermissionPromptToolResult(toolResult, permissionTool, toolInput, sessionContext) {
+function processPermissionResult(toolResult, permissionTool, toolInput, sessionContext) {
     let decisionReason = {
         type: "permissionPromptTool",
         permissionPromptToolName: permissionTool.name,
@@ -820,7 +911,7 @@ function handlePermissionPromptToolResult(toolResult, permissionTool, toolInput,
     return { ...toolResult, decisionReason };
 }
 
-// Mapping: jc1→handlePermissionPromptToolResult, A→toolResult, q→permissionTool, K→toolInput, Y→sessionContext, z→decisionReason, WV→mergePermissions, nC→persistPermissions
+// Mapping: JV6→processPermissionResult, A→toolResult, q→permissionTool, K→toolInput, Y→sessionContext, z→decisionReason, _v→mergePermissions, NC→persistPermissions
 ```
 
 **Permission tool response schema:**
@@ -1239,3 +1330,599 @@ try {
   clearTimeout(timeout);
 }
 ```
+
+---
+
+## UI Interaction Design for SDK Clients
+
+### Overview
+
+SDK clients must reconstruct interactive UI state from the NDJSON stream events. This section documents the state machine and event mapping patterns that enable rich client interfaces.
+
+### UI State Machine
+
+The UI state machine tracks the current phase of agent operation:
+
+```
+┌─────────────┐     user message     ┌─────────────┐
+│   idle      │ ──────────────────────▶│ requesting  │
+└─────────────┘                        └─────────────┘
+     ▲                                       │
+     │                                       │ stream_request_start
+     │                                       ▼
+     │                                ┌─────────────┐
+     │     message_stop               │  thinking   │
+     │ ◀──────────────────────────────│             │
+     │                                └─────────────┘
+     │                                       │
+     │                                       │ content_block_start (type: text)
+     │                                       ▼
+     │                                ┌─────────────┐
+     │     content_block_stop          │ responding  │
+     │ ◀──────────────────────────────│             │
+     │                                └─────────────┘
+     │                                       │
+     │                                       │ content_block_start (type: tool_use)
+     │                                       ▼
+     │                                ┌─────────────┐
+     │     content_block_stop          │ tool-use    │
+     │ ◀──────────────────────────────│             │
+     │                                └─────────────┘
+     │                                       │
+     │                                       │ tool_input_complete
+     │                                       ▼
+     │                                ┌─────────────┐
+     │     tool_result                 │ tool-input  │
+     │ ◀──────────────────────────────│             │
+     └───────────────────────────────└─────────────┘
+```
+
+**State Transitions:**
+
+| Current State | Event | Next State | UI Action |
+|---------------|-------|------------|-----------|
+| idle | User sends message | requesting | Show "Sending..." indicator |
+| requesting | `stream_request_start` | thinking | Show "Thinking..." spinner |
+| thinking | `content_block_start` (text) | responding | Start text streaming display |
+| thinking | `content_block_start` (tool_use) | tool-use | Show tool name, prepare input |
+| responding | `content_block_stop` | idle (or thinking) | Finalize text display |
+| tool-use | `content_block_stop` | tool-input | Execute tool, show result |
+| tool-input | `tool_result` event | thinking | Return to thinking state |
+
+### Stream Event → UI State Mapping
+
+```javascript
+// ============================================
+// UI State Dispatcher - Maps stream events to UI states
+// Location: chunks.173.mjs:2384 (handleToolUseStream)
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function xN6(A, Q, B, g, Z) {
+  // xN6 handles tool execution state transitions
+  // Dispatches to appropriate handler based on tool type
+  const toolType = Q.type;
+  const handlers = {
+    [serverToolTypes.bash]: handleBashTool,
+    [serverToolTypes.read]: handleReadTool,
+    [serverToolTypes.write]: handleWriteTool,
+    [serverToolTypes.edit]: handleEditTool,
+    // ... 11 server-side tool types total
+  };
+  return handlers[toolType]?.(A, Q, B, g, Z) ?? handleLocalTool(A, Q, B, g, Z);
+}
+
+// READABLE (for understanding):
+async function handleToolUseStream(sessionContext, toolUse, toolResult, state, options) {
+  // handleToolUseStream dispatches tool execution to appropriate handlers
+  // Based on tool type, routes to server-side or local execution
+  const toolType = toolUse.type;
+
+  // Server-side tools require backend processing
+  const serverSideHandlers = {
+    bash: handleBashTool,        // Shell command execution
+    read: handleReadTool,        // File reading
+    write: handleWriteTool,      // File writing
+    edit: handleEditTool,        // File editing
+    glob: handleGlobTool,        // File pattern matching
+    grep: handleGrepTool,        // Content search
+    webFetch: handleWebFetchTool, // Web content fetching
+    webSearch: handleWebSearchTool, // Web search
+    taskOutput: handleTaskOutputTool, // Background task output
+    agent: handleAgentTool,       // Subagent spawning
+    skill: handleSkillTool        // Skill invocation
+  };
+
+  // Local tools execute in SDK client context
+  if (serverSideHandlers[toolType]) {
+    return serverSideHandlers[toolType](sessionContext, toolUse, toolResult, state, options);
+  }
+  return handleLocalTool(sessionContext, toolUse, toolResult, state, options);
+}
+
+// Mapping: xN6→handleToolUseStream, A→sessionContext, Q→toolUse, B→toolResult, g→state, Z→options
+```
+
+### Callback Interface for UI Reconstruction
+
+SDK clients implement callback interfaces to handle UI state changes:
+
+```typescript
+// TypeScript interface for UI callbacks
+interface SDKUICallbacks {
+  // State transitions
+  onStateChange(state: 'idle' | 'requesting' | 'thinking' | 'responding' | 'tool-use' | 'tool-input'): void;
+
+  // Content streaming
+  onTextDelta(delta: string): void;
+  onThinkingDelta(delta: string): void;
+  onToolInputDelta(toolName: string, partialJson: string): void;
+
+  // Tool execution
+  onToolStart(toolName: string, toolId: string): void;
+  onToolInputComplete(toolName: string, toolId: string, input: object): void;
+  onToolResult(toolId: string, result: any): void;
+
+  // Status events
+  onAuthStatus(status: AuthStatus): void;
+  onRateLimit(info: RateLimitInfo): void;
+  onPromptSuggestion(suggestion: string): void;
+  onTaskNotification(notification: TaskNotification): void;
+
+  // Error handling
+  onError(error: SDKError): void;
+}
+
+// Event dispatcher implementation
+class SDKEventDispatcher {
+  private state: UIState = 'idle';
+  private callbacks: SDKUICallbacks;
+
+  dispatch(event: StreamEvent) {
+    switch (event.type) {
+      case 'stream_request_start':
+        this.transition('thinking');
+        break;
+
+      case 'stream_event':
+        this.handleStreamEvent(event.event);
+        break;
+
+      case 'result':
+        this.transition('idle');
+        break;
+    }
+  }
+
+  private transition(newState: UIState) {
+    if (this.state !== newState) {
+      this.state = newState;
+      this.callbacks.onStateChange(newState);
+    }
+  }
+
+  private handleStreamEvent(event: AnthropicEvent) {
+    switch (event.type) {
+      case 'content_block_start':
+        if (event.content_block.type === 'thinking') {
+          // Extended thinking mode
+        } else if (event.content_block.type === 'text') {
+          this.transition('responding');
+        } else if (event.content_block.type === 'tool_use') {
+          this.transition('tool-use');
+          this.callbacks.onToolStart(
+            event.content_block.name,
+            event.content_block.id
+          );
+        }
+        break;
+
+      case 'content_block_delta':
+        if (event.delta.type === 'text_delta') {
+          this.callbacks.onTextDelta(event.delta.text);
+        } else if (event.delta.type === 'thinking_delta') {
+          this.callbacks.onThinkingDelta(event.delta.thinking);
+        } else if (event.delta.type === 'input_json_delta') {
+          this.callbacks.onToolInputDelta(
+            this.currentToolName,
+            event.delta.partial_json
+          );
+        }
+        break;
+
+      case 'content_block_stop':
+        if (this.state === 'tool-use') {
+          // Tool input complete, waiting for execution
+          this.transition('tool-input');
+        }
+        break;
+    }
+  }
+}
+```
+
+### Tool Input JSON Accumulation
+
+SDK clients must buffer partial JSON deltas and parse when complete:
+
+```javascript
+// ============================================
+// Tool Input Accumulator - Buffers and parses JSON deltas
+// ============================================
+
+class ToolInputAccumulator {
+  private buffers: Map<string, { name: string; buffer: string }> = new Map();
+
+  onInputDelta(toolId: string, toolName: string, partialJson: string) {
+    const entry = this.buffers.get(toolId) || { name: toolName, buffer: '' };
+    entry.buffer += partialJson;
+    this.buffers.set(toolId, entry);
+
+    // Try to parse partial JSON for preview (may fail)
+    try {
+      const parsed = this.parsePartialJson(entry.buffer);
+      this.emitPreview(toolId, parsed);
+    } catch {
+      // Invalid JSON - show raw buffer (truncated)
+      this.emitPreview(toolId, entry.buffer.slice(0, 100) + '...');
+    }
+  }
+
+  onComplete(toolId: string): object {
+    const entry = this.buffers.get(toolId);
+    if (!entry) throw new Error(`No buffer for tool ${toolId}`);
+
+    const parsed = JSON.parse(entry.buffer);
+    this.buffers.delete(toolId);
+    return parsed;
+  }
+
+  private parsePartialJson(json: string): object {
+    // Attempt to parse potentially incomplete JSON
+    // Uses lenient parser for preview purposes
+    return JSON.parse(json + '"'.repeat(this.countUnclosedStrings(json)));
+  }
+
+  private countUnclosedStrings(json: string): number {
+    // Count unclosed string literals
+    let inString = false;
+    let escape = false;
+    for (const char of json) {
+      if (escape) { escape = false; continue; }
+      if (char === '\\') { escape = true; continue; }
+      if (char === '"') inString = !inString;
+    }
+    return inString ? 1 : 0;
+  }
+}
+```
+
+### Thinking Panel Integration
+
+Extended thinking mode streams thinking content that should be displayed in a collapsible panel:
+
+```javascript
+// ============================================
+// Thinking Panel State Management
+// ============================================
+
+interface ThinkingPanelState {
+  isStreaming: boolean;
+  content: string;
+  isExpanded: boolean;
+}
+
+class ThinkingPanelManager {
+  private state: ThinkingPanelState = {
+    isStreaming: false,
+    content: '',
+    isExpanded: false
+  };
+
+  onStart() {
+    this.state.isStreaming = true;
+    this.state.content = '';
+    this.emitState();
+  }
+
+  onDelta(delta: string) {
+    this.state.content += delta;
+    this.emitState();
+  }
+
+  onStop() {
+    this.state.isStreaming = false;
+    this.emitState();
+  }
+
+  toggleExpanded() {
+    this.state.isExpanded = !this.state.isExpanded;
+    this.emitState();
+  }
+}
+```
+
+### SDK Client Reconstruction Pattern
+
+The recommended pattern for reconstructing UI state:
+
+```javascript
+// Full SDK client example with UI state management
+class SDKClient {
+  private eventDispatcher: SDKEventDispatcher;
+  private toolAccumulator: ToolInputAccumulator;
+  private thinkingManager: ThinkingPanelManager;
+
+  async processStream(stream: AsyncIterable<StreamEvent>) {
+    for await (const event of stream) {
+      switch (event.type) {
+        case 'stream_request_start':
+          // Initialize new request state
+          this.toolAccumulator = new ToolInputAccumulator();
+          this.eventDispatcher.dispatch(event);
+          break;
+
+        case 'stream_event':
+          // Process Anthropic API events
+          if (event.event.type === 'content_block_delta') {
+            if (event.event.delta.type === 'input_json_delta') {
+              this.toolAccumulator.onInputDelta(
+                event.event.index,
+                this.currentToolName,
+                event.event.delta.partial_json
+              );
+            }
+          }
+          this.eventDispatcher.dispatch(event);
+          break;
+
+        case 'result':
+          // Session complete
+          this.eventDispatcher.dispatch(event);
+          break;
+
+        case 'control_request':
+          // Permission request
+          const response = await this.handlePermissionRequest(event.request);
+          await this.sendControlResponse(response);
+          break;
+      }
+    }
+  }
+}
+```
+
+### Server-Side Tool Types
+
+The SDK supports 11 server-side tool types that require backend execution:
+
+| Tool Type | Handler Function | Input Type | Result Type |
+|-----------|-----------------|------------|-------------|
+| bash | `handleBashTool` | `{command, timeout}` | `{stdout, stderr, exit_code}` |
+| read | `handleReadTool` | `{file_path, limit, offset}` | `{content, lines}` |
+| write | `handleWriteTool` | `{file_path, content}` | `{success}` |
+| edit | `handleEditTool` | `{file_path, old_string, new_string}` | `{success}` |
+| glob | `handleGlobTool` | `{pattern, path}` | `{matches[]}` |
+| grep | `handleGrepTool` | `{pattern, path, type}` | `{matches[]}` |
+| webFetch | `handleWebFetchTool` | `{url, prompt}` | `{content}` |
+| webSearch | `handleWebSearchTool` | `{query}` | `{results[]}` |
+| taskOutput | `handleTaskOutputTool` | `{task_id, block, timeout}` | `{output, status}` |
+| agent | `handleAgentTool` | `{prompt, subagent_type}` | `{result}` |
+| skill | `handleSkillTool` | `{skill, args}` | `{result}` |
+
+### TTFT Metric Tracking
+
+Time To First Token (TTFT) is a critical performance metric for SDK clients:
+
+```javascript
+// ============================================
+// TTFT Tracking - Measure time to first response token
+// ============================================
+
+class TTFTTracker {
+  private requestStartTime: number | null = null;
+  private firstTokenTime: number | null = null;
+
+  onRequestStart() {
+    this.requestStartTime = performance.now();
+    this.firstTokenTime = null;
+  }
+
+  onFirstToken() {
+    if (this.firstTokenTime === null) {
+      this.firstTokenTime = performance.now();
+    }
+  }
+
+  getTTFT(): number | null {
+    if (this.requestStartTime === null || this.firstTokenTime === null) {
+      return null;
+    }
+    return this.firstTokenTime - this.requestStartTime;
+  }
+}
+
+// Usage in stream processing
+for await (const event of stream) {
+  if (event.type === 'stream_event' &&
+      event.event.type === 'content_block_delta' &&
+      event.event.delta.type === 'text_delta') {
+    ttftTracker.onFirstToken();
+    const ttft = ttftTracker.getTTFT();
+    if (ttft !== null) {
+      console.log(`TTFT: ${ttft.toFixed(0)}ms`);
+    }
+  }
+}
+```
+
+---
+
+## Key Algorithm Summary
+
+This section provides a consolidated reference for the core algorithms used throughout the SDK module.
+
+### 1. Exponential Backoff with Jitter
+
+**Used by:** WebSocketTransport reconnection, BatchQueue retry
+
+**Algorithm:**
+```javascript
+// Base formula: delay = min(baseDelay * 2^(attempts-1) + jitter, maxDelay)
+// WebSocketTransport: base=1000ms, max=30000ms, jitter=±25%
+// BatchQueue: base=500ms, max=8000ms, jitter=0-1000ms
+
+function computeBackoff(attempts, baseMs, maxMs, jitterMs) {
+    let backoff = Math.min(baseMs * Math.pow(2, attempts - 1), maxMs);
+    let jitter = jitterMs * Math.random();
+    return backoff + jitter;
+}
+```
+
+**Why jitter matters:** Prevents "thundering herd" where all clients retry simultaneously after a server outage, overwhelming the server again.
+
+**See also:** [transport_layer.md](./transport_layer.md#reconnection-algorithm), [sdk_outbound_queue.md](./sdk_outbound_queue.md#retry-delay-algorithm)
+
+---
+
+### 2. Message Buffering and Replay
+
+**Used by:** WebSocketTransport reconnection recovery
+
+**Algorithm:**
+```
+1. On send: store message in CircularBuffer(1000) with UUID
+2. On reconnect: send X-Last-Request-Id header with last sent UUID
+3. Server responds with X-Last-Request-Id of last received message
+4. Client replays all messages after that point
+```
+
+**Key insight:** The 1000-message buffer provides ~1 minute of reconnection coverage at typical message rates. Larger buffers would consume more memory without proportional benefit.
+
+**See also:** [transport_layer.md](./transport_layer.md#message-replay-on-reconnect)
+
+---
+
+### 3. Stream Event Batching (100ms Window)
+
+**Used by:** HybridTransport stream_event coalescing
+
+**Algorithm:**
+```
+1. On stream_event write: add to buffer, start 100ms timer if not running
+2. On non-stream_event write: flush buffer immediately, then write message
+3. On timer fire: flush buffer via HTTP POST
+```
+
+**Why 100ms:** Balances latency (users see events quickly) with efficiency (fewer HTTP requests). A 100ms window typically captures 10-50 stream events per batch.
+
+**Trade-off:**
+- Shorter window: lower latency, more HTTP overhead
+- Longer window: higher latency, fewer HTTP requests
+
+**See also:** [transport_layer.md](./transport_layer.md#hybridtransport)
+
+---
+
+### 4. Queue Backpressure
+
+**Used by:** BatchQueue capacity management
+
+**Algorithm:**
+```
+1. On enqueue: check if pending.length + items.length > maxQueueSize
+2. If full: await Promise that resolves when space available
+3. On drain: call releaseBackpressure() to wake waiters
+```
+
+**Why backpressure:** Prevents unbounded memory growth when the network can't keep up with event production. Without backpressure, a slow network would cause OOM errors.
+
+**Default limits:**
+- maxQueueSize: 100,000 events
+- maxBatchSize: 500 events per HTTP POST
+
+**See also:** [sdk_outbound_queue.md](./sdk_outbound_queue.md#enqueue-algorithm)
+
+---
+
+### 5. Permission Flow Routing
+
+**Used by:** Tool execution permission handling
+
+**Algorithm:**
+```
+1. Check isNonInteractive()
+   - If false: show terminal UI prompt, await keyboard input
+   - If true: continue to step 2
+
+2. Check hasMcpPermissionTool()
+   - If true: invoke MCP tool with permission request
+   - If false: continue to step 3
+
+3. Send control_request to SDK client
+   - Await control_response with allow/deny decision
+```
+
+**Key insight:** This three-tier routing allows:
+- Interactive users to approve/deny in real-time
+- SDK users with MCP servers to automate permissions
+- SDK users without MCP to implement custom UI
+
+**See also:** [sdk_tools_integration.md](./sdk_tools_integration.md#permission-handling), [sdk_cross_references.md](./sdk_cross_references.md#tool-execution-cross-reference)
+
+---
+
+### 6. UI State Machine
+
+**Used by:** handleToolUseStream event processor
+
+**States:**
+```
+"idle" → "requesting" → "thinking" → "responding" → "tool-input" → "tool-use" → "idle"
+```
+
+**Transitions:**
+| Event | From | To |
+|-------|------|-----|
+| stream_request_start | idle | requesting |
+| content_block_start(thinking) | requesting | thinking |
+| content_block_start(text) | requesting/responding | responding |
+| content_block_start(tool_use) | any | tool-input |
+| message_stop | any | tool-use |
+| result | any | idle |
+
+**See also:** [ui_linkage.md](./ui_linkage.md#the-ui-state-machine)
+
+---
+
+### 7. Attachment Group Filtering
+
+**Used by:** System reminder production
+
+**Groups:**
+```
+Group 1 (Sequential): at_mentioned_files, mcp_resources, agent_mentions
+Group 2 (Parallel): changed_files, plan_mode, todo_reminders, etc.
+Group 3 (Main-Agent-Only): ide_selection, diagnostics, token_usage, queued_commands
+```
+
+**SDK Mode Effect:**
+- Group 1: Same, but routed through SDK channels
+- Group 2: Same, but output as events instead of UI
+- Group 3: Some return NULL (IDE selection), some output as events (token usage)
+
+**See also:** [sdk_cross_references.md](./sdk_cross_references.md#detailed-attachment-producer-cross-reference)
+
+---
+
+## Summary
+
+The SDK module provides a complete programmatic interface to Claude Code through:
+
+1. **Transport Layer**: NDJSON over stdio or WebSocket with reconnection and batching
+2. **Permission Flow**: Three-tier routing for interactive, MCP, and SDK clients
+3. **State Management**: React/Ink context with selector-based subscriptions
+4. **Streaming Protocol**: Real-time event delivery with backpressure
+5. **Cross-Module Integration**: Hooks, MCP, Compact, and System Reminders
+
+For detailed analysis of specific components, refer to the individual documents listed in the [Sub-Documents](#sub-documents) section.

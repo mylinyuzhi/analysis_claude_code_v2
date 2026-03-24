@@ -787,6 +787,136 @@ function handleSetPermissionMode(request, requestId, currentState, outputQueue) 
 
 ---
 
+## Rate Limit Events (v2.1.76)
+
+### Overview
+
+Rate limit events are emitted when the API returns rate limit information. SDK clients can use these events to display usage warnings or pause execution when limits are approached.
+
+### Event Structure
+
+```javascript
+// ============================================
+// rate_limit_event - Emitted when rate limit info changes
+// Location: chunks.131.mjs:2603-2608, chunks.187.mjs:36-44
+// ============================================
+
+{
+    "type": "rate_limit_event",
+    "rate_limit_info": {
+        "status": "allowed" | "allowed_warning" | "rejected",
+        "resetsAt": 1710451200000,           // Unix timestamp (ms) when limit resets
+        "rateLimitType": "five_hour" | "seven_day" | "seven_day_opus" | "seven_day_sonnet" | "overage",
+        "utilization": 0.85,                 // 0.0 to 1.0 (85% used)
+        "overageStatus": "allowed" | "allowed_warning" | "rejected",
+        "overageResetsAt": 1710451200000,    // Overage limit reset timestamp
+        "overageDisabledReason": "overage_not_provisioned" | "org_level_disabled" | "...",
+        "isUsingOverage": false,             // Whether currently in overage mode
+        "surpassedThreshold": 0.8            // Threshold that was surpassed (if any)
+    },
+    "uuid": "<uuid>",
+    "session_id": "<session-id>"
+}
+```
+
+### Status Values
+
+| Status | Meaning |
+|--------|---------|
+| `allowed` | Request proceeded normally |
+| `allowed_warning` | Request proceeded but usage is high (typically >80%) |
+| `rejected` | Request was rejected due to rate limit |
+
+### Rate Limit Types
+
+| Type | Description |
+|------|-------------|
+| `five_hour` | Short-term rolling window limit |
+| `seven_day` | 7-day rolling window limit |
+| `seven_day_opus` | 7-day limit specific to Opus model |
+| `seven_day_sonnet` | 7-day limit specific to Sonnet model |
+| `overage` | Overage/billing limit |
+
+### Overage Disabled Reasons
+
+| Reason | Description |
+|--------|-------------|
+| `overage_not_provisioned` | Account doesn't have overage enabled |
+| `org_level_disabled` | Organization disabled overage |
+| `org_level_disabled_until` | Organization temporarily disabled |
+| `out_of_credits` | No credits remaining |
+| `seat_tier_level_disabled` | Seat tier doesn't allow overage |
+| `member_level_disabled` | Member account disabled |
+| `seat_tier_zero_credit_limit` | Seat tier has zero credit limit |
+| `group_zero_credit_limit` | Group has zero credit limit |
+| `member_zero_credit_limit` | Member has zero credit limit |
+| `org_service_level_disabled` | Organization service disabled |
+| `org_service_zero_credit_limit` | Org service has zero limit |
+| `no_limits_configured` | No limits found |
+| `unknown` | Unknown reason |
+
+### Emission in runHeadless
+
+```javascript
+// ============================================
+// Rate limit event emission in runHeadless (BXz)
+// Location: chunks.187.mjs:36-44
+// ============================================
+
+// ORIGINAL (for source lookup):
+let f = (T6) => {
+    let D6 = SJq(T6);
+    if (D6) Z.enqueue({
+        type: "rate_limit_event",
+        rate_limit_info: D6,
+        uuid: WD(),
+        session_id: R1()
+    })
+};
+Nt.add(f);
+
+// READABLE (for understanding):
+// Register listener for API responses with rate limit info
+let handleRateLimit = (apiResponse) => {
+    let rateLimitInfo = extractRateLimitInfo(apiResponse);
+    if (rateLimitInfo) {
+        outputQueue.enqueue({
+            type: "rate_limit_event",
+            rate_limit_info: rateLimitInfo,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+};
+rateLimitListeners.add(handleRateLimit);
+
+// Mapping: f→handleRateLimit, T6→apiResponse, D6→rateLimitInfo, SJq→extractRateLimitInfo, Z→outputQueue, Nt→rateLimitListeners
+```
+
+### SDK Client Usage
+
+```typescript
+// TypeScript SDK client handling rate limit events
+for await (const event of session) {
+    if (event.type === "rate_limit_event") {
+        const info = event.rate_limit_info;
+
+        if (info.status === "rejected") {
+            console.error(`Rate limited! Resets at: ${new Date(info.resetsAt)}`);
+            // Wait until reset or prompt user
+        } else if (info.status === "allowed_warning") {
+            console.warn(`Usage at ${Math.round(info.utilization * 100)}%`);
+        }
+
+        if (info.rateLimitType === "seven_day_opus") {
+            // Model-specific handling
+        }
+    }
+}
+```
+
+---
+
 ## unexpectedResponseCallback
 
 **What it does:** Provides a hook for the SDK client to handle unexpected or malformed responses that don't match the expected protocol.
@@ -878,6 +1008,695 @@ Session Start
 
 ---
 
+## runHeadless (BXz) — Complete Source-Level Analysis
+
+### Function Overview
+
+**What it does:** The `runHeadless` function is the main entry point for SDK session execution. It sets up all the event handlers, subscriptions, and the message processing loop for non-interactive (SDK/print) mode.
+
+**Location:** chunks.187.mjs:3-500+
+
+```javascript
+// ============================================
+// runHeadless - Headless execution loop for SDK sessions
+// Location: chunks.187.mjs:3-500+
+// ============================================
+
+// ORIGINAL (for source lookup):
+function BXz(A, q, K, Y, z, _, w, O, $, H, j, J) {
+    let M = !1, D = !1, X = !1, P = null, W, Z = A.outbound;
+    // ... rest of function
+}
+
+// READABLE (for understanding):
+async function runHeadless(
+    streamIO,           // A: StreamIO instance (StdioStreamIO or RemoteStreamIO)
+    mcpClients,         // q: Initial MCP clients array
+    slashCommands,      // K: Available slash commands
+    toolRegistry,       // Y: Tool registry configuration
+    messages,           // z: Mutable messages array
+    canUseTool,         // _: Permission checker callback
+    mcpServerConfigs,   // w: MCP server configurations object
+    getAppState,        // O: App state getter function
+    setAppState,        // $: App state setter function
+    agents,             // H: Agent definitions array
+    options             // j: Configuration options object
+    // J: interruptedTurn (optional, for resuming interrupted sessions)
+) {
+    // Internal state
+    let isShuttingDown = false;
+    let hasInterruptedAgent = false;
+    let localAgentRunning = false;
+    let pendingResult = null;
+    let abortController;
+    let outbound = streamIO.outbound;  // AsyncQueue for outgoing messages
+
+    // ... function body continues
+}
+
+// Mapping: BXz→runHeadless, A→streamIO, q→mcpClients, K→slashCommands, Y→toolRegistry,
+//          z→messages, _→canUseTool, w→mcpServerConfigs, O→getAppState, $→setAppState,
+//          H→agents, j→options, J→interruptedTurn, Z→outbound, M→isShuttingDown
+```
+
+### Parameter Details
+
+| Parameter | Obfuscated | Type | Description |
+|-----------|------------|------|-------------|
+| `streamIO` | `A` | StdioStreamIO \| RemoteStreamIO | The I/O transport instance |
+| `mcpClients` | `q` | McpClient[] | Initial MCP client array |
+| `slashCommands` | `K` | SlashCommand[] | Available slash commands |
+| `toolRegistry` | `Y` | ToolRegistry | Tool registry for execution |
+| `messages` | `z` | Message[] | Mutable message array |
+| `canUseTool` | `_` | Function | Permission checker callback |
+| `mcpServerConfigs` | `w` | Object | MCP server configurations |
+| `getAppState` | `O` | Function | State getter function |
+| `setAppState` | `$` | Function | State setter function |
+| `agents` | `H` | AgentDefinition[] | Agent definitions |
+| `options` | `j` | Object | Configuration options |
+| `interruptedTurn` | `J` | Object? | Interrupted turn to resume |
+
+### Key Components
+
+**1. Permission Mode Subscription:**
+```javascript
+// Subscribe to permission mode changes and broadcast to SDK client
+subscribeToPermissionModeChange((newMode) => {
+    if (["default", "acceptEdits", "bypassPermissions", "plan", "auto", "dontAsk"].includes(newMode)) {
+        outbound.enqueue({
+            type: "system",
+            subtype: "status",
+            status: null,
+            permissionMode: newMode,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+});
+```
+
+**2. Auth Status Streaming:**
+```javascript
+// Stream auth state changes if enabled
+if (options.enableAuthStatus) {
+    AuthManager.getInstance().subscribe((authState) => {
+        outbound.enqueue({
+            type: "auth_status",
+            isAuthenticating: authState.isAuthenticating,
+            output: authState.output,
+            error: authState.error,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    });
+}
+```
+
+**3. Rate Limit Event Handling:**
+```javascript
+// Forward rate limit info to SDK client
+let handleRateLimit = (apiResponse) => {
+    let rateLimitInfo = extractRateLimitInfo(apiResponse);
+    if (rateLimitInfo) {
+        outbound.enqueue({
+            type: "rate_limit_event",
+            rate_limit_info: rateLimitInfo,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+};
+rateLimitListeners.add(handleRateLimit);
+```
+
+**4. MCP Server Initialization:**
+```javascript
+// Initialize MCP servers from configuration
+async function initializeMcpServers() {
+    let existingNames = new Set(mcpClients.map((c) => c.name));
+    let newClients = await initializeSdkMcpClients(
+        mcpServerConfigs,
+        (serverName, message) => streamIO.sendMcpMessage(serverName, message)
+    );
+    mcpClients = newClients.clients;
+    mcpTools = newClients.tools;
+
+    // Update app state with new tools
+    setAppState((state) => ({
+        ...state,
+        mcp: {
+            ...state.mcp,
+            tools: [...state.mcp.tools, ...mcpTools]
+        }
+    }));
+}
+```
+
+**5. Elicitation Handler Setup:**
+```javascript
+// Set up MCP elicitation request handlers
+function setupElicitationHandlers(clients) {
+    if (!isElicitationEnabled()) return;
+
+    for (let client of clients) {
+        if (client.type !== "connected" || handledClients.has(client.name)) continue;
+        if (client.config.type === "sdk") continue;
+
+        client.client.setRequestHandler(ElicitationRequestSchema, async (request, context) => {
+            // First try hook-based elicitation
+            let hookResult = await tryElicitationHook(client.name, request.params, context.signal);
+            if (hookResult) return hookResult;
+
+            // Otherwise route through SDK control channel
+            return await streamIO.handleElicitation(
+                client.name,
+                request.params.message,
+                request.params.requestedSchema,
+                context.signal,
+                request.params.mode,
+                request.params.url,
+                request.params.elicitationId
+            );
+        });
+
+        handledClients.add(client.name);
+    }
+}
+```
+
+**6. Message Processing Loop:**
+```javascript
+// Main message processing loop
+async function processMessages() {
+    while (true) {
+        let command = getNextCommand();
+
+        if (command.mode === "prompt") {
+            // Handle user message
+            if (streamIO instanceof RemoteStreamIO) {
+                logTelemetry("tengu_bridge_message_received", { is_repl: false });
+            }
+
+            // Execute agent loop with all context
+            abortController = new AbortController();
+
+            await executeAgentLoop({
+                commands: slashCommands,
+                prompt: command.value,
+                promptUuid: command.uuid,
+                tools: toolRegistry,
+                mcpClients: mcpClients,
+                canUseTool: canUseTool,
+                getAppState: getAppState,
+                setAppState: setAppState,
+                abortController: abortController,
+                handleElicitation: (serverName, params, signal) =>
+                    streamIO.handleElicitation(serverName, params.message, ...),
+                agents: agents,
+                setSDKStatus: (status) => {
+                    outbound.enqueue({
+                        type: "system",
+                        subtype: "status",
+                        status: status,
+                        session_id: getSessionId(),
+                        uuid: generateUUID()
+                    });
+                }
+            });
+
+        } else if (command.mode === "orphaned-permission") {
+            // Handle late-arriving permission response
+            await handleOrphanedPermission(command.orphanedPermission);
+
+        } else if (command.mode === "task-notification") {
+            // Handle background task status update
+            outbound.enqueue({
+                type: "system",
+                subtype: "task_notification",
+                task_id: extractTaskId(command.value),
+                tool_use_id: extractToolUseId(command.value),
+                status: extractStatus(command.value),
+                ...
+            });
+        }
+    }
+}
+```
+
+**7. Prompt Suggestion Generation:**
+```javascript
+// Generate prompt suggestions after each turn
+if (options.promptSuggestions && process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION !== "false") {
+    suggestionAbortController?.abort();
+    suggestionAbortController = new AbortController();
+
+    let suggestion = await generatePromptSuggestion(
+        suggestionAbortController,
+        messages,
+        getAppState,
+        getSuggestionParams(),
+        "sdk"
+    );
+
+    if (suggestion && !suggestionAbortController.signal.aborted) {
+        outbound.enqueue({
+            type: "prompt_suggestion",
+            suggestion: suggestion.suggestion,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+}
+```
+
+### Shutdown Sequence
+
+```javascript
+// Clean shutdown
+async function shutdown() {
+    isShuttingDown = true;
+
+    // Stop idle timer
+    idleTimer.stop();
+
+    // Clean up MCP clients
+    await cleanupMcpClients(mcpClients);
+
+    // Remove rate limit listener
+    rateLimitListeners.delete(handleRateLimit);
+
+    // Finalize pending operations
+    await pendingMcpPromise;
+
+    // Close outbound queue
+    outbound.done();
+}
+```
+
+---
+
+## System Reminder Integration in SDK Mode
+
+### Overview
+
+System reminders in SDK mode follow the same architecture as CLI mode but have important differences in how they're exposed to SDK clients. This section documents the integration between SDK sessions and the system reminder module (04_system_reminder).
+
+**Key Concepts:**
+- **isMeta flag**: Messages with `isMeta: true` are system reminders (injected context, not user input)
+- **Silent types**: Some attachment types produce no API messages
+- **SDK event exposure**: Only certain reminder types are exposed as SDK events
+
+### Architecture: System Reminders vs SDK Events
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    System Reminder Flow in SDK Mode                          │
+│                                                                              │
+│  ┌──────────────────┐                                                        │
+│  │ Attachment       │                                                        │
+│  │ Producers        │                                                        │
+│  │ (40+ functions)  │                                                        │
+│  └────────┬─────────┘                                                        │
+│           │                                                                  │
+│           ▼                                                                  │
+│  ┌──────────────────┐     ┌─────────────────────────────────────────────┐   │
+│  │ normalizeForAPI  │────▶│ Type Routing:                               │   │
+│  │ (K2z)            │     │ - Visible → USER messages with isMeta:true  │   │
+│  └──────────────────┘     │ - Silent → [] (no messages)                 │   │
+│                           └─────────────────────────────────────────────┘   │
+│                                   │                                          │
+│           ┌───────────────────────┼───────────────────────┐                 │
+│           ▼                       ▼                       ▼                 │
+│  ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────────┐    │
+│  │ API Messages     │   │ Internal State   │   │ SDK Event Emission   │    │
+│  │ (sent to Claude) │   │ (UI tracking)    │   │ (rate_limit_event,   │    │
+│  │                  │   │                  │   │  prompt_suggestion)  │    │
+│  └──────────────────┘   └──────────────────┘   └──────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### isMeta Flag Handling in SDK Output
+
+The `isMeta` flag is the primary mechanism for distinguishing system reminders from real user messages. In SDK mode:
+
+1. **Messages sent to API**: `isMeta` flag is **stripped** before sending to Claude API
+2. **Messages in transcript**: `isMeta` is preserved for session persistence
+3. **SDK client visibility**: SDK clients receive structured events, not raw messages
+
+```javascript
+// ============================================
+// formatMessagesForAPI - Strips isMeta before API call
+// Location: chunks.169.mjs:618-643
+// ============================================
+
+// ORIGINAL (for source lookup):
+function b9z(A, q = !1, K) {
+    // ... returns { role: "user", content: ... }
+    // isMeta, uuid, timestamp are ALL dropped
+    return { role: "user", content: A.message.content }
+}
+
+// READABLE (for understanding):
+function formatUserMessageForAPI(internalMessage, isNearEnd, enableCaching) {
+    // The isMeta flag exists on internal messages but is NOT included
+    // in the API message - only role and content survive
+    return {
+        role: "user",
+        content: internalMessage.message.content
+    };
+}
+
+// Mapping: b9z→formatUserMessageForAPI, A→internalMessage
+```
+
+**Why this matters for SDK clients:**
+- SDK clients don't receive raw `isMeta` messages
+- Instead, they receive structured events (rate_limit_event, prompt_suggestion)
+- The abstraction simplifies client implementation
+
+### Silent Types in SDK Mode
+
+Silent types return `[]` from `normalizeAttachmentForAPI` - they produce no API messages. In SDK mode, these types are still tracked internally but never exposed to clients.
+
+```javascript
+// ============================================
+// Silent types - No API messages produced
+// Location: chunks.173.mjs:1118-1131
+// ============================================
+
+// ORIGINAL (for source lookup):
+case "already_read_file":
+case "command_permissions":
+case "edited_image_file":
+case "hook_cancelled":
+case "hook_error_during_execution":
+case "hook_non_blocking_error":
+case "hook_system_message":
+case "structured_output":
+case "hook_permission_decision":
+    return []
+
+// READABLE (for understanding):
+// These types are tracked internally but don't produce messages:
+// - already_read_file: File already in cache (deduplication)
+// - command_permissions: Permission state tracking
+// - edited_image_file: Binary file modification tracking
+// - hook_*: Hook execution status (internal)
+// - structured_output: Hook structured data (internal)
+```
+
+### SDK-Exposed Reminder Types
+
+While most system reminders are internal, certain types are explicitly exposed as SDK events:
+
+#### 1. rate_limit_event (v2.1.76)
+
+Emitted when rate limit information changes. See the dedicated section above for full schema.
+
+```javascript
+// Emission in runHeadless
+let handleRateLimit = (apiResponse) => {
+    let rateLimitInfo = extractRateLimitInfo(apiResponse);
+    if (rateLimitInfo) {
+        outbound.enqueue({
+            type: "rate_limit_event",
+            rate_limit_info: rateLimitInfo,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+};
+rateLimitListeners.add(handleRateLimit);
+```
+
+#### 2. prompt_suggestion
+
+Emitted after each turn when prompt suggestions are enabled.
+
+```javascript
+// Emission in runHeadless
+if (options.promptSuggestions && process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION !== "false") {
+    let suggestion = await generatePromptSuggestion(
+        suggestionAbortController,
+        messages,
+        getAppState,
+        getSuggestionParams(),
+        "sdk"
+    );
+
+    if (suggestion && !suggestionAbortController.signal.aborted) {
+        outbound.enqueue({
+            type: "prompt_suggestion",
+            suggestion: suggestion.suggestion,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    }
+}
+```
+
+**Schema:**
+```json
+{
+    "type": "prompt_suggestion",
+    "suggestion": "Continue implementing the authentication module",
+    "uuid": "<uuid>",
+    "session_id": "<session-id>"
+}
+```
+
+#### 3. auth_status
+
+Emitted when authentication state changes (if enabled).
+
+```javascript
+// Emission in runHeadless
+if (options.enableAuthStatus) {
+    AuthManager.getInstance().subscribe((authState) => {
+        outbound.enqueue({
+            type: "auth_status",
+            isAuthenticating: authState.isAuthenticating,
+            output: authState.output,
+            error: authState.error,
+            uuid: generateUUID(),
+            session_id: getSessionId()
+        });
+    });
+}
+```
+
+**Schema:**
+```json
+{
+    "type": "auth_status",
+    "isAuthenticating": false,
+    "output": "Authentication successful",
+    "error": null,
+    "uuid": "<uuid>",
+    "session_id": "<session-id>"
+}
+```
+
+### Attachment Producers Relevant to SDK Sessions
+
+The attachment producer system (`assembleAllAttachments`) runs in both CLI and SDK modes. Key producers for SDK:
+
+| Producer | Attachment Type | SDK Relevance |
+|----------|-----------------|---------------|
+| `loadFileAttachment` | `file`, `already_read_file` | File context injection |
+| `getChangedFilesAttachment` | `edited_file`, `edited_image_file` | Watched file changes |
+| `getTodoAttachment` | `todo` | Task list context |
+| `getTaskProgressAttachment` | `task_progress` | Background task status |
+| `getHookAttachments` | `hook_*` types | Hook responses |
+
+**Execution strategy (3-group parallel):**
+```javascript
+// ============================================
+// assembleAllAttachments - Orchestrator for attachment production
+// Location: chunks.147.mjs:3-18
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    // ... parallel execution in 3 groups
+}
+
+// READABLE (for understanding):
+async function assembleAllAttachments(
+    sessionContext,    // A: Session state
+    messageContext,    // q: Current message context
+    ...otherParams
+) {
+    // Can be disabled via environment variable
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) ||
+        parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
+        return [];
+    }
+    // ... executes producers in 3 parallel groups
+}
+
+// Mapping: _uY→assembleAllAttachments, A→sessionContext, q→messageContext
+```
+
+### XML Wrapping for System Reminders
+
+System reminders that produce API messages are wrapped in XML tags for clear identification by the LLM:
+
+```javascript
+// ============================================
+// wrapInXmlTag - Wrap content in XML tags
+// Location: chunks.173.mjs:2490-2493
+// ============================================
+
+// ORIGINAL (for source lookup):
+function af(A, q) {
+    return `<${A}>\n${q}\n</${A}>`
+}
+
+// READABLE (for understanding):
+function wrapInXmlTag(tagName, content) {
+    return `<${tagName}>\n${content}\n</${tagName}>`;
+}
+
+// Mapping: af→wrapInXmlTag, A→tagName, q→content
+```
+
+```javascript
+// ============================================
+// wrapWithSystemReminderTags - Specialized wrapper for system reminders
+// Location: chunks.173.mjs:2495-2523
+// ============================================
+
+// ORIGINAL (for source lookup):
+function b5(A) {
+    return af("system-reminder", A.join("\n\n"))
+}
+
+// READABLE (for understanding):
+function wrapWithSystemReminderTags(messages) {
+    return wrapInXmlTag("system-reminder", messages.join("\n\n"));
+}
+
+// Mapping: b5→wrapWithSystemReminderTags, A→messages, af→wrapInXmlTag
+```
+
+**Example output:**
+```xml
+<system-reminder>
+
+Called the Read tool with the following input: {"file_path": "/src/index.js"}
+
+Result of calling the Read tool:
+<file_contents>
+// file contents here
+</file_contents>
+
+</system-reminder>
+```
+
+### Filtering Meta Messages in SDK Collection
+
+When SDK clients need to collect messages for analysis or display, they should filter by `isMeta`:
+
+```javascript
+// ============================================
+// isValidUserMessage - Check if message is real user input
+// Location: chunks.173.mjs:2164-2172
+// ============================================
+
+// ORIGINAL (for source lookup):
+function V2z(A) {
+    if (A.type !== "user") return !1;
+    if (A.isMeta) return !1;
+    let q = A.message?.content;
+    if (!q) return !1;
+    if (typeof q === "string") return q.trim().length > 0;
+    if (Array.isArray(q)) return q.some((K) => K.type === "text" || K.type === "image" || K.type === "document");
+    return !1
+}
+
+// READABLE (for understanding):
+function isValidUserMessage(message) {
+    // Must be user-type
+    if (message.type !== "user") return false;
+    // Must not be a system reminder (meta message)
+    if (message.isMeta) return false;
+    // Must have content
+    let content = message.message?.content;
+    if (!content) return false;
+    // String content must be non-empty
+    if (typeof content === "string") return content.trim().length > 0;
+    // Array content must have at least one text, image, or document block
+    if (Array.isArray(content)) {
+        return content.some((block) =>
+            block.type === "text" || block.type === "image" || block.type === "document"
+        );
+    }
+    return false;
+}
+
+// Mapping: V2z→isValidUserMessage, A→message, q→content, K→block
+```
+
+### SDK Client Implementation Guide
+
+#### Filtering Messages for Collection
+
+```typescript
+// TypeScript SDK - Filter out meta messages when collecting conversation
+function collectUserMessages(messages: InternalMessage[]): UserMessage[] {
+    return messages.filter(msg => {
+        // Skip non-user messages
+        if (msg.type !== 'user') return false;
+        // Skip system reminders
+        if (msg.isMeta) return false;
+        // Skip tool results
+        if (msg.toolUseResult) return false;
+        return true;
+    });
+}
+```
+
+#### Handling SDK Events
+
+```typescript
+// TypeScript SDK - Handle all SDK-exposed events
+for await (const event of session) {
+    switch (event.type) {
+        case 'rate_limit_event':
+            handleRateLimit(event.rate_limit_info);
+            break;
+
+        case 'prompt_suggestion':
+            displaySuggestion(event.suggestion);
+            break;
+
+        case 'auth_status':
+            updateAuthUI(event);
+            break;
+
+        case 'result':
+            // Final result - session complete
+            console.log('Session ended:', event.subtype);
+            break;
+    }
+}
+```
+
+### Cross-Module Integration
+
+| Module | Integration Point | SDK Behavior |
+|--------|-------------------|--------------|
+| `04_system_reminder` | Attachment production | Same producers, different visibility |
+| `05_tools` | Permission prompts | Exposed via `permission_prompt` event |
+| `06_mcp` | Elicitation requests | Routed through SDK control channel |
+| `11_hooks` | Hook responses | Silent types, no SDK event |
+| `24_auth` | Auth state | Optional `auth_status` event |
+
+---
+
 ## Cross-References
 
 - **MCP Integration**: See [sdk_mcp_integration.md](./sdk_mcp_integration.md) for MCP server setup
@@ -885,3 +1704,4 @@ Session Start
 - **Compact Feature**: See [07_compact/](../07_compact/) for compaction details
 - **Streaming Protocol**: See [streaming_protocol.md](./streaming_protocol.md) for message formats
 - **Outbound Queue**: See [sdk_outbound_queue.md](./sdk_outbound_queue.md) for Pi6/Y26 queue architecture
+- **Cross-References**: See [sdk_cross_references.md](./sdk_cross_references.md) for module integration details
