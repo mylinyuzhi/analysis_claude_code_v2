@@ -24,6 +24,38 @@ This document catalogs all constants used by the steering module in Claude Code 
 | REJECTION_MESSAGE_WITH_USER_INPUT | mQ6 | `"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said:\n"` | chunks.174.mjs:992 | Rejection with user-provided explanation |
 | PERMISSION_DENIED_MESSAGE | Eb | `"Permission for this tool use was denied. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). Try a different approach or report the limitation to complete your task."` | chunks.174.mjs:995 | Permission denied by policy |
 | PERMISSION_DENIED_WITH_INPUT | rc6 | `"Permission for this tool use was denied. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). The user said:\n"` | chunks.174.mjs:997 | Permission denied with user explanation |
+| NO_RESPONSE_REQUESTED | N36 | `"No response requested."` | chunks.174.mjs:1007 | Special message included in TF6 Set |
+
+### Interrupt Messages Set (TF6)
+
+The `TF6` Set provides O(1) lookup for interrupt message strings:
+
+| Constant | Symbol | Location | Purpose |
+|----------|--------|----------|---------|
+| INTERRUPT_MESSAGES_SET | TF6 | chunks.174.mjs:1099 | Set of special messages hidden from UI |
+
+```javascript
+// ============================================
+// TF6 - Set of interrupt message strings
+// Location: chunks.174.mjs:1099
+// ============================================
+
+// ORIGINAL (for source lookup):
+TF6 = new Set([D66, P0, R96, h96, N36]);
+
+// READABLE (for understanding):
+const INTERRUPT_MESSAGES_SET = new Set([
+    INTERRUPTED_BY_USER_TEXT,       // D66 - "[Request interrupted by user]"
+    INTERRUPTED_FOR_TOOL_USE,       // P0  - "[Request interrupted by user for tool use]"
+    REJECTION_MESSAGE,              // R96 - "The user doesn't want to take this action..."
+    TOOL_REJECTION_MESSAGE,         // h96 - "The user doesn't want to proceed..."
+    NO_RESPONSE_REQUESTED           // N36 - "No response requested."
+]);
+
+// Mapping: TF6→INTERRUPT_MESSAGES_SET, D66→INTERRUPTED_BY_USER_TEXT
+```
+
+**Usage**: Messages in this Set are hidden from the chat UI via the `Hz6` (isHiddenSpecialMessage) function.
 
 ---
 

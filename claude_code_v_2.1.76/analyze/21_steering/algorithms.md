@@ -1025,6 +1025,169 @@ The guidance message is redundant when the user has already typed a new message.
 
 ---
 
+## 12. Abort Checkpoint Analysis (Detailed)
+
+### 12.1 Checkpoint Locations in Query Generator
+
+The query generator (`omY` function in chunks.148.mjs) checks for abort at multiple strategic points:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    QUERY GENERATOR ABORT CHECKPOINTS                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  CHECKPOINT 1: Before API Call                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Location: chunks.148.mjs (entry to query generator)                   │  │
+│  │ Condition: signal.aborted before streaming starts                     │  │
+│  │ Action: Return immediately, no API call made                          │  │
+│  │ Use Case: User cancelled during input processing                      │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  CHECKPOINT 2: During LLM Streaming                                        │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Location: Native fetch API AbortSignal integration                    │  │
+│  │ Mechanism: signal passed to fetch() call                              │  │
+│  │ Action: API request cancelled, stream terminated                      │  │
+│  │ Response Time: 0-500ms depending on in-flight tokens                  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  CHECKPOINT 3: After Stream Completion                                     │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Location: chunks.148.mjs:1152-1161                                    │  │
+│  │ Condition: if (toolUseContext.abortController.signal.aborted)         │  │
+│  │ Action: Drain tools OR generate synthetic interrupt messages          │  │
+│  │ Branch: Based on signal.reason ("interrupt" vs undefined)             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  CHECKPOINT 4: During Tool Execution                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Location: Tool executor (getRemainingResults)                         │  │
+│  │ Mechanism: Tool-specific abort handling                               │  │
+│  │ Action: Complete current atomic operation, return result              │  │
+│  │ Duration: 50-500ms for graceful completion                            │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.2 Checkpoint 3: Detailed Code Analysis
+
+The main abort checkpoint (Checkpoint 3) has multiple decision branches:
+
+```javascript
+// ============================================
+// Checkpoint 3 - Complete abort handling logic
+// Location: chunks.148.mjs:1152-1161
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (X.abortController.signal.aborted) {
+    if (s) {
+        for await (let D6 of s.getRemainingResults())
+            if (D6.message) yield D6.message
+    } else yield* Sp8(e, "Interrupted by user");
+    if (X.abortController.signal.reason !== "interrupt")
+        yield Ug({ toolUse: !1 });
+    return { reason: "aborted_streaming" }
+}
+
+// READABLE (for understanding):
+if (toolUseContext.abortController.signal.aborted) {
+    // ===== DECISION 1: Tool Drainage Strategy =====
+    if (toolExecutor) {
+        // PATH A: Tool executor exists - drain gracefully
+        // Wait for in-flight tools to complete their atomic operations
+        for await (const result of toolExecutor.getRemainingResults()) {
+            if (result.message) {
+                yield result.message;  // Yield actual tool results
+            }
+        }
+        // Benefits:
+        // - File writes complete atomically (no partial writes)
+        // - Git commits finish cleanly
+        // - No data corruption
+        // Trade-off: Adds 50-500ms to abort latency
+    } else {
+        // PATH B: No tool executor - generate synthetic results
+        // Create tool_result messages for pending tool_use blocks
+        yield* createInterruptToolResults(
+            assistantMessages,
+            "Interrupted by user"
+        );
+        // Result: Each tool_use gets a matching tool_result with is_error: true
+    }
+
+    // ===== DECISION 2: User Guidance Message =====
+    if (toolUseContext.abortController.signal.reason !== "interrupt") {
+        // PATH A: User pressed Escape - add guidance message
+        yield createUserGuidanceMessage({ toolUse: false });
+        // Adds: "[Request interrupted by user]" to conversation
+    }
+    // PATH B: reason === "interrupt" - skip guidance
+    // User already provided new input, guidance would be redundant
+
+    return { reason: "aborted_streaming" };
+}
+
+// Mapping: X→toolUseContext, s→toolExecutor, D6→result,
+//   Sp8→createInterruptToolResults, e→assistantMessages,
+//   Ug→createUserGuidanceMessage
+```
+
+### 12.3 Abort Reason Decision Matrix
+
+| `signal.reason` | Drainage Path | Guidance Message | Result |
+|-----------------|---------------|------------------|--------|
+| `"interrupt"` | Graceful drain | **Skip** | Silent abort, queued input processed |
+| `undefined` | Graceful drain | **Add** | "[Request interrupted by user]" added |
+| `"sibling_error"` | No drainage | Skip | Isolated failure, don't propagate |
+
+### 12.4 Tool Drainage Behavior by Tool Type
+
+| Tool | Drainage Behavior | Why |
+|------|-------------------|-----|
+| `Write` | Completes file write | Prevents partial/corrupted files |
+| `Edit` | Completes edit operation | Ensures file consistency |
+| `Bash` | Waits for command exit | Prevents zombie processes |
+| `Read` | Returns partial content | Already-safe read operation |
+| `Grep` | Returns matches found so far | Partial results acceptable |
+| `Glob` | Returns files found so far | Partial results acceptable |
+
+### 12.5 Interrupt-on-Submit Checkpoint Flow
+
+```javascript
+// ============================================
+// Interrupt-on-submit trigger
+// Location: chunks.194.mjs:441-444
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (A.hasInterruptibleToolInProgress) k(`[interrupt] Aborting current turn: streamMode=${A.streamMode}`), d("tengu_cancel", {
+    source: "interrupt_on_submit",
+    streamMode: A.streamMode
+}), A.abortController?.abort("interrupt");
+
+// READABLE (for understanding):
+if (state.hasInterruptibleToolInProgress) {
+    log(`[interrupt] Aborting current turn: streamMode=${state.streamMode}`);
+    telemetry("tengu_cancel", {
+        source: "interrupt_on_submit",
+        streamMode: state.streamMode
+    });
+    state.abortController?.abort("interrupt");  // Sets reason = "interrupt"
+}
+
+// Mapping: A→state, k→log, d→telemetry
+```
+
+**Key difference from Escape press**:
+- `abort("interrupt")` sets `signal.reason = "interrupt"`
+- Query generator checks `signal.reason !== "interrupt"` before adding guidance
+- Result: Silent abort with queued input immediately processed
+
+---
+
 ## 13. Complete Symbol Cross-Reference
 
 ### Verified Steering Symbols (2026-03-24)

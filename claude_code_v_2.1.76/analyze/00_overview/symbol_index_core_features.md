@@ -1861,10 +1861,12 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | mQ6 | REJECTION_MESSAGE_WITH_USER_INPUT | chunks.174.mjs:992 | constant (rejection message with user explanation) |
 | Eb | PERMISSION_DENIED_MESSAGE | chunks.174.mjs:995 | constant ("Permission for this tool use was denied...") |
 | rc6 | PERMISSION_DENIED_WITH_INPUT | chunks.174.mjs:997 | constant ("Permission denied with user explanation...") |
-| TF6 | INTERRUPT_MESSAGES_SET | chunks.174.mjs:1099 | Set (contains D66, P0, R96, h96 for fast lookup) |
+| N36 | NO_RESPONSE_REQUESTED | chunks.174.mjs:1007 | constant ("No response requested.") - included in TF6 Set |
+| TF6 | INTERRUPT_MESSAGES_SET | chunks.174.mjs:1099 | Set (contains D66, P0, R96, h96, N36 for fast O(1) lookup) |
 | Sp8 | createInterruptToolResults | chunks.148.mjs:855-869 | function (generator for tool_result messages) |
 | Ug | createUserGuidanceMessage | chunks.173.mjs:1425-1434 | function (creates user message with D66/P0 text) |
 | hTq | INTERRUPT_MESSAGE_PATTERN | chunks.175.mjs:139 | RegExp (matches interrupt messages for detection) |
+| Hz6 | isHiddenSpecialMessage | chunks.173.mjs:1275-1277 | function (checks TF6 Set to hide interrupt messages from UI) |
 
 ### Notification System
 
@@ -1916,7 +1918,6 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | d4q | markAgentNotified | chunks.146.mjs:2034-2043 | function (marks agent as notified=true for UI) |
 | i9 | updateTaskState | chunks.146.mjs | function (task state update helper) |
 | _Y4 | clearAgentNotifications | chunks.90.mjs:2885-2888 | function (clears legacy queue array xY) |
-| Buq | KILL_AGENTS_CONFIRM_TIMEOUT | chunks.193.mjs:2665 | constant (3000ms) |
 
 > **Correction (2026-03-24):** Previous locations and mappings for kill functions were incorrect.
 > - `U4q` (killAllRunningAgents) at chunks.146.mjs:2029 - iterates all tasks, calls `x66` for each running local_agent
@@ -1972,6 +1973,45 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 |------------|----------|-----------|------|
 | HVq | useQueuedCommandProcessor | chunks.186.mjs:87-135 | function (React hook) |
 | zVq | processNextQueuedCommand | chunks.186.mjs:63-84 | function |
+
+### Legacy Queue System (chunks.90.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xY | legacyQueueArray | chunks.90.mjs:2970 | array (main queue storage) |
+| e94 | frozenQueueSnapshot | chunks.90.mjs:2970 | array (immutable copy) |
+| VV8 | queueSubscribers | chunks.90.mjs:2970 | Set (change listeners) |
+| RW6 | PRIORITY_VALUES | chunks.90.mjs:2971-2975 | object ({now:0, next:1, later:2}) |
+| GB9 | NON_EDITABLE_MODES | chunks.90.mjs:2976 | Set (contains "task-notification") |
+| Qt | notifySubscribers | chunks.90.mjs:2789-2792 | function (notify all VV8 listeners) |
+| hW6 | subscribeToQueueChanges | chunks.90.mjs:2794-2798 | function (add callback to VV8) |
+| cP1 | getFrozenQueue | chunks.90.mjs:2800-2802 | function (return e94) |
+| AY4 | getQueueCopy | chunks.90.mjs:2804-2806 | function (return [...xY]) |
+| lP1 | dequeueHighestPriority | chunks.90.mjs:2830-2840 | function (remove lowest priority number) |
+| KY4 | peekHighestPriority | chunks.90.mjs:2842-2851 | function (view without removing) |
+| nP1 | popAndMergeQueuedCommands | chunks.90.mjs:2922-2950 | function (merge queue into input box) |
+| Ut | isEditableCommand | chunks.90.mjs:2894-2896 | function (check if command is editable) |
+| TB9 | extractTextValue | chunks.90.mjs:2898-2905 | function (extract text from command value) |
+
+> **Queue Priority System**: Lower number = Higher priority.
+> - `now` (0) = Process immediately (highest)
+> - `next` (1) = Process next (default for `_0`/enqueueToLegacyQueue)
+> - `later` (2) = Process later (default for `w0`/enqueueTaskNotification)
+
+### Stream Mode State Machine
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| d7 | streamMode | chunks.196.mjs:96 | state ("requesting"\|"thinking"\|"responding"\|"tool-input"\|"tool-use") |
+| W4 | setStreamMode | chunks.196.mjs:96 | state setter function |
+| Dz | streamModeRef | chunks.196.mjs:97 | ref (keeps current value for callbacks) |
+
+> **Stream Mode Values**:
+> - `"requesting"` - Waiting for first token from API (spinner: "Waiting for Claude...")
+> - `"thinking"` - Extended thinking in progress (spinner: "Thinking...")
+> - `"responding"` - Text streaming from API (spinner: "Claude is responding...")
+> - `"tool-input"` - Building tool arguments (spinner: "Generating tool arguments...")
+> - `"tool-use"` - Tool execution in progress (spinner: "Running [tool_name]...")
 | iA | executeQueuedInput | chunks.188.mjs:894-925 | function (useCallback) |
 | rc | popCommandFromQueue | chunks.188.mjs:341-353 | function (useCallback) |
 | wD | lastQueryCompletionTime | chunks.188.mjs:194 | state variable |
@@ -2005,6 +2045,36 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 |------------|----------|-----------|------|
 | enter-to-steer-in-relatime | STEERING_HELP_TIP_ID | chunks.176.mjs:1341 | constant (help tip; NOTE: typo "relatime" not "realtime" in source) |
 | prompt-queue | PROMPT_QUEUE_HELP_TIP_ID | chunks.176.mjs:1333 | constant (help tip) |
+
+### User Message Creation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| p1 | createUserMessage | chunks.173.mjs:1378-1412 | function (message factory with isMeta flag) |
+| HE | buildPrecedingInputBlocks | chunks.173.mjs:1414-1423 | function |
+
+### Abort Signal Handling
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| signal.aborted | abort flag | Native | property (true when abort() called) |
+| signal.reason | abort reason | Native | property ("interrupt" or undefined) |
+
+> **Abort Reason Values**:
+> - `"interrupt"` - Intentional interrupt-on-submit (skip user guidance)
+> - `undefined` - Escape pressed (add user guidance message)
+> - `"sibling_error"` - Parallel tool failure (isolated, don't propagate)
+
+### Telemetry Events
+
+| Event Name | Properties | Location |
+|------------|------------|----------|
+| `tengu_cancel` | `{source: "escape"|"kill_agents"|"interrupt_on_submit", streamMode: string}` | chunks.193.mjs:2607, 2634 |
+
+> **Source Values**:
+> - `"escape"` - User pressed Escape during streaming
+> - `"kill_agents"` - User confirmed kill background agents (double-press Ctrl+F)
+> - `"interrupt_on_submit"` - User submitted new input while tool in progress
 
 ---
 
@@ -2527,7 +2597,7 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Hz6 | isEmptyMessage | chunks.173.mjs:1275-1277 | function (check if message has empty text content; used to filter from selector) |
+| Hz6 | isHiddenSpecialMessage | chunks.173.mjs:1275-1277 | function (checks if message is in TF6 Set for UI hiding; used to filter interrupt messages) |
 | wl6 | isToolUseMessage | chunks.173.mjs:1587-1589 | function (check if message is a tool_result continuation; not an independent user prompt) |
 | Yhq | isTextBlock | chunks.185.mjs:1175-1177 | function (check if content block is text type) |
 

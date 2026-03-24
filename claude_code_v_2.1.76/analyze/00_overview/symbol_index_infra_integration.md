@@ -1312,16 +1312,8 @@
 | p1 | createUserMessage | chunks.173.mjs:1378 | function (constructs user message with isMeta/visibility flags) |
 | qr6 | extendUuid | chunks.173.mjs:1511 | function (extends UUID with content index for multi-content messages) |
 
-### Special Message Types (TF6 Set) - ✅ NEW 2026-03-22
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| TF6 | SPECIAL_MESSAGE_TYPES | chunks.174.mjs:1099 | constant (Set of 5 special message text patterns) ✅ |
-| D66 | INTERRUPTED_BY_USER | chunks.174.mjs:984 | constant ("[Request interrupted by user]") ✅ |
-| P0 | INTERRUPTED_FOR_TOOL_USE | chunks.174.mjs:986 | constant ("[Request interrupted by user for tool use]") ✅ |
-| R96 | USER_DECLINED_ACTION | chunks.174.mjs:988 | constant ("The user doesn't want to take this action right now...") ✅ |
-| h96 | USER_DECLINED_TOOL_USE | chunks.174.mjs:990 | constant ("The user doesn't want to proceed with this tool use...") ✅ |
-| N36 | NO_RESPONSE_REQUESTED | chunks.174.mjs:1007 | constant ("No response requested.") ✅ |
+> **Note:** Interrupt message constants (TF6, D66, P0, R96, h96, N36) are documented in
+> [symbol_index_core_features.md](./symbol_index_core_features.md) under the Steering module.
 
 ### REPL State Variables (chunks.196.mjs) - ✅ ALL VERIFIED 2026-03-22
 

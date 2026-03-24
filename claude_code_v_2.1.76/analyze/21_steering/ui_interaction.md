@@ -448,7 +448,103 @@ The spinner displays different messages based on `streamMode`:
 | `"tool-input"` | "Generating tool arguments..." | ⚙️ |
 | `"tool-use"` | "Running [tool_name]..." | 🔧 |
 
-### 3.3 Spinner Tips System
+### 3.3 Spinner Animation Parameters (Source-Verified)
+
+The spinner animation behavior varies based on `streamMode`. The following parameters were verified in source code:
+
+```javascript
+// ============================================
+// Spinner animation parameters by mode
+// Location: chunks.113.mjs:727-732
+// ============================================
+
+// ORIGINAL (for source lookup):
+let b = A === "requesting" ? 50 : 200,  // Speed multiplier
+    r = q ? -100 : I ? -100 : A === "requesting" ? U % Q - 10 : p + 10 - U % Q,
+    e = q ? 0 : A === "tool-use" ? (Math.sin(N / 1000 * Math.PI) + 1) / 2 : 0;
+
+// READABLE (for understanding):
+const speedMultiplier = mode === "requesting" ? 50 : 200;  // Faster for requesting
+
+// Position calculation varies by mode:
+const position = isDone ? -100 :
+                 isStalled ? -100 :
+                 mode === "requesting" ? (frameCount % textWidth) - 10 :
+                 textWidth + 10 - (frameCount % textWidth);
+
+// Pulse intensity for tool-use mode:
+const pulseIntensity = isDone ? 0 :
+                       mode === "tool-use" ? (Math.sin(time / 1000 * Math.PI) + 1) / 2 :
+                       0;
+
+// Mapping: A→mode, b→speedMultiplier, q→isDone, I→isStalled,
+//   r→position, e→pulseIntensity, N→time, U→frameCount, Q→textWidth, p→textWidth
+```
+
+#### Animation Behavior by Mode
+
+| Mode | Speed | Animation Type | Visual Effect |
+|------|-------|----------------|---------------|
+| `requesting` | 50ms | Bouncing | Text scrolls left, wraps around |
+| `thinking` | 200ms | Color pulse | Pulsing color gradient |
+| `responding` | 200ms | Scrolling | Text scrolls right |
+| `tool-input` | 200ms | Scrolling | Text scrolls right |
+| `tool-use` | 200ms | Sine pulse | Opacity/size pulse |
+
+#### Animation Math Details
+
+**Sine Pulse for tool-use mode**:
+```
+pulseIntensity = (Math.sin(time / 1000 * Math.PI) + 1) / 2
+```
+- Result range: 0.0 to 1.0
+- Period: 2000ms (2 seconds for full cycle)
+- Creates smooth breathing effect
+
+**Position Animation**:
+- `requesting`: Left-to-right bounce (`frameCount % textWidth - 10`)
+- Other modes: Right-to-left scroll (`textWidth + 10 - frameCount % textWidth`)
+- Negative positions (-100) hide animation when done or stalled
+
+### 3.4 "Esc to interrupt" Agent Hint
+
+When a background agent is running, the spinner shows a special hint:
+
+```javascript
+// ============================================
+// Agent interrupt hint in spinner
+// Location: chunks.113.mjs:793-799
+// ============================================
+
+// ORIGINAL (for source lookup):
+C6 = W && !W.isIdle ? HK.createElement(HK.Fragment, null, HK.createElement(T, {
+    dimColor: !0
+}, "(esc to interrupt "), HK.createElement(T, {
+    color: G0(W.identity.color)
+}, W.identity.agentName), HK.createElement(T, {
+    dimColor: !0
+}, ")")) : ...
+
+// READABLE (for understanding):
+const agentHint = runningAgent && !runningAgent.isIdle ? (
+    <>
+        <Text dimColor>(esc to interrupt </Text>
+        <Text color={runningAgent.identity.color}>
+            {runningAgent.identity.agentName}
+        </Text>
+        <Text dimColor>)</Text>
+    </>
+) : ...
+
+// Mapping: C6→agentHint, W→runningAgent, HK→React, T→Text, G0→parseColor
+```
+
+**Display conditions**:
+- `runningAgent` exists and is not idle
+- Agent name is colored with the agent's identity color
+- Text uses `dimColor` for non-agent-name parts
+
+### 3.5 Spinner Tips System
 
 ```javascript
 // Location: chunks.40.mjs:1428-1436
@@ -733,14 +829,51 @@ RESULT:
 
 ### 8.2 Help Tip Integration
 
-Steering-related help tips:
+Steering-related help tips are defined in the help tip registry:
 
 ```javascript
-// Location: chunks.176.mjs:1341, 1333
+// ============================================
+// Steering Help Tip Definition
+// Location: chunks.180.mjs:2117-2120
+// ============================================
 
-"enter-to-steer-in-relatime"  // Help tip for steering (note: typo in source)
-"prompt-queue"                // Help tip for prompt queue
+// ORIGINAL (for source lookup):
+{
+    id: "enter-to-steer-in-relatime",
+    content: async () => "Send messages to Claude while it works to steer Claude in real-time",
+    cooldownSessions: 20,
+    isRelevant: async () => !0
+}
+
+// READABLE (for understanding):
+{
+    id: "enter-to-steer-in-realtime",  // Note: "relatime" typo in source code
+    content: async () => "Send messages to Claude while it works to steer Claude in real-time",
+    cooldownSessions: 20,  // Show once every 20 sessions
+    isRelevant: async () => true  // Always relevant when conditions met
+}
+
+// Mapping: This help tip educates users about real-time steering
 ```
+
+**Help Tip System Integration**:
+
+| Tip ID | Trigger | Content |
+|--------|---------|---------|
+| `enter-to-steer-in-relatime` | During tool execution | "Send messages to Claude while it works to steer Claude in real-time" |
+| `prompt-queue` | When queue is populated | Prompt queue usage guidance |
+
+**Display Conditions** (chunks.180.mjs:2114-2115):
+```javascript
+// ORIGINAL (for source lookup):
+isRelevant: async () => X1().promptQueueUseCount <= 3
+
+// READABLE (for understanding):
+isRelevant: async () => getSettings().promptQueueUseCount <= 3
+// Only show to users who haven't used the queue feature much yet
+```
+
+**Note**: The typo `"relatime"` instead of `"realtime"` exists in the source code at chunks.180.mjs:2117.
 
 ---
 
@@ -871,23 +1004,104 @@ telemetry("tengu_cancel", {
 
 | Action | Keybinding | Accessibility Notes |
 |--------|------------|---------------------|
-| Cancel stream | Escape | Standard cancel key |
-| Global interrupt | Ctrl+C | POSIX standard, always available |
-| Kill background agents | Ctrl+F (double) | Requires double-press, 3s timeout |
+| Cancel stream | Escape | Standard cancel key, universally recognized |
+| Global interrupt | Ctrl+C | POSIX standard, always available even when other shortcuts blocked |
+| Kill background agents | Ctrl+F (double) | Requires double-press within 3000ms, prevents accidental termination |
 
-### 12.2 Visual Feedback
+### 12.2 Visual Feedback Hierarchy
 
-- **Cancel indicator**: Dim text with bold "Esc" key name
-- **Kill confirmation**: Immediate priority notification
-- **Spinner**: Visual animation with mode-specific text
-- **Tool drainage**: Spinner continues during drainage
+The UI provides multiple levels of visual feedback:
 
-### 12.3 Non-Visual Feedback
+| Feedback Type | Component | Color/Style | Purpose |
+|---------------|-----------|-------------|---------|
+| Cancel indicator | Footer text | Dim with bold key | Indicate cancel availability |
+| Spinner | Main content area | Animated, mode-dependent | Show activity state |
+| Kill confirmation | Toast notification | Immediate priority | Confirm destructive action |
+| Agent hint | Inline text | Agent color + dim | Show which agent is running |
+
+### 12.3 Keyboard Navigation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        KEYBOARD NAVIGATION FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  NORMAL CHAT MODE:                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  Tab       → Cycle through interactive elements                       │  │
+│  │  Escape    → Cancel (if streaming) OR clear input (if not)            │  │
+│  │  Ctrl+C    → Global interrupt (always available)                      │  │
+│  │  Ctrl+F    → Kill agents (double-press, if agents running)            │  │
+│  │  Ctrl+O    → Toggle transcript view                                   │  │
+│  │  Ctrl+T    → Toggle todos panel                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  DIALOG/MODAL MODE:                                                         │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  Tab       → Cycle through dialog elements                            │  │
+│  │  Escape    → Dismiss dialog (does NOT cancel stream)                  │  │
+│  │  Enter     → Confirm dialog action                                    │  │
+│  │  Ctrl+C    → Global interrupt (still available)                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  VIM MODE (INSERT):                                                         │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  Escape    → Switch to NORMAL mode (NOT cancel)                       │  │
+│  │  Ctrl+C    → Global interrupt (still available)                       │  │
+│  │  Second Escape → Cancel (if streaming)                                │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  VIM MODE (NORMAL/VISUAL):                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  Escape    → Navigation (NOT cancel)                                  │  │
+│  │  Ctrl+C    → Global interrupt (only way to cancel)                    │  │
+│  │  Cancel indicator hidden                                               │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.4 Confirmation Patterns for Destructive Actions
+
+The system implements multiple confirmation patterns:
+
+| Action | Confirmation | Timeout | Rationale |
+|--------|--------------|---------|-----------|
+| Kill background agents | Double-press Ctrl+F | 3000ms | Prevents accidental termination of long-running tasks |
+| Exit tool permission | Single Escape | None | Non-destructive, just denies tool |
+| Exit transcript view | Single Escape | None | Non-destructive, just closes view |
+| Exit help overlay | Single Escape | None | Non-destructive, just closes overlay |
+
+### 12.5 Screen Reader Considerations
+
+The terminal UI provides text-based feedback that can be read by screen readers:
+
+1. **Cancel indicator text**: "Press Esc to cancel" is plain text
+2. **Spinner text**: Mode-dependent text (e.g., "Claude is responding...")
+3. **Notification messages**: Plain text with priority levels
+4. **Agent hint**: "(esc to interrupt agent_name)"
+
+### 12.6 Color Independence
+
+The UI does not rely solely on color for information:
+
+- Cancel indicator uses **dim + bold** text styling
+- Key names are always in **bold**
+- Agent names use color **plus** text identification
+- Important messages use text, not just color
+
+### 12.7 Non-Visual Feedback
 
 Currently no audio feedback for steering events. All feedback is visual through:
 - Text indicators
 - Spinner animation
 - Notification messages
+
+**Recommendation for accessibility enhancement**: Consider adding optional audio cues for:
+- Stream started
+- Stream cancelled
+- Background agent killed
+- Error states
 
 ---
 
@@ -1787,6 +2001,411 @@ streamModeRef.current = streamMode;  // Keep ref in sync for callbacks
 | **Used in onCancel** | No | Yes (for logging) |
 
 The ref ensures callbacks like `TM()` always have access to the current stream mode without needing to add it to the dependency array.
+
+---
+
+## 23. Spinner Animation Component (Deep Analysis)
+
+### 23.1 Animation Parameters by StreamMode
+
+The spinner component (chunks.113.mjs) uses different animation speeds and effects based on the current `streamMode`:
+
+```javascript
+// ============================================
+// Spinner animation parameters by mode
+// Location: chunks.113.mjs:727-732
+// ============================================
+
+// ORIGINAL (for source lookup):
+let b = A === "requesting" ? 50 : 200,  // Speed multiplier (ms per frame)
+    r = q ? -100 : I ? -100 : A === "requesting" ? U % Q - 10 : p + 10 - U % Q,
+    e = q ? 0 : A === "tool-use" ? (Math.sin(N / 1000 * Math.PI) + 1) / 2 : 0;
+
+// READABLE (for understanding):
+// Animation speed: 50ms for requesting, 200ms for all other modes
+const animationSpeedMs = streamMode === "requesting" ? 50 : 200;
+
+// Position calculation varies by state:
+const glimmerPosition = isDone ? -100 :
+                        isStalled ? -100 :
+                        streamMode === "requesting" ? (frameCount % textWidth) - 10 :
+                        textWidth + 10 - (frameCount % textWidth);
+
+// Pulse intensity: only for tool-use mode (sine wave)
+const flashOpacity = isDone ? 0 :
+                     streamMode === "tool-use" ? (Math.sin(time / 1000 * Math.PI) + 1) / 2 :
+                     0;
+
+// Mapping: b→animationSpeedMs, A→streamMode, q→isDone, I→isStalled,
+//   r→glimmerPosition, e→flashOpacity, N→time, U→frameCount, Q→textWidth
+```
+
+### 23.2 Animation Behavior by Mode
+
+| StreamMode | Speed | Animation Type | Visual Effect |
+|------------|-------|----------------|---------------|
+| `"requesting"` | 50ms | Bouncing | Text scrolls left, wraps around quickly |
+| `"thinking"` | 200ms | Color pulse | Pulsing color gradient (uses thinking duration) |
+| `"responding"` | 200ms | Scrolling | Text scrolls right, standard speed |
+| `"tool-input"` | 200ms | Scrolling | Text scrolls right |
+| `"tool-use"` | 200ms | Sine pulse | Opacity/size pulse with sine wave (0-1) |
+
+### 23.3 Thinking Duration Display
+
+```javascript
+// ============================================
+// Thinking mode display text
+// Location: chunks.113.mjs:754
+// ============================================
+
+// ORIGINAL (for source lookup):
+let o = G === "thinking" ? `thinking${f}` : typeof G === "number" ? `thought for ${Math.max(1,Math.round(G/1000))}s` : null;
+
+// READABLE (for understanding):
+const thinkingDisplay = thinkingDuration === "thinking" ?
+    `thinking${budgetText}` :                    // e.g., "thinking (budget: 10000)"
+    typeof thinkingDuration === "number" ?
+    `thought for ${Math.max(1, Math.round(thinkingDuration / 1000))}s` :  // e.g., "thought for 5s"
+    null;
+
+// Mapping: o→thinkingDisplay, G→thinkingDuration, f→budgetText
+```
+
+### 23.4 Cancel Indicator for Background Agents
+
+When a background agent is running, the spinner displays a special cancel indicator with the agent name:
+
+```javascript
+// ============================================
+// Cancel indicator with agent name
+// Location: chunks.113.mjs:793-803
+// ============================================
+
+// ORIGINAL (for source lookup):
+let C6 = W && !W.isIdle ? HK.createElement(HK.Fragment, null, HK.createElement(T, {
+    dimColor: !0
+}, "(esc to interrupt "), HK.createElement(T, {
+    color: G0(W.identity.color)
+}, W.identity.agentName), HK.createElement(T, {
+    dimColor: !0
+}, ")")) : !W && u6.length > 0 ? ...
+
+// READABLE (for understanding):
+const cancelIndicator = runningAgent && !runningAgent.isIdle ?
+    // When background agent is running, show: "(esc to interrupt [agentName])"
+    React.createElement(React.Fragment, null,
+        React.createElement(Text, { dimColor: true }, "(esc to interrupt "),
+        React.createElement(Text, { color: getAgentColor(runningAgent.identity.color) },
+            runningAgent.identity.agentName),
+        React.createElement(Text, { dimColor: true }, ")")
+    ) :
+    // Normal mode: show token count, elapsed time, thinking status
+    !runningAgent && statusElements.length > 0 ?
+        renderStatusElements(statusElements) :
+        null;
+
+// Mapping: C6→cancelIndicator, W→runningAgent, T→Text, HK→React,
+//   G0→getAgentColor, u6→statusElements
+```
+
+### 23.5 Status Elements in Spinner
+
+The spinner can display multiple status elements based on available data:
+
+```javascript
+// Location: chunks.113.mjs:773-792
+
+const statusElements = [
+    // 1. Suffix text (if provided)
+    ...(suffix ? [React.createElement(Text, { dimColor: true, key: "suffix" }, suffix)] : []),
+
+    // 2. Elapsed time (if significant)
+    ...(showElapsedTime ? [React.createElement(Text, { dimColor: true, key: "elapsedTime" }, elapsedTimeText)] : []),
+
+    // 3. Token count with icon
+    ...(showTokenCount ? [
+        React.createElement(Box, { flexDirection: "row", key: "tokens" },
+            !isCompact && React.createElement(UpDownIcon, { mode: streamMode }),
+            React.createElement(Text, { dimColor: true }, `${tokenCount} tokens`)
+        )
+    ] : []),
+
+    // 4. Thinking status
+    ...(showThinking && thinkingDisplay ? [
+        thinkingDuration === "thinking" && !isDone ?
+            React.createElement(Text, { key: "thinking", color: thinkingColor }, `(${thinkingDisplay})`) :
+            React.createElement(Text, { dimColor: true, key: "thinking" }, thinkingDisplay)
+    ] : [])
+];
+```
+
+### 23.6 Token Count Smooth Animation
+
+The spinner implements smooth token count animation with throttling:
+
+```javascript
+// ============================================
+// Token count smooth animation
+// Location: chunks.113.mjs:733-744
+// ============================================
+
+// ORIGINAL (for source lookup):
+let Y6 = rQ6.useRef(u);
+if (q) Y6.current = u;
+else {
+    let o6 = u - Y6.current;
+    if (o6 > 0) {
+        let V6;
+        if (o6 < 70) V6 = 3;
+        else if (o6 < 200) V6 = Math.max(8, Math.ceil(o6 * 0.15));
+        else V6 = 50;
+        Y6.current = Math.min(Y6.current + V6, u)
+    }
+}
+
+// READABLE (for understanding):
+const displayedTokenCountRef = useRef(actualTokenCount);
+
+if (isDone) {
+    // When done, snap to final count immediately
+    displayedTokenCountRef.current = actualTokenCount;
+} else {
+    // Smooth animation with throttling
+    const tokenDelta = actualTokenCount - displayedTokenCountRef.current;
+
+    if (tokenDelta > 0) {
+        // Calculate animation step based on delta size
+        let animationStep;
+        if (tokenDelta < 70) {
+            animationStep = 3;  // Small delta: slow animation
+        } else if (tokenDelta < 200) {
+            animationStep = Math.max(8, Math.ceil(tokenDelta * 0.15));  // Medium delta
+        } else {
+            animationStep = 50;  // Large delta: fast catch-up
+        }
+
+        // Animate towards actual count, but don't exceed it
+        displayedTokenCountRef.current = Math.min(
+            displayedTokenCountRef.current + animationStep,
+            actualTokenCount
+        );
+    }
+}
+
+// Mapping: Y6→displayedTokenCountRef, u→actualTokenCount, q→isDone,
+//   o6→tokenDelta, V6→animationStep
+```
+
+### 23.7 Color Interpolation for Thinking Mode
+
+During thinking mode, the text color pulses using a sine wave:
+
+```javascript
+// ============================================
+// Color interpolation for thinking
+// Location: chunks.113.mjs:770-772
+// ============================================
+
+// ORIGINAL (for source lookup):
+let Q6 = (N - oW4) / 1000,
+    k6 = N < oW4 ? 0 : (Math.sin(Q6 * Math.PI * 2 / G6Y) + 1) / 2,
+    Z6 = ok(sI(W6Y, Z6Y, k6));
+
+// READABLE (for understanding):
+// Time since thinking started (in seconds)
+const timeSeconds = (currentTime - thinkingStartTime) / 1000;
+
+// Sine wave oscillation between 0 and 1
+const colorProgress = currentTime < thinkingStartTime ? 0 :
+    (Math.sin(timeSeconds * Math.PI * 2 / pulsePeriod) + 1) / 2;
+
+// Interpolate color between start and end colors
+const thinkingColor = interpolateColor(thinkingStartColor, thinkingEndColor, colorProgress);
+
+// Mapping: Q6→timeSeconds, k6→colorProgress, Z6→thinkingColor,
+//   N→currentTime, oW4→thinkingStartTime, G6Y→pulsePeriod,
+//   sI→interpolateColor, ok→toColorString, W6Y→thinkingStartColor, Z6Y→thinkingEndColor
+```
+
+---
+
+## 24. Pending Key State Pattern (Double-Press Confirmation)
+
+### 24.1 Overview
+
+Several UI components use a "pending" state pattern to implement double-press confirmation. This prevents accidental exits and provides a safety mechanism for destructive actions.
+
+### 24.2 Pattern Structure
+
+```javascript
+// ============================================
+// Pending key state pattern
+// Used in: tool-permission dialog, config dialog, message selector, etc.
+// Location: Multiple files (chunks.180.mjs, chunks.135.mjs, chunks.163.mjs)
+// ============================================
+
+// Generic pattern structure:
+const keyState = {
+    pending: boolean,    // First press occurred, waiting for second
+    keyName: string      // The key that initiated the pending state
+};
+
+// Render pattern:
+{keyState.pending ? (
+    <>Press {keyState.keyName} again to exit</>
+) : (
+    <>Esc to cancel</>
+)}
+```
+
+### 24.3 UI Components Using Pending State
+
+| Component | Location | Keys with Pending State | Purpose |
+|-----------|----------|------------------------|---------|
+| Tool Permission Dialog | chunks.180.mjs:770 | Any bound key | Prevent accidental exit during tool confirmation |
+| Configuration Dialog | chunks.135.mjs:582 | Any bound key | Prevent accidental exit during configuration |
+| Message Selector | chunks.163.mjs:382 | Arrow keys, Enter | Confirm selection vs. cancel |
+| Fast Mode Toggle | chunks.163.mjs:739 | Tab, Enter | Confirm mode change |
+| Guest Pass Dialog | chunks.163.mjs:946, 953, 996 | Escape | Copy link vs. cancel |
+
+### 24.4 Code Examples
+
+**Tool Permission Dialog (chunks.180.mjs:770):**
+```javascript
+// ============================================
+// Tool permission dialog pending state
+// Location: chunks.180.mjs:770
+// ============================================
+
+// ORIGINAL (for source lookup):
+J6.pending ? AT.default.createElement(AT.default.Fragment, null, "Press ", J6.keyName, " again to exit") : AT.default.createElement(AT.default.Fragment, null, "Enter to confirm · Esc to cancel")
+
+// READABLE (for understanding):
+{keyState.pending ? (
+    <>Press {keyState.keyName} again to exit</>
+) : (
+    <>Enter to confirm · Esc to cancel</>
+)}
+
+// Mapping: J6→keyState, AT→React
+```
+
+**Message Selector (chunks.163.mjs:382):**
+```javascript
+// ============================================
+// Message selector pending state
+// Location: chunks.163.mjs:382
+// ============================================
+
+// ORIGINAL (for source lookup):
+U.pending ? uA.createElement(uA.Fragment, null, "Press ", U.keyName, " again to exit") : uA.createElement(uA.Fragment, null, "Press ↑↓ to navigate · Enter to select · Type to search · Esc to cancel")
+
+// READABLE (for understanding):
+{keyState.pending ? (
+    <>Press {keyState.keyName} again to exit</>
+) : (
+    <>Press ↑↓ to navigate · Enter to select · Type to search · Esc to cancel</>
+)}
+
+// Mapping: U→keyState, uA→React
+```
+
+### 24.5 State Transition Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│              PENDING KEY STATE TRANSITIONS                          │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  ┌─────────────┐                                                   │
+│  │   IDLE      │  pending: false, keyName: undefined              │
+│  │             │                                                   │
+│  └──────┬──────┘                                                   │
+│         │                                                          │
+│         │ User presses bound key (e.g., Escape, custom keybind)   │
+│         ▼                                                          │
+│  ┌─────────────┐                                                   │
+│  │   PENDING   │  pending: true, keyName: "theKey"                │
+│  │             │  Display: "Press theKey again to exit"           │
+│  └──────┬──────┘                                                   │
+│         │                                                          │
+│         ├───────────────┬──────────────────────────────────┐      │
+│         │               │                                  │      │
+│         ▼               ▼                                  ▼      │
+│  ┌─────────────┐  ┌─────────────┐                    ┌──────────┐ │
+│  │   CONFIRM   │  │   TIMEOUT   │                    │  CANCEL  │ │
+│  │   (exit)    │  │   (3s)      │                    │  (other  │ │
+│  │             │  │             │                    │   key)   │ │
+│  └─────────────┘  └─────────────┘                    └──────────┘ │
+│  User presses     No second press                      Any other  │
+│  same key         within timeout                        key press │
+│  again            → return to IDLE                      pressed   │
+│  → execute        (handled by notification system)      → IDLE    │
+│  the action                                                      │
+│                                                                  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 24.6 Integration with Notification System
+
+The `handleKillAgentsPress` function uses the notification system for its pending state:
+
+```javascript
+// ============================================
+// Kill agents double-press with notification
+// Location: chunks.193.mjs:2629-2656
+// ============================================
+
+// ORIGINAL (for source lookup):
+let r = Ra6.useCallback(() => {
+    let e = Date.now();
+    if (e - v.current <= Buq) {
+        v.current = 0, f("kill-agents-confirm");
+        // ... kill logic ...
+        return
+    }
+    v.current = e, G({
+        key: "kill-agents-confirm",
+        text: "Press ctrl+f again to stop background agents",
+        priority: "immediate",
+        timeoutMs: Buq
+    })
+}, [P, W, G, f, Y]);
+
+// READABLE (for understanding):
+const handleKillAgentsPress = useCallback(() => {
+    const now = Date.now();
+    if (now - lastKillPressTime.current <= KILL_AGENTS_CONFIRM_TIMEOUT) {
+        // Second press within timeout - execute kill
+        lastKillPressTime.current = 0;
+        removeNotification("kill-agents-confirm");
+        // ... kill all running agents ...
+        return;
+    }
+    // First press - show confirmation notification
+    lastKillPressTime.current = now;
+    addNotification({
+        key: "kill-agents-confirm",
+        text: "Press ctrl+f again to stop background agents",
+        priority: "immediate",    // Shows immediately, overrides others
+        timeoutMs: Buq            // 3000ms timeout
+    });
+}, [dependencies]);
+
+// Mapping: r→handleKillAgentsPress, v→lastKillPressTime, Buq→KILL_AGENTS_CONFIRM_TIMEOUT,
+//   G→addNotification, f→removeNotification, e→now
+```
+
+---
+
+## 25. Related Documentation
+
+- **[streammode_state_machine.md](./streammode_state_machine.md)** - Complete streamMode state machine analysis with all state transitions and animations
+- **[implementation.md](./implementation.md)** - Core steering implementation details
+- **[integration.md](./integration.md)** - Cross-module integration with system_reminder
+- **[constants.md](./constants.md)** - All steering-related constants
+- **[interrupt_flow.md](./interrupt_flow.md)** - Complete interrupt lifecycle
+- **[algorithms.md](./algorithms.md)** - Algorithm deep analysis
 
 ---
 

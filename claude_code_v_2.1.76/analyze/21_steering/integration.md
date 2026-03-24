@@ -1269,3 +1269,113 @@ if (containsSystemReminderTags(content)) return false;
 1. Visible to the LLM (included in API call)
 2. Filtered from UI display (via isMeta or pattern matching)
 3. Preserved during compaction (via is_error flag)
+
+### 15.6 TF6 Set - Interrupt Message Fast Lookup
+
+The `TF6` Set provides O(1) lookup for known interrupt message strings:
+
+```javascript
+// ============================================
+// TF6 - Set of interrupt message strings
+// Location: chunks.174.mjs:1099
+// ============================================
+
+// ORIGINAL (for source lookup):
+TF6 = new Set([D66, P0, R96, h96, N36]);
+
+// READABLE (for understanding):
+const INTERRUPT_MESSAGES_SET = new Set([
+    INTERRUPTED_BY_USER_TEXT,       // D66 - "[Request interrupted by user]"
+    INTERRUPTED_FOR_TOOL_USE,       // P0  - "[Request interrupted by user for tool use]"
+    REJECTION_MESSAGE,              // R96 - "The user doesn't want to take this action..."
+    TOOL_REJECTION_MESSAGE,         // h96 - "The user doesn't want to proceed..."
+    NO_RESPONSE_REQUESTED           // N36 - "No response requested."
+]);
+
+// Mapping: TF6→INTERRUPT_MESSAGES_SET, D66→INTERRUPTED_BY_USER_TEXT, P0→INTERRUPTED_FOR_TOOL_USE
+```
+
+**Usage in Hz6 (isHiddenSpecialMessage)**:
+```javascript
+// Fast O(1) check if message should be hidden from UI
+TF6.has(message.message.content[0].text)
+```
+
+### 15.7 Hz6 (isHiddenSpecialMessage) - UI Filtering Function
+
+The `Hz6` function determines whether a message should be hidden from the chat UI:
+
+```javascript
+// ============================================
+// isHiddenSpecialMessage - Determines UI visibility
+// Location: chunks.173.mjs:1275-1277
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Hz6(A) {
+    return A.type !== "progress" && A.type !== "attachment" && A.type !== "system" && Array.isArray(A.message.content) && A.message.content[0]?.type === "text" && TF6.has(A.message.content[0].text)
+}
+
+// READABLE (for understanding):
+function isHiddenSpecialMessage(message) {
+    // Must NOT be these special types
+    if (message.type === "progress") return false;
+    if (message.type === "attachment") return false;
+    if (message.type === "system") return false;
+
+    // Must have text content
+    if (!Array.isArray(message.message.content)) return false;
+    if (message.message.content[0]?.type !== "text") return false;
+
+    // Check if text matches known interrupt strings (O(1) lookup)
+    return TF6.has(message.message.content[0].text);
+}
+
+// Mapping: Hz6→isHiddenSpecialMessage, A→message, TF6→INTERRUPT_MESSAGES_SET
+```
+
+**Why this filtering matters**:
+
+| Message Hidden | User Experience |
+|----------------|-----------------|
+| `"[Request interrupted by user]"` | No clutter from abort confirmations |
+| `"[Request interrupted by user for tool use]"` | Clean UI during tool cancellations |
+| `"The user doesn't want to take this action..."` | Rejection messages don't spam chat |
+| `"The user doesn't want to proceed..."` | Tool rejections are implicit |
+| `"No response requested."` | System messages stay invisible |
+
+**Integration Flow**:
+```
+Message created by steering
+        │
+        ▼
+Message added to conversation
+        │
+        ▼
+UI rendering pass
+        │
+        ▼
+isHiddenSpecialMessage(msg)?
+        │
+   ┌────┴────┐
+  YES        NO
+   │         │
+   ▼         ▼
+Hidden     Displayed
+from UI    normally
+```
+
+---
+
+## 16. Related Documentation
+
+- **[streammode_state_machine.md](./streammode_state_machine.md)** - Complete streamMode state machine
+- **[ui_interaction.md](./ui_interaction.md)** - UI layer interactions
+- **[interrupt_flow.md](./interrupt_flow.md)** - Complete interrupt lifecycle
+- **[constants.md](./constants.md)** - All steering constants
+- **[../04_system_reminder/](../04_system_reminder/)** - System reminder module analysis
+
+---
+
+**Last Updated**: 2026-03-24
+**Version**: Claude Code 2.1.76

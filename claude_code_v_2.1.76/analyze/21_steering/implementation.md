@@ -617,6 +617,143 @@ function killAllRunningAgents(tasks, setAppState) {
 
 **Why `app:interrupt` is hardcoded**: Ctrl+C has a POSIX standard meaning (interrupt process). Allowing it to be rebound could prevent users from exiting the process, creating a "trap" scenario.
 
+### 2.11 `onCancel` (TM) - Main Cancel Handler in REPL Component
+
+The `TM` symbol represents the `onCancel` function defined in the main REPL component. This function is passed to `cancelHandlerComponent` and called when the user presses Escape or Ctrl+C.
+
+```javascript
+// ============================================
+// onCancel (TM) - Main cancel handler in REPL component
+// Location: chunks.196.mjs:420-432
+// ============================================
+
+// ORIGINAL (for source lookup):
+function TM() {
+    if (K2 === "elicitation") return;
+    if (k(`[onCancel] focusedInputDialog=${K2} streamMode=${d7}`), J9.forceEnd(), ez?.trim()) gq((P1) => [...P1, $Z({
+        content: ez
+    })]);
+    if (dE(), K2 === "tool-permission") a8[0]?.onAbort(), $A([]);
+    else if (K2 === "prompt") {
+        for (let P1 of zA) P1.reject(Error("Prompt cancelled by user"));
+        gA([]), M5?.abort()
+    } else if (B5.isRemoteMode) B5.cancelRequest();
+    else M5?.abort();
+    x5(null)
+}
+
+// READABLE (for understanding):
+function onCancel() {
+    // Skip if in elicitation mode (special hook dialog)
+    if (inputDialogMode === "elicitation") return;
+
+    // Log for debugging
+    log(`[onCancel] focusedInputDialog=${inputDialogMode} streamMode=${streamMode}`);
+
+    // Force end any in-progress spinner
+    spinnerState.forceEnd();
+
+    // If there's pending input text, add it as a message
+    if (pendingInputText?.trim()) {
+        addInfoMessage((msgs) => [...msgs, createInfoMessage({ content: pendingInputText })]);
+    }
+
+    // Close any open autocomplete/suggestion popup
+    closeAutocomplete();
+
+    // Handle based on current dialog mode
+    switch (inputDialogMode) {
+        case "tool-permission":
+            // Abort the pending tool permission dialog
+            toolUseConfirmQueue[0]?.onAbort();
+            setToolUseConfirmQueue([]);
+            break;
+
+        case "prompt":
+            // Reject all pending prompt promises
+            for (const prompt of pendingPrompts) {
+                prompt.reject(Error("Prompt cancelled by user"));
+            }
+            setPendingPrompts([]);
+            abortController?.abort();
+            break;
+
+        default:
+            // Normal streaming mode - cancel via abort or remote
+            if (isRemoteMode) {
+                remoteSession.cancelRequest();
+            } else {
+                abortController?.abort();
+            }
+            break;
+    }
+
+    // Clear the abort controller state
+    setAbortController(null);
+}
+
+// Mapping: TM→onCancel, K2→inputDialogMode, k→log, d7→streamMode, J9→spinnerState,
+//   ez→pendingInputText, gq→addInfoMessage, $Z→createInfoMessage, dE→closeAutocomplete,
+//   a8→toolUseConfirmQueue, $A→setToolUseConfirmQueue, zA→pendingPrompts, gA→setPendingPrompts,
+//   M5→abortController, B5→remoteSession, x5→setAbortController
+```
+
+**Decision Flow**:
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│              onCancel DECISION FLOW                                  │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  onCancel() called                                                  │
+│         │                                                          │
+│         ▼                                                          │
+│  inputDialogMode === "elicitation"?                                │
+│         │                                                          │
+│    ┌────┴────┐                                                     │
+│   YES        NO                                                    │
+│    │         │                                                     │
+│    ▼         ▼                                                     │
+│  Return     Log debug info                                         │
+│  (skip)     Force end spinner                                      │
+│         │                                                          │
+│         ▼                                                          │
+│  Has pending input text?                                           │
+│         │                                                          │
+│    ┌────┴────┐                                                     │
+│   YES        NO                                                    │
+│    │         │                                                     │
+│    ▼         │                                                     │
+│  Add as    │                                                       │
+│  info msg  │                                                       │
+│         │  │                                                       │
+│         └──┴──────────► Close autocomplete                         │
+│                              │                                     │
+│                              ▼                                     │
+│                    Check inputDialogMode:                          │
+│                    ┌─────────────────────────────────────┐        │
+│                    │ "tool-permission"                   │        │
+│                    │   └─► a8[0].onAbort(), clear queue │        │
+│                    │                                     │        │
+│                    │ "prompt"                            │        │
+│                    │   └─► Reject all, abort controller│        │
+│                    │                                     │        │
+│                    │ default (streaming)                 │        │
+│                    │   └─► Remote: cancelRequest()      │        │
+│                    │   └─► Local: abort()               │        │
+│                    └─────────────────────────────────────┘        │
+│                              │                                     │
+│                              ▼                                     │
+│                    setAbortController(null)                        │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: The `onCancel` function handles multiple dialog modes differently:
+- **Tool permission dialog**: Calls `onAbort()` on the pending tool confirmation
+- **Prompt dialog**: Rejects all pending prompt promises with an error
+- **Normal streaming**: Aborts the controller (local or remote)
+
 ---
 
 ## 3. Interrupt Message Generation
@@ -1809,3 +1946,237 @@ const showSpinner =
 - Hidden when tool confirm dialogs or prompts are visible
 - Hidden in compact mode
 - In remote mode, only shows when connected
+
+---
+
+## 21. Interrupt-on-Submit Implementation
+
+### 21.1 Trigger Condition
+
+When the user submits new input while a tool is running, the system triggers an interrupt-on-submit:
+
+```javascript
+// ============================================
+// Interrupt-on-submit trigger
+// Location: chunks.194.mjs:441-451
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (A.hasInterruptibleToolInProgress) k(`[interrupt] Aborting current turn: streamMode=${A.streamMode}`), d("tengu_cancel", {
+    source: "interrupt_on_submit",
+    streamMode: A.streamMode
+}), A.abortController?.abort("interrupt");
+_0({
+    value: g.trim(),
+    mode: R,
+    pastedContents: I ? u : void 0,
+    skipSlashCommands: v,
+    uuid: f
+}), _(""), N(0), w({}), L(), V();
+
+// READABLE (for understanding):
+if (state.hasInterruptibleToolInProgress) {
+    // Log the interrupt event
+    log(`[interrupt] Aborting current turn: streamMode=${state.streamMode}`);
+
+    // Send telemetry
+    telemetry("tengu_cancel", {
+        source: "interrupt_on_submit",
+        streamMode: state.streamMode
+    });
+
+    // Abort with "interrupt" reason (signals intentional interrupt)
+    state.abortController?.abort("interrupt");
+
+    // Enqueue the new command
+    enqueueToLegacyQueue({
+        value: inputText.trim(),
+        mode: currentMode,
+        pastedContents: hasPastedContent ? pastedContent : undefined,
+        skipSlashCommands: skipFlag,
+        uuid: generateUUID()
+    });
+
+    // Clear input and reset state
+    setInputText("");
+    setCursorOffset(0);
+    setPastedContent({});
+    resetHistory();
+    clearLocalState();
+}
+
+// Mapping: A→state, k→log, d→telemetry, _0→enqueueToLegacyQueue,
+//   g→inputText, R→currentMode, I→hasPastedContent, u→pastedContent,
+//   v→skipSlashCommands, f→uuid, _→setInputText, N→setCursorOffset
+```
+
+### 21.2 Why "interrupt" Reason Matters
+
+The `"interrupt"` reason tells the query generator to skip the user guidance message:
+
+```javascript
+// ============================================
+// Abort reason check in query generator
+// Location: chunks.148.mjs:1152-1161
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (X.abortController.signal.aborted) {
+    if (s) {
+        for await (let D6 of s.getRemainingResults())
+            if (D6.message) yield D6.message
+    } else yield* Sp8(e, "Interrupted by user");
+    if (X.abortController.signal.reason !== "interrupt")
+        yield Ug({ toolUse: !1 });
+    return { reason: "aborted_streaming" }
+}
+
+// READABLE (for understanding):
+if (toolUseContext.abortController.signal.aborted) {
+    // Drain tools if executor exists
+    if (toolExecutor) {
+        for await (const result of toolExecutor.getRemainingResults()) {
+            if (result.message) yield result.message;
+        }
+    } else {
+        // Generate synthetic interrupt tool results
+        yield* createInterruptToolResults(assistantMessages, "Interrupted by user");
+    }
+
+    // Only add user guidance if NOT intentional interrupt-on-submit
+    if (toolUseContext.abortController.signal.reason !== "interrupt") {
+        yield createUserGuidanceMessage({ toolUse: false });
+    }
+
+    return { reason: "aborted_streaming" };
+}
+
+// Mapping: X→toolUseContext, s→toolExecutor, D6→result, e→assistantMessages,
+//   Sp8→createInterruptToolResults, Ug→createUserGuidanceMessage
+```
+
+### 21.3 Interrupt Reason Decision Matrix
+
+| `signal.reason` | In Tool Execution? | Drain Tools | Add Guidance | Result |
+|-----------------|-------------------|-------------|--------------|--------|
+| `"interrupt"` | Yes | Yes | **No** | Silent drain, process queued input |
+| `"interrupt"` | No | N/A | **No** | Immediate abort, process queued input |
+| `undefined` | Yes | Yes | **Yes** | Drain + "[Request interrupted for tool use]" |
+| `undefined` | No | N/A | **Yes** | "[Request interrupted by user]" |
+| `"sibling_error"` | Yes | No | No | Isolated failure, don't propagate |
+
+---
+
+## 22. killLocalAgentInternal (x66) - The Actual Kill
+
+### 22.1 Implementation
+
+The `x66` function is the actual implementation that kills a local agent:
+
+```javascript
+// ============================================
+// killLocalAgentInternal - Abort and mark agent as killed
+// Location: chunks.146.mjs:2012-2027
+// ============================================
+
+// ORIGINAL (for source lookup):
+function x66(A, q) {
+    let K = !1;
+    if (i9(A, q, (Y) => {
+            if (Y.status !== "running") return Y;
+            return K = !0, Y.abortController?.abort(), Y.unregisterCleanup?.(), {
+                ...Y,
+                status: "killed",
+                endTime: Date.now(),
+                messages: Y.messages?.length ? [Y.messages[Y.messages.length - 1]] : void 0,
+                abortController: void 0,
+                unregisterCleanup: void 0,
+                selectedAgent: void 0
+            }
+        }), K) $O(A);
+    return K
+}
+
+// READABLE (for understanding):
+function killLocalAgentInternal(taskId, setAppState) {
+    let wasKilled = false;
+
+    updateTaskState(taskId, setAppState, (task) => {
+        // Only kill running tasks
+        if (task.status !== "running") return task;
+
+        wasKilled = true;
+
+        // Abort the agent's controller
+        task.abortController?.abort();
+
+        // Run cleanup
+        task.unregisterCleanup?.();
+
+        // Return killed state
+        return {
+            ...task,
+            status: "killed",
+            endTime: Date.now(),
+            messages: task.messages?.length
+                ? [task.messages[task.messages.length - 1]]  // Keep only last message
+                : undefined,
+            abortController: undefined,
+            unregisterCleanup: undefined,
+            selectedAgent: undefined
+        };
+    });
+
+    // If we killed it, trigger any post-kill handlers
+    if (wasKilled) {
+        triggerPostKillHandlers(taskId);
+    }
+
+    return wasKilled;
+}
+
+// Mapping: x66→killLocalAgentInternal, A→taskId, q→setAppState,
+//   K→wasKilled, i9→updateTaskState, Y→task, $O→triggerPostKillHandlers
+```
+
+### 22.2 Kill Flow
+
+```
+handleKillAgentsPress (r)
+    │
+    ├── First press: Show notification "Press ctrl+f again..."
+    │
+    └── Second press (within 3s):
+        │
+        ├── U4q (killAllRunningAgents)
+        │       │
+        │       └── For each running local_agent:
+        │               x66 (killLocalAgentInternal)
+        │                   ├── abortController.abort()
+        │                   ├── unregisterCleanup()
+        │                   └── status = "killed"
+        │
+        ├── _Y4 (clearAgentNotifications)
+        │       └── xY.length = 0 (clear legacy queue)
+        │
+        └── d4q (markAgentNotified) - AFTER kill
+                └── Sets notified = true for UI display
+```
+
+---
+
+## 23. Related Documentation
+
+- **[README.md](./README.md)** - Module overview and quick reference
+- **[ui_interaction.md](./ui_interaction.md)** - UI layer interactions and spinner details
+- **[integration.md](./integration.md)** - Cross-module integration
+- **[interrupt_flow.md](./interrupt_flow.md)** - Complete interrupt lifecycle
+- **[algorithms.md](./algorithms.md)** - Algorithm deep analysis
+- **[constants.md](./constants.md)** - All steering constants
+- **[queue_system.md](./queue_system.md)** - Legacy queue system
+- **[streammode_state_machine.md](./streammode_state_machine.md)** - StreamMode state machine
+
+---
+
+**Last Updated**: 2026-03-24
+**Version**: Claude Code 2.1.76
