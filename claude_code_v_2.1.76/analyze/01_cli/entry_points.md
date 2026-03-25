@@ -1742,3 +1742,369 @@ let stateProviderElement = useMemo(
 The compiler inlines this to avoid the closure allocation overhead of `useMemo`. This matters because `AppStateRoot` is the root of the REPL's React tree and re-renders on every state change; the memoization ensures the `AppStateProvider` element is only recreated when its inputs actually change.
 
 **`onChangeAppStateHandler` is hardcoded:** Unlike the `initialState` which is passed as a prop, the `onChangeAppState` callback is hardcoded to `K11` in `AppStateRoot`. This is a deliberate coupling: the callback is a module-level singleton and there is no scenario where a different callback would be used for the main REPL render.
+
+---
+
+## Mode Detection Algorithm Deep-Dive
+
+### Interactive vs Headless Mode Detection
+
+The CLI determines execution mode through a series of checks. This section documents the complete decision tree.
+
+```javascript
+// ============================================
+// Mode Detection - Complete Decision Tree
+// Location: chunks.198.mjs (action handler) + chunks.1.mjs (helpers)
+// ============================================
+
+// Step 1: Determine if stdin is a TTY
+// In chunks.1.mjs:
+function isInteractive() {
+    return process.stdin.isTTY && process.stdout.isTTY;
+}
+
+function isNonInteractive() {
+    return !isInteractive();
+}
+
+// Step 2: SDK mode auto-detection (in action handler)
+let sdkUrl = options.sdkUrl ?? undefined;
+
+if (sdkUrl) {
+    // SDK mode overrides other settings
+    if (!inputFormat) inputFormat = "stream-json";
+    if (!outputFormat) outputFormat = "stream-json";
+    if (options.verbose === undefined) verbose = true;
+    if (!options.print) print = true;  // SDK implies print mode
+}
+
+// Step 3: Print mode detection
+let isNonInteractiveMode = isNonInteractive() || print || outputFormat !== undefined;
+
+// Step 4: Final mode determination
+if (isNonInteractiveMode) {
+    // Headless execution - no REPL
+    await runHeadless(options);
+} else {
+    // Interactive REPL
+    let { createRoot } = await import("ink");
+    let root = await createRoot(renderOptions);
+    await showSetupScreens(root, permissionMode);
+    // ... render REPL ...
+}
+```
+
+### Mode Detection Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MODE DETECTION DECISION TREE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Process Start                                                               │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Check TTY Status                                                       │  │
+│  │                                                                        │  │
+│  │ process.stdin.isTTY && process.stdout.isTTY                            │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ├─────────────────── false ───────────────────┐                     │
+│         │                                              │                     │
+│         ▼                                              ▼                     │
+│  ┌─────────────────┐                         ┌─────────────────────┐        │
+│  │ Interactive TTY │                         │ Non-TTY (pipe/     │        │
+│  │                 │                         │ redirect/CI)        │        │
+│  └────────┬────────┘                         └──────────┬──────────┘        │
+│           │                                             │                     │
+│           │                                             │                     │
+│           ▼                                             ▼                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Check CLI Flags                                                      │    │
+│  │                                                                      │    │
+│  │ Priority order:                                                      │    │
+│  │ 1. --sdk-url → SDK mode (stream-json I/O, verbose)                  │    │
+│  │ 2. --print → Print mode (headless, text output)                     │    │
+│  │ 3. --output-format → Print mode (headless, specified format)        │    │
+│  │ 4. -p (same as --print)                                              │    │
+│  │ 5. stdin is pipe → Print mode with stdin as prompt                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│           │                                                                 │
+│           ├──────────────────── Any flag set ────────────────────┐         │
+│           │                                                       │         │
+│           ▼                                                       ▼         │
+│  ┌─────────────────────┐                             ┌─────────────────────┐ │
+│  │ Interactive REPL    │                             │ Headless Execution  │ │
+│  │                     │                             │                     │ │
+│  │ • Ink/React UI      │                             │ • No terminal UI    │ │
+│  │ • Real-time stream  │                             │ • Print to stdout   │ │
+│  │ • Permission dialog │                             │ • Exit on complete  │ │
+│  │ • Session history   │                             │ • No history        │ │
+│  └─────────────────────┘                             └─────────────────────┘ │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### SDK Mode Configuration Matrix
+
+```javascript
+// ============================================
+// SDK Mode Auto-Configuration
+// Location: chunks.198.mjs action handler
+// ============================================
+
+const SDK_MODE_CONFIG = {
+    trigger: "--sdk-url <url>",
+
+    autoConfig: {
+        inputFormat: "stream-json",     // Stream input parsing
+        outputFormat: "stream-json",    // Stream output format
+        verbose: true,                  // Enable verbose logging
+        print: true,                    // Headless mode
+        includePartialMessages: true    // Real-time message chunks
+    },
+
+    communication: {
+        input: "stdin (stream-json)",
+        output: "stdout (stream-json)",
+        stderr: "debug logs (if --debug)"
+    },
+
+    messageTypes: {
+        input: ["user_message", "cancel", "interrupt"],
+        output: ["assistant_message", "tool_use", "tool_result", "error", "metadata"]
+    }
+};
+```
+
+### Headless vs Interactive Comparison
+
+| Feature | Interactive (REPL) | Headless (Print/SDK) |
+|---------|-------------------|---------------------|
+| Terminal UI | Ink/React components | None |
+| Input method | PromptInput component | stdin/file/argument |
+| Output method | Ink render to terminal | stdout (text/json/stream) |
+| Permission dialogs | Interactive prompts | Auto-deny or fail |
+| Streaming display | Real-time UI updates | Chunked output |
+| Session history | Saved to ~/.claude | None (unless --resume) |
+| Setup screens | Trust/policy dialogs | Skipped |
+| Abort handling | Escape/Ctrl+C | SIGINT handler |
+
+### Permission Mode Initialization
+
+```javascript
+// ============================================
+// Permission Context Building
+// Location: chunks.198.mjs (action handler) → chunks.172.mjs (U84)
+// ============================================
+
+async function buildPermissionContext(options) {
+    let {
+        allowedToolsCli = [],
+        disallowedToolsCli = [],
+        baseToolsCli = [],
+        permissionMode,
+        allowDangerouslySkipPermissions,
+        addDirs = []
+    } = options;
+
+    // Step 1: Start with default permission context
+    let context = {
+        mode: "default",
+        allowRules: [],
+        denyRules: [],
+        askRules: [],
+        workingDirectories: []
+    };
+
+    // Step 2: Apply --dangerously-skip-permissions
+    if (allowDangerouslySkipPermissions || dangerouslySkipPermissions) {
+        context.mode = "accept";
+        // Note: --dangerously-skip-permissions skips ALL permission checks
+        // Including trust dialog, tool permissions, etc.
+    }
+
+    // Step 3: Apply --permission-mode
+    if (permissionMode) {
+        context.mode = permissionMode;
+        // Valid modes: "accept", "plan", "auto", "dontAsk"
+    }
+
+    // Step 4: Parse tool rules from --allowed-tools and --disallowed-tools
+    for (const pattern of allowedToolsCli) {
+        const rule = parseToolPattern(pattern);
+        context.allowRules.push(rule);
+    }
+
+    for (const pattern of disallowedToolsCli) {
+        const rule = parseToolPattern(pattern);
+        context.denyRules.push(rule);
+    }
+
+    // Step 5: Add working directories
+    context.workingDirectories = addDirs.length > 0
+        ? addDirs
+        : [process.cwd()];
+
+    return { toolPermissionContext: context, warnings: [] };
+}
+
+// Tool pattern parsing:
+// "Bash" → { tool: "Bash", args: null }
+// "Bash(git:*)" → { tool: "Bash", args: { pattern: "git:*" } }
+// "Read" → { tool: "Read", args: null }
+// "*" → { tool: "*", args: null }  // All tools
+```
+
+### Mode Transition During Session
+
+```javascript
+// ============================================
+// Permission Mode Cycling (Shift+Tab in UI)
+// Location: chunks.183.mjs (cycleMode)
+// ============================================
+
+function cycleMode(currentMode) {
+    const MODE_CYCLE = ["default", "accept", "plan"];
+
+    const currentIndex = MODE_CYCLE.indexOf(currentMode);
+    const nextIndex = (currentIndex + 1) % MODE_CYCLE.length;
+
+    return MODE_CYCLE[nextIndex];
+}
+
+// Mode effects on tool availability:
+const MODE_TOOL_FILTERS = {
+    "default": {
+        // All tools available
+        // Permission prompts for non-whitelisted tools
+        description: "Tools require permission"
+    },
+    "accept": {
+        // All tools available
+        // Auto-approve safe tools (Read, Grep, Glob, etc.)
+        // Still prompt for Bash, Write, Edit
+        description: "Tools auto-approved"
+    },
+    "plan": {
+        // Only read-only tools available
+        // Blocked: Write, Edit, Bash, TaskCreate, TaskUpdate
+        // Allowed: Read, Grep, Glob, TaskGet, TaskList
+        description: "Plan mode - no edits"
+    }
+};
+```
+
+---
+
+## Session Initialization Sequence
+
+### Complete Initialization Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SESSION INITIALIZATION SEQUENCE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  run (OVz) action handler                                                    │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 1. preAction Hook                                                      │  │
+│  │                                                                        │  │
+│  │    initializeMdm()           → MDM policy check                       │  │
+│  │    runInitializers()         → Core setup                             │  │
+│  │    initializeErrorLogSink()  → Error capture                          │  │
+│  │    registerInlinePlugins()   → --plugin-dir handling                  │  │
+│  │    runMigrations()           → Settings migrations                    │  │
+│  │    syncSettings()            → Project settings sync                  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 2. Flag Processing                                                     │  │
+│  │                                                                        │  │
+│  │    Extract options from Commander.opts()                              │  │
+│  │    Validate flag combinations (--resume + --fork-session)             │  │
+│  │    Resolve model aliases (--model sonnet → claude-sonnet-4-6)         │  │
+│  │    Parse tool patterns (--allowed-tools)                              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 3. Permission Context Building                                         │  │
+│  │                                                                        │  │
+│  │    buildPermissionContext({                                           │  │
+│  │        allowedToolsCli,                                                │  │
+│  │        disallowedToolsCli,                                             │  │
+│  │        permissionMode,                                                 │  │
+│  │        allowDangerouslySkipPermissions                                │  │
+│  │    })                                                                  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 4. MCP Client Connection (if --mcp-config)                             │  │
+│  │                                                                        │  │
+│  │    loadMcpConfig(configPath)                                          │  │
+│  │    connectToMcpServers(servers)                                       │  │
+│  │    discoverMcpTools()                                                  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 5. Session State Creation                                              │  │
+│  │                                                                        │  │
+│  │    buildInitialState({                                                 │  │
+│  │        toolPermissionContext,                                          │  │
+│  │        options: { mainLoopModel, tools, mcpClients },                 │  │
+│  │        resumeSessionId,                                                │  │
+│  │        sessionName                                                     │  │
+│  │    })                                                                  │  │
+│  │                                                                        │  │
+│  │    createStateStore(initialState)                                      │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 6. Ink Render Setup                                                    │  │
+│  │                                                                        │  │
+│  │    createRenderOptions({                                               │  │
+│  │        fps: 60,                                                        │  │
+│  │        experimental: { suspense: true }                                │  │
+│  │    })                                                                  │  │
+│  │                                                                        │  │
+│  │    root = createRoot(options)                                          │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 7. Setup Screens (interactive mode only)                               │  │
+│  │                                                                        │  │
+│  │    showSetupScreens(root, permissionMode):                             │  │
+│  │    - Trust dialog (if new directory)                                   │  │
+│  │    - Policy acceptance (if enterprise)                                 │  │
+│  │    - IDE onboarding (if --ide)                                         │  │
+│  │    - Cost warning (if budget set)                                      │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ 8. REPL Render                                                         │  │
+│  │                                                                        │  │
+│  │    root.render(                                                        │  │
+│  │        <AppStateProvider initialState={initialState}>                  │  │
+│  │            <sessionOrchestrator {...props} />                          │  │
+│  │        </AppStateProvider>                                             │  │
+│  │    )                                                                   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Last Updated**: 2026-03-25
+**Version**: Claude Code 2.1.76
+**Status**: Complete - Enhanced with mode detection algorithm deep-dive

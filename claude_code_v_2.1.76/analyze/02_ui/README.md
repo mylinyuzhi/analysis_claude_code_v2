@@ -2,8 +2,30 @@
 
 > Terminal UI architecture for Claude Code CLI using Ink (React for CLI)
 >
-> **Symbol Validation Status**: All symbols cross-validated against source code on 2026-03-22.
+> **Symbol Validation Status**: ✅ COMPLETE - All symbols cross-validated against source code on 2026-03-26.
 > **Analysis Status**: ✅ COMPLETE - Deep algorithm analysis, cross-module integration, and source-level restoration done.
+> **Integration Status**: ✅ COMPLETE - Cross-module integration documented in [cli_ui_llm_integration.md](../00_overview/cli_ui_llm_integration.md), [cli_ui_llm_deep_integration.md](../00_overview/cli_ui_llm_deep_integration.md), and [ui_interaction_patterns.md](./ui_interaction_patterns.md).
+> **Joint Analysis**: ✅ COMPLETE - See [cli_ui_llm_complete_joint_analysis.md](../00_overview/cli_ui_llm_complete_joint_analysis.md) and [ui_interaction_state_machine_complete.md](./ui_interaction_state_machine_complete.md).
+> **Joint Analysis v2**: ✅ NEW - See [cli_ui_llm_joint_complete_v2.md](../00_overview/cli_ui_llm_joint_complete_v2.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+>
+> **NEW Joint Analysis Documents (2026-03-26)**:
+> - [cli_ui_llm_joint_complete_v8.md](../00_overview/cli_ui_llm_joint_complete_v8.md) - **LATEST v8**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
+> - [cli_ui_llm_joint_complete_v7.md](../00_overview/cli_ui_llm_joint_complete_v7.md) - v7: Complete joint analysis with source-level restoration, decision trees, and UI interaction patterns
+> - [cli_ui_llm_joint_complete_v5.md](../00_overview/cli_ui_llm_joint_complete_v5.md) - v5: Complete joint analysis with verified symbols, deep algorithms, and feature linkages
+> - [ui_interaction_state_machine_complete_v4.md](./ui_interaction_state_machine_complete_v4.md) - **NEW v4**: Complete UI state machine with source-level restoration and interaction patterns
+> - [ui_state_machine_complete_v3.md](./ui_state_machine_complete_v3.md) - v3: Complete UI state machine with source-level restoration
+> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - **NEW**: Complete cross-feature linkage documentation
+> - [cli_ui_llm_joint_analysis_final.md](../00_overview/cli_ui_llm_joint_analysis_final.md) - Final comprehensive joint analysis with source-level restoration
+> - [cli_ui_llm_joint_complete_v3.md](../00_overview/cli_ui_llm_joint_complete_v3.md) - Comprehensive joint analysis v3 with source-level restoration
+> - [ui_state_machine_complete_v2.md](./ui_state_machine_complete_v2.md) - **NEW**: Complete UI state machine analysis v2
+> - [cli_ui_llm_ui_interaction_complete_v3.md](../00_overview/cli_ui_llm_ui_interaction_complete_v3.md) - Complete UI interaction analysis v3
+> - [cli_ui_llm_algorithm_complete_restoration.md](../00_overview/cli_ui_llm_algorithm_complete_restoration.md) - Source-level algorithm restoration
+> - [cli_ui_llm_feature_interaction_matrix.md](../00_overview/cli_ui_llm_feature_interaction_matrix.md) - Cross-feature interactions
+>
+> **NEW Cross-Module Analysis Documents (2026-03-26)**:
+> - [cli_ui_llm_system_reminder_integration.md](../00_overview/cli_ui_llm_system_reminder_integration.md) - **NEW**: Complete System Reminder integration
+> - [cli_ui_llm_error_recovery_patterns_v2.md](../00_overview/cli_ui_llm_error_recovery_patterns_v2.md) - **NEW**: Cross-module error handling v2
+> - [cli_ui_llm_system_reminder_deep_integration.md](../00_overview/cli_ui_llm_system_reminder_deep_integration.md) - Complete attachment producer catalog
 >
 > **Symbol Correction (2026-03-22)**: `WJ` was incorrectly mapped to `normalizeMessages`. The correct symbol is `cM` at chunks.173.mjs:1999. `WJ` at chunks.5.mjs:945 is a Zod schema builder function, not related to message normalization.
 
@@ -28,12 +50,16 @@ The UI module manages all user-facing terminal rendering in Claude Code. It uses
 |----------|---------|
 | [dialog_system.md](./dialog_system.md) | Priority dispatcher, 13 dialog types, cancel behavior |
 | [elicitation_system.md](./elicitation_system.md) | MCP elicitation forms, JSON Schema rendering |
+| **[ui_interaction_state_machine_complete.md](./ui_interaction_state_machine_complete.md)** | **NEW**: Complete state machine analysis, dialog priority algorithm, cancel propagation |
+| [ui_interaction_state_machine.md](./ui_interaction_state_machine.md) | User interaction state machine, stream mode transitions, input modes |
 | [rendering_pipeline.md](./rendering_pipeline.md) | 7-stage pipeline, MessageList, normalization |
 | [user_interaction_loop.md](./user_interaction_loop.md) | REPL state machine, streaming modes |
 | [input_handling.md](./input_handling.md) | PromptInput, autocomplete, history, Vim mode |
 | [spinner_status.md](./spinner_status.md) | Spinner visibility, status text, loading states |
 | [streaming_ui.md](./streaming_ui.md) | Streaming tool uses, thinking blocks, transitions |
 | [integration_summary.md](./integration_summary.md) | Cross-module integration points |
+| [ui_interaction_patterns.md](./ui_interaction_patterns.md) | UI design patterns, keyboard flow, React/Ink architecture |
+| [keyboard_shortcut_flow.md](./keyboard_shortcut_flow.md) | Keybinding system, chord detection, mode cycling |
 
 ---
 
@@ -893,6 +919,12 @@ Added `/color` command symbols to `symbol_index_infra_integration.md`:
 - `SQ8` → colorCommandDefinition
 - `OFY` → handleColorCommand
 - `k3q` → colorCommandModule
+
+### Joint Analysis Documents
+
+- **[cli_ui_llm_joint_analysis.md](../00_overview/cli_ui_llm_joint_analysis.md)** - Complete CLI-UI-LLM integration analysis
+- **[algorithm_deep_dive.md](../00_overview/algorithm_deep_dive.md)** - Key algorithms: dialog priority, cancel handling
+- **[feature_interaction_matrix.md](../00_overview/feature_interaction_matrix.md)** - Cross-module feature interactions
 - `E3q` → initColorCommand
 - `wFY` → RESET_COLOR_VALUES
 

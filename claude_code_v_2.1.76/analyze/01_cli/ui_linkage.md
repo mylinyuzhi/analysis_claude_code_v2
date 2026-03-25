@@ -509,7 +509,741 @@ function onChangeAppStateHandler({ newState, oldState }) {
 
 ---
 
-## 9. Key Integration Points Summary
+## 10. Deep Integration: State Store Subscription Patterns
+
+### 10.1 The Subscription Model
+
+The `createStateStore` (WX1) implements a publish-subscribe pattern compatible with React's `useSyncExternalStore`. This enables components to subscribe to specific state slices without re-rendering on unrelated changes.
+
+**Subscription Flow:**
+
+```
+Component calls useAppState(selector)
+    │
+    ├── useSyncExternalStore(
+    │       store.subscribe,      ← Returns unsubscribe function
+    │       () => selector(store.getState())
+    │   )
+    │
+    └── React registers subscriber
+            │
+            ├── On setState: All subscribers notified
+            │
+            └── Component re-renders only if selector result changed
+```
+
+### 10.2 Selector Optimization Pattern
+
+```javascript
+// ============================================
+// useAppState - Selector-based state reading with bail-out
+// Location: chunks.148.mjs:2598-2610
+// ============================================
+
+// ORIGINAL (for source lookup):
+function M1(A) {
+    let q = A6(3), K = Bp8(), Y;
+    return (0, C7.useSyncExternalStore)(q.subscribe, () => A(q.getState()))
+}
+
+// READABLE (for understanding):
+function useAppState(selector) {
+    // Get store from context (memoized by React)
+    let store = useContext(StoreContext);
+
+    // useSyncExternalStore handles:
+    // 1. Subscribing to store changes
+    // 2. Running selector to get derived value
+    // 3. Bail-out if selector returns same reference
+    return useSyncExternalStore(
+        store.subscribe,                    // Subscribe to all changes
+        () => selector(store.getState())   // Selector runs on every change
+    );
+}
+
+// Mapping: M1→useAppState, A→selector, A6→useContext, C7→React,
+//          Bp8→useStoreContext, XU6→StoreContext
+```
+
+**Why this approach:**
+- **Selector pattern** prevents unnecessary re-renders. If `messages` changes but the component only reads `verbose`, no re-render occurs.
+- **Reference equality** (`Object.is`) determines if re-render is needed. Selectors should return stable references.
+- **No intermediate caching** at the store level—React's concurrent rendering handles batching.
+
+### 10.3 State Update Propagation
+
+```javascript
+// ============================================
+// State update propagation with onChange callback
+// Location: chunks.85.mjs:1747-1766 (inferred from WX1)
+// ============================================
+
+// READABLE (for understanding):
+function createStateStore(initialState, onChangeCallback) {
+    let currentState = initialState;
+    let subscribers = new Set();
+
+    return {
+        setState: (updater) => {
+            let prevState = currentState;
+            let nextState = updater(prevState);
+
+            // Bail-out: Same reference = no change
+            if (Object.is(nextState, prevState)) return;
+
+            currentState = nextState;
+
+            // 1. Synchronous callback FIRST (for side effects)
+            onChangeCallback?.({ newState: nextState, oldState: prevState });
+
+            // 2. Then notify all subscribers (React re-renders)
+            for (let notify of subscribers) notify();
+        }
+    };
+}
+```
+
+**Critical ordering:** The `onChangeCallback` runs BEFORE React subscriber notifications. This ensures:
+1. Disk writes complete before UI updates
+2. MCP server refresh starts before new state renders
+3. Telemetry events fire in correct order
+
+---
+
+## 11. Deep Integration: Agent Loop Invocation from UI
+
+### 11.1 The Query Entry Point
+
+The REPL component initiates LLM queries through the `onQuery` callback, which builds context and invokes `mainAgentLoop` (Yh):
+
+```javascript
+// ============================================
+// sessionOrchestrator (ot8) - Main REPL orchestration
+// Location: chunks.196.mjs:3-29
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ot8({
+    commands: A,
+    debug: q,
+    initialTools: K,
+    initialMessages: Y,
+    pendingHookMessages: z,
+    initialFileHistorySnapshots: _,
+    initialContentReplacements: w,
+    initialAgentName: O,
+    initialAgentColor: $,
+    mcpClients: H,
+    dynamicMcpConfig: j,
+    autoConnectIdeFlag: J,
+    strictMcpConfig: M = !1,
+    systemPrompt: D,
+    appendSystemPrompt: X,
+    onBeforeQuery: P,
+    onTurnComplete: W,
+    disabled: Z = !1,
+    mainThreadAgentDefinition: G,
+    disableSlashCommands: f = !1,
+    taskListId: v,
+    remoteSessionConfig: N,
+    directConnectConfig: V,
+    sshSession: L,
+    thinkingConfig: h
+}) { ... }
+
+// READABLE (for understanding):
+function sessionOrchestrator({
+    commands,                    // Slash commands registry
+    debug,                       // Debug mode flag
+    initialTools,               // Initial tool definitions
+    initialMessages,            // Session messages from --resume
+    pendingHookMessages,        // Messages from PreToolUse hooks
+    initialFileHistorySnapshots,// Git status snapshots
+    initialContentReplacements, // Content replacement rules
+    initialAgentName,           // Agent name for display
+    initialAgentColor,          // Agent color for UI
+    mcpClients,                 // MCP server connections
+    dynamicMcpConfig,           // Dynamic MCP configuration
+    autoConnectIdeFlag,         // Auto-connect to IDE
+    strictMcpConfig = false,    // Strict MCP config validation
+    systemPrompt,               // Custom system prompt
+    appendSystemPrompt,         // Appended system prompt
+    onBeforeQuery,              // Pre-query hook
+    onTurnComplete,             // Post-turn callback
+    disabled = false,           // Disable REPL
+    mainThreadAgentDefinition,  // Agent definition for main thread
+    disableSlashCommands = false,
+    taskListId,                 // Todo list identifier
+    remoteSessionConfig,        // Remote session configuration
+    directConnectConfig,        // Direct connect configuration
+    sshSession,                 // SSH session info
+    thinkingConfig              // Extended thinking config
+}) { ... }
+
+// Mapping: ot8→sessionOrchestrator, A→commands, q→debug, K→initialTools,
+//          Y→initialMessages, Z→disabled, G→mainThreadAgentDefinition
+```
+
+### 11.2 Building the Tool Use Context
+
+Before invoking the agent loop, the session orchestrator builds a comprehensive `toolUseContext` object:
+
+```javascript
+// ============================================
+// buildToolUseContext (OW) - Constructs context for agent loop
+// Location: chunks.196.mjs:562-658
+// ============================================
+
+// ORIGINAL (for source lookup):
+let OW = N8.useCallback((P1, Y8, V8, c7) => {
+    let FA = l.getState();
+    return {
+        abortController: V8,
+        options: {
+            commands: qA,
+            tools: U8,
+            debug: q,
+            verbose: FA.verbose,
+            mainLoopModel: c7,
+            thinkingConfig: FA.thinkingEnabled !== !1 ? h : { type: "disabled" },
+            mcpClients: gt8(H, FA.mcp.clients),
+            mcpResources: FA.mcp.resources,
+            ideInstallationStatus: K1,
+            isNonInteractiveSession: !1,
+            dynamicMcpConfig: T6,
+            theme: OT,
+            agentDefinitions: P4 ? {...FA.agentDefinitions, allowedAgentTypes: P4} : FA.agentDefinitions,
+            customSystemPrompt: D,
+            appendSystemPrompt: X,
+            refreshTools: () => {...}
+        },
+        getAppState: () => l.getState(),
+        setAppState: i,
+        messages: P1,
+        setMessages: gq,
+        // ... more callbacks
+    }
+}, [qA, U8, q, H, K1, T6, OT, P4, l, i, V86, o6, Q6, aN, qS, Z, D, X, S2])
+
+// READABLE (for understanding):
+let buildToolUseContext = useCallback((messages, extraMessages, abortController, model) => {
+    let appState = store.getState();
+
+    return {
+        // Abort controller for cancellation
+        abortController: abortController,
+
+        // Options passed to LLM API
+        options: {
+            commands: slashCommands,           // Available slash commands
+            tools: availableTools,             // Tool definitions
+            debug: debugMode,                  // Debug flag
+            verbose: appState.verbose,         // Verbose logging
+            mainLoopModel: model,              // Model to use
+            thinkingConfig: appState.thinkingEnabled
+                ? thinkingConfig
+                : { type: "disabled" },
+            mcpClients: activeMcpClients,      // Connected MCP servers
+            mcpResources: appState.mcp.resources,
+            ideInstallationStatus: ideStatus,
+            isNonInteractiveSession: false,
+            dynamicMcpConfig: dynamicMcpConfig,
+            theme: currentTheme,
+            agentDefinitions: agentDefs,
+            customSystemPrompt: customPrompt,
+            appendSystemPrompt: appendPrompt,
+            refreshTools: () => { /* rebuild tool list */ }
+        },
+
+        // State accessors
+        getAppState: () => store.getState(),
+        setAppState: setState,
+
+        // Message management
+        messages: messages,
+        setMessages: setMessages,
+
+        // Callbacks
+        updateFileHistoryState: (updater) => {...},
+        updateAttributionState: (updater) => {...},
+        openMessageSelector: () => {...},
+        onChangeAPIKey: reverifyAPIKey,
+        readFileState: fileStateRef,
+        setToolJSX: setToolJSX,
+        addNotification: addNotification,
+        sendOSNotification: sendNotification,
+        onChangeDynamicMcpConfig: updateMcpConfig,
+        onInstallIDEExtension: installIDEExtension,
+
+        // Streaming state
+        nestedMemoryAttachmentTriggers: new Set(),
+        dynamicSkillDirTriggers: new Set(),
+        discoveredSkillNames: new Set(),
+        setResponseLength: setResponseLength,
+        pushApiMetricsEntry: undefined,
+        setStreamMode: setStreamMode,
+        onCompactProgress: (event) => { /* handle compact events */ },
+        setInProgressToolUseIDs: setInProgressToolUseIDs,
+        setHasInterruptibleToolInProgress: (flag) => {...},
+
+        // Session management
+        resume: resumeSession,
+        setConversationId: setConversationId,
+        requestPrompt: undefined,
+        contentReplacementState: contentReplacements
+    };
+}, [dependencies]);
+
+// Mapping: OW→buildToolUseContext, l→store, i→setAppState, gq→setMessages,
+//          qA→slashCommands, U8→availableTools, H→mcpClients
+```
+
+### 11.3 Invoking the Main Agent Loop
+
+```javascript
+// ============================================
+// mainAgentLoop (Yh) - Entry point for LLM queries
+// Location: chunks.148.mjs:875-879
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* Yh(A) {
+    let q = [],
+        K = yield* omY(A, q);
+    for (let Y of q) pb(Y, "completed");
+    return K
+}
+
+// READABLE (for understanding):
+async function* mainAgentLoop(context) {
+    // Track completed tool uses for post-processing
+    let completedToolUses = [];
+
+    // Delegate to core loop
+    let result = yield* mainAgentLoopCore(context, completedToolUses);
+
+    // Mark all tool uses as completed
+    for (let toolUse of completedToolUses) {
+        markToolUseCompleted(toolUse, "completed");
+    }
+
+    return result;
+}
+
+// Mapping: Yh→mainAgentLoop, q→completedToolUses, omY→mainAgentLoopCore,
+//          pb→markToolUseCompleted
+```
+
+### 11.4 The Core Agent Loop
+
+```javascript
+// ============================================
+// mainAgentLoopCore (omY) - Core iteration logic
+// Location: chunks.148.mjs:882-903
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function* omY(A, q) {
+    let {
+        systemPrompt: K,
+        userContext: Y,
+        systemContext: z,
+        canUseTool: _,
+        fallbackModel: w,
+        querySource: O,
+        maxTurns: $,
+        skipCacheWrite: H
+    } = A, j = A.deps ?? SKq(), J = {
+        messages: A.messages,
+        toolUseContext: A.toolUseContext,
+        maxOutputTokensOverride: A.maxOutputTokensOverride,
+        autoCompactTracking: void 0,
+        stopHookActive: void 0,
+        maxOutputTokensRecoveryCount: 0,
+        hasAttemptedReactiveCompact: !1,
+        turnCount: 1,
+        pendingToolUseSummary: void 0,
+        transition: void 0
+    }, M = null, D = RKq();
+    while (!0) { ... }
+}
+
+// READABLE (for understanding):
+async function* mainAgentLoopCore(params, completedToolUses) {
+    let {
+        systemPrompt,
+        userContext,
+        systemContext,
+        canUseTool,
+        fallbackModel,
+        querySource,
+        maxTurns,
+        skipCacheWrite
+    } = params;
+
+    // Dependency injection for testing/mocking
+    let deps = params.deps ?? createDefaultDependencies();
+
+    // Iteration state (persists across turns)
+    let iterationState = {
+        messages: params.messages,
+        toolUseContext: params.toolUseContext,
+        maxOutputTokensOverride: params.maxOutputTokensOverride,
+        autoCompactTracking: undefined,
+        stopHookActive: undefined,
+        maxOutputTokensRecoveryCount: 0,
+        hasAttemptedReactiveCompact: false,
+        turnCount: 1,
+        pendingToolUseSummary: undefined,
+        transition: undefined
+    };
+
+    // Main loop
+    while (true) {
+        // ... turn processing
+    }
+}
+
+// Mapping: omY→mainAgentLoopCore, A→params, q→completedToolUses,
+//          K→systemPrompt, Y→userContext, z→systemContext,
+//          j→iterationState, SKq→createDefaultDependencies
+```
+
+---
+
+## 12. Deep Integration: Event Stream Processing
+
+### 12.1 Event Flow Through the Pipeline
+
+```
+Anthropic API SSE Stream
+        │
+        ▼
+j.callModel() → Anthropic SDK
+        │
+        ▼ for await (event of stream)
+        │
+┌───────┴───────┐
+│  Yield event  │
+└───────┬───────┘
+        │
+        ▼
+Agent Loop processes:
+  - content_block_start → setStreamMode
+  - content_block_delta → accumulate text/tool input
+  - message_stop → finalize
+        │
+        ▼
+Yield processed event to UI:
+  - type: "assistant" for complete messages
+  - type: "tombstone" for removed messages
+  - type: "stream_event" for real-time updates
+        │
+        ▼
+handleStreamedEvent → processStreamEvent
+        │
+        ▼
+React setState calls
+```
+
+### 12.2 Streaming Tool Executor Integration
+
+```javascript
+// ============================================
+// StreamingToolExecutor (ui6) - Parallel tool execution during streaming
+// Location: chunks.148.mjs:3 (class definition)
+// ============================================
+
+// ORIGINAL (for source lookup):
+let s = D.gates.streamingToolExecution ? new ui6(X.options.tools, _, X) : null;
+
+// Later in the loop:
+if (s && !X.abortController.signal.aborted) {
+    for (let C6 of u6) s.addTool(C6, Q6);  // Add tool_use to executor
+}
+
+if (s && !X.abortController.signal.aborted) {
+    for (let u6 of s.getCompletedResults())  // Get completed tool results
+        if (u6.message) yield u6.message;
+}
+
+// READABLE (for understanding):
+// Create streaming tool executor if gate is enabled
+let streamingToolExecutor = featureGates.streamingToolExecution
+    ? new StreamingToolExecutor(tools, canUseTool, toolUseContext)
+    : null;
+
+// During streaming, add tool_use blocks to executor
+if (streamingToolExecutor && !abortController.signal.aborted) {
+    for (let toolUseBlock of assistantMessageToolUses) {
+        streamingToolExecutor.addTool(toolUseBlock, assistantMessage);
+    }
+}
+
+// Yield completed tool results as they finish
+if (streamingToolExecutor && !abortController.signal.aborted) {
+    for (let result of streamingToolExecutor.getCompletedResults()) {
+        if (result.message) {
+            yield result.message;  // Tool result becomes user message
+        }
+    }
+}
+
+// Mapping: ui6→StreamingToolExecutor, s→streamingToolExecutor,
+//          D.gates→featureGates, X.options.tools→tools,
+//          _→canUseTool, X→toolUseContext
+```
+
+**Key insight:** The `StreamingToolExecutor` enables parallel tool execution while the LLM is still streaming. As each `tool_use` block completes, it's added to the executor queue. The executor runs tools concurrently and yields results back to the agent loop as they complete.
+
+---
+
+## 13. Deep Integration: Error Handling Coordination
+
+### 13.1 Error Recovery Patterns
+
+```javascript
+// ============================================
+// Error handling in mainAgentLoopCore
+// Location: chunks.148.mjs:1116-1149
+// ============================================
+
+// ORIGINAL (for source lookup):
+} catch (D6) {
+    if (D6 instanceof R36 && w) {
+        if (N6 = w, o = !0, yield* Sp8(e, "Model fallback triggered"),
+            e.length = 0, Y6.length = 0, H6.length = 0, J6 = !1, s)
+            s.discard(), s = new ui6(X.options.tools, _, X);
+        X.options.mainLoopModel = w;
+        d("tengu_model_fallback_triggered", {...});
+        continue
+    }
+    throw D6
+}
+
+// ... later:
+} catch (D6) {
+    _6(D6);
+    let Q6 = D6 instanceof Error ? D6.message : String(D6);
+    d("tengu_query_error", {...});
+    if (D6 instanceof n06 || D6 instanceof pd)
+        return yield y9({content: D6.message}), {reason: "image_error"};
+    return yield* Sp8(e, Q6), yield Ug({toolUse: !1}), {reason: "model_error", error: D6}
+}
+
+// READABLE (for understanding):
+// Model fallback recovery
+} catch (error) {
+    if (error instanceof OverloadedError && fallbackModel) {
+        // Switch to fallback model
+        currentModel = fallbackModel;
+        shouldRetry = true;
+
+        // Yield notification to user
+        yield* addErrorMessage(assistantMessages, "Model fallback triggered");
+
+        // Reset all buffers
+        assistantMessages.length = 0;
+        toolResults.length = 0;
+        toolUseBlocks.length = 0;
+        hasToolExecution = false;
+
+        // Discard and recreate streaming tool executor
+        if (streamingToolExecutor) {
+            streamingToolExecutor.discard();
+            streamingToolExecutor = new StreamingToolExecutor(tools, canUseTool, context);
+        }
+
+        // Update model in options
+        context.options.mainLoopModel = fallbackModel;
+
+        // Log telemetry
+        logEvent("tengu_model_fallback_triggered", {
+            original_model: error.originalModel,
+            fallback_model: fallbackModel,
+            entrypoint: "cli",
+            queryChainId: chainId,
+            queryDepth: queryTracking.depth
+        });
+
+        continue;  // Retry with fallback model
+    }
+    throw error;
+}
+
+// Final error handling
+} catch (error) {
+    reportError(error);
+    let errorMessage = error instanceof Error ? error.message : String(error);
+
+    logEvent("tengu_query_error", {
+        assistantMessages: assistantMessages.length,
+        toolUses: assistantMessages.flatMap(m =>
+            m.message.content.filter(c => c.type === "tool_use")
+        ).length,
+        queryChainId: chainId,
+        queryDepth: queryTracking.depth
+    });
+
+    // Image processing errors have special handling
+    if (error instanceof ImageProcessingError || error instanceof ImageValidationError) {
+        yield createUserMessage({content: error.message});
+        return { reason: "image_error" };
+    }
+
+    // Generic error: yield error message and cleanup
+    yield* addErrorMessage(assistantMessages, errorMessage);
+    yield updateUserMessage({toolUse: false});
+
+    reportErrorToTelemetry("Query error", error);
+
+    return { reason: "model_error", error: error };
+}
+
+// Mapping: D6→error, R36→OverloadedError, w→fallbackModel, o→shouldRetry,
+//          Sp8→addErrorMessage, e→assistantMessages, Y6→toolResults,
+//          H6→toolUseBlocks, J6→hasToolExecution, s→streamingToolExecutor
+```
+
+### 13.2 Abort Handling
+
+```javascript
+// ============================================
+// Abort handling in mainAgentLoopCore
+// Location: chunks.148.mjs:1152-1161
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (X.abortController.signal.aborted) {
+    if (s) {
+        for await (let D6 of s.getRemainingResults())
+            if (D6.message) yield D6.message
+    } else yield* Sp8(e, "Interrupted by user");
+    if (X.abortController.signal.reason !== "interrupt")
+        yield Ug({toolUse: !1});
+    return {reason: "aborted_streaming"}
+}
+
+// READABLE (for understanding):
+if (abortController.signal.aborted) {
+    // If using streaming tool executor, wait for remaining results
+    if (streamingToolExecutor) {
+        for await (let result of streamingToolExecutor.getRemainingResults()) {
+            if (result.message) {
+                yield result.message;  // Yield any completed tool results
+            }
+        }
+    } else {
+        // Without streaming executor, add interruption message
+        yield* addErrorMessage(assistantMessages, "Interrupted by user");
+    }
+
+    // If abort wasn't an "interrupt" (e.g., user cancel vs timeout)
+    if (abortController.signal.reason !== "interrupt") {
+        yield updateUserMessage({toolUse: false});
+    }
+
+    return { reason: "aborted_streaming" };
+}
+
+// Mapping: X.abortController→abortController, s→streamingToolExecutor,
+//          Sp8→addErrorMessage, e→assistantMessages, Ug→updateUserMessage
+```
+
+### 13.3 Tombstone Event for Context Overflow
+
+```javascript
+// ============================================
+// Tombstone event generation for orphaned messages
+// Location: chunks.148.mjs:1062-1071
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (D6) {
+    for (let u6 of e) yield {
+        type: "tombstone",
+        message: u6
+    };
+    if (d("tengu_orphaned_messages_tombstoned", {
+        orphanedMessageCount: e.length,
+        queryChainId: u,
+        queryDepth: R.depth
+    }), e.length = 0, Y6.length = 0, H6.length = 0, J6 = !1, s)
+        s.discard(), s = new ui6(X.options.tools, _, X)
+}
+
+// READABLE (for understanding):
+if (contextOverflowDetected) {
+    // Yield tombstone for every orphaned message
+    for (let msg of orphanedMessages) {
+        yield {
+            type: "tombstone",
+            message: msg
+        };
+    }
+
+    // Log telemetry
+    logEvent("tengu_orphaned_messages_tombstoned", {
+        orphanedMessageCount: orphanedMessages.length,
+        queryChainId: chainId,
+        queryDepth: queryTracking.depth
+    });
+
+    // Reset all buffers
+    orphanedMessages.length = 0;
+    toolResults.length = 0;
+    toolUseBlocks.length = 0;
+    hasToolExecution = false;
+
+    // Reset streaming tool executor
+    if (streamingToolExecutor) {
+        streamingToolExecutor.discard();
+        streamingToolExecutor = new StreamingToolExecutor(tools, canUseTool, context);
+    }
+}
+
+// Mapping: D6→contextOverflowDetected, e→orphanedMessages, u→chainId,
+//          R→queryTracking, ui6→StreamingToolExecutor, s→streamingToolExecutor
+```
+
+---
+
+## 14. Cross-Module State Synchronization
+
+### 14.1 State Synchronization Patterns
+
+The CLI, UI, and LLM core maintain synchronized state through several mechanisms:
+
+| State Source | Sync Mechanism | Target |
+|--------------|----------------|--------|
+| CLI flags | Initial state object | AppState store |
+| AppState store | `onChangeAppStateHandler` | Disk persistence |
+| Tool execution | `setAppState` callback | UI components |
+| Streaming events | `processStreamEvent` | React state |
+| Abort signal | AbortController | Agent loop + UI |
+
+### 14.2 Concurrent State Updates
+
+React batches state updates within a single event loop tick:
+
+```javascript
+// ============================================
+// Batched state updates example
+// Location: chunks.196.mjs:694-720 (inferred)
+// ============================================
+
+// These updates are batched into a single re-render:
+setStreamMode("tool-use");                    // Update stream mode
+setResponseLength(prev => prev + chunkLen);   // Update token count
+setStreamingToolUses(prev =>                  // Update tool preview
+    new Map(prev).set(toolId, toolUse)
+);
+// Only ONE re-render occurs after all updates
+```
+
+---
+
+## 15. Key Integration Points Summary
 
 | Integration Point | Location | Description |
 |-------------------|----------|-------------|
@@ -523,3 +1257,10 @@ function onChangeAppStateHandler({ newState, oldState }) {
 | useSetAppState | `chunks.148.mjs:2613` | State writer |
 | onChangeAppStateHandler | `chunks.176.mjs:581` | State persistence |
 | initialState construction | `chunks.192.mjs` | CLI flags to React state |
+| sessionOrchestrator | `chunks.196.mjs:3` | Main REPL orchestration |
+| buildToolUseContext | `chunks.196.mjs:562` | Context builder for agent loop |
+| mainAgentLoop | `chunks.148.mjs:875` | Agent loop entry point |
+| mainAgentLoopCore | `chunks.148.mjs:882` | Core iteration logic |
+| StreamingToolExecutor | `chunks.148.mjs:3` | Parallel tool execution |
+| handleCancel | `chunks.196.mjs:420` | Cancel propagation |
+| getInputDialogType | `chunks.196.mjs:387` | Dialog priority dispatcher |

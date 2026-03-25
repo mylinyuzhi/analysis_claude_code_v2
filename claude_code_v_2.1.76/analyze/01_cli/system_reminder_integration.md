@@ -740,7 +740,443 @@ async function handleSessionResume(sessionId, options) {
 
 ---
 
-## 8. Related Documentation
+## 10. Deep Analysis: Attachment Production Pipeline
+
+### 10.1 assembleAllAttachments (_uY) - Main Orchestrator
+
+**Location:** chunks.147.mjs:3-18
+
+```javascript
+// ============================================
+// assembleAllAttachments - Main attachment production orchestrator
+// Location: chunks.147.mjs:3-18
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    let w = sK(),
+        O = setTimeout((W) => W.abort(), 1000, w),
+        $ = {...q, abortController: w},
+        H = !q.agentId,
+        j = A ? [Hz("at_mentioned_files", () => RuY(A, $)), Hz("mcp_resources", () => SuY(A, $)),
+                 Hz("agent_mentions", () => Promise.resolve(huY(A, q.options.agentDefinitions.activeAgents))),
+                 ...[]] : [],
+        J = await Promise.all(j),
+        M = [Hz("date_change", () => Promise.resolve(fuY())),
+             Hz("ultrathink_effort", () => Promise.resolve(TuY(A))),
+             Hz("deferred_tools_delta", () => Promise.resolve(xE1(q.options.tools, q.options.mainLoopModel, z))),
+             Hz("mcp_instructions_delta", () => Promise.resolve(uE1(q.options.mcpClients, q.options.tools, q.options.mainLoopModel, z))),
+             Hz("changed_files", () => CuY($)),
+             Hz("nested_memory", () => IuY($)),
+             Hz("dynamic_skill", () => BuY($)),
+             Hz("skill_listing", () => guY($)),
+             Hz("ultra_claude_md", async () => VuY(z)),
+             Hz("plan_mode", () => DuY(z, q)),
+             Hz("plan_mode_exit", () => XuY(q)),
+             Hz("auto_mode", () => ZuY(z, q)),
+             Hz("auto_mode_exit", () => GuY(q)),
+             Hz("todo_reminders", () => r$() ? auY(z, q) : ruY(z, q)),
+             ...E7() ? [..._ === "session_memory" ? [] : [Hz("teammate_mailbox", async () => euY(q))],
+                        Hz("team_context", async () => AmY(z ?? []))] : [],
+             Hz("agent_pending_messages", async () => $uY(q)),
+             Hz("critical_system_reminder", () => Promise.resolve(vuY(q)))],
+        D = H ? [Hz("ide_selection", async () => kuY(K, q)),
+                 Hz("ide_opened_file", async () => LuY(K, q)),
+                 Hz("output_style", async () => Promise.resolve(NuY())),
+                 Hz("diagnostics", async () => cuY(q)),
+                 Hz("lsp_diagnostics", async () => luY(q)),
+                 Hz("unified_tasks", async () => suY(q)),
+                 Hz("async_hook_responses", async () => tuY()),
+                 Hz("token_usage", async () => Promise.resolve(qmY(z ?? [], q.options.mainLoopModel))),
+                 Hz("budget_usd", async () => Promise.resolve(YmY(q.options.maxBudgetUsd))),
+                 Hz("output_token_usage", async () => Promise.resolve(KmY())),
+                 Hz("verify_plan_reminder", async () => _mY(z, q)),
+                 Hz("queued_commands", () => OuY(Y))] : [],
+        [X, P] = await Promise.all([Promise.all(M), Promise.all(D)]);
+    return clearTimeout(O), [...J.flat(), ...X.flat(), ...P.flat()].filter((W) => W !== void 0 && W !== null)
+}
+
+// READABLE (for understanding):
+async function assembleAllAttachments(
+    atMentionedFiles,     // @-mentioned files from user input
+    toolUseContext,       // Session context with options, state accessors
+    ideSelection,         // IDE selection state
+    queuedCommands,       // Queued command inputs
+    messageHistory,       // Recent message history for throttling
+    querySource           // Source of query (e.g., "compact", "session_memory")
+) {
+    // Early exit if attachments disabled
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) ||
+        parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
+        return [];
+    }
+
+    // Create abort controller with 1-second timeout
+    let abortController = createAbortController();
+    let timeoutId = setTimeout((ctrl) => ctrl.abort(), 1000, abortController);
+
+    // Augment context with abort controller
+    let context = {
+        ...toolUseContext,
+        abortController: abortController
+    };
+
+    // Determine if this is main thread (not subagent)
+    let isMainThread = !toolUseContext.agentId;
+
+    // Phase 1: Pre-compute attachments that depend on user input (parallel)
+    let userInputAttachments = atMentionedFiles ? [
+        timedAttachmentProducer("at_mentioned_files", () => produceAtMentionedFiles(atMentionedFiles, context)),
+        timedAttachmentProducer("mcp_resources", () => produceMcpResources(atMentionedFiles, context)),
+        timedAttachmentProducer("agent_mentions", () => produceAgentMentions(atMentionedFiles, context.options.agentDefinitions.activeAgents))
+    ] : [];
+    let preComputedResults = await Promise.all(userInputAttachments);
+
+    // Phase 2: Compute core attachments (always run, parallel)
+    let coreAttachments = [
+        timedAttachmentProducer("date_change", () => produceDateChangeAttachment()),
+        timedAttachmentProducer("ultrathink_effort", () => produceUltrathinkEffortAttachment(atMentionedFiles)),
+        timedAttachmentProducer("deferred_tools_delta", () => produceDeferredToolsDelta(context.options.tools, context.options.mainLoopModel, messageHistory)),
+        timedAttachmentProducer("mcp_instructions_delta", () => produceMcpInstructionsDelta(context.options.mcpClients, context.options.tools, context.options.mainLoopModel, messageHistory)),
+        timedAttachmentProducer("changed_files", () => produceChangedFilesAttachment(context)),
+        timedAttachmentProducer("nested_memory", () => produceNestedMemoryAttachment(context)),
+        timedAttachmentProducer("dynamic_skill", () => produceDynamicSkillAttachment(context)),
+        timedAttachmentProducer("skill_listing", () => produceSkillListingAttachment(context)),
+        timedAttachmentProducer("ultra_claude_md", async () => produceUltraClaudeMdAttachment(messageHistory)),
+        timedAttachmentProducer("plan_mode", () => producePlanModeAttachment(messageHistory, context)),
+        timedAttachmentProducer("plan_mode_exit", () => producePlanModeExitAttachment(context)),
+        timedAttachmentProducer("auto_mode", () => produceAutoModeAttachment(messageHistory, context)),
+        timedAttachmentProducer("auto_mode_exit", () => produceAutoModeExitAttachment(context)),
+        timedAttachmentProducer("todo_reminders", () => isPlanMode() ? producePlanTodoReminder(messageHistory, context) : produceTodoReminder(messageHistory, context)),
+
+        // Team mode attachments (conditional)
+        ...(isTeamMode() ? [
+            ...(querySource === "session_memory" ? [] : [timedAttachmentProducer("teammate_mailbox", async () => produceTeammateMailboxAttachment(context))]),
+            timedAttachmentProducer("team_context", async () => produceTeamContextAttachment(messageHistory ?? []))
+        ] : []),
+
+        timedAttachmentProducer("agent_pending_messages", async () => produceAgentPendingMessagesAttachment(context)),
+        timedAttachmentProducer("critical_system_reminder", () => produceCriticalSystemReminder(context))
+    ];
+
+    // Phase 3: Compute main-thread-only attachments (parallel)
+    let mainThreadAttachments = isMainThread ? [
+        timedAttachmentProducer("ide_selection", async () => produceIdeSelectionAttachment(ideSelection, context)),
+        timedAttachmentProducer("ide_opened_file", async () => produceIdeOpenedFileAttachment(ideSelection, context)),
+        timedAttachmentProducer("output_style", async () => produceOutputStyleAttachment()),
+        timedAttachmentProducer("diagnostics", async () => produceDiagnosticsAttachment(context)),
+        timedAttachmentProducer("lsp_diagnostics", async () => produceLspDiagnosticsAttachment(context)),
+        timedAttachmentProducer("unified_tasks", async () => produceUnifiedTasksAttachment(context)),
+        timedAttachmentProducer("async_hook_responses", async () => produceAsyncHookResponsesAttachment()),
+        timedAttachmentProducer("token_usage", async () => produceTokenUsageAttachment(messageHistory ?? [], context.options.mainLoopModel)),
+        timedAttachmentProducer("budget_usd", async () => produceBudgetAttachment(context.options.maxBudgetUsd)),
+        timedAttachmentProducer("output_token_usage", async () => produceOutputTokenUsageAttachment()),
+        timedAttachmentProducer("verify_plan_reminder", async () => produceVerifyPlanReminderAttachment(messageHistory, context)),
+        timedAttachmentProducer("queued_commands", () => produceQueuedCommandsAttachment(queuedCommands))
+    ] : [];
+
+    // Execute all producers in parallel
+    let [coreResults, mainThreadResults] = await Promise.all([
+        Promise.all(coreAttachments),
+        Promise.all(mainThreadAttachments)
+    ]);
+
+    // Clear timeout and combine results
+    clearTimeout(timeoutId);
+
+    // Flatten and filter out null/undefined results
+    return [...preComputedResults.flat(), ...coreResults.flat(), ...mainThreadResults.flat()]
+        .filter((attachment) => attachment !== undefined && attachment !== null);
+}
+
+// Mapping: _uY→assembleAllAttachments, A→atMentionedFiles, q→toolUseContext,
+//          K→ideSelection, Y→queuedCommands, z→messageHistory, _→querySource,
+//          Hz→timedAttachmentProducer, t6→parseBoolean, sK→createAbortController,
+//          E7→isTeamMode, r$→isPlanMode, d→logTelemetry, jV→reportError
+```
+
+**Key Design Insights:**
+
+1. **Three-phase parallel execution:**
+   - Phase 1: User-input-dependent attachments (@-mentions, MCP resources, agent mentions)
+   - Phase 2: Core attachments (mode control, memory, skills, status)
+   - Phase 3: Main-thread-only attachments (IDE, diagnostics, budget)
+
+2. **Abort controller pattern:** A 1-second timeout ensures attachment production doesn't block queries indefinitely. Each producer should check `abortController.signal.aborted`.
+
+3. **Conditional attachment sets:**
+   - Team mode adds `teammate_mailbox` and `team_context`
+   - Main thread adds IDE, diagnostics, budget attachments
+   - Session memory mode skips teammate_mailbox (infinite loop prevention)
+
+4. **Telemetry sampling:** 5% of producer calls are sampled for duration and size metrics.
+
+---
+
+### 10.2 timedAttachmentProducer (Hz) - Telemetry Wrapper
+
+**Location:** chunks.147.mjs:20-46
+
+```javascript
+// ============================================
+// timedAttachmentProducer - Wraps producer with telemetry
+// Location: chunks.147.mjs:20-46
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Hz(A, q) {
+    let K = Date.now();
+    try {
+        let Y = await q(),
+            z = Date.now() - K;
+        if (Math.random() < 0.05) {
+            let _ = Y.filter((w) => w !== void 0 && w !== null).reduce((w, O) => {
+                return w + B6(O).length
+            }, 0);
+            d("tengu_attachment_compute_duration", {
+                label: A,
+                duration_ms: z,
+                attachment_size_bytes: _,
+                attachment_count: Y.length
+            })
+        }
+        return Y
+    } catch (Y) {
+        let z = Date.now() - K;
+        if (Math.random() < 0.05) d("tengu_attachment_compute_duration", {
+            label: A,
+            duration_ms: z,
+            error: !0
+        });
+        return _6(Y), jV(`Attachment error in ${A}`, Y), []
+    }
+}
+
+// READABLE (for understanding):
+async function timedAttachmentProducer(label, producer) {
+    let startTime = Date.now();
+
+    try {
+        let result = await producer();
+        let duration = Date.now() - startTime;
+
+        // Sample 5% of calls for telemetry
+        if (Math.random() < 0.05) {
+            let totalSizeBytes = result
+                .filter((attachment) => attachment !== undefined && attachment !== null)
+                .reduce((sum, attachment) => sum + estimateAttachmentSize(attachment).length, 0);
+
+            logTelemetry("tengu_attachment_compute_duration", {
+                label: label,                        // e.g., "plan_mode", "token_usage"
+                duration_ms: duration,
+                attachment_size_bytes: totalSizeBytes,
+                attachment_count: result.length
+            });
+        }
+
+        return result;
+    } catch (error) {
+        let duration = Date.now() - startTime;
+
+        // Log error with 5% sampling
+        if (Math.random() < 0.05) {
+            logTelemetry("tengu_attachment_compute_duration", {
+                label: label,
+                duration_ms: duration,
+                error: true
+            });
+        }
+
+        // Report error but don't fail the whole query
+        reportError(error);
+        logError(`Attachment error in ${label}`, error);
+
+        // Return empty array so other attachments can proceed
+        return [];
+    }
+}
+
+// Mapping: Hz→timedAttachmentProducer, A→label, q→producer,
+//          d→logTelemetry, B6→estimateAttachmentSize, _6→reportError, jV→logError
+```
+
+**Why this pattern:**
+- **Telemetry sampling at 5%** reduces overhead while still capturing performance data
+- **Error isolation**: One failing producer doesn't block other attachments
+- **Duration tracking**: Identifies slow producers for optimization
+
+---
+
+### 10.3 Throttling Logic (JuY, MuY)
+
+**Location:** chunks.147.mjs:105-134
+
+```javascript
+// ============================================
+// analyzeRecentMessagesForThrottling - Check if recent attachment exists
+// Location: chunks.147.mjs:105-122
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JuY(A) {
+    let q = 0, K = !1;
+    for (let Y = A.length - 1; Y >= 0; Y--) {
+        let z = A[Y];
+        if (z?.type === "assistant") {
+            if (Ei6(z)) continue;
+            q++
+        } else if (z?.type === "attachment" && (z.attachment.type === "plan_mode" || z.attachment.type === "plan_mode_reentry")) {
+            K = !0;
+            break
+        }
+    }
+    return {turnCount: q, foundPlanModeAttachment: K}
+}
+
+// READABLE (for understanding):
+function analyzeRecentMessagesForThrottling(messageHistory) {
+    let turnCount = 0;
+    let foundPlanModeAttachment = false;
+
+    // Walk backwards through messages
+    for (let i = messageHistory.length - 1; i >= 0; i--) {
+        let message = messageHistory[i];
+
+        if (message?.type === "assistant") {
+            // Skip empty assistant messages (e.g., tool-use-only responses)
+            if (isEmptyAssistantMessage(message)) continue;
+            turnCount++;
+        } else if (message?.type === "attachment" &&
+                   (message.attachment.type === "plan_mode" ||
+                    message.attachment.type === "plan_mode_reentry")) {
+            // Found a recent plan mode attachment
+            foundPlanModeAttachment = true;
+            break;
+        }
+    }
+
+    return {
+        turnCount: turnCount,
+        foundPlanModeAttachment: foundPlanModeAttachment
+    };
+}
+
+// Mapping: JuY→analyzeRecentMessagesForThrottling, A→messageHistory,
+//          q→turnCount, K→foundPlanModeAttachment, Ei6→isEmptyAssistantMessage
+
+// ============================================
+// countRecentPlanAttachments - Count plan_mode attachments since last exit
+// Location: chunks.147.mjs:124-134
+// ============================================
+
+// ORIGINAL (for source lookup):
+function MuY(A) {
+    let q = 0;
+    for (let K = A.length - 1; K >= 0; K--) {
+        let Y = A[K];
+        if (Y?.type === "attachment") {
+            if (Y.attachment.type === "plan_mode_exit") break;
+            if (Y.attachment.type === "plan_mode") q++
+        }
+    }
+    return q
+}
+
+// READABLE (for understanding):
+function countRecentPlanAttachments(messageHistory) {
+    let count = 0;
+
+    // Walk backwards through messages
+    for (let i = messageHistory.length - 1; i >= 0; i--) {
+        let message = messageHistory[i];
+
+        if (message?.type === "attachment") {
+            // Stop counting at plan_mode_exit
+            if (message.attachment.type === "plan_mode_exit") break;
+            if (message.attachment.type === "plan_mode") count++;
+        }
+    }
+
+    return count;
+}
+
+// Mapping: MuY→countRecentPlanAttachments, A→messageHistory, q→count
+```
+
+**Throttling Constants (t4q):**
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `TURNS_BETWEEN_ATTACHMENTS` | 3 | Minimum turns between plan_mode attachments |
+| `FULL_REMINDER_EVERY_N_ATTACHMENTS` | 5 | How often to show full vs sparse reminder |
+
+---
+
+## 11. Integration with Agent Loop
+
+### 11.1 Attachment Production in Query Flow
+
+The attachment production happens during the query setup phase in `mainAgentLoopCore`:
+
+```
+mainAgentLoopCore (omY) starts
+    │
+    ▼
+Build initial context
+    │
+    ▼
+assembleAllAttachments (_uY) called with:
+    - atMentionedFiles from user input
+    - toolUseContext with state accessors
+    - ideSelection from IDE integration
+    - queuedCommands from command queue
+    - messageHistory for throttling
+    - querySource for conditional logic
+    │
+    ▼
+All producers run in parallel (Promise.all)
+    │
+    ▼
+Results flattened and filtered
+    │
+    ▼
+Each attachment normalized via normalizeAttachmentForAPI (Ui8)
+    │
+    ▼
+Attachments injected as user messages with isMeta: true
+    │
+    ▼
+LLM API receives augmented message list
+```
+
+### 11.2 Attachment Injection Timing
+
+```javascript
+// In mainAgentLoopCore (simplified):
+let attachments = await assembleAllAttachments(
+    atMentionedFiles,
+    toolUseContext,
+    ideSelection,
+    queuedCommands,
+    messageHistory,
+    querySource
+);
+
+// Normalize attachments to API messages
+let attachmentMessages = attachments.flatMap(attachment =>
+    normalizeAttachmentForAPI(attachment)
+);
+
+// Inject into message stream
+for (let message of attachmentMessages) {
+    yield message;  // Sent to LLM as user message
+}
+```
+
+---
+
+## 12. Related Documentation
 
 - **System Reminder Module**: [04_system_reminder/](../04_system_reminder/)
 - **Plan Mode Types**: [04_system_reminder/types_mode_control.md](../04_system_reminder/types_mode_control.md)

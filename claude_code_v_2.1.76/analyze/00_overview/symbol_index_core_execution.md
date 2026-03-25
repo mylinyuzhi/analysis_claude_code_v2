@@ -2,6 +2,9 @@
 
 > Symbol mapping table Part 1: Core execution flow modules
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
+>
+> **Cross-validated**: All symbols verified against source code on 2026-03-26.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete_v8.md](./cli_ui_llm_joint_complete_v8.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 
 ---
 

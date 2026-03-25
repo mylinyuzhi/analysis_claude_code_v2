@@ -6,8 +6,9 @@
 
 | # | Directory | Description |
 |---|-----------|-------------|
-| 00 | `00_overview` | Master index, symbol indices, file index, changelog |
+| 00 | `00_overview` | Master index, symbol indices, file index, changelog. **Joint Analysis:** [cli_ui_llm_joint_complete_v7.md](./cli_ui_llm_joint_complete_v7.md) (LATEST v7), [ui_interaction_state_machine_complete_v4.md](../02_ui/ui_interaction_state_machine_complete_v4.md) (NEW v4), [feature_interaction_matrix.md](./feature_interaction_matrix.md) |
 | 01 | `01_cli` | CLI entry point, argument parsing, `-n`/`--name` flag, auth subcommands |
+| 02 | `02_ui` | Terminal UI, React Compiler, `/color` command, CJK layout fix, **[ui_interaction_patterns.md](../02_ui/ui_interaction_patterns.md)** (NEW: design patterns) |
 | 03 | `03_llm_core` | LLM API interaction, streaming, token counting, `modelOverrides` |
 | 05 | `05_tools` | Tool definitions, execution, CronCreate/Delete/List, ExitWorktree |
 | 08 | `08_subagent` | Subagent/Task tool spawning and lifecycle, `isolation: worktree` |
@@ -45,7 +46,6 @@
 
 | # | Directory | Description |
 |---|-----------|-------------|
-| 02 | `02_ui` | Terminal UI, React Compiler, `/color` command, CJK layout fix |
 | 14 | `14_code_indexing` | Code indexing and search |
 | 16 | `16_file_system` | File system operations and watching |
 | 22 | `22_ide_integration` | IDE integration, VSCode spark icon, MCP management dialog |

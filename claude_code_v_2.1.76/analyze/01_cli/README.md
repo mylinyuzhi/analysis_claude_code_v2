@@ -1,6 +1,30 @@
 # CLI Module (01_cli)
 
 > Claude Code v2.1.76 - Command Line Interface documentation hub
+>
+> **Symbol Validation Status**: ✅ COMPLETE - All symbols cross-validated against source code on 2026-03-26.
+> **Integration Status**: ✅ COMPLETE - Cross-module integration documented in [cli_ui_llm_integration.md](../00_overview/cli_ui_llm_integration.md), [cli_ui_llm_deep_integration.md](../00_overview/cli_ui_llm_deep_integration.md), and the comprehensive [cli_ui_llm_complete_joint_analysis.md](../00_overview/cli_ui_llm_complete_joint_analysis.md).
+> **Joint Analysis v2**: ✅ NEW - See [cli_ui_llm_joint_complete_v2.md](../00_overview/cli_ui_llm_joint_complete_v2.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+>
+> **NEW Joint Analysis Documents (2026-03-26)**:
+> - [cli_ui_llm_joint_complete_v8.md](../00_overview/cli_ui_llm_joint_complete_v8.md) - **LATEST v8**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
+> - [cli_ui_llm_joint_complete_v7.md](../00_overview/cli_ui_llm_joint_complete_v7.md) - v7: Complete joint analysis with source-level restoration, decision trees, and UI interaction patterns
+> - [cli_ui_llm_joint_complete_v5.md](../00_overview/cli_ui_llm_joint_complete_v5.md) - v5: Complete joint analysis with verified symbols, deep algorithms, and feature linkages
+> - [cli_ui_llm_joint_complete_v4.md](../00_overview/cli_ui_llm_joint_complete_v4.md) - v4: Complete joint analysis with verified symbols and deep algorithms
+> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - **NEW**: Complete cross-feature linkage documentation
+> - [cli_ui_llm_joint_analysis_final.md](../00_overview/cli_ui_llm_joint_analysis_final.md) - Final comprehensive joint analysis with source-level restoration
+> - [cli_ui_llm_joint_complete_v3.md](../00_overview/cli_ui_llm_joint_complete_v3.md) - Comprehensive joint analysis v3 with source-level restoration
+> - [cli_ui_llm_ui_interaction_complete_v3.md](../00_overview/cli_ui_llm_ui_interaction_complete_v3.md) - Complete UI interaction analysis v3
+> - [cli_ui_llm_algorithm_complete_restoration.md](../00_overview/cli_ui_llm_algorithm_complete_restoration.md) - Source-level algorithm restoration
+> - [cli_ui_llm_feature_interaction_matrix.md](../00_overview/cli_ui_llm_feature_interaction_matrix.md) - Cross-feature interactions
+> - [cli_ui_llm_complete_request_flow.md](../00_overview/cli_ui_llm_complete_request_flow.md) - 12-stage request flow
+>
+> **NEW Cross-Module Analysis Documents (2026-03-26)**:
+> - [cli_ui_llm_system_reminder_integration.md](../00_overview/cli_ui_llm_system_reminder_integration.md) - **NEW**: Complete System Reminder integration
+> - [cli_ui_llm_error_recovery_patterns_v2.md](../00_overview/cli_ui_llm_error_recovery_patterns_v2.md) - **NEW**: Cross-module error handling v2
+> - [cli_ui_llm_system_reminder_deep_integration.md](../00_overview/cli_ui_llm_system_reminder_deep_integration.md) - Complete attachment producer catalog
+> - [cli_ui_llm_error_recovery_patterns.md](../00_overview/cli_ui_llm_error_recovery_patterns.md) - Cross-module error handling
+> - [cli_ui_llm_performance_profiling.md](../00_overview/cli_ui_llm_performance_profiling.md) - Query profiling documentation
 
 ## Module Overview
 
@@ -601,3 +625,9 @@ See: [system_reminder_integration.md](./system_reminder_integration.md)
 - **Skill System** (10_skill_system/) - Skill discovery, loading, execution
 - **MCP** (06_mcp/) - MCP server integration
 - **Permissions** (symbol_index_infra_platform.md) - Permission mode handling
+
+### Joint Analysis Documents
+
+- **[cli_ui_llm_joint_analysis.md](../00_overview/cli_ui_llm_joint_analysis.md)** - Complete CLI-UI-LLM integration analysis
+- **[algorithm_deep_dive.md](../00_overview/algorithm_deep_dive.md)** - Key algorithms: tool execution, dialog priority
+- **[feature_interaction_matrix.md](../00_overview/feature_interaction_matrix.md)** - Cross-module feature interactions

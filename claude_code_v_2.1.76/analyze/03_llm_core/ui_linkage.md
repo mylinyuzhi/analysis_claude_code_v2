@@ -221,6 +221,184 @@ Finally: resetLoadingState(), setIsLoading(false), setStreamMode(null)
 
 ---
 
+## Deep Dive: Tool Execution Event Flow
+
+### Tool Execution During Streaming
+
+When the LLM outputs a `tool_use` block, the streaming tool executor begins parallel execution:
+
+```
+LLM streams: tool_use { name: "Bash", input: { command: "..." } }
+    │
+    ▼ content_block_delta accumulates JSON
+    │
+    ▼ content_block_stop fires
+    │
+    ├── StreamingToolExecutor.addTool(toolUse, message)
+    │       │
+    │       └── Queue tool for execution
+    │
+    ▼ Tool execution begins in parallel
+    │
+    ├── Tool executes (may take seconds)
+    │       │
+    │       └── Progress events may be yielded
+    │
+    ▼ Tool completes
+    │
+    ├── StreamingToolExecutor.getCompletedResults()
+    │       │
+    │       └── Returns completed tool result message
+    │
+    ▼ yield { type: "user", message: toolResult }
+    │
+    └── UI adds tool result to transcript
+```
+
+### Multiple Parallel Tools
+
+When the LLM outputs multiple tool uses in a single response:
+
+```javascript
+// ============================================
+// Parallel tool execution pattern
+// Location: chunks.148.mjs:1103-1113
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (Q6.type === "assistant") {
+    e.push(Q6);
+    let u6 = Q6.message.content.filter((C6) => C6.type === "tool_use");
+    if (u6.length > 0) H6.push(...u6), J6 = !0;
+    if (s && !X.abortController.signal.aborted)
+        for (let C6 of u6) s.addTool(C6, Q6)
+}
+if (s && !X.abortController.signal.aborted) {
+    for (let u6 of s.getCompletedResults())
+        if (u6.message) yield u6.message, Y6.push(...cM([u6.message], X.options.tools).filter((C6) => C6.type === "user"))
+}
+
+// READABLE (for understanding):
+if (event.type === "assistant") {
+    // Store the assistant message
+    assistantMessages.push(event);
+
+    // Extract all tool_use blocks from the message
+    let toolUseBlocks = event.message.content.filter(
+        (block) => block.type === "tool_use"
+    );
+
+    if (toolUseBlocks.length > 0) {
+        // Track for later processing
+        allToolUses.push(...toolUseBlocks);
+        hasToolExecution = true;
+
+        // Add each tool to the streaming executor
+        if (streamingToolExecutor && !abortController.signal.aborted) {
+            for (let toolUse of toolUseBlocks) {
+                streamingToolExecutor.addTool(toolUse, event);
+            }
+        }
+    }
+}
+
+// Yield completed tool results as they finish
+if (streamingToolExecutor && !abortController.signal.aborted) {
+    for (let result of streamingToolExecutor.getCompletedResults()) {
+        if (result.message) {
+            yield result.message;
+
+            // Normalize and track tool results
+            let normalizedResults = normalizeMessages([result.message], tools)
+                .filter((msg) => msg.type === "user");
+            toolResults.push(...normalizedResults);
+        }
+    }
+}
+
+// Mapping: Q6→event, e→assistantMessages, u6→toolUseBlocks,
+//          H6→allToolUses, J6→hasToolExecution, s→streamingToolExecutor,
+//          Y6→toolResults, cM→normalizeMessages
+```
+
+---
+
+## Deep Dive: Thinking Block Streaming
+
+### Extended Thinking Mode
+
+When extended thinking is enabled, the LLM outputs thinking blocks before response text:
+
+```
+User query: "Analyze this codebase"
+    │
+    ▼ stream_request_start
+    │
+    ▼ content_block_start (type: "thinking")
+    │   └── setStreamMode("thinking")
+    │   └── Shows thinking animation
+    │
+    ▼ content_block_delta (type: "thinking_delta")
+    │   └── Accumulates thinking text (not shown to user)
+    │
+    ▼ content_block_stop (thinking)
+    │
+    ▼ content_block_start (type: "text")
+    │   └── setStreamMode("responding")
+    │
+    ▼ content_block_delta (type: "text_delta")
+    │   └── Shows response streaming
+    │
+    ▼ message_stop
+    │
+    ▼ yield { type: "assistant", message: {...} }
+```
+
+---
+
+## Deep Dive: Turn State Machine
+
+The agent loop maintains a turn state machine that tracks progress through each iteration:
+
+```javascript
+// ============================================
+// Turn state machine (inferred from mainAgentLoopCore)
+// Location: chunks.148.mjs:893-902
+// ============================================
+
+// READABLE (for understanding):
+let iterationState = {
+    messages: params.messages,           // Current conversation
+    toolUseContext: params.toolUseContext,
+    maxOutputTokensOverride: undefined,  // For token limit recovery
+    autoCompactTracking: undefined,      // Compaction state
+    stopHookActive: undefined,           // Stop hook state
+    maxOutputTokensRecoveryCount: 0,     // Recovery attempts
+    hasAttemptedReactiveCompact: false,  // Reactive compact flag
+    turnCount: 1,                        // Turn counter
+    pendingToolUseSummary: undefined,    // Summary for next turn
+    transition: undefined                // State transition reason
+};
+
+// State transitions:
+// "initial" → "streaming" → "tool_execution" → "post_processing" → "complete"
+//                  ↑_________________________________|
+//                      (loop if tools were executed)
+```
+
+### Transition Reasons
+
+| Reason | Description | Next Action |
+|--------|-------------|-------------|
+| `max_output_tokens_recovery` | Output limit hit, retry with continuation | Continue with injected prompt |
+| `reactive_compact_retry` | Context overflow, reactive compact | Retry with compacted context |
+| `tool_execution` | Tools were executed, need another turn | Process tool results |
+| `completed` | No more tools, response complete | End loop |
+| `aborted_streaming` | User cancelled | Cleanup and return |
+| `stop_hook_prevented` | Stop hook blocked continuation | End immediately |
+
+---
+
 ## Architecture Trade-offs
 
 ### React Memo Cache Pattern

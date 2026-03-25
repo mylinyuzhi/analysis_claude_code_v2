@@ -2,6 +2,9 @@
 
 > Symbol mapping table Part 2: Core features and capabilities
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
+>
+> **Cross-validated**: All symbols verified against source code on 2026-03-26.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete_v8.md](./cli_ui_llm_joint_complete_v8.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 
 ---
 
@@ -2229,6 +2232,16 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | LGz | doctorCommand | chunks.189.mjs:313 | function |
 | RGz | installCommandAction | chunks.189.mjs:328 | function |
 | HVz | cleanupOnExit | chunks.197.mjs (inferred) | function |
+
+### Headless Mode (Print/SDK)
+
+> **VERIFIED (v2.1.76):** These functions handle non-interactive execution modes.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| BXz | runHeadless | chunks.187.mjs:3 | function (main print/SDK mode executor, handles outbound queue, rate limits, MCP elicitation) |
+| FXz | initializeSession | chunks.187.mjs:1174 | function (processes initialize control_request, sets up session state) |
+| UXz | createStreamIO | chunks.187.mjs:1467 | function (creates stream-based I/O for SDK mode) |
 
 ### Ink Rendering (Setup Dialogs)
 
