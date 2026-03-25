@@ -382,8 +382,365 @@ The helper binary is needed because:
 
 ---
 
+## Seccomp Validation and Availability Check
+
+### `validateSeccompAvailability` (RZ7)
+
+**Location:** `chunks.55.mjs:2251-2257`
+
+```javascript
+// ============================================
+// validateSeccompAvailability - Check if seccomp is available
+// Location: chunks.55.mjs:2251-2257
+// ============================================
+
+// ORIGINAL (for source lookup):
+function RZ7(A) {
+    let q = Vw8(A);
+    if (q) return wA("[SeccompFilter] Using pre-generated BPF filter"), q;
+    return wA("[SeccompFilter] Pre-generated BPF filter not available for this architecture. Only x64 and arm64 are supported.", {
+        level: "error"
+    }), null
+}
+
+// READABLE (for understanding):
+function validateSeccompAvailability(seccompConfig) {
+    let bpfPath = getBpfFilterPath(seccompConfig?.bpfPath);
+    if (bpfPath) {
+        log("[SeccompFilter] Using pre-generated BPF filter");
+        return bpfPath;
+    }
+    log("[SeccompFilter] Pre-generated BPF filter not available for this architecture. " +
+        "Only x64 and arm64 are supported.", { level: "error" });
+    return null;
+}
+
+// Mapping: RZ7→validateSeccompAvailability, A→seccompConfig, q→bpfPath, Vw8→getBpfFilterPath
+```
+
+---
+
+## Dependency Check for Linux Sandbox
+
+### `checkLinuxSandboxDependencies` (bZ7)
+
+**Location:** `chunks.55.mjs:2387-2399`
+
+```javascript
+// ============================================
+// checkLinuxSandboxDependencies - Validate Linux sandbox dependencies
+// Location: chunks.55.mjs:2387-2399
+// ============================================
+
+// ORIGINAL (for source lookup):
+function bZ7(A) {
+    let q = [],
+        K = [];
+    if (JU("bwrap") === null) q.push("bubblewrap (bwrap) not installed");
+    if (JU("socat") === null) q.push("socat not installed");
+    let Y = Vw8(A?.bpfPath) !== null,
+        z = Ex6(A?.applyPath) !== null;
+    if (!Y || !z) K.push("seccomp not available - unix socket access not restricted");
+    return {
+        warnings: K,
+        errors: q
+    }
+}
+
+// READABLE (for understanding):
+function checkLinuxSandboxDependencies(seccompConfig) {
+    let errors = [];
+    let warnings = [];
+
+    // Check for required binaries
+    if (which("bwrap") === null) {
+        errors.push("bubblewrap (bwrap) not installed");
+    }
+    if (which("socat") === null) {
+        errors.push("socat not installed");
+    }
+
+    // Check for seccomp availability
+    let hasBpfFilter = getBpfFilterPath(seccompConfig?.bpfPath) !== null;
+    let hasApplySeccomp = getApplySeccompPath(seccompConfig?.applyPath) !== null;
+
+    if (!hasBpfFilter || !hasApplySeccomp) {
+        warnings.push("seccomp not available - unix socket access not restricted");
+    }
+
+    return {
+        warnings: warnings,
+        errors: errors
+    };
+}
+
+// Mapping: bZ7→checkLinuxSandboxDependencies, A→seccompConfig, q→errors, K→warnings,
+//          JU→which, Vw8→getBpfFilterPath, Ex6→getApplySeccompPath
+```
+
+**Key insight:** Seccomp is a **warning**, not an **error**. The sandbox can still operate without seccomp - it just won't block Unix sockets. This is a graceful degradation pattern.
+
+---
+
+## Seccomp Filter Cleanup
+
+### Cleanup Tracking Set
+
+**Location:** `chunks.55.mjs:2663-2666`
+
+```javascript
+// ORIGINAL (for source lookup):
+yw8 = new Set, v21 = new Set
+
+// READABLE (for understanding):
+let createdSeccompFilters = new Set();  // Tracks seccomp filter files for cleanup
+let createdEmptyDirs = new Set();        // Tracks empty directories for cleanup
+```
+
+### Cleanup Handler
+
+**Location:** `chunks.55.mjs:2366-2384`
+
+```javascript
+// ============================================
+// cleanupBwrapMountPoints - Clean up bwrap mount points on exit
+// Location: chunks.55.mjs:2376-2384
+// ============================================
+
+// ORIGINAL (for source lookup):
+function hw8() {
+    for (let A of v21) try {
+        let q = $2.statSync(A);
+        if (q.isFile() && q.size === 0) $2.unlinkSync(A), wA(`[Sandbox Linux] Cleaned up bwrap mount point (file): ${A}`);
+        else if (q.isDirectory()) {
+            if ($2.readdirSync(A).length === 0) $2.rmdirSync(A), wA(`[Sandbox Linux] Cleaned up bwrap mount point (dir): ${A}`)
+        }
+    } catch {}
+    v21.clear()
+}
+
+// READABLE (for understanding):
+function cleanupBwrapMountPoints() {
+    for (let path of createdEmptyDirs) {
+        try {
+            let stat = fs.statSync(path);
+            if (stat.isFile() && stat.size === 0) {
+                fs.unlinkSync(path);
+                log(`[Sandbox Linux] Cleaned up bwrap mount point (file): ${path}`);
+            } else if (stat.isDirectory()) {
+                if (fs.readdirSync(path).length === 0) {
+                    fs.rmdirSync(path);
+                    log(`[Sandbox Linux] Cleaned up bwrap mount point (dir): ${path}`);
+                }
+            }
+        } catch {}
+    }
+    createdEmptyDirs.clear();
+}
+
+// Mapping: hw8→cleanupBwrapMountPoints, v21→createdEmptyDirs, $2→fs, wA→log
+```
+
+---
+
+## Integration with wrapWithLinuxSandbox
+
+The seccomp filter is applied within the `wrapWithLinuxSandbox` (uZ7) function:
+
+```javascript
+// ============================================
+// Seccomp integration in wrapWithLinuxSandbox
+// Location: chunks.55.mjs:2588-2599
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (!j) {
+    v = RZ7(P?.bpfPath) ?? void 0;
+    let u = Ex6(P?.applyPath);
+    if (!v || !u) wA("[Sandbox Linux] Seccomp binaries not available - unix socket blocking disabled. Install @anthropic-ai/sandbox-runtime globally for full protection.", {
+        level: "warn"
+    }), v = void 0;
+    else {
+        if (!v.includes("/vendor/seccomp/")) yw8.add(v), Lw8();
+        wA("[Sandbox Linux] Generated seccomp BPF filter for Unix socket blocking")
+    }
+} else wA("[Sandbox Linux] Skipping seccomp filter - allowAllUnixSockets is enabled");
+
+// READABLE (for understanding):
+if (!allowAllUnixSockets) {
+    bpfFilterPath = validateSeccompAvailability(seccompConfig?.bpfPath) ?? undefined;
+    let applyPath = getApplySeccompPath(seccompConfig?.applyPath);
+
+    if (!bpfFilterPath || !applyPath) {
+        log("[Sandbox Linux] Seccomp binaries not available - unix socket blocking disabled. " +
+            "Install @anthropic-ai/sandbox-runtime globally for full protection.",
+            { level: "warn" });
+        bpfFilterPath = undefined;
+    } else {
+        // Track non-vendor filter for cleanup
+        if (!bpfFilterPath.includes("/vendor/seccomp/")) {
+            createdSeccompFilters.add(bpfFilterPath);
+            registerCleanupHandler();
+        }
+        log("[Sandbox Linux] Generated seccomp BPF filter for Unix socket blocking");
+    }
+} else {
+    log("[Sandbox Linux] Skipping seccomp filter - allowAllUnixSockets is enabled");
+}
+```
+
+### Key Decision Points
+
+1. **Skip if `allowAllUnixSockets` is true** - No need to block Unix sockets if explicitly allowed
+2. **Graceful degradation** - If seccomp unavailable, continue without Unix socket blocking
+3. **Cleanup tracking** - Non-vendor filter files are tracked for cleanup on exit
+
+---
+
+## Error Handling in Command Wrapping
+
+```javascript
+// ============================================
+// Seccomp error handling in wrapWithLinuxSandbox
+// Location: chunks.55.mjs:2635-2647
+// ============================================
+
+// ORIGINAL (for source lookup):
+} catch (N) {
+    if (v && !v.includes("/vendor/seccomp/")) {
+        yw8.delete(v);
+        try {
+            kw8(v)
+        } catch (V) {
+            wA(`[Sandbox Linux] Failed to clean up seccomp filter on error: ${V}`, {
+                level: "error"
+            })
+        }
+    }
+    throw N
+}
+
+// READABLE (for understanding):
+} catch (error) {
+    // Cleanup seccomp filter on error (only non-vendor files)
+    if (bpfFilterPath && !bpfFilterPath.includes("/vendor/seccomp/")) {
+        createdSeccompFilters.delete(bpfFilterPath);
+        try {
+            cleanupSeccompFilter(bpfFilterPath);
+        } catch (cleanupError) {
+            log(`[Sandbox Linux] Failed to clean up seccomp filter on error: ${cleanupError}`,
+                { level: "error" });
+        }
+    }
+    throw error;
+}
+```
+
+---
+
+## BPF Filter Bytecode Structure
+
+The pre-generated BPF filter follows this structure:
+
+```
+BPF Program Structure (unix-block.bpf):
+
+struct sock_filter {
+    u16 code;    // BPF instruction opcode
+    u8  jt;      // Jump true
+    u8  jf;      // Jump false
+    u32 k;       // Generic multiuse field
+};
+
+Instructions (pseudo-code):
+
+1. Load architecture:
+   BPF_LD + BPF_W + BPF_ABS    → load syscall number
+
+2. Check if socket syscall:
+   BPF_JMP + BPF_JEQ + BPF_K   → if (syscall == __NR_socket) goto 3, else allow
+
+3. Load first argument (domain):
+   BPF_LD + BPF_W + BPF_ABS    → load args[0]
+
+4. Check if AF_UNIX:
+   BPF_JMP + BPF_JEQ + BPF_K   → if (domain == AF_UNIX) goto block, else allow
+
+5. Block:
+   BPF_RET + BPF_K             → return SECCOMP_RET_ERRNO (EAFNOSUPPORT)
+
+6. Allow:
+   BPF_RET + BPF_K             → return SECCOMP_RET_ALLOW
+```
+
+### Architecture-Specific Values
+
+| Architecture | `__NR_socket` | `AF_UNIX` |
+|--------------|---------------|-----------|
+| x86-64 (x64) | 41 | 1 |
+| ARM64 | 198 | 1 |
+
+The BPF filter is compiled separately for each architecture with the correct syscall numbers.
+
+---
+
+## Performance Considerations
+
+### Seccomp Overhead
+
+1. **BPF filter loading** - One-time cost when process starts (~microseconds)
+2. **Syscall overhead** - Every syscall goes through BPF filter
+   - Non-socket syscalls: Minimal overhead (single comparison)
+   - Socket syscalls: One extra comparison for domain check
+3. **Memory overhead** - BPF program is ~100 bytes in kernel memory
+
+### Optimization: Skip Seccomp When Not Needed
+
+```javascript
+// Early exit if no Unix socket blocking needed
+if (allowAllUnixSockets) {
+    log("[Sandbox Linux] Skipping seccomp filter - allowAllUnixSockets is enabled");
+    // No seccomp overhead in this case
+}
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Seccomp binaries not available"**
+   - Install `@anthropic-ai/sandbox-runtime` globally
+   - Or ensure `vendor/seccomp/{arch}/` exists in package
+
+2. **"32-bit x86 not supported"**
+   - Use 64-bit Linux (x64 or arm64)
+   - Or set `allowAllUnixSockets: true` in config
+
+3. **"apply-seccomp binary not found"**
+   - Check file permissions (must be executable)
+   - Verify architecture matches (`uname -m`)
+
+### Verification
+
+```bash
+# Check seccomp files exist
+ls -la node_modules/@anthropic-ai/claude-code/vendor/seccomp/x64/
+
+# Expected output:
+# unix-block.bpf
+# apply-seccomp
+
+# Test apply-seccomp binary
+./vendor/seccomp/x64/apply-seccomp ./vendor/seccomp/x64/unix-block.bpf /bin/bash -c "echo test"
+```
+
+---
+
 ## Related Documents
 
 - [bwrap_implementation.md](./bwrap_implementation.md) - Linux bubblewrap implementation
 - [network_proxy.md](./network_proxy.md) - Network proxy implementation
 - [overview.md](./overview.md) - Sandbox architecture overview
+- [violation_system.md](./violation_system.md) - Violation monitoring

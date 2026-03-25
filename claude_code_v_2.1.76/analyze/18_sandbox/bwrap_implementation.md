@@ -1205,6 +1205,230 @@ bwrap \
 
 ---
 
+## Symlink Attack Prevention Algorithm
+
+### The Attack Vector
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Symlink Replacement Attack Vector                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Scenario: /home/user/project is writable (allowed)                         │
+│                                                                              │
+│  Step 1: Attacker creates symlink                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ $ ln -s /etc /home/user/project/link_to_etc                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Step 2: Sandbox starts (before bwrap executes)                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ bwrap --ro-bind / / --bind /home/user/project /home/user/project    │    │
+│  │                                                                      │    │
+│  │ At this point, link_to_etc points to /etc (read-only)               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Step 3: Sandboxed process runs                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Process can write to /home/user/project/link_to_etc/passwd          │    │
+│  │                                                                      │    │
+│  │ WAIT! The symlink still points to /etc, which is read-only!         │    │
+│  │ BUT: Attacker could replace the symlink with a real directory...    │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  MITIGATION: Mount /dev/null at symlink paths                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ --ro-bind /dev/null /home/user/project/link_to_etc                  │    │
+│  │                                                                      │    │
+│  │ Now any attempt to access link_to_etc returns empty/error           │    │
+│  │ Attacker cannot replace or use the symlink                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### findSymlinkMountPoint Function (Vb3)
+
+**Location:** `chunks.55.mjs:2269-2291`
+
+```javascript
+// ============================================
+// findSymlinkMountPoint - Detect symlink attack vector
+// Location: chunks.55.mjs:2269-2291
+// ============================================
+
+// READABLE (for understanding):
+function findSymlinkMountPoint(denyPath, allowedWritePaths) {
+    // Check if denyPath is within any writable path
+    for (let writePath of allowedWritePaths) {
+        if (!denyPath.startsWith(writePath + "/")) continue;
+
+        // Check if denyPath itself is a symlink
+        try {
+            let stat = fs.lstatSync(denyPath);
+            if (stat.isSymbolicLink()) {
+                return denyPath;  // Mount /dev/null here
+            }
+        } catch {
+            // Path doesn't exist - check parent chain
+        }
+
+        // Check if any parent is a symlink within writable area
+        let currentPath = denyPath;
+        while (currentPath !== writePath) {
+            let parentPath = path.dirname(currentPath);
+            if (parentPath === currentPath) break;  // Reached root
+
+            try {
+                let parentStat = fs.lstatSync(parentPath);
+                if (parentStat.isSymbolicLink()) {
+                    return parentPath;  // Found symlink in chain
+                }
+            } catch {}
+
+            currentPath = parentPath;
+        }
+    }
+
+    return null;  // No symlink attack vector found
+}
+
+// Mapping: Vb3→findSymlinkMountPoint, $2→fs, IJ→path
+```
+
+---
+
+## Bridge Wrapper Command (Lb3) - Network Namespace Setup
+
+### Location: chunks.55.mjs:2474-2489
+
+```javascript
+// ============================================
+// buildBridgeWrapperCommand - Wrap command with socat bridges inside sandbox
+// Location: chunks.55.mjs:2474-2489
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Lb3(A, q, K, Y, z, _) {
+    let w = [f21(3128, 1080).flatMap((H) => {
+        let j = H.indexOf("="),
+            J = H.slice(0, j),
+            M = H.slice(j + 1);
+        return ["export", `${J}=${M}`]
+    }).join(" ")],
+        O = _ ? hZ7(_) : void 0;
+    if (Y) {
+        let H = gq6.default.quote([O ?? "apply-seccomp", Y, z, "-c", K]);
+        w.push(H);
+        let j = [...w, "eval " + gq6.default.quote([K])].join("\n");
+        return `${z} -c ${gq6.default.quote([j])}`
+    } else {
+        let H = [...w, `eval ${gq6.default.quote([K])}`].join("\n");
+        return `${z} -c ${gq6.default.quote([H])}`
+    }
+}
+
+// READABLE (for understanding):
+function buildBridgeWrapperCommand(
+    httpSocketPath,      // Unix socket for HTTP proxy
+    socksSocketPath,     // Unix socket for SOCKS proxy
+    command,             // The actual command to run
+    seccompBpfPath,      // Optional: seccomp BPF filter file
+    shellPath,           // Shell binary path
+    applySeccompPath     // Optional: path to apply-seccomp binary
+) {
+    // Step 1: Build proxy environment variable exports
+    let proxyEnvExports = buildProxyEnvVars(3128, 1080).flatMap(env => {
+        let equalsIndex = env.indexOf("=");
+        let key = env.slice(0, equalsIndex);
+        let value = env.slice(equalsIndex + 1);
+        return ["export", `${key}=${value}`];
+    }).join(" ");
+
+    // Initialize command array with proxy exports
+    let wrappedCommands = [proxyEnvExports];
+
+    // Step 2: Determine apply-seccomp path
+    let actualApplyPath = applySeccompPath
+        ? resolveBinary(applySeccompPath)
+        : undefined;
+
+    // Step 3: Build the wrapped command
+    if (seccompBpfPath) {
+        // With seccomp: apply filter before running command
+        let seccompCommand = shellQuote([
+            actualApplyPath ?? "apply-seccomp",
+            seccompBpfPath,
+            shellPath,
+            "-c",
+            command
+        ]);
+        wrappedCommands.push(seccompCommand);
+
+        // Full wrapper script
+        let wrapperScript = [
+            ...wrappedCommands,
+            "eval " + shellQuote([command])
+        ].join("\n");
+
+        return `${shellPath} -c ${shellQuote([wrapperScript])}`;
+    } else {
+        // Without seccomp: just run with proxy env
+        let wrapperScript = [
+            ...wrappedCommands,
+            `eval ${shellQuote([command])}`
+        ].join("\n");
+
+        return `${shellPath} -c ${shellQuote([wrapperScript])}`;
+    }
+}
+
+// Mapping: Lb3→buildBridgeWrapperCommand, A→httpSocketPath, q→socksSocketPath,
+//          K→command, Y→seccompBpfPath, z→shellPath, _→applySeccompPath,
+//          f21→buildProxyEnvVars, gq6→shellQuote, hZ7→resolveBinary
+```
+
+### Why Bridge Inside Sandbox?
+
+When `--unshare-net` is used, the sandbox has NO network access. The bridge pattern works as follows:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Network Bridge Pattern Inside Sandbox                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Host (outside sandbox):                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ HTTP Proxy listening on localhost:3128                              │    │
+│  │ SOCKS Proxy listening on localhost:1080                             │    │
+│  │                                                                      │    │
+│  │ socat bridges:                                                       │    │
+│  │   /tmp/claude-http-xxx.sock → localhost:3128                        │    │
+│  │   /tmp/claude-socks-xxx.sock → localhost:1080                       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  2. bwrap --bind mounts sockets into sandbox:                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ --bind /tmp/claude-http-xxx.sock /tmp/claude-http-xxx.sock          │    │
+│  │ --bind /tmp/claude-socks-xxx.sock /tmp/claude-socks-xxx.sock        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  3. Inside sandbox:                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ export HTTP_PROXY=http://localhost:3128                             │    │
+│  │ export SOCKS_PROXY=socks5://localhost:1080                          │    │
+│  │                                                                      │    │
+│  │ When process connects to localhost:3128:                            │    │
+│  │   → Actually connects to /tmp/claude-http-xxx.sock                  │    │
+│  │   → socat forwards to host's localhost:3128                         │    │
+│  │   → Host proxy handles the request                                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Related Documents
 
 - [seatbelt_profile.md](./seatbelt_profile.md) - macOS sandbox-exec implementation

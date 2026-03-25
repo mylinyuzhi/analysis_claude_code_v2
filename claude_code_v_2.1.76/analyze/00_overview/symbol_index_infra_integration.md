@@ -1550,14 +1550,13 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| oqz | sandboxSlashCommandHandler | chunks.165.mjs:1723 (Ln 427401) | function (dispatches /sandbox subcommands) |
-| aqz | sandboxSlashCommandDefinition | chunks.165.mjs:1781 (Ln 427456) | object (slash command descriptor) |
-| _Hq | SandboxModeSelector | chunks.165.mjs:1517 (Ln 427195) | component (3-way mode picker: auto-allow/regular/disabled) |
-| zHq | SandboxStatusDisplay | chunks.165.mjs:1179 (Ln 426863) | component (configuration summary panel) |
-| HHq | SandboxOverridesSettings | chunks.165.mjs:967 (Ln 426967) | component (open/closed override policy selector) |
-| nuA | SandboxDependenciesPanel | chunks.165.mjs:1421 (Ln 427101) | component (bwrap/socat/seccomp status) |
+| bAz | sandboxSlashCommandDefinition | chunks.165.mjs:2007 | object (slash command descriptor with live status in description) |
+| TPq | SandboxModeSelector | chunks.165.mjs:1737 | component (3-way mode picker: auto-allow/regular/disabled) |
+| PPq | SandboxStatusDisplay | chunks.165.mjs:1399 | component (configuration summary panel with restrictions) |
+| ZPq | SandboxOverridesSettings | chunks.165.mjs:1505 | component (open/closed override policy selector) |
+| Ql8 | SandboxDependenciesPanel | chunks.165.mjs:1641 | component (bwrap/socat/seccomp dependency status) |
 | iqz | renderWarningEntry | chunks.165.mjs:1269 (Ln 426953) | function (single warning line renderer) |
-| lWq | SandboxViolationStatusLine | chunks.182.mjs:1592 (Ln 472208) | component (status bar flash, auto-dismiss 5s) |
+| aIq | SandboxViolationStatusLine | chunks.191.mjs:92 | component (status bar flash, auto-dismiss 5s, macOS only) |
 | HLq | SandboxViolationListPanel | chunks.187.mjs:~1294 (Ln 485694) | component (last-10 violations detail, macOS only) |
 | qWz | renderViolationEntry | chunks.187.mjs:~1330 (Ln 485737) | function (single violation row with timestamp) |
 | Q7q | SandboxDoctorCheck | chunks.154.mjs:2979 (Ln 396902) | component (dependency warnings in /doctor) |

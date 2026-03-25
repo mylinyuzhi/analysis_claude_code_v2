@@ -435,6 +435,149 @@ class SandboxViolationStore {
 
 ---
 
+## UI Integration: Status Bar Violation Indicator
+
+### `SandboxViolationStatusLine` (aIq)
+
+**Location:** `chunks.191.mjs:92-110`
+
+```javascript
+// ============================================
+// SandboxViolationStatusLine - Status bar indicator for sandbox violations
+// Location: chunks.191.mjs:92-110
+// ============================================
+
+// ORIGINAL (for source lookup):
+function aIq() {
+    let A = A6(6),
+        [q, K] = RV6.useState(0),
+        Y = RV6.useRef(null),
+        z = Rq("app:toggleTranscript", "Global", "ctrl+o"),
+        _, w;
+    if (A[0] === Symbol.for("react.memo_cache_sentinel")) _ = () => {
+        if (!vA.isSandboxingEnabled()) return;
+        let H = vA.getSandboxViolationStore(),
+            j = H.getTotalCount(),
+            J = H.subscribe(() => {
+                let M = H.getTotalCount(),
+                    D = M - j;
+                if (D > 0) {
+                    if (K(D), j = M, Y.current) clearTimeout(Y.current);
+                    Y.current = setTimeout(K, 5000, 0)
+                }
+            });
+        return () => {
+            // cleanup
+        };
+    }, A[0] = _;
+    else _ = A[0];
+    // ... rest of component
+}
+
+// READABLE (for understanding):
+function SandboxViolationStatusLine() {
+    let [newViolationCount, setNewViolationCount] = useState(0);
+    let timeoutRef = useRef(null);
+
+    // Subscribe to violation store
+    useEffect(() => {
+        if (!sandboxConfigObject.isSandboxingEnabled()) return;
+
+        let store = sandboxConfigObject.getSandboxViolationStore();
+        let lastCount = store.getTotalCount();
+
+        let unsubscribe = store.subscribe(() => {
+            let currentCount = store.getTotalCount();
+            let delta = currentCount - lastCount;
+
+            if (delta > 0) {
+                // New violations detected
+                setNewViolationCount(delta);
+                lastCount = currentCount;
+
+                // Clear after 5 seconds
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                }
+                timeoutRef.current = setTimeout(() => setNewViolationCount(0), 5000);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
+
+    // Don't render if no violations
+    if (newViolationCount === 0) return null;
+
+    // Render violation count in status bar
+    return (
+        <Text color="warning">
+            ⚠ {newViolationCount} sandbox violation{newViolationCount > 1 ? 's' : ''}
+        </Text>
+    );
+}
+
+// Mapping: aIq→SandboxViolationStatusLine, vA→sandboxConfigObject,
+//          K→setNewViolationCount, Y→timeoutRef
+```
+
+### Key Algorithm: Flash on New Violations
+
+**What it does:** Shows a brief flash in the status bar when sandbox violations occur, then auto-clears.
+
+**How it works:**
+1. Subscribe to `SandboxViolationStore` on mount
+2. Track delta between current and previous `totalCount`
+3. If delta > 0, update state and start 5-second timer
+4. Timer clears the count (making indicator disappear)
+5. New violations reset the timer
+
+**Why 5-second timeout:**
+- Long enough for user to notice
+- Short enough not to be annoying
+- New violations extend the display time
+
+---
+
+## Violation Annotation in Command Output
+
+### `annotateStderrWithSandboxFailures`
+
+When a command fails, violations are annotated to the stderr output:
+
+```javascript
+// In Bash tool execution:
+
+// 1. Run command
+let result = await executeBashCommand(wrappedCommand);
+
+// 2. If command failed, check for violations
+if (result.exitCode !== 0) {
+    let violations = sandboxConfigObject.getSandboxViolationStore()
+        .getViolationsForCommand(command);
+
+    if (violations.length > 0) {
+        // Annotate stderr with violation info
+        result.stderr += "\n\n--- Sandbox Violations Detected ---\n";
+        for (let v of violations) {
+            result.stderr += `  ${v.line}\n`;
+        }
+    }
+}
+```
+
+### Example Annotated Output
+
+```
+$ cat /etc/passwd
+cat: /etc/passwd: Operation not permitted
+
+--- Sandbox Violations Detected ---
+  file-read-data /etc/passwd
+```
+
+---
+
 ## Violation Filtering
 
 ### Known Benign Violations

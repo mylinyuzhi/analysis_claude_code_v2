@@ -102,12 +102,12 @@ This document describes how the major infrastructure modules (MCP, Sandbox, IDE 
    - A system reminder attachment informs the LLM of the new restrictions
 
 3. **Bash Tool System Prompt Injection:**
-   - `getSandboxSystemPromptBlock` (nBY) generates sandbox-specific instructions
+   - `getSandboxSystemPromptBlock` (E9z) generates sandbox-specific instructions
    - Injected into the Bash tool's system prompt section
    - Informs the model about allowed/denied paths and network restrictions
 
 **Key symbols:**
-- `nBY` (getSandboxSystemPromptBlock) - chunks.146.mjs:883
+- `E9z` (getSandboxSystemPromptBlock) - chunks.171.mjs:1892
 - `h21` (isSandboxingEnabled) - chunks.56.mjs:357
 - `Xx3` (wrapWithSandbox) - chunks.56.mjs:417
 

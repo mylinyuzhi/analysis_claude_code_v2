@@ -343,24 +343,74 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| vA | sandboxConfigObject | chunks.56.mjs:516-547 | object (public API facade) |
-| aO | sandboxModule (low-level) | chunks.55.mjs (referenced from vA) | object |
+| vA | sandboxConfigObject | chunks.56.mjs:516 | object (public API facade) |
+| aO | sandboxLowLevelModule | chunks.55.mjs:3436 | object (low-level implementation, exported from chunks.55) |
 | Xx3 | wrapWithSandbox | chunks.56.mjs:417 | function |
 | Px3 | sandboxInitialize | chunks.56.mjs:424 | function |
 | h21 | isSandboxingEnabled | chunks.56.mjs:357 | function |
+| $x3 | isAutoAllowBashIfSandboxedEnabled | chunks.56.mjs:338 | function |
+| Hx3 | areUnsandboxedCommandsAllowed | chunks.56.mjs:341 | function |
+| Jx3 | areSandboxSettingsLockedByPolicy | chunks.56.mjs:386 | function |
+| Mx3 | setSandboxSettings | chunks.56.mjs:395 | function |
 | Dx3 | getExcludedCommands | chunks.56.mjs:413 | function |
 | Wx3 | refreshSandboxConfig | chunks.56.mjs:447 | function |
 | Zx3 | sandboxReset | chunks.56.mjs:454 | function |
+| TG7 | isSandboxEnabledInSettings | chunks.56.mjs:330 | function |
+| vG7 | isPlatformInEnabledList | chunks.56.mjs:345 | function |
+| R21 | buildSandboxConfig | chunks.56.mjs:224-292 | function (builds config from settings) |
+| jx3 | getLinuxGlobPatternWarnings | chunks.56.mjs:364 | function (glob pattern warnings for Linux) |
+| Uq6 | isAllowManagedDomainsOnly | chunks.56.mjs:220 | function (check policy managed domains) |
+| pb3 | initializeLowLevel | chunks.55.mjs:3024 | function (initializes network infrastructure and log monitor) |
+| rZ7 | isSupportedPlatform | chunks.55.mjs:3059 | function |
+| Qb3 | isSandboxInitialized | chunks.55.mjs:3065 | function (checks if R5 config is loaded) |
+| oZ7 | checkDependencies | chunks.55.mjs:3069 | function |
+| ob3 | wrapWithSandboxInternal | chunks.55.mjs:3208 | function (internal dispatch to QZ7 or uZ7) |
+| xw8 | reset | chunks.55.mjs:3288 | function (cleanup network bridges and state) |
+| zG7 | waitForNetworkInitialization | chunks.55.mjs:3198 | function |
+| tb3 | getSandboxViolationStore | chunks.55.mjs:3382 | function (returns V21 instance) |
+| eb3 | annotateStderrWithSandboxFailures | chunks.55.mjs:3386 | function (appends violation block to stderr) |
 | uZ7 | wrapWithLinuxSandbox | chunks.55.mjs:2564 | function |
 | QZ7 | wrapWithMacOSSandbox | chunks.55.mjs:2803 | function (invokes sandbox-exec with SBPL profile) |
 | xb3 | generateSeatbeltProfile | chunks.55.mjs:2755 | function (main SBPL generator) |
-| Lzz | isCommandInExcludedList | chunks.173.mjs:2714 | function |
+| yYz | isCommandInExcludedList | chunks.172.mjs:2412 | function (command exclusion pattern matching) |
 | Ti | isCommandSandboxed | chunks.172.mjs:2454 | function |
+| yfq | parseExclusionPattern | chunks.172.mjs:1530 | function (parses exclusion pattern into type/value) |
+| Ln8 | extractPrefixPattern | chunks.172.mjs:1488 | function (extract prefix from command:* pattern) |
+| TYz | isWildcardPattern | chunks.172.mjs:1492 | function (check if pattern contains wildcards) |
+| Cn8 | matchWildcardPattern | chunks.172.mjs:1645 | function (glob-style wildcard matching) |
+| Efq | convertWildcardToRegex | chunks.172.mjs:1503 | function (converts wildcard pattern to regex for matching) |
+| bn8 | resolveCommandEnvVars | chunks.172.mjs:1682 | function (resolves symlink for command) |
+| Ac | extractCommandBasename | chunks.172.mjs:1660 | function (gets basename from command path) |
+| bw8 | matchesDomain | chunks.55.mjs:2952 | function (domain pattern matching with wildcard support) |
 | Ezz | checkBashPermissionWithSandbox | chunks.172.mjs:1363 | function |
 | E9z | getSandboxSystemPromptBlock | chunks.171.mjs:1892 | function |
 | HD6 | SandboxViolationStore | chunks.55.mjs:2902-2936 | class (ring buffer for violations) |
 | UZ7 | startLogMonitor | chunks.55.mjs:2843 | function (macOS log stream for sandbox violations) |
+| nZ7 | checkNetworkPermission | chunks.55.mjs:2960 | function (domain-based network access control) |
+| gb3 | createHttpProxy | chunks.55.mjs:2992 | function (creates HTTP proxy server) |
+| Fb3 | createSocksProxy | chunks.55.mjs:3010 | function (creates SOCKS proxy server) |
 | - | enableWeakerNetworkIsolation | settings | config key (macOS: allow Go TLS with custom proxy) |
+
+### Sandbox Exclusion Pattern Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| AS1 | SAFE_ENV_VARS_SET | chunks.172.mjs:2407 | constant (Set of safe env var names: NODE_ENV, RUST_LOG, etc.) |
+| vYz | SHELL_COMMANDS_SET | chunks.172.mjs:2405 | constant (Set of shell names: sh, bash, zsh, fish, etc.) |
+| xfq | LD_PATH_REGEX | chunks.172.mjs:2408 | constant (regex for LD_/DYLD_/PATH env vars) |
+
+### Sandbox Internal State Variables
+
+| Obfuscated | Readable | File:Line | Type | Notes |
+|---|---|---|---|---|
+| da | initializationPromise | chunks.56.mjs:478 | variable | Caches init promise |
+| R5 | currentConfig | chunks.55.mjs:3407 | variable | Current sandbox configuration |
+| LL | networkInfo | chunks.55.mjs:3409 | variable | Network infrastructure state |
+| Ua | networkInitPromise | chunks.55.mjs:3411 | variable | Network init promise |
+| V21 | violationStore | chunks.55.mjs:3421 | variable | SandboxViolationStore instance |
+| N21 | logMonitorCleanup | chunks.55.mjs:3419 | variable | macOS log monitor cleanup fn |
+| jD6 | httpProxyServer | chunks.55.mjs:3409 | variable | HTTP proxy server instance |
+| Fq6 | socksProxyServer | chunks.55.mjs:3410 | variable | SOCKS proxy server instance |
 
 ### SandboxViolationStore Class (HD6)
 
@@ -393,8 +443,15 @@
 > - `Sc` was incorrectly mapped to isCommandSandboxed. Actual `Sc` location unknown; the real function is `Ti` at chunks.172.mjs:2454.
 > - `nBY` was incorrectly mapped to getSandboxSystemPromptBlock. Actual `nBY` location is different; the real function is `E9z` at chunks.171.mjs:1892.
 > - `FOq` was incorrectly mapped to buildMcpCliInstructions. Actual `FOq` in chunks.159.mjs:294 is a QR code numeric mode encoder (`ov6` class).
+> - `Lzz` was incorrectly mapped to isCommandInExcludedList. The correct symbol is `yYz` at chunks.172.mjs:2412.
 
 ### Sandbox Permission Sync (Swarm)
+
+> **Note:** There are two sets of permission sync symbols:
+> - chunks.130.mjs: Swarm coordination functions
+> - chunks.134.mjs: Permission sync mailbox functions (validated)
+
+**Swarm Coordination (chunks.130.mjs):**
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
@@ -409,6 +466,17 @@
 | ZAH | PermissionRequestSchema | chunks.130.mjs:2874 (Ln 326639) | object (Zod) |
 | cM6 | sandboxCallbackMap | chunks.130.mjs:2936 (Ln 326705) | variable (Map) |
 | RQ1 | permissionCallbackMap | chunks.130.mjs:2934 (Ln 326705) | variable (Map) |
+
+**Permission Sync Mailbox Functions (chunks.134.mjs) - Validated:**
+
+| Obfuscated | Readable | File:Line | Type | Notes |
+|---|---|---|---|---|
+| al4 | generateSandboxRequestId | chunks.134.mjs:1052 | function | Generate unique ID: `sandbox-{timestamp}-{random}` |
+| sl4 | sendSandboxPermissionRequest | chunks.134.mjs:1056 | function | Send request to team leader via mailbox |
+| tl4 | sendSandboxPermissionResponse | chunks.134.mjs:1084 | function | Send response to worker via mailbox |
+| nc6 | sandboxPermissionCallbacks | chunks.134.mjs:1183 | variable | Map<requestId, {resolve, reject}> |
+| Yi4 | hasSandboxCallback | chunks.134.mjs:1169 | function | Check if callback exists for request |
+| zi4 | resolveSandboxCallback | chunks.134.mjs:1173 | function | Resolve callback promise with response |
 
 ### Seatbelt Profile Generation (macOS)
 
@@ -434,6 +502,10 @@
 | Cb3 | generateLogTag | chunks.55.mjs:2678 | function (command correlation identifier) |
 | v21 | createdEmptyDirs | chunks.55.mjs:2666 | variable (Set for cleanup tracking) |
 | yw8 | createdSeccompFilters | chunks.55.mjs:2666 | variable (Set for seccomp cleanup) |
+| Vb3 | findSymlinkMountPoint | chunks.55.mjs:2269 | function (symlink attack detection) |
+| kw8 | cleanupSeccompFilter | chunks.55.mjs:2375 | function (delete seccomp BPF file) |
+| Rw8 | MANDATORY_DENY_SEARCH_DEPTH | chunks.55.mjs:2652 | constant (value: 3) |
+| mb3 | setupProcessExitHandler | chunks.55.mjs:2992 | function (cleanup on process exit) |
 
 ### Network Proxy & Bridge Sockets
 
@@ -465,12 +537,43 @@
 | T21 | encodeBase64 | chunks.55.mjs:2679 | function (command encoding) |
 | EZ7 | decodeBase64 | - | function (command decoding) |
 
+### Sandbox UI Components
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| bAz | sandboxSlashCommandDefinition | chunks.165.mjs:2007 | object (slash command descriptor with live status) |
+| TPq | SandboxModeSelector | chunks.165.mjs:1737 | function (3-way mode picker: auto-allow/regular/disabled) |
+| PPq | SandboxStatusDisplay | chunks.165.mjs:1399 | function (shows config summary: restrictions, excluded commands) |
+| ZPq | SandboxOverridesSettings | chunks.165.mjs:1505 | function (open/closed policy toggle for unsandboxed fallback) |
+| Ql8 | SandboxDependenciesPanel | chunks.165.mjs:1641 | function (shows bwrap, socat, seccomp dependency status) |
+| aIq | SandboxViolationStatusLine | chunks.191.mjs:92 | function (status bar flash when violations detected) |
+
+### Command Exclusion System
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| yYz | isCommandInExcludedList | chunks.172.mjs:2412 | function (checks command against exclusion patterns using BFS variant expansion) |
+| yfq | parseExclusionPattern | chunks.172.mjs:1530 | function (parse pattern into {type, prefix/command/pattern}) |
+| Ln8 | extractPrefixPattern | chunks.172.mjs:1488 | function (extract prefix from "command:*" pattern) |
+| TYz | isWildcardPattern | chunks.172.mjs:1492 | function (check if pattern contains unescaped wildcards) |
+| Cn8 | matchWildcardPattern | chunks.172.mjs:1645 | function (glob-style wildcard matching via Efq) |
+| Efq | convertWildcardToRegex | chunks.172.mjs:1503 | function (converts glob pattern to regex) |
+| Ac | extractCommandBasename | chunks.172.mjs:1660 | function (strip env vars and prefixes like timeout/sudo) |
+| bn8 | resolveCommandEnvVars | chunks.172.mjs:1682 | function (strip LD_/DYLD_/PATH env vars for variant generation) |
+| hn8 | removeComments | chunks.172.mjs:1649 | function (strip comment lines from command) |
+| xfq | LD_PATH_REGEX | chunks.172.mjs:2408 | constant (regex for LD_/DYLD_/PATH env vars) |
+| vYz | SHELL_COMMANDS_SET | chunks.172.mjs:2405 | constant (Set of shell commands: sh, bash, zsh, etc.) |
+| AS1 | SAFE_ENV_VARS_SET | chunks.172.mjs:2407 | constant (Set of safe env var names: NODE_ENV, RUST_LOG, etc.) |
+| Ti | isCommandSandboxed | chunks.172.mjs:2454 | function (4-gate check: enabled + override + command + excluded) |
+| h21 | isSandboxingEnabled | chunks.56.mjs:357 | function (4-gate enablement: platform + deps + allowlist + settings) |
+
 ### Network Permission Control
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
 | nZ7 | checkNetworkPermission | chunks.55.mjs:2960 | function (domain-based network access control) |
 | bw8 | matchesDomain | chunks.55.mjs:2952 | function (domain pattern matching with wildcard support) |
+| mw8 | DomainPatternSchema | chunks.55.mjs:5 | constant (Zod schema for domain pattern validation) |
 
 ### Bash/Sed Security
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The sandbox system has deep UI integration across multiple layers: a dedicated `/sandbox` slash command with an interactive multi-tab interface, real-time violation indicators in the status line, a violation list panel in the transcript, a "Bash command (unsandboxed)" title in the permission prompt, a doctor check for dependency validation, and system prompt injections that teach the model how to use `dangerouslyDisableSandbox`. All UI components subscribe to `SandboxViolationStore` (dy1) via its observer pattern and read live state from `sandboxConfigObject` (b8).
+The sandbox system has deep UI integration across multiple layers: a dedicated `/sandbox` slash command with an interactive multi-tab interface, real-time violation indicators in the status line, a violation list panel in the transcript, a "Bash command (unsandboxed)" title in the permission prompt, a doctor check for dependency validation, and system prompt injections that teach the model how to use `dangerouslyDisableSandbox`. All UI components subscribe to `SandboxViolationStore` (HD6) via its observer pattern and read live state from `sandboxConfigObject` (vA).
 
 ## Related Symbols
 
@@ -11,16 +11,13 @@ The sandbox system has deep UI integration across multiple layers: a dedicated `
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `sandboxSlashCommandHandler` (oqz) - Dispatches `/sandbox` subcommands and renders interactive UI
-- `sandboxSlashCommandDefinition` (aqz) - Slash command descriptor with live status in description
-- `SandboxModeSelector` (_Hq) - 3-way mode picker (auto-allow / regular / disabled)
-- `SandboxStatusDisplay` (zHq) - Shows active configuration summary
-- `SandboxOverridesSettings` (HHq) - Toggles open/closed (unsandboxed fallback) policy
-- `SandboxDependenciesPanel` (nuA) - Dependency status for bwrap, socat, seccomp filter
-- `SandboxViolationStatusLine` (lWq) - Status bar flash on new violations (macOS)
-- `SandboxViolationListPanel` (HLq) - Detailed violation log in tool result area
-- `SandboxDoctorCheck` (Q7q) - Dependency warnings inside `/doctor`
-- `getSandboxSystemPromptBlock` (nBY) - System prompt instructions injected into Bash tool
+- `sandboxSlashCommandDefinition` (bAz) - Slash command descriptor with live status in description
+- `SandboxModeSelector` (TPq) - 3-way mode picker (auto-allow / regular / disabled)
+- `SandboxStatusDisplay` (PPq) - Shows active configuration summary
+- `SandboxOverridesSettings` (ZPq) - Toggles open/closed (unsandboxed fallback) policy
+- `SandboxDependenciesPanel` (Ql8) - Dependency status for bwrap, socat, seccomp filter
+- `SandboxViolationStatusLine` (aIq) - Status bar flash on new violations (macOS)
+- `getSandboxSystemPromptBlock` (E9z) - System prompt instructions injected into Bash tool
 
 ---
 
@@ -31,18 +28,18 @@ Key functions in this document:
 ```javascript
 // ============================================
 // sandboxSlashCommandDefinition - Slash command descriptor with live sandbox status
-// Location: chunks.165.mjs:1781-1811 (Ln 427457)
+// Location: chunks.165.mjs:2007-2032
 // ============================================
 
 // ORIGINAL (for source lookup):
-aqz = {
+bAz = {
     name: "sandbox",
     get description() {
-        let A = b8.isSandboxingEnabled(), q = b8.isAutoAllowBashIfSandboxedEnabled(),
-            K = b8.areUnsandboxedCommandsAllowed(), Y = b8.areSandboxSettingsLockedByPolicy(),
-            z = b8.checkDependencies().errors.length === 0, w;
-        if (!z) w = l1.warning;
-        else w = A ? l1.tick : l1.circle;
+        let A = vA.isSandboxingEnabled(), q = vA.isAutoAllowBashIfSandboxedEnabled(),
+            K = vA.areUnsandboxedCommandsAllowed(), Y = vA.areSandboxSettingsLockedByPolicy(),
+            z = vA.checkDependencies().errors.length === 0, w;
+        if (!z) w = a6.warning;
+        else w = A ? a6.tick : a6.circle;
         let H = "sandbox disabled";
         if (A) H = q ? "sandbox enabled (auto-allow)" : "sandbox enabled",
             H += K ? ", fallback allowed" : "";
@@ -51,21 +48,24 @@ aqz = {
     },
     argumentHint: 'exclude "command pattern"',
     isEnabled: () => !0,
-    isHidden: !b8.isSupportedPlatform() || !b8.isPlatformInEnabledList(),
+    get isHidden() {
+        return !vA.isSupportedPlatform() || !vA.isPlatformInEnabledList()
+    },
     immediate: !0,
     type: "local-jsx",
-    ...
+    userFacingName: () => "sandbox",
+    load: () => Promise.resolve().then(() => (EPq(), kPq))
 }
 
 // READABLE (for understanding):
 sandboxSlashCommandDefinition = {
     name: "sandbox",
     get description() {
-        let sandboxEnabled = b8.isSandboxingEnabled();
-        let autoAllow = b8.isAutoAllowBashIfSandboxedEnabled();
-        let fallbackAllowed = b8.areUnsandboxedCommandsAllowed();
-        let isManaged = b8.areSandboxSettingsLockedByPolicy();
-        let depsOk = b8.checkDependencies().errors.length === 0;
+        let sandboxEnabled = vA.isSandboxingEnabled();
+        let autoAllow = vA.isAutoAllowBashIfSandboxedEnabled();
+        let fallbackAllowed = vA.areUnsandboxedCommandsAllowed();
+        let isManaged = vA.areSandboxSettingsLockedByPolicy();
+        let depsOk = vA.checkDependencies().errors.length === 0;
 
         // Icon: warning if deps missing, tick if enabled, circle if disabled
         let icon = !depsOk ? "⚠" : sandboxEnabled ? "✓" : "○";
@@ -80,14 +80,17 @@ sandboxSlashCommandDefinition = {
     argumentHint: 'exclude "command pattern"',
     isEnabled: () => true,
     // Hidden if platform is unsupported or excluded via enabledPlatforms
-    isHidden: !b8.isSupportedPlatform() || !b8.isPlatformInEnabledList(),
+    get isHidden() {
+        return !vA.isSupportedPlatform() || !vA.isPlatformInEnabledList();
+    },
     immediate: true,
     type: "local-jsx",
     userFacingName: () => "sandbox",
-    load: () => Promise.resolve().then(() => (MHq(), jHq))
+    load: () => Promise.resolve().then(() => sandboxUIComponent)
 }
 
-// Mapping: aqz->sandboxSlashCommandDefinition
+// Mapping: bAz->sandboxSlashCommandDefinition, vA->sandboxConfigObject,
+//          a6->iconSet, a6.tick->✓, a6.circle->○, a6.warning->⚠
 ```
 
 **What it does:** The description is a getter (computed live), so every time the slash command list re-renders, it shows the current sandbox state. The icon is:
@@ -100,37 +103,8 @@ sandboxSlashCommandDefinition = {
 ```javascript
 // ============================================
 // sandboxSlashCommandHandler - Dispatches /sandbox subcommands
-// Location: chunks.165.mjs:1723-1780 (Ln 427401)
+// Location: chunks.165.mjs:1916-1990
 // ============================================
-
-// ORIGINAL (for source lookup):
-async function oqz(A, q, K) {
-    u8("sandbox");
-    let z = C8().theme || "light", w = eA();
-    if (!b8.isSupportedPlatform()) {
-        let O = w === "wsl" ? "Error: Sandboxing requires WSL2..." : "Error: Only macOS, Linux, WSL2",
-            _ = k8("error", z)(O);
-        return A(_), null
-    }
-    let H = b8.checkDependencies();
-    if (!b8.isPlatformInEnabledList()) { /* return error */ }
-    if (b8.areSandboxSettingsLockedByPolicy()) { /* return error */ }
-    let $ = K?.trim() || "";
-    if (!$) return DHq.default.createElement(_Hq, { onComplete: A, depCheck: H });
-    if ($) {
-        let _ = $.split(" ")[0];
-        if (_ === "exclude") {
-            let J = $.slice(8).trim();
-            if (!J) return A(errorMessage), null;
-            let X = J.replace(/^["']|["']$/g, "");  // Strip quotes
-            ae8(X);  // addExcludedCommand
-            let D = Vw("localSettings"), j = D ? relative(cwd(), D) : ".claude/settings.local.json",
-                M = k8("success", z)(`Added "${X}" to excluded commands in ${j}`);
-            return A(M), null
-        }
-        return A(error), null
-    }
-}
 
 // READABLE (for understanding):
 async function sandboxSlashCommandHandler(renderResult, _, subcommandArgs) {
@@ -139,13 +113,13 @@ async function sandboxSlashCommandHandler(renderResult, _, subcommandArgs) {
     let platform = getPlatform();
 
     // Platform gate checks
-    if (!b8.isSupportedPlatform()) {
+    if (!vA.isSupportedPlatform()) {
         let msg = platform === "wsl" ? "Error: Sandboxing requires WSL2." : "Error: Only macOS, Linux, and WSL2 supported.";
         return renderResult(colorize("error", theme)(msg)), null;
     }
-    let depCheck = b8.checkDependencies();
-    if (!b8.isPlatformInEnabledList()) return renderResult(colorize("error", theme)(`Error: Disabled for platform ${platform} via enabledPlatforms`)), null;
-    if (b8.areSandboxSettingsLockedByPolicy()) return renderResult(colorize("error", theme)("Error: Settings locked by higher-priority config.")), null;
+    let depCheck = vA.checkDependencies();
+    if (!vA.isPlatformInEnabledList()) return renderResult(colorize("error", theme)(`Error: Disabled for platform ${platform} via enabledPlatforms`)), null;
+    if (vA.areSandboxSettingsLockedByPolicy()) return renderResult(colorize("error", theme)("Error: Settings locked by higher-priority config.")), null;
 
     // No subcommand: show interactive UI
     let args = subcommandArgs?.trim() || "";
@@ -163,7 +137,7 @@ async function sandboxSlashCommandHandler(renderResult, _, subcommandArgs) {
     return renderResult(colorize("error", theme)(`Error: Unknown subcommand "${subcommand}". Available: exclude`)), null;
 }
 
-// Mapping: oqz->sandboxSlashCommandHandler, A->renderResult, K->subcommandArgs, DHq->React, _Hq->SandboxModeSelector, ae8->addExcludedCommand, k8->colorize, C8->getSettings, eA->getPlatform, b8->sandboxConfigObject
+// Mapping: vA->sandboxConfigObject, TPq->SandboxModeSelector
 ```
 
 **Key insight:** `immediate: true` means the command renders inline in the chat without requiring an extra Enter press. The `type: "local-jsx"` means it returns a React component rather than a string. The `onComplete` callback receives either JSX (to show inline) or a string (status message), and optionally `{ display: "skip" }` to dismiss without showing anything.
@@ -176,19 +150,23 @@ async function sandboxSlashCommandHandler(renderResult, _, subcommandArgs) {
 
 ```javascript
 // ============================================
-// SandboxModeSelector - Interactive 3-way sandbox mode picker
-// Location: chunks.165.mjs:1517-1675 (Ln 427195)
+// SandboxModeSelector (TPq) - Interactive 3-way sandbox mode picker
+// Location: chunks.165.mjs:1737-1870
 // ============================================
 
 // ORIGINAL (for source lookup):
-function _Hq(A) {
-    let { onComplete: K, depCheck: Y } = A,
-        [z] = T7(), w = b8.isSandboxingEnabled(), H = b8.isAutoAllowBashIfSandboxedEnabled(),
-        $ = Y.warnings.length > 0,
-        J = O.sandbox?.network?.allowAllUnixSockets,
-        X = $ && !J,  // show unix socket warning
-        j = (() => {
-            if (!w) return "disabled"; if (H) return "auto-allow"; return "regular"
+function TPq(A) {
+    let q = A6(43),
+        { onComplete: K, depCheck: Y } = A,
+        [z] = z7(),
+        _ = vA.isSandboxingEnabled(),
+        w = vA.isAutoAllowBashIfSandboxedEnabled(),
+        O = Y.warnings.length > 0,
+        $ = PA(),        // get settings
+        j = $.sandbox?.network?.allowAllUnixSockets,
+        J = O && !j,     // show unix socket warning
+        D = (() => {
+            if (!_) return "disabled"; if (w) return "auto-allow"; return "regular"
         })();
     // ... builds options list, renders SelectInput
     // onChange: calls b8.setSandboxSettings({enabled, autoAllowBashIfSandboxed})
@@ -217,15 +195,15 @@ function SandboxModeSelector({ onComplete, depCheck }) {
     async function handleChange(selection) {
         switch (selection) {
             case "auto-allow":
-                await b8.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: true });
+                await vA.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: true });
                 onComplete("✓ Sandbox enabled with auto-allow for bash commands");
                 break;
             case "regular":
-                await b8.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: false });
+                await vA.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: false });
                 onComplete("✓ Sandbox enabled with regular bash permissions");
                 break;
             case "disabled":
-                await b8.setSandboxSettings({ enabled: false, autoAllowBashIfSandboxed: false });
+                await vA.setSandboxSettings({ enabled: false, autoAllowBashIfSandboxed: false });
                 onComplete("○ Sandbox disabled");
                 break;
         }
@@ -239,13 +217,13 @@ function SandboxModeSelector({ onComplete, depCheck }) {
     //   - "Dependencies" (if warnings: bwrap, socat, seccomp)
 }
 
-// Mapping: _Hq->SandboxModeSelector, K->onComplete, Y->depCheck
+// Mapping: TPq->SandboxModeSelector, K->onComplete, Y->depCheck, vA->sandboxConfigObject
 ```
 
 **How it works:**
 1. Determines `currentMode` from live sandbox API state
 2. Marks current selection with a green `(current)` suffix
-3. On selection, calls `b8.setSandboxSettings()` which writes to `localSettings.json`
+3. On selection, calls `vA.setSandboxSettings()` which writes to `localSettings.json`
 4. The result is shown inline via `onComplete` callback
 5. Tabs: Mode → Overrides → Status → Dependencies (conditionally shown)
 
@@ -262,13 +240,13 @@ function SandboxModeSelector({ onComplete, depCheck }) {
 
 ```javascript
 // ============================================
-// SandboxStatusDisplay - Configuration summary UI
-// Location: chunks.165.mjs:1179-1268 (Ln 426863)
+// SandboxStatusDisplay (PPq) - Configuration summary UI
+// Location: chunks.165.mjs:1399-1487
 // ============================================
 
 // ORIGINAL (for source lookup):
-function zHq() {
-    let A = e(3), q = b8.isSandboxingEnabled();
+function PPq() {
+    let A = A6(3), q = vA.isSandboxingEnabled();
     if (!q) return "Sandbox is not enabled";
     // Calls: getFsReadConfig(), getFsWriteConfig(), getNetworkRestrictionConfig(),
     //        getAllowUnixSockets(), getExcludedCommands(), getLinuxGlobPatternWarnings()
@@ -277,15 +255,15 @@ function zHq() {
 
 // READABLE (for understanding):
 function SandboxStatusDisplay() {
-    let sandboxEnabled = b8.isSandboxingEnabled();
+    let sandboxEnabled = vA.isSandboxingEnabled();
     if (!sandboxEnabled) return <Text color="subtle">Sandbox is not enabled</Text>;
 
-    let readConfig = b8.getFsReadConfig();    // { denyOnly: [...] }
-    let writeConfig = b8.getFsWriteConfig();  // { allowOnly: [...], denyWithinAllow: [...] }
-    let networkConfig = b8.getNetworkRestrictionConfig(); // { allowedHosts, deniedHosts }
-    let allowUnixSockets = b8.getAllowUnixSockets();
-    let excludedCommands = b8.getExcludedCommands();
-    let globWarnings = b8.getLinuxGlobPatternWarnings();
+    let readConfig = vA.getFsReadConfig();    // { denyOnly: [...] }
+    let writeConfig = vA.getFsWriteConfig();  // { allowOnly: [...], denyWithinAllow: [...] }
+    let networkConfig = vA.getNetworkRestrictionConfig(); // { allowedHosts, deniedHosts }
+    let allowUnixSockets = vA.getAllowUnixSockets();
+    let excludedCommands = vA.getExcludedCommands();
+    let globWarnings = vA.getLinuxGlobPatternWarnings();
 
     return (
         <Box flexDirection="column" paddingY={1}>
@@ -332,7 +310,7 @@ function SandboxStatusDisplay() {
     );
 }
 
-// Mapping: zHq->SandboxStatusDisplay
+// Mapping: PPq->SandboxStatusDisplay, vA->sandboxConfigObject
 ```
 
 **Key insight:** The network config label appends `(Managed)` when `isManagedDomainsPolicy()` (KC1) is true -- i.e., when `policySettings.sandbox.network.allowManagedDomainsOnly` is set. This tells users that the allowed domains list is controlled by enterprise policy and they cannot change it locally.
@@ -345,15 +323,15 @@ function SandboxStatusDisplay() {
 
 ```javascript
 // ============================================
-// SandboxOverridesSettings - open/closed override policy selector
-// Location: chunks.165.mjs:1967-1410 (Ln 426967)
+// SandboxOverridesSettings (ZPq) - open/closed override policy selector
+// Location: chunks.165.mjs:1505-1620
 // ============================================
 
 // READABLE (for understanding):
 function SandboxOverridesSettings({ onComplete }) {
-    let sandboxEnabled = b8.isSandboxingEnabled();
-    let fallbackAllowed = b8.areUnsandboxedCommandsAllowed();  // "open" = true, "closed" = false
-    let isManaged = b8.areSandboxSettingsLockedByPolicy();
+    let sandboxEnabled = vA.isSandboxingEnabled();
+    let fallbackAllowed = vA.areUnsandboxedCommandsAllowed();  // "open" = true, "closed" = false
+    let isManaged = vA.areSandboxSettingsLockedByPolicy();
 
     if (!sandboxEnabled) return <Text color="subtle">Sandbox is not enabled. Enable sandbox to configure override settings.</Text>;
 
@@ -364,7 +342,7 @@ function SandboxOverridesSettings({ onComplete }) {
     ];
 
     async function handleChange(selection) {
-        await b8.setSandboxSettings({ allowUnsandboxedCommands: selection === "open" });
+        await vA.setSandboxSettings({ allowUnsandboxedCommands: selection === "open" });
         if (selection === "open") {
             onComplete("✓ Unsandboxed fallback allowed - commands can run outside sandbox when necessary");
         } else {
@@ -380,12 +358,12 @@ function SandboxOverridesSettings({ onComplete }) {
     // Link: code.claude.com/docs/en/sandboxing#configure-sandboxing
 }
 
-// Mapping: HHq->SandboxOverridesSettings
+// Mapping: ZPq->SandboxOverridesSettings, vA->sandboxConfigObject
 ```
 
 **Why this distinction matters:**
 - **Open mode**: `dangerouslyDisableSandbox: true` requests from the model are honored (after user approval). The model can self-heal from sandbox failures.
-- **Closed mode**: Even if the model sets `dangerouslyDisableSandbox: true`, it is ignored by `isSandboxed()` (Sc). The only way to run outside sandbox is to add the command to `excludedCommands`.
+- **Closed mode**: Even if the model sets `dangerouslyDisableSandbox: true`, it is ignored by `isSandboxed()` (Ti). The only way to run outside sandbox is to add the command to `excludedCommands`.
 
 ---
 
@@ -395,9 +373,18 @@ function SandboxOverridesSettings({ onComplete }) {
 
 ```javascript
 // ============================================
-// SandboxDependenciesPanel - Linux dependency status display
-// Location: chunks.165.mjs:1421-1510 (Ln 427101)
+// SandboxDependenciesPanel (Ql8) - Linux dependency status display
+// Location: chunks.165.mjs:1641-1725
 // ============================================
+
+// ORIGINAL (for source lookup):
+function Ql8(A) {
+    let q = A6(31), { depCheck: K } = A,
+        Y = K.errors.some(CAz),  // bwrap missing
+        z = K.errors.some(SAz),  // socat missing
+        _ = K.warnings.length > 0;  // seccomp missing
+    // Renders status for each dependency...
+}
 
 // READABLE (for understanding):
 function SandboxDependenciesPanel({ depCheck }) {
@@ -429,7 +416,7 @@ function SandboxDependenciesPanel({ depCheck }) {
     );
 }
 
-// Mapping: nuA->SandboxDependenciesPanel, K->depCheck
+// Mapping: Ql8->SandboxDependenciesPanel, K->depCheck
 ```
 
 **Key insight:** `bwrap` and `socat` are hard errors (sandbox cannot function without them). `seccomp` is a soft warning -- the sandbox works but Unix domain sockets can escape network isolation. The panel tells the user exactly which apt package to install or which npm package to install for the seccomp filter.
@@ -445,16 +432,15 @@ When the permission prompt appears for a Bash tool call, the title reflects whet
 ```javascript
 // ============================================
 // BashPermissionPrompt - sandbox-aware title
-// Location: chunks.180.mjs:2224-2330 (Ln ~)
+// Location: chunks.189.mjs:405-420
 // ============================================
 
 // ORIGINAL (for source lookup):
-let T1 = b8.isSandboxingEnabled(), N1 = T1 && Sc(A.input);
-// ...
-title: T1 && !N1 ? "Bash command (unsandboxed)" : "Bash command"
+let J6 = vA.isSandboxingEnabled(), K6 = Ti(A.input);  // will command be sandboxed?
+title: J6 && !K6 ? "Bash command (unsandboxed)" : "Bash command"
 
 // READABLE (for understanding):
-let isSandboxActive = b8.isSandboxingEnabled();
+let isSandboxActive = vA.isSandboxingEnabled();
 let willRunSandboxed = isSandboxActive && isCommandSandboxed(input);
 
 // Title changes based on execution context:
@@ -471,18 +457,10 @@ let title = (isSandboxActive && !willRunSandboxed) ? "Bash command (unsandboxed)
 When `dangerouslyDisableSandbox: true` triggers a permission ask, the reason displayed is:
 
 ```javascript
-// chunks.180.mjs:819-820
-case "sandboxOverride":
-    return "Requires permission to bypass sandbox";
-
-// chunks.172.mjs:1846-1847
+// chunks.172.mjs:2544-2545
 case "sandboxOverride":
     return "Run outside of the sandbox";
 ```
-
-Two different strings are used in different contexts:
-- The short form `"Run outside of the sandbox"` is used in the brief inline decision reason
-- `"Requires permission to bypass sandbox"` is used in the full permission prompt header
 
 ---
 
@@ -492,28 +470,28 @@ Two different strings are used in different contexts:
 
 ```javascript
 // ============================================
-// SandboxViolationStatusLine - Status bar flash on new violations (macOS only)
-// Location: chunks.182.mjs:1592-1644 (Ln 472208)
+// SandboxViolationStatusLine (aIq) - Status bar flash on new violations (macOS only)
+// Location: chunks.191.mjs:92-127
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lWq() {
-    let A = e(6), [q, K] = yf1.useState(0), Y = yf1.useRef(null),
-        z = RK("app:toggleTranscript", "Global", "ctrl+o");
-    if (A[0] === Symbol.for("react.memo_cache_sentinel")) w = () => {
-        if (!b8.isSandboxingEnabled()) return;
-        let _ = b8.getSandboxViolationStore(), J = _.getTotalCount(),
-            X = _.subscribe(() => {
-                let D = _.getTotalCount(), j = D - J;
-                if (j > 0) {
-                    K(j); J = D;
+function aIq() {
+    let A = A6(6), [q, K] = RV6.useState(0), Y = RV6.useRef(null),
+        z = Rq("app:toggleTranscript", "Global", "ctrl+o");
+    if (A[0] === Symbol.for("react.memo_cache_sentinel")) _ = () => {
+        if (!vA.isSandboxingEnabled()) return;
+        let H = vA.getSandboxViolationStore(), j = H.getTotalCount(),
+            J = H.subscribe(() => {
+                let M = H.getTotalCount(), D = M - j;
+                if (D > 0) {
+                    K(D); j = M;
                     if (Y.current) clearTimeout(Y.current);
                     Y.current = setTimeout(() => K(0), 5000);
                 }
             });
-        return () => { X(); if (Y.current) clearTimeout(Y.current) }
+        return () => { J(); if (Y.current) clearTimeout(Y.current) }
     }
-    if (yf1.useEffect(w, H), !b8.isSandboxingEnabled() || q === 0) return null;
+    if (RV6.useEffect(_, w), !vA.isSandboxingEnabled() || q === 0) return null;
     return "⧈ Sandbox blocked {q} {operations} · ctrl+o for details · /sandbox to disable"
 }
 
@@ -524,8 +502,8 @@ function SandboxViolationStatusLine() {
     let detailsKeybinding = getKeybinding("app:toggleTranscript", "Global", "ctrl+o");
 
     useEffect(() => {
-        if (!b8.isSandboxingEnabled()) return;
-        let store = b8.getSandboxViolationStore();
+        if (!vA.isSandboxingEnabled()) return;
+        let store = vA.getSandboxViolationStore();
         let lastKnownCount = store.getTotalCount();
 
         let unsubscribe = store.subscribe(() => {
@@ -551,11 +529,11 @@ function SandboxViolationStatusLine() {
     );
 }
 
-// Mapping: lWq->SandboxViolationStatusLine, K->setNewViolationCount, z->detailsKeybinding
+// Mapping: aIq->SandboxViolationStatusLine, K->setNewViolationCount, z->detailsKeybinding, vA->sandboxConfigObject
 ```
 
 **How it works:**
-1. Subscribes to `SandboxViolationStore` (dy1) on mount
+1. Subscribes to `SandboxViolationStore` (HD6) on mount
 2. Tracks `lastKnownCount` -- when total increases, computes the delta
 3. Displays the delta count (not the total) to show "new violations just happened"
 4. Auto-dismisses after 5 seconds via setTimeout
@@ -572,21 +550,8 @@ function SandboxViolationStatusLine() {
 ```javascript
 // ============================================
 // SandboxViolationListPanel - Detailed violation log (macOS only)
-// Location: chunks.187.mjs:~485694 (Ln 485694)
+// Location: chunks.55.mjs:3391-3393 (violation annotation in stderr)
 // ============================================
-
-// ORIGINAL (for source lookup):
-function HLq() {
-    let A = e(15), q;
-    // ...subscribe to violation store, store last 10 violations
-    if (tc1.useEffect(H, $), !b8.isSandboxingEnabled() || eA() === "linux") return null;
-    if (z === 0) return null;
-    return (
-        "⧈ Sandbox blocked {z} total operations"
-        // then map K.map(qWz) -- each violation as a timestamped line
-        // then "… showing last X of Y"
-    );
-}
 
 // READABLE (for understanding):
 function SandboxViolationListPanel() {
@@ -594,7 +559,7 @@ function SandboxViolationListPanel() {
     let [totalCount, setTotalCount] = useState(0);
 
     useEffect(() => {
-        let store = b8.getSandboxViolationStore();
+        let store = vA.getSandboxViolationStore();
         return store.subscribe((violations) => {
             setRecentViolations(violations.slice(-10));  // Keep last 10
             setTotalCount(store.getTotalCount());
@@ -602,7 +567,7 @@ function SandboxViolationListPanel() {
     }, []);
 
     // Only for macOS -- Linux has no log monitor
-    if (!b8.isSandboxingEnabled() || getPlatform() === "linux") return null;
+    if (!vA.isSandboxingEnabled() || getPlatform() === "linux") return null;
     if (totalCount === 0) return null;
 
     let noun = totalCount === 1 ? "operation" : "operations";
@@ -638,7 +603,7 @@ function renderViolationEntry(violation, index) {
     );
 }
 
-// Mapping: HLq->SandboxViolationListPanel, qWz->renderViolationEntry
+// Mapping: vA->sandboxConfigObject
 ```
 
 **Key insight:** Each violation entry includes:
@@ -782,7 +747,7 @@ ${instructions}
     - Do NOT use \`/tmp\` directly - use \`/tmp/claude/\` or rely on TMPDIR instead`;
 }
 
-// Mapping: nBY->getSandboxSystemPromptBlock, w->fallbackAllowed, b8->sandboxConfigObject
+// Mapping: E9z->getSandboxSystemPromptBlock, w->fallbackAllowed, vA->sandboxConfigObject
 ```
 
 **How it works:**
@@ -838,25 +803,25 @@ After execution:
    macOS: <sandbox_violations>...</sandbox_violations> appended to stderr
         |
         v
-   SandboxViolationStore (dy1) updated by log monitor (ze8)
+   SandboxViolationStore (HD6) updated by log monitor (UZ7)
         |
-        +---> SandboxViolationStatusLine (lWq) [status bar, auto-dismiss 5s]
-        +---> SandboxViolationListPanel (HLq) [transcript panel, last 10]
+        +---> SandboxViolationStatusLine (aIq) [status bar, auto-dismiss 5s]
+        +---> SandboxViolationListPanel [transcript panel, last 10]
         +---> getSandboxViolationStore() [model reads via tool result]
 
 /sandbox command:
         |
         v
-   oqz() dispatches to:
-        +---> _Hq (SandboxModeSelector)      [interactive mode picker]
-              |-- zHq (SandboxStatusDisplay) [Status tab]
-              |-- HHq (SandboxOverridesSettings) [Overrides tab]
-              +-- nuA (SandboxDependenciesPanel)  [Dependencies tab]
+   bAz() dispatches to:
+        +---> TPq (SandboxModeSelector)      [interactive mode picker]
+              |-- PPq (SandboxStatusDisplay) [Status tab]
+              |-- ZPq (SandboxOverridesSettings) [Overrides tab]
+              +-- Ql8 (SandboxDependenciesPanel)  [Dependencies tab]
 
 System Prompt assembly:
         |
         v
-   nBY() → embedded in Bash tool system prompt
+   E9z() → embedded in Bash tool system prompt
    Teaches model: when to set dangerouslyDisableSandbox,
                   what temp directory to use,
                   what constitutes a sandbox failure
@@ -877,7 +842,7 @@ The sandbox configuration automatically syncs when settings change:
 // READABLE (for understanding):
 async function initializeSandboxFromSettings(networkPermissionCallback) {
     if (sandboxInitPromise) return sandboxInitPromise;  // Already initializing or initialized
-    if (!b8.isSandboxingEnabled()) return;              // Skip if disabled
+    if (!vA.isSandboxingEnabled()) return;              // Skip if disabled
 
     let settings = getSettings();
     let config = buildSandboxConfigFromSettings(settings);
@@ -1142,9 +1107,1510 @@ Sandbox
 
 ---
 
+## 14. Permission Prompt UI for Unsandboxed Commands
+
+### Title Variation Based on Sandbox State
+
+**Location:** `chunks.189.mjs:411`
+
+```javascript
+// ============================================
+// BashPermissionPrompt - Title shows sandbox context
+// Location: chunks.189.mjs:409-471
+// ============================================
+
+// ORIGINAL (for source lookup):
+return N$.default.createElement(cz, {
+    workerBadge: _,
+    title: J6 && !K6 ? "Bash command (unsandboxed)" : "Bash command",
+    subtitle: void 0
+}, ...)
+
+// READABLE (for understanding):
+function BashPermissionPrompt(props) {
+    // Determine if sandbox is active and command will be sandboxed
+    let isSandboxEnabled = vA.isSandboxingEnabled();
+    let willRunSandboxed = isCommandSandboxed(props.input);
+
+    // Title varies based on sandbox context
+    let title = (isSandboxEnabled && !willRunSandboxed)
+        ? "Bash command (unsandboxed)"  // Warning: not sandboxed!
+        : "Bash command";                // Normal or sandboxed
+
+    return (
+        <PermissionDialog workerBadge={workerBadge} title={title}>
+            {/* Command display */}
+            <Text dimColor={feedbackMode.visible}>
+                {renderToolUseMessage({ command, description }, { verbose: true })}
+            </Text>
+
+            {/* Permission options */}
+            <SelectInput
+                options={permissionOptions}
+                onChange={handlePermissionChange}
+            />
+        </PermissionDialog>
+    );
+}
+
+// Mapping: J6→isSandboxEnabled, K6→willRunSandboxed, N$→React, cz→PermissionDialog
+```
+
+### Key Design Decision: Title as Warning
+
+**Why "(unsandboxed)" in title:**
+- Alerts user that this command will NOT run in sandbox
+- Distinguishes from normal sandboxed commands
+- Provides clear visual warning in permission prompt history
+
+### When This Happens
+
+The "(unsandboxed)" title appears when:
+1. Sandbox is enabled globally (`isSandboxingEnabled() === true`)
+2. Model set `dangerouslyDisableSandbox: true`
+3. `allowUnsandboxedCommands` policy allows it
+4. Command is NOT in exclusion list
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│           Permission Prompt Title Decision Flow                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  isSandboxingEnabled()?                                                      │
+│       │                                                                      │
+│       ├─ false → "Bash command" (sandbox not active)                        │
+│       │                                                                      │
+│       └─ true ──► isCommandSandboxed(input)?                                │
+│                         │                                                    │
+│                         ├─ true → "Bash command" (runs in sandbox)          │
+│                         │                                                    │
+│                         └─ false → "Bash command (unsandboxed)"              │
+│                                    (model requested bypass)                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 15. Complete UI Interaction Flow
+
+### End-to-End Sandbox Configuration Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE SANDBOX UI INTERACTION FLOW                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User types /sandbox                                                         │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Slash command matched (bAz)                                                │
+│       │                                                                      │
+│       ├─ description getter evaluated:                                      │
+│       │    • isSandboxingEnabled() → ✓ or ○                                │
+│       │    • isAutoAllowBashIfSandboxedEnabled() → auto-allow status        │
+│       │    • areUnsandboxedCommandsAllowed() → fallback status              │
+│       │    • checkDependencies() → ⚠ if errors                             │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Load sandbox UI component (kPq)                                            │
+│       │                                                                      │
+│       ├─ SandboxStatusDisplay (PPq)                                         │
+│       │    • Show current config summary                                    │
+│       │    • Dependency status (bwrap, socat, seccomp)                      │
+│       │                                                                      │
+│       ├─ Tab 1: Mode (SandboxModeSelector - TPq)                            │
+│       │    • Option 1: "Sandbox BashTool, with auto-allow"                  │
+│       │    • Option 2: "Sandbox BashTool, with regular permissions"          │
+│       │    • Option 3: "No Sandbox"                                         │
+│       │    • onChange → setSandboxSettings()                                │
+│       │                                                                      │
+│       ├─ Tab 2: Overrides (SandboxOverridesSettings - ZPq)                  │
+│       │    • Open/Closed toggle for unsandboxed fallback                    │
+│       │    • onChange → setSandboxSettings()                                │
+│       │                                                                      │
+│       └─ Tab 3: Dependencies (SandboxDependenciesPanel - Ql8)               │
+│            • bwrap: ✓ installed / ✗ missing                                 │
+│            • socat: ✓ installed / ✗ missing                                 │
+│            • seccomp: ✓ available / ⚠ not found                             │
+│                                                                              │
+│  User selects option                                                         │
+│       │                                                                      │
+│       ▼                                                                      │
+│  setSandboxSettings() (Mx3)                                                 │
+│       │                                                                      │
+│       ├─ Write to localSettings                                             │
+│       ├─ Settings change event fired                                        │
+│       ├─ Settings subscription triggers                                      │
+│       └─ aO.updateConfig() called                                           │
+│                                                                              │
+│  UI updates                                                                  │
+│       │                                                                      │
+│       ├─ SandboxStatusDisplay re-renders                                    │
+│       ├─ Description getter shows new status                                │
+│       └─ Mode selector shows "(current)" marker                             │
+│                                                                              │
+│  User presses Esc or clicks away                                            │
+│       │                                                                      │
+│       └─ UI dismisses, slash command history updated                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Permission Prompt Flow with Sandbox Context
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PERMISSION PROMPT SANDBOX FLOW                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Model calls Bash tool                                                      │
+│       │                                                                      │
+│       ├─ dangerouslyDisableSandbox: undefined (default)                     │
+│       │    or                                                               │
+│       ├─ dangerouslyDisableSandbox: true (explicit bypass request)          │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Permission check (checkBashPermissionWithSandbox)                          │
+│       │                                                                      │
+│       ├─ auto-allow enabled && sandbox enabled && isCommandSandboxed?       │
+│       │    └─ Auto-allow, no prompt                                          │
+│       │                                                                      │
+│       └─ Normal permission flow                                              │
+│            │                                                                 │
+│            ▼                                                                 │
+│       Build permission prompt                                                │
+│            │                                                                 │
+│            ├─ title = isSandboxEnabled && !willRunSandboxed                 │
+│            │       ? "Bash command (unsandboxed)"                            │
+│            │       : "Bash command"                                          │
+│            │                                                                 │
+│            └─ Show prompt with options                                       │
+│                 • Yes (with optional feedback)                               │
+│                 • No (with optional feedback)                                │
+│                 • Yes + add permission rule                                  │
+│                                                                              │
+│  User approves                                                               │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Execute command                                                             │
+│       │                                                                      │
+│       ├─ willRunSandboxed → wrap with sandbox-exec/bwrap                    │
+│       │    • Network isolation                                              │
+│       │    • Filesystem restrictions                                        │
+│       │    • Violation monitoring (macOS)                                   │
+│       │                                                                      │
+│       └─ !willRunSandboxed → Execute directly                               │
+│            • No OS-level isolation                                           │
+│            • Normal permissions                                              │
+│                                                                              │
+│  Command completes                                                           │
+│       │                                                                      │
+│       ├─ stdout/stderr returned                                             │
+│       ├─ Violations annotated (macOS)                                       │
+│       └─ SandboxViolationStatusLine updates if violations                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Real-Time Violation Indicator Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    REAL-TIME VIOLATION INDICATOR FLOW                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  (macOS only)                                                                │
+│                                                                              │
+│  Sandboxed command runs                                                     │
+│       │                                                                      │
+│       ├─ Attempts denied operation                                          │
+│       │    (e.g., write to /etc/passwd)                                     │
+│       │                                                                      │
+│       ▼                                                                      │
+│  macOS kernel denies operation                                              │
+│       │                                                                      │
+│       └─ Logs: "Sandbox: deny file-write-data /etc/passwd (msg _xxx_SBX)"   │
+│                                                                              │
+│  startLogMonitor (UZ7) captures log                                         │
+│       │                                                                      │
+│       ├─ Filters by SANDBOX_LOG_TAG                                         │
+│       ├─ Parses violation message                                           │
+│       ├─ Decodes command from CMD64_..._END                                 │
+│       └─ Filters benign violations (mDNSResponder, etc.)                    │
+│                                                                              │
+│  SandboxViolationStore.addViolation()                                       │
+│       │                                                                      │
+│       ├─ Add to ring buffer (max 100)                                       │
+│       └─ notifyListeners()                                                  │
+│                                                                              │
+│  SandboxViolationStatusLine (aIq) receives update                           │
+│       │                                                                      │
+│       ├─ Calculate delta: currentTotal - lastSeenTotal                      │
+│       ├─ If delta > 0:                                                      │
+│       │    • setCount(delta)                                                │
+│       │    • Start/reset 5s timer → setCount(0)                             │
+│       │    • Re-render with new count                                       │
+│       │                                                                      │
+│       └─ If delta === 0: no change                                          │
+│                                                                              │
+│  Status line displays:                                                       │
+│       │                                                                      │
+│       └─ "⧈ Sandbox blocked N operations · ctrl+o for details · /sandbox"   │
+│                                                                              │
+│  After 5 seconds idle                                                        │
+│       │                                                                      │
+│       └─ Timer fires → setCount(0) → status line hidden                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 16. SandboxViolationStatusLine Complete Code
+
+**Location:** `chunks.191.mjs:92-127`
+
+```javascript
+// ============================================
+// SandboxViolationStatusLine - Status bar flash on new violations (macOS)
+// Location: chunks.191.mjs:92-127
+// ============================================
+
+// ORIGINAL (for source lookup):
+function aIq() {
+    let A = A6(6),
+        [q, K] = RV6.useState(0),
+        Y = RV6.useRef(null),
+        z = Rq("app:toggleTranscript", "Global", "ctrl+o"),
+        _, w;
+    if (A[0] === Symbol.for("react.memo_cache_sentinel")) _ = () => {
+        if (!vA.isSandboxingEnabled()) return;
+        let H = vA.getSandboxViolationStore(),
+            j = H.getTotalCount(),
+            J = H.subscribe(() => {
+                let M = H.getTotalCount(),
+                    D = M - j;
+                if (D > 0) {
+                    if (K(D), j = M, Y.current) clearTimeout(Y.current);
+                    Y.current = setTimeout(K, 5000, 0)
+                }
+            });
+        return () => {
+            if (J(), Y.current) clearTimeout(Y.current)
+        }
+    }, w = [], A[0] = _, A[1] = w;
+    else _ = A[0], w = A[1];
+    if (RV6.useEffect(_, w), !vA.isSandboxingEnabled() || q === 0) return null;
+    let O = q === 1 ? "operation" : "operations",
+        $;
+    if (A[2] !== z || A[3] !== q || A[4] !== O) $ = va6.createElement(m, {
+        paddingX: 0,
+        paddingY: 0
+    }, va6.createElement(T, {
+        color: "inactive",
+        wrap: "truncate"
+    }, "⧈ Sandbox blocked ", q, " ", O, " ·", " ", z, " for details · /sandbox to disable")), A[2] = z, A[3] = q, A[4] = O, A[5] = $;
+    else $ = A[5];
+    return $
+}
+
+// READABLE (for understanding):
+function SandboxViolationStatusLine() {
+    // React hooks for memoization cache
+    let cache = useMemoCache(6);
+
+    // State: count of new violations since last reset
+    let [count, setCount] = useState(0);
+
+    // Ref: timer for auto-dismiss
+    let timerRef = useRef(null);
+
+    // Keybinding for toggle transcript (ctrl+o)
+    let toggleKey = getKeybinding("app:toggleTranscript", "Global", "ctrl+o");
+
+    // Effect: Subscribe to violation store
+    let setupEffect, deps;
+    if (cache[0] === Symbol.for("react.memo_cache_sentinel")) {
+        setupEffect = () => {
+            // Skip if sandbox not enabled
+            if (!vA.isSandboxingEnabled()) return;
+
+            let store = vA.getSandboxViolationStore();
+            let lastTotal = store.getTotalCount();
+
+            // Subscribe to changes
+            let unsubscribe = store.subscribe(() => {
+                let currentTotal = store.getTotalCount();
+                let delta = currentTotal - lastTotal;
+
+                if (delta > 0) {
+                    // New violations detected
+                    setCount(delta);
+                    lastTotal = currentTotal;
+
+                    // Reset timer
+                    if (timerRef.current) {
+                        clearTimeout(timerRef.current);
+                    }
+
+                    // Auto-dismiss after 5 seconds
+                    timerRef.current = setTimeout(setCount, 5000, 0);
+                }
+            });
+
+            // Cleanup
+            return () => {
+                unsubscribe();
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                }
+            };
+        };
+        deps = [];
+        cache[0] = setupEffect;
+        cache[1] = deps;
+    } else {
+        setupEffect = cache[0];
+        deps = cache[1];
+    }
+
+    useEffect(setupEffect, deps);
+
+    // Don't render if sandbox disabled or no new violations
+    if (!vA.isSandboxingEnabled() || count === 0) {
+        return null;
+    }
+
+    // Pluralize
+    let operationWord = count === 1 ? "operation" : "operations";
+
+    // Render status line
+    return (
+        <Box paddingX={0} paddingY={0}>
+            <Text color="inactive" wrap="truncate">
+                ⧈ Sandbox blocked {count} {operationWord} · {toggleKey} for details · /sandbox to disable
+            </Text>
+        </Box>
+    );
+}
+
+// Mapping: aIq→SandboxViolationStatusLine, RV6→React, K→setCount, Y→timerRef,
+//          vA→sandboxConfigObject, z→toggleKey, q→count, va6→React, m→Box, T→Text
+```
+
+### Key Implementation Details
+
+**Why `getTotalCount()` vs `getCount()`:**
+- `getTotalCount()` never resets - tracks lifetime violations
+- `getCount()` is current buffer size (max 100)
+- Delta calculation uses total to detect new violations
+
+**Why 5-second timer:**
+- Long enough for user to notice
+- Short enough to not clutter status bar
+- Resets on each new violation (cumulative awareness)
+
+**Why subscribe in effect:**
+- Subscription created on mount
+- Cleanup on unmount
+- No memory leaks from orphaned subscriptions
+
+---
+
+## 17. Keyboard Navigation and Tab Panel Structure
+
+### Tab Panel Navigation
+
+The `/sandbox` command uses a `TabPanel` component with keyboard navigation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Sandbox Tab Panel Structure                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Tab Bar: [Mode] [Overrides] [Status] [Dependencies]                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Keyboard Navigation:                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ • Tab / Shift+Tab   → Cycle between tabs                            │    │
+│  │ • Enter            → Select current option                          │    │
+│  │ • Escape           → Cancel and close                               │    │
+│  │ • Arrow Up/Down    → Navigate within options                        │    │
+│  │ • ctrl+c           → Cancel (fires "confirm:no" keybinding)         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Tab Visibility:                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ • "Mode" tab          → Always visible                              │    │
+│  │ • "Overrides" tab     → Always visible (if not locked by policy)    │    │
+│  │ • "Status" tab        → Always visible                              │    │
+│  │ • "Dependencies" tab  → Visible only if warnings.length > 0         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Tab Content Components
+
+#### Mode Tab (SandboxModeSelector - TPq)
+
+```javascript
+// ============================================
+// Mode Tab - 3-way sandbox mode picker
+// Location: chunks.165.mjs:1737-1870
+// ============================================
+
+// Options rendered:
+// 1. "Sandbox BashTool, with auto-allow" - enabled + autoAllowBashIfSandboxed
+// 2. "Sandbox BashTool, with regular permissions" - enabled + !autoAllow
+// 3. "No Sandbox" - !enabled
+
+// Selection handler:
+async function handleModeChange(selection) {
+    switch (selection) {
+        case "auto-allow":
+            await vA.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: true });
+            onComplete("✓ Sandbox enabled with auto-allow for bash commands");
+            break;
+        case "regular":
+            await vA.setSandboxSettings({ enabled: true, autoAllowBashIfSandboxed: false });
+            onComplete("✓ Sandbox enabled with regular bash permissions");
+            break;
+        case "disabled":
+            await vA.setSandboxSettings({ enabled: false, autoAllowBashIfSandboxed: false });
+            onComplete("○ Sandbox disabled");
+            break;
+    }
+}
+```
+
+#### Overrides Tab (SandboxOverridesSettings - ZPq)
+
+```javascript
+// ============================================
+// Overrides Tab - Open/Closed policy toggle
+// Location: chunks.165.mjs:1505-1639
+// ============================================
+
+// Options rendered:
+// 1. "Allow unsandboxed fallback" - areUnsandboxedCommandsAllowed = true
+// 2. "Strict sandbox mode" - areUnsandboxedCommandsAllowed = false
+
+// Selection handler:
+async function handleOverrideChange(selection) {
+    await vA.setSandboxSettings({
+        allowUnsandboxedCommands: selection === "open"
+    });
+    onComplete(selection === "open"
+        ? "✓ Fallback allowed"
+        : "✓ Strict sandbox mode enabled");
+}
+
+// Description text:
+// "When a command fails due to sandbox restrictions, Claude can retry with
+//  dangerouslyDisableSandbox to run outside the sandbox (falling back to
+//  default permissions)."
+```
+
+#### Dependencies Tab (SandboxDependenciesPanel - Ql8)
+
+```javascript
+// ============================================
+// Dependencies Tab - Show missing binaries
+// Location: chunks.165.mjs:1641-1728
+// ============================================
+
+// Only shown if checkDependencies().warnings.length > 0
+
+// Linux warnings:
+// - "Cannot block unix domain sockets (seccomp binaries not found)"
+// - "bwrap not found in PATH"
+// - "socat not found in PATH"
+
+// Warning item component:
+function WarningItem({ message }, index) {
+    return <Text key={index} dimColor>{message}</Text>;
+}
+```
+
+---
+
+## 18. Error State Handling
+
+### Platform Not Supported
+
+```javascript
+// Displayed when isSupportedPlatform() returns false
+if (!vA.isSupportedPlatform()) {
+    let msg = platform === "wsl"
+        ? "Error: Sandboxing requires WSL2."
+        : "Error: Only macOS, Linux, and WSL2 supported.";
+    return colorize("error", theme)(msg);
+}
+```
+
+### Dependencies Missing
+
+```javascript
+// Displayed when checkDependencies().errors.length > 0
+let depCheck = vA.checkDependencies();
+if (depCheck.errors.length > 0) {
+    // Shows error icon (⚠) in slash command description
+    // Example errors:
+    // - "ripgrep (rg) not found"
+    // - "bwrap not found"
+    // - "socat not found"
+}
+```
+
+### Settings Locked by Policy
+
+```javascript
+// Displayed when areSandboxSettingsLockedByPolicy() returns true
+if (vA.areSandboxSettingsLockedByPolicy()) {
+    return colorize("error", theme)(
+        "Error: Settings locked by higher-priority config."
+    );
+}
+```
+
+### Platform Not in Enabled List
+
+```javascript
+// Displayed when isPlatformInEnabledList() returns false
+if (!vA.isPlatformInEnabledList()) {
+    return colorize("error", theme)(
+        `Error: Disabled for platform ${platform} via enabledPlatforms`
+    );
+}
+```
+
+---
+
+## 19. Complete UI State Machine
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     /sandbox Command State Machine                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Initial State                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ User types: /sandbox                                                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Platform Check                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ isSupportedPlatform()?                                               │    │
+│  │   ├─ No (WSL1)   → Error: "Sandboxing requires WSL2"                │    │
+│  │   ├─ No (other)  → Error: "Only macOS, Linux, WSL2 supported"       │    │
+│  │   └─ Yes        → Continue                                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Platform Enabled Check                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ isPlatformInEnabledList()?                                           │    │
+│  │   ├─ No  → Error: "Disabled for platform X via enabledPlatforms"    │    │
+│  │   └─ Yes → Continue                                                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Policy Lock Check                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ areSandboxSettingsLockedByPolicy()?                                  │    │
+│  │   ├─ Yes → Error: "Settings locked by higher-priority config"       │    │
+│  │   └─ No  → Continue                                                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Argument Parsing                                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Has subcommand?                                                      │    │
+│  │   ├─ "exclude <pattern>" → Add to excludedCommands                  │    │
+│  │   ├─ Unknown subcommand → Error: "Unknown subcommand"               │    │
+│  │   └─ No subcommand      → Show TabPanel UI                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Interactive UI                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ TabPanel with:                                                       │    │
+│  │   • Mode tab (always)                                                │    │
+│  │   • Overrides tab (if not locked)                                    │    │
+│  │   • Status tab (always)                                              │    │
+│  │   • Dependencies tab (if warnings)                                   │    │
+│  │                                                                      │    │
+│  │ User selects option → setSandboxSettings() called                   │    │
+│  │ Settings saved to .claude/settings.local.json                       │    │
+│  │ onComplete() called with success message                            │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Related Documents
 
 - [overview.md](./overview.md) - Sandbox architecture overview
 - [seatbelt_profile.md](./seatbelt_profile.md) - macOS sandbox-exec implementation
 - [bwrap_implementation.md](./bwrap_implementation.md) - Linux bubblewrap implementation
 - [violation_system.md](./violation_system.md) - Violation correlation and reporting
+- [initialization_flow.md](./initialization_flow.md) - Sandbox bootstrap sequence
+
+---
+
+## 20. Complete Interaction Flow Diagrams
+
+### Flow 1: Enabling Sandbox with Auto-Allow
+
+```
+User                        Claude Code UI                  Settings Store
+│                                │                                │
+│  Types: /sandbox               │                                │
+│ ──────────────────────────────>│                                │
+│                                │                                │
+│                                │ Check isSupportedPlatform()    │
+│                                │────────────────────>           │
+│                                │                                │
+│                                │ Check checkDependencies()      │
+│                                │────────────────────>           │
+│                                │                                │
+│                                │ Show TabPanel UI               │
+│                                │ [Mode] [Overrides] [Config]    │
+│                                │                                │
+│  Selects: "Sandbox BashTool,   │                                │
+│           with auto-allow"     │                                │
+│ ──────────────────────────────>│                                │
+│                                │                                │
+│                                │ setSandboxSettings({           │
+│                                │   enabled: true,               │
+│                                │   autoAllowBashIfSandboxed:true│
+│                                │ })                             │
+│                                │────────────────────────────────>│
+│                                │                                │
+│                                │        Write to localSettings  │
+│                                │        { "sandbox": {          │
+│                                │          "enabled": true,      │
+│                                │          "autoAllowBashIfSandboxed": true
+│                                │        }}                      │
+│                                │                                │
+│                                │ Settings change triggers       │
+│                                │ sandboxConfigObject.updateConfig()
+│                                │                                │
+│  Sees: "✓ Sandbox enabled with │                                │
+│         auto-allow for bash    │                                │
+│         commands"              │                                │
+│ <──────────────────────────────│                                │
+│                                │                                │
+```
+
+### Flow 2: Adding Command Exclusion
+
+```
+User                        Claude Code UI                  Settings Store
+│                                │                                │
+│  Types: /sandbox exclude       │                                │
+│         "npm run test:*"       │                                │
+│ ──────────────────────────────>│                                │
+│                                │                                │
+│                                │ Parse subcommand: "exclude"    │
+│                                │ Extract pattern: "npm run test:*"
+│                                │ Strip quotes                   │
+│                                │                                │
+│                                │ Add to excludedCommands array  │
+│                                │────────────────────────────────>│
+│                                │                                │
+│                                │        Update localSettings:   │
+│                                │        { "sandbox": {          │
+│                                │          "excludedCommands": [ │
+│                                │            "npm run test:*"    │
+│                                │          ]                     │
+│                                │        }}                      │
+│                                │                                │
+│  Sees: 'Added "npm run test:*" │                                │
+│         to excluded commands   │                                │
+│         in .claude/            │                                │
+│         settings.local.json'   │                                │
+│ <──────────────────────────────│                                │
+│                                │                                │
+```
+
+### Flow 3: Detecting Sandbox Violation (macOS)
+
+```
+Sandboxed Command          macOS Kernel             Log Monitor          Violation Store
+│                              │                         │                      │
+│  Attempt to read /etc/passwd │                         │                      │
+│ ────────────────────────────>│                         │                      │
+│                              │                         │                      │
+│                              │ Deny access             │                      │
+│                              │ Generate log:           │                      │
+│                              │ "Sandbox: file-read*    │                      │
+│                              │  /etc/passwd"           │                      │
+│                              │─────────────────────────>│                      │
+│                              │                         │                      │
+│                              │                         │ Parse log line       │
+│                              │                         │ Extract command from │
+│                              │                         │ CMD64_xxx_END tag    │
+│                              │                         │                      │
+│                              │                         │ Filter mDNSResponder │
+│                              │                         │ (ignored)            │
+│                              │                         │                      │
+│                              │                         │ addViolation({       │
+│                              │                         │   line: "file-read* │
+│                              │                         │     /etc/passwd",    │
+│                              │                         │   command: "cat...", │
+│                              │                         │   timestamp: Date    │
+│                              │                         │ })───────────────────>│
+│                              │                         │                      │
+│                              │                         │                      │
+│  Command fails with EPERM    │                         │ notifyListeners()    │
+│ <────────────────────────────│                         │──────────────────────>│
+│                              │                         │                      │
+│                              │                         │                      │
+│                                                                       │
+│                         StatusLine subscribes to ViolationStore       │
+│                         Shows "⚠ 1 sandbox violation" for 5 seconds   │
+│                                                                       │
+```
+
+### Flow 4: Permission Prompt for Unsandboxed Command
+
+```
+Model                      Bash Tool                  Permission System        User
+│                              │                            │                   │
+│  Calls Bash with             │                            │                   │
+│  dangerouslyDisableSandbox   │                            │                   │
+│ ────────────────────────────>│                            │                   │
+│                              │                            │                   │
+│                              │ isCommandSandboxed()?      │                   │
+│                              │ Returns false (override)   │                   │
+│                              │                            │                   │
+│                              │ Check permission rules     │                   │
+│                              │────────────────────────────>│                   │
+│                              │                            │                   │
+│                              │ No matching rule           │                   │
+│                              │ Show permission prompt     │                   │
+│                              │ Title: "Bash command       │                   │
+│                              │        (unsandboxed)"      │                   │
+│                              │────────────────────────────────────────────────>│
+│                              │                            │                   │
+│                              │                            │  User approves    │
+│                              │                            │ <─────────────────│
+│                              │                            │                   │
+│                              │ Return "allow" decision    │                   │
+│                              │<────────────────────────────│                   │
+│                              │                            │                   │
+│                              │ Execute command UNSANDBOXED│                   │
+│                              │                            │                   │
+│  Receives command output     │                            │                   │
+│ <────────────────────────────│                            │                   │
+│                              │                            │                   │
+```
+
+---
+
+## 19. CLI Flags: --sandbox and --no-sandbox
+
+### Command Line Override
+
+**Location:** `chunks.178.mjs:2085-2133`
+
+```javascript
+// ============================================
+// CLI flag handling for sandbox
+// Location: chunks.178.mjs:2085-2133
+// ============================================
+
+// ORIGINAL (for source lookup):
+else if (P === "--sandbox") K = !0;
+else if (P === "--no-sandbox") K = !1;
+
+// ... later in initialization:
+sandbox: K,
+// passed to settings initialization
+
+// READABLE (for understanding):
+// During CLI argument parsing:
+if (arg === "--sandbox") {
+    sandboxEnabled = true;  // Force enable
+} else if (arg === "--no-sandbox") {
+    sandboxEnabled = false; // Force disable
+}
+
+// The value is passed to settings initialization:
+initializeSettings({
+    sandbox: sandboxEnabled,
+    // ... other settings
+});
+```
+
+### CLI Flag Behavior
+
+| Flag | Effect | Priority |
+|------|--------|----------|
+| `--sandbox` | Forces sandbox enabled | Overrides settings file |
+| `--no-sandbox` | Forces sandbox disabled | Overrides settings file |
+| (no flag) | Uses `settings.sandbox.enabled` | Normal behavior |
+
+**Key insight:** CLI flags override settings file configuration. This is useful for:
+1. Testing: Run single commands with/without sandbox
+2. Debugging: Temporarily disable sandbox without editing settings
+3. CI/CD: Control sandbox behavior in automated environments
+
+### Example Usage
+
+```bash
+# Force sandbox on for this session
+claude --sandbox
+
+# Force sandbox off for this session
+claude --no-sandbox
+
+# Normal behavior (uses settings)
+claude
+```
+
+---
+
+## 20. Telemetry Integration
+
+### Sandbox Telemetry Fields
+
+**Location:** `chunks.197.mjs:1819-1821`
+
+```javascript
+// ============================================
+// Sandbox telemetry fields
+// Location: chunks.197.mjs:1819-1821
+// ============================================
+
+// ORIGINAL (for source lookup):
+sandbox_enabled: vA.isSandboxingEnabled(),
+are_unsandboxed_commands_allowed: vA.areUnsandboxedCommandsAllowed(),
+is_auto_bash_allowed_if_sandbox_enabled: vA.isAutoAllowBashIfSandboxedEnabled()
+
+// READABLE (for understanding):
+// Telemetry event includes:
+{
+    sandbox_enabled: sandboxConfigObject.isSandboxingEnabled(),
+    are_unsandboxed_commands_allowed: sandboxConfigObject.areUnsandboxedCommandsAllowed(),
+    is_auto_bash_allowed_if_sandbox_enabled: sandboxConfigObject.isAutoAllowBashIfSandboxedEnabled()
+}
+```
+
+### What Gets Tracked
+
+| Field | Source | Purpose |
+|-------|--------|---------|
+| `sandbox_enabled` | `isSandboxingEnabled()` | Whether sandbox is fully operational |
+| `are_unsandboxed_commands_allowed` | `areUnsandboxedCommandsAllowed()` | Whether fallback is permitted |
+| `is_auto_bash_allowed_if_sandbox_enabled` | `isAutoAllowBashIfSandboxedEnabled()` | Auto-allow mode status |
+
+### Telemetry Events
+
+The sandbox telemetry is sent with:
+1. Session start events
+2. Tool usage events (when Bash tool is invoked)
+3. Error events (when sandbox-related failures occur)
+
+**Privacy note:** No sandbox configuration details (paths, domains, etc.) are included in telemetry - only the boolean status flags.
+
+---
+
+## 21. Complete UI Component Lifecycle Summary
+
+### /sandbox Slash Command Flow
+
+```
+User types /sandbox
+    │
+    ▼
+bAz.description getter (computed live)
+    │
+    ├─► Shows status: "✓ sandbox enabled (auto-allow)" or "○ sandbox disabled"
+    │
+    └─► Shows warnings: "⚠" if dependencies missing
+    │
+    ▼
+User presses Enter
+    │
+    ▼
+bAz.load() → imports and renders TPq (SandboxModeSelector)
+    │
+    ▼
+TPq renders with tabs:
+    │
+    ├─► [Mode] tab
+    │     └─► SelectInput with options:
+    │           - "Sandbox BashTool, with auto-allow" (current)
+    │           - "Sandbox BashTool, with regular permissions"
+    │           - "No Sandbox"
+    │
+    ├─► [Overrides] tab (ZPq)
+    │     └─► SelectInput with options:
+    │           - "Allow unsandboxed fallback" (open mode)
+    │           - "Strict sandbox mode" (closed mode)
+    │
+    ├─► [Status] tab (PPq)
+    │     └─► Box with current config:
+    │           - Excluded commands
+    │           - Filesystem read restrictions
+    │           - Filesystem write restrictions
+    │           - Network restrictions
+    │           - Unix socket allowlist
+    │           - Glob pattern warnings (Linux)
+    │
+    └─► [Dependencies] tab (Ql8) - only if warnings
+          └─► Box with status:
+                - bubblewrap (bwrap): installed/not installed
+                - socat: installed/not installed
+                - seccomp filter: installed/not installed
+    │
+    ▼
+User selects an option
+    │
+    ▼
+vA.setSandboxSettings({enabled, autoAllowBashIfSandboxed, ...})
+    │
+    ▼
+Writes to .claude/settings.local.json
+    │
+    ▼
+Settings change event triggers
+    │
+    ▼
+Sandbox config refreshes (live update)
+    │
+    ▼
+onComplete("✓ Sandbox enabled with auto-allow")
+```
+
+### Violation Status Line Lifecycle
+
+```
+SandboxViolationStore (HD6) initialized
+    │
+    ▼
+aIq component mounts
+    │
+    ├─► useEffect runs on mount
+    │     │
+    │     └─► Subscribes to HD6
+    │           │
+    │           └─► Returns unsubscribe function for cleanup
+    │
+    ▼
+User runs sandboxed command
+    │
+    ▼
+Command triggers violation (e.g., writes to denied path)
+    │
+    ▼
+macOS log monitor (UZ7) detects deny event
+    │
+    ▼
+HD6.addViolation(violation)
+    │
+    ├─► Pushes to violations array
+    ├─► Increments totalCount
+    ├─► Trims if > 100 (ring buffer)
+    └─► Calls notifyListeners()
+    │
+    ▼
+aIq subscription callback fires
+    │
+    ├─► Computes delta: totalCount - lastKnownCount
+    │
+    ├─► If delta > 0:
+    │     ├─► setNewViolationCount(delta)
+    │     ├─► lastKnownCount = totalCount
+    │     └─► setTimeout(() => setNewViolationCount(0), 5000)
+    │
+    ▼
+Component re-renders with message:
+"⧈ Sandbox blocked N operations · ctrl+o for details · /sandbox to disable"
+    │
+    ▼
+After 5 seconds (or new violation):
+    │
+    └─► setNewViolationCount(0) → returns null (hidden)
+```
+
+### Permission Prompt Variation Flow
+
+```
+Bash tool invoked
+    │
+    ▼
+Check isCommandSandboxed(toolInput)
+    │
+    ├─► Returns true (command will be sandboxed)
+    │     │
+    │     └─► Check autoAllowBashIfSandboxed
+    │           │
+    │           ├─► true → Auto-allow (no prompt)
+    │           │
+    │           └─► false → Show permission prompt
+    │                 │
+    │                 └─► Title: "Bash command"
+    │
+    └─► Returns false (command will NOT be sandboxed)
+          │
+          └─► Show permission prompt
+                │
+                └─► Title: "Bash command (unsandboxed)"
+                      │
+                      └─► decisionReason.type: "sandboxOverride"
+                            │
+                            └─► Description: "Run outside of the sandbox"
+```
+
+---
+
+## Related Documents
+
+- [overview.md](./overview.md) - Sandbox architecture overview
+- [cross_module_integration.md](./cross_module_integration.md) - Cross-module integration
+- [symbol_validation.md](./symbol_validation.md) - Symbol validation report
+
+---
+
+## 8. TabPanel Component (Hw)
+
+### Component Structure
+
+The sandbox UI uses a tab-based interface managed by the `TabPanel` component (Hw).
+
+```javascript
+// ============================================
+// TabPanel - Tab container for sandbox UI
+// Location: chunks.165.mjs (referenced in TPq)
+// ============================================
+
+// READABLE (for understanding):
+function TabPanel({ title, children }) {
+    return (
+        <Box flexDirection="column">
+            <Text bold color="primary">{title}</Text>
+            <Box flexDirection="column" paddingY={1}>
+                {children}
+            </Box>
+        </Box>
+    );
+}
+
+// Usage in SandboxModeSelector:
+<TabPanel key="mode" title="Mode">
+    {/* Mode selection content */}
+</TabPanel>
+<TabPanel key="overrides" title="Overrides">
+    <SandboxOverridesSettings onComplete={onComplete} />
+</TabPanel>
+<TabPanel key="config" title="Config">
+    <SandboxStatusDisplay />
+</TabPanel>
+{hasErrors && (
+    <TabPanel key="dependencies" title="Dependencies">
+        <SandboxDependenciesPanel depCheck={depCheck} />
+    </TabPanel>
+)}
+```
+
+---
+
+## 9. SelectInput Integration
+
+### 3-Way Mode Selector
+
+```javascript
+// ============================================
+// SelectInput - Mode selection component
+// Location: chunks.165.mjs (T8 component)
+// ============================================
+
+// READABLE (for understanding):
+function SelectInput({ options, onChange, onCancel }) {
+    // options: Array<{ label: string, value: string }>
+    // onChange: (value: string) => void
+    // onCancel: () => void
+
+    // Keyboard bindings:
+    // - Up/Down: Navigate options
+    // - Enter: Select option
+    // - Escape: Cancel (calls onCancel)
+
+    return (
+        <Box flexDirection="column">
+            {options.map((option, index) => (
+                <Text
+                    key={option.value}
+                    color={selectedIndex === index ? "selected" : "default"}
+                >
+                    {selectedIndex === index ? "❯ " : "  "}
+                    {option.label}
+                </Text>
+            ))}
+        </Box>
+    );
+}
+```
+
+---
+
+## 10. Doctor Command Integration
+
+### Sandbox Dependency Check in /doctor
+
+The `/doctor` command shows sandbox dependency status:
+
+```javascript
+// In doctor command implementation
+async function checkSandboxDependencies() {
+    let depCheck = vA.checkDependencies();
+
+    results.push({
+        category: "Sandbox",
+        items: [
+            {
+                name: "Platform Support",
+                status: vA.isSupportedPlatform() ? "ok" : "warn",
+                message: vA.isSupportedPlatform()
+                    ? getPlatform()
+                    : "Sandbox not supported on this platform"
+            },
+            {
+                name: "bwrap (bubblewrap)",
+                status: depCheck.errors.some(e => e.includes("bwrap")) ? "error" : "ok",
+                message: depCheck.errors.some(e => e.includes("bwrap"))
+                    ? "Not installed - apt install bubblewrap"
+                    : "Installed"
+            },
+            {
+                name: "socat",
+                status: depCheck.errors.some(e => e.includes("socat")) ? "error" : "ok",
+                message: depCheck.errors.some(e => e.includes("socat"))
+                    ? "Not installed - apt install socat"
+                    : "Installed"
+            },
+            {
+                name: "seccomp filter",
+                status: depCheck.warnings.length > 0 ? "warn" : "ok",
+                message: depCheck.warnings.length > 0
+                    ? "Not installed - Unix socket blocking disabled"
+                    : "Installed"
+            }
+        ]
+    });
+}
+```
+
+---
+
+## 11. Complete UI State Machine
+
+### Sandbox Mode States
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     SANDBOX MODE STATE MACHINE                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  States:                                                         │
+│  ┌─────────────┐                                                 │
+│  │ DISABLED    │  enabled: false, autoAllow: false              │
+│  └─────────────┘                                                 │
+│        │                                                         │
+│        │ user enables sandbox                                    │
+│        ▼                                                         │
+│  ┌─────────────┐                                                 │
+│  │ REGULAR     │  enabled: true, autoAllow: false               │
+│  └─────────────┘                                                 │
+│        │                                                         │
+│        │ user enables auto-allow                                 │
+│        ▼                                                         │
+│  ┌─────────────┐                                                 │
+│  │ AUTO_ALLOW  │  enabled: true, autoAllow: true                │
+│  └─────────────┘                                                 │
+│        │                                                         │
+│        │ user disables sandbox OR disables auto-allow            │
+│        │                                                         │
+│        └──────────────► returns to appropriate state             │
+│                                                                  │
+│  Override Policy:                                                │
+│  ┌─────────────┐                                                 │
+│  │ OPEN        │  allowUnsandboxedCommands: true                │
+│  │             │  → dangerouslyDisableSandbox allowed           │
+│  └─────────────┘                                                 │
+│        │                                                         │
+│        │ user sets strict mode                                   │
+│        ▼                                                         │
+│  ┌─────────────┐                                                 │
+│  │ CLOSED      │  allowUnsandboxedCommands: false               │
+│  │             │  → dangerouslyDisableSandbox ignored           │
+│  └─────────────┘                                                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### State Transitions
+
+| Current State | Action | New State | Settings Change |
+|---------------|--------|-----------|-----------------|
+| DISABLED | Select "auto-allow" | AUTO_ALLOW | `{enabled: true, autoAllow: true}` |
+| DISABLED | Select "regular" | REGULAR | `{enabled: true, autoAllow: false}` |
+| REGULAR | Select "auto-allow" | AUTO_ALLOW | `{autoAllow: true}` |
+| REGULAR | Select "disabled" | DISABLED | `{enabled: false}` |
+| AUTO_ALLOW | Select "regular" | REGULAR | `{autoAllow: false}` |
+| AUTO_ALLOW | Select "disabled" | DISABLED | `{enabled: false}` |
+| OPEN | Select "strict" | CLOSED | `{allowUnsandboxedCommands: false}` |
+| CLOSED | Select "allow fallback" | OPEN | `{allowUnsandboxedCommands: true}` |
+
+---
+
+## 12. State Management Deep Dive
+
+### Settings Reactivity Pattern
+
+The sandbox UI uses a publish-subscribe pattern to react to settings changes:
+
+```javascript
+// ============================================
+// Settings subscription pattern
+// Location: chunks.47.mjs (initializeSandboxFromSettings)
+// ============================================
+
+// READABLE (for understanding):
+async function initializeSandboxFromSettings(networkPermissionCallback) {
+    if (sandboxInitPromise) return sandboxInitPromise;
+    if (!vA.isSandboxingEnabled()) return;
+
+    let settings = getSettings();
+    let config = buildSandboxConfigFromSettings(settings);
+
+    sandboxInitPromise = (async () => {
+        try {
+            await lowLevelSandbox.initialize(config, networkPermissionCallback);
+
+            // Subscribe to settings changes - auto-update sandbox config
+            settingsUnsubscribe = subscribeToSettings(() => {
+                let newSettings = getSettings();
+                let newConfig = buildSandboxConfigFromSettings(newSettings);
+                lowLevelSandbox.updateConfig(newConfig);
+                log("Sandbox configuration updated from settings change");
+            });
+        } catch (error) {
+            sandboxInitPromise = undefined;
+            log(`Failed to initialize sandbox: ${error.message}`);
+        }
+    })();
+
+    return sandboxInitPromise;
+}
+```
+
+**Key insight:** The `subscribeToSettings` callback ensures that:
+1. When user modifies `.claude/settings.json` manually
+2. When `/sandbox` command updates settings
+3. When enterprise policy changes are detected
+
+The sandbox configuration updates immediately without requiring a restart.
+
+### Observer Pattern for Violations
+
+The `SandboxViolationStore` (HD6) implements the observer pattern:
+
+```javascript
+// ============================================
+// Observer pattern implementation
+// Location: chunks.55.mjs:2902-2936
+// ============================================
+
+class SandboxViolationStore {
+    constructor() {
+        this.violations = [];
+        this.totalCount = 0;
+        this.maxSize = 100;
+        this.listeners = new Set();  // Observer callbacks
+    }
+
+    // Add observer
+    subscribe(callback) {
+        this.listeners.add(callback);
+        callback(this.getViolations());  // Initial call with current state
+        return () => { this.listeners.delete(callback); };  // Unsubscribe function
+    }
+
+    // Notify all observers
+    notifyListeners() {
+        let currentViolations = this.getViolations();
+        this.listeners.forEach(callback => callback(currentViolations));
+    }
+}
+```
+
+**Usage in UI components:**
+
+```javascript
+// ============================================
+// Component subscription to violation store
+// Location: chunks.191.mjs:92-127 (SandboxViolationStatusLine)
+// ============================================
+
+function SandboxViolationStatusLine() {
+    let [newViolationCount, setNewViolationCount] = useState(0);
+    let timeoutRef = useRef(null);
+
+    useEffect(() => {
+        if (!vA.isSandboxingEnabled()) return;
+
+        let store = vA.getSandboxViolationStore();
+        let lastKnownCount = store.getTotalCount();
+
+        // Subscribe to violation updates
+        let unsubscribe = store.subscribe(() => {
+            let currentCount = store.getTotalCount();
+            let delta = currentCount - lastKnownCount;
+
+            if (delta > 0) {
+                setNewViolationCount(delta);  // Update UI
+                lastKnownCount = currentCount;
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = setTimeout(() => setNewViolationCount(0), 5000);
+            }
+        });
+
+        // Cleanup on unmount
+        return () => {
+            unsubscribe();
+            clearTimeout(timeoutRef.current);
+        };
+    }, []);
+
+    if (!vA.isSandboxingEnabled() || newViolationCount === 0) return null;
+
+    return `⧈ Sandbox blocked ${newViolationCount} operations`;
+}
+```
+
+### Error Handling UI
+
+#### Platform Not Supported
+
+```javascript
+// Location: chunks.165.mjs:1946-1957
+
+function handlePlatformError(renderResult, theme) {
+    let platform = getPlatform();
+
+    if (platform === "wsl") {
+        return renderResult(colorize("error", theme)(
+            "Error: Sandboxing requires WSL2. WSL1 is not supported."
+        ));
+    }
+
+    return renderResult(colorize("error", theme)(
+        `Error: Sandboxing is currently only supported on macOS, Linux, and WSL2.`
+    ));
+}
+```
+
+#### Dependency Missing
+
+```javascript
+// Location: chunks.165.mjs:1641-1725 (SandboxDependenciesPanel)
+
+function SandboxDependenciesPanel({ depCheck }) {
+    let bwrapMissing = depCheck.errors.some(e => e.includes("bwrap"));
+    let socatMissing = depCheck.errors.some(e => e.includes("socat"));
+    let seccompMissing = depCheck.warnings.length > 0;
+
+    return (
+        <Box flexDirection="column">
+            {/* bwrap status */}
+            <Text>bubblewrap (bwrap): {bwrapMissing ?
+                <Text color="error">not installed</Text> :
+                <Text color="success">installed</Text>}
+            </Text>
+            {bwrapMissing && <Text dimColor>  · apt install bubblewrap</Text>}
+
+            {/* socat status */}
+            <Text>socat: {socatMissing ?
+                <Text color="error">not installed</Text> :
+                <Text color="success">installed</Text>}
+            </Text>
+            {socatMissing && <Text dimColor>  · apt install socat</Text>}
+
+            {/* seccomp status (optional) */}
+            <Text>seccomp filter: {seccompMissing ?
+                <Text color="warning">not installed</Text> :
+                <Text color="success">installed</Text>}
+            </Text>
+            {seccompMissing && (
+                <Box flexDirection="column">
+                    <Text dimColor>  · npm install -g @anthropic-ai/sandbox-runtime</Text>
+                    <Text dimColor>  · or copy vendor/seccomp/* and set sandbox.seccomp paths</Text>
+                </Box>
+            )}
+        </Box>
+    );
+}
+```
+
+#### Policy Locked State
+
+```javascript
+// Location: chunks.165.mjs:1957-1959
+
+function handlePolicyLocked(renderResult, theme) {
+    return renderResult(colorize("error", theme)(
+        "Error: Sandbox settings are overridden by a higher-priority configuration " +
+        "and cannot be changed locally."
+    ));
+}
+
+// In SandboxOverridesSettings component
+function SandboxOverridesSettings() {
+    let isManaged = vA.areSandboxSettingsLockedByPolicy();
+
+    if (isManaged) {
+        return <Text color="subtle">
+            Settings are managed by enterprise policy and cannot be changed.
+        </Text>;
+    }
+    // ... normal settings UI
+}
+```
+
+### Keyboard Navigation
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `Enter` | Execute /sandbox command | Command input |
+| `↑`/`↓` | Navigate mode options | Mode selector |
+| `Tab` | Switch tabs (Mode → Overrides → Status) | Tab panel |
+| `Esc` | Dismiss sandbox panel | Any tab |
+| `Ctrl+O` | Open transcript (view violations) | Status line |
+
+---
+
+## 13. Key Symbol Reference for UI
+
+| Obfuscated | Readable | Location | Purpose |
+|------------|----------|----------|---------|
+| `bAz` | sandboxSlashCommandDefinition | chunks.165.mjs:2007 | Slash command descriptor |
+| `TPq` | SandboxModeSelector | chunks.165.mjs:1737 | Main mode selector |
+| `PPq` | SandboxStatusDisplay | chunks.165.mjs:1399 | Config summary |
+| `ZPq` | SandboxOverridesSettings | chunks.165.mjs:1505 | Override toggle |
+| `Ql8` | SandboxDependenciesPanel | chunks.165.mjs:1641 | Dependency status |
+| `aIq` | SandboxViolationStatusLine | chunks.191.mjs:92 | Status bar indicator |
+| `vA` | sandboxConfigObject | chunks.56.mjs:516 | Public API |
+| `HD6` | SandboxViolationStore | chunks.55.mjs:2902 | Violation ring buffer |
+| `T8` | SelectInput | chunks.165.mjs | Radio-style selector |
+| `Hw` | TabPanel | chunks.165.mjs | Tab container |
