@@ -131,9 +131,10 @@
 | G9z | buildBasePersonaSection | chunks.169.mjs:436267 | function ("You are an interactive CLI tool...") |
 | nBA | buildFullEnvInfo | chunks.169.mjs:378 | function (XML-format env for standard prompt) |
 | IOq | buildSimplifiedEnvInfo | chunks.169.mjs:402 | function (compact env for simplified prompt) |
-| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
 | ot | buildFinalSystemPrompt | chunks.188.mjs:537 | function (combines custom + default prompts) |
 | cq6 | getSystemPrompt | chunks.47.mjs:2470 | function |
+
+> **Note:** `FOq` was incorrectly documented as buildMcpCliInstructions. Actual `FOq` in chunks.159.mjs:294 is QR code numeric mode encoder. MCP CLI instructions are generated inline during system prompt construction.
 
 ### Configuration
 
@@ -181,42 +182,54 @@
 
 ## Module: MCP Protocol
 
+> **⚠️ Symbol Validation Note:** The following symbols have been cross-validated against source code (v2.1.76). Several previously documented mappings were incorrect.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ce | parseMcpCliCommand | chunks.174.mjs:2627 | function |
-| CYz | processMcpCliResult | chunks.170.mjs:473 | function |
-| ECA | callMcpServer | chunks.145.mjs:1627 | function |
-| CJq | updateMcpSessionState | chunks.174.mjs:353 | function |
-| FOq | buildMcpCliInstructions | chunks.169.mjs:264 | function |
+| JE | fetchMcpTools | chunks.170.mjs:533 | function (discovers tools from connected MCP server via tools/list) |
+| CYz | MCP_TIMEOUT_MS | chunks.172.mjs:2860 | constant (1800000 = 30 min) |
+| pC | callMcpTool | chunks.169.mjs:1910 | function (calls MCP tool via client, used by DiagnosticsManager) |
+| F3z | executeMcpToolCall | chunks.170.mjs:607 | function (low-level MCP tool execution with retry) |
+| yT6 | getMcpClientConnection | chunks.170.mjs:606 | function (gets connected MCP client for tool execution) |
 | hc | getMcpCliCacheDir | chunks.174.mjs:282 | function |
 | ST6 | getMcpSessionFilePath | chunks.174.mjs:311 | function |
 | ln4 | McpMetaTool | chunks.144.mjs:309 | object |
 | A11 | mcpCliProgram | chunks.175.mjs:452442 | object (Commander) |
 | yHz | executeMcpTool | chunks.175.mjs:452355 | function |
 | rH6 | McpClient | chunks.79.mjs:214313 | class |
-| SJA | StdioClientTransport | chunks.79.mjs:1922 | class |
 | zY1 | callRemoteMcpEndpoint | chunks.175.mjs:452318 | function |
 | mFA | parseToolIdentifier | chunks.175.mjs:452309 | function |
 | SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
+| qn8 | McpSessionLostError | chunks.170.mjs (in tool call) | class (session disconnection error, triggers retry) |
+| EV | McpToolExecutionError | chunks.170.mjs (in tool call) | class (wrapped error for UI display) |
 
 ### MCP Transport Layer
 
+> **Validated:** Transport classes are in chunks.57.mjs, not chunks.79/80.mjs as previously documented.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| hb1 | LineBuffer | chunks.79.mjs:1881 | class |
+| Dy6 | LineBuffer | chunks.5.mjs:2668 | class |
+| SO8 | StdioClientTransport | chunks.57.mjs:1098 | class |
+| SSEClientTransport | SSEClientTransport | chunks.57.mjs:2492 (start method) | class |
 | sH6 | createEventSourceParser | chunks.79.mjs:2028 | function |
-| D$6 | SSEClientTransport | chunks.80.mjs:458 | class |
+| D$6 | SSEClientTransport (legacy ref) | chunks.80.mjs:458 | class |
 | j$6 | StreamableHTTPClientTransport | chunks.80.mjs:650 | class |
 
 ### MCP Hub & Context
 
+> **Corrected:** `JVq` is the actual McpHub class, not `nXq`. The previously documented `ZQA` as MCPContext is incorrect - `ZQA` is serializerMiddlewareOption.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| nXq | McpHub | chunks.175.mjs:1897 | class |
-| ZQA | MCPContext | chunks.176.mjs:2333 | class |
+| JVq | McpHub | chunks.178.mjs:235 | class |
 | Jf1 | findMcpClientByServerName | chunks.175.mjs:1211 | function |
 
+> **Note:** `CJq` was incorrectly documented as `updateMcpSessionState`. The actual `CJq` in chunks.162.mjs:3 is a React component for "Remote session details" display.
+> **Note:** `nXq` in chunks.165.mjs:864 is an object literal `{}`, not a class. The actual McpHub class is `JVq` in chunks.178.mjs:235.
 > **Note:** `K11` was incorrectly documented as `onChangeAppStateHandler`. The actual `K11` is in chunks.10.mjs and is unrelated to MCP.
+> **Note:** `FOq` was incorrectly documented as buildMcpCliInstructions. Actual `FOq` in chunks.159.mjs:294 is QR code numeric mode encoder.
+> **Note:** `CYz` is a constant (1800000 = 30 min timeout), not a function. The actual processMcpCliResult location needs verification.
 
 ### MCP CLI Subcommands
 
@@ -231,15 +244,31 @@
 
 ### MCP UI & State Sync
 
+> **⚠️ Symbol Validation Note:** Multiple MCP UI symbols were incorrectly documented. The following table contains validated locations from source code analysis.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| XVq | mergeMcpClients | chunks.186.mjs:163 | function |
-| sgA | mergeCommands | chunks.186.mjs:177 | function |
-| WWq | ElicitationDialog | chunks.188.mjs:1247 | function |
-| RV6 | setupElicitationRequestHandler | chunks.156.mjs:1540 | function (MCP elicitation handler; handles server elicitation requests) |
-| - | ElicitationRequestSchema | chunks.156.mjs | schema (MCP elicitation request Zod schema) |
-| - | ElicitationResponseSchema | chunks.156.mjs | schema (MCP elicitation response Zod schema) |
+| WT7 | setupElicitationRequestHandler | chunks.58.mjs:3 | function (MCP elicitation handler; handles server elicitation requests) |
+| KK6 | isElicitationEnabled | chunks.57.mjs:2911 | function (checks tengu_mcp_elicitation feature flag) |
+| jB3 | detectElicitationMode | chunks.57.mjs:2919 | function (determines "url" or "form" mode) |
+| ZIq | ElicitationDialog | chunks.190.mjs:1242 | function (main elicitation dialog component) |
+| BWz | FormElicitationDialog | chunks.190.mjs:1268 | function (form-mode elicitation renderer) |
+| gWz | UrlElicitationDialog | chunks.190.mjs (referenced) | function (URL-mode elicitation renderer) |
+| JB3 | findElicitationQueueIndex | chunks.57.mjs:2923 | function (find elicitation by server/ID) |
+| sx6 | runElicitationHook | chunks.58.mjs:86 | function (Elicitation hook execution) |
+| tx6 | runElicitationResultHook | chunks.58.mjs (referenced) | function (ElicitationResult hook execution) |
+| XVq | mergeMcpClients | chunks.178.mjs:446 | function (dedup merge of MCP client lists) |
+| yp | ElicitationCreateSchema | chunks.5.mjs:2595 | schema (MCP elicitation request) |
+| Cn | ElicitationResultSchema | chunks.5.mjs:2605 | schema (MCP elicitation response) |
+| My6 | ElicitationCompleteNotification | chunks.5.mjs:2600 | schema (URL mode completion notification) |
+| Htq | ElicitationParamsSchema | chunks.5.mjs:2595 | schema (union of form and URL mode params) |
 | - | oauth.authServerMetadataUrl | settings | config key (OAuth metadata URL for MCP servers) |
+
+> **Previous Incorrect Mappings:**
+> - `RV6` was incorrectly mapped to setupElicitationRequestHandler. Actual `RV6` is in chunks.191.mjs and is unrelated.
+> - `xq1` was incorrectly mapped to isElicitationEnabled. Actual `xq1` is in chunks.29.mjs and is unrelated.
+> - `iaY` was incorrectly mapped to detectElicitationMode. Actual `iaY` is in chunks.159.mjs and is unrelated.
+> - `WWq` was incorrectly mapped to ElicitationDialog. Actual `WWq` in chunks.166.mjs:3188 is a StatsDialog component.
 
 ---
 
@@ -307,75 +336,63 @@
 ## Module: Sandbox
 
 > Full analysis: [18_sandbox/overview.md](../18_sandbox/overview.md), [05_tools/security_validation.md](../05_tools/security_validation.md)
+> **⚠️ Symbol Validation Note:** `vA` (chunks.56.mjs:516) is the actual sandboxConfigObject, not `b8` as previously documented.
+> **⚠️ Symbol Validation Note:** Several sandbox symbols were incorrectly documented with wrong file locations. The following table contains validated locations from source code analysis.
 
 ### Sandbox Core
 
 | Obfuscated | Readable | File:Line | Type |
 |---|---|---|---|
-| b8 | sandboxConfigObject | chunks.47.mjs:109 | object |
-| eP5 | wrapWithSandbox | chunks.45.mjs:136 (Ln 119677) | function |
-| FP5 | buildSeatbeltProfile | chunks.44.mjs:3122 (Ln 119238) | function |
-| hO | sandboxModule | chunks.45.mjs:347 (Ln 119860) | object |
-| iP5 | isSandboxingEnabled (low-level) | chunks.45.mjs:350 (Ln 119542) | function |
-| Je8 | isSupportedPlatform | chunks.45.mjs:~118 (Ln 119536) | function |
-| Xe8 | checkDependencies | chunks.45.mjs:~125 (Ln 119546) | function |
-| L8 | sandboxDebugLog | chunks.44.mjs:64 (Ln 118569) | function |
-| lP5 | sandboxInitialize | chunks.44.mjs:3388 (Ln 119501) | function |
-| Nq6 | isSandboxingEnabled (public) | chunks.46.mjs:2818 (Ln 123689) | function |
-| le8 | isSandboxEnabledInSettings | chunks.46.mjs:2790 (Ln 123661) | function |
-| oe8 | isPlatformInEnabledList | chunks.46.mjs:2809 (Ln 123680) | function |
-| GG5 | isAutoAllowBashIfSandboxedEnabled | chunks.46.mjs:2799 (Ln 123670) | function |
-| ZG5 | areUnsandboxedCommandsAllowed | chunks.46.mjs:2804 (Ln 123675) | function |
-| VG5 | areSandboxSettingsLockedByPolicy | chunks.46.mjs:2847 (Ln 123718) | function |
-| NG5 | setSandboxSettings | chunks.46.mjs:2874 (Ln 123726) | function |
-| TG5 | getExcludedCommands | chunks.46.mjs:2874 (Ln 123744) | function |
-| fG5 | getLinuxGlobPatternWarnings | chunks.46.mjs:2825 (Ln 123696) | function |
-| vG5 | wrapWithSandboxFromSettings | chunks.46.mjs:2880 (Ln 123747) | function |
-| WG5 | extractCommandPrefix | chunks.46.mjs:2680 (Ln 123555) | function |
-| KC1 | isManagedDomainsOnlyPolicy | chunks.46.mjs:2693 (Ln 123564) | function |
-| n8A | buildSandboxConfigFromSettings | chunks.46.mjs:2697 (Ln 123568) | function |
-| EG5 | initializeSandboxFromSettings | chunks.47.mjs:3 (Ln 123753) | function |
-| kG5 | refreshSandboxConfig | chunks.47.mjs:21 (Ln 123771) | function |
-| LG5 | resetSandboxAndSettings | chunks.47.mjs:28 (Ln 123777) | function |
-| ae8 | addExcludedCommand | chunks.47.mjs:32 (Ln 123781) | function |
-| Or | sandboxInitializationPromise | chunks.47.mjs:~800 (Ln 123800) | variable |
-| r8A | settingsChangeUnsubscribe | chunks.47.mjs:~800 (Ln 123800) | variable |
-| st8 | wrapWithLinuxSandbox | chunks.44.mjs:2830 (Ln 118852) | function |
-| Ye8 | wrapWithMacOSSandbox | chunks.44.mjs:3166 (Ln 119283) | function |
-| ze8 | startMacOSLogMonitor | chunks.44.mjs:3208 (Ln 119324) | function |
-| Oq6 | encodeCommandForViolation | chunks.44.mjs:2569 (Ln 118673) | function |
-| uP5 | buildCommandLogTag | chunks.44.mjs:3045 (Ln 119045) | function |
-| gt8 | decodeBase64Command | chunks.44.mjs:2573 (Ln 118678) | function |
-| qe8 | sandboxSessionId | chunks.44.mjs:3258 (Ln 119371) | variable |
-| dy1 | SandboxViolationStore | chunks.44.mjs:3266 (Ln 119377) | class |
-| $q6 | buildProxyEnvVars | chunks.44.mjs:2556 (Ln 118660) | function |
-| Uy1 | getDefaultWriteAllowPaths | chunks.44.mjs:2551 (Ln 118655) | function |
-| tC | resolvePath | chunks.44.mjs:2522 (Ln 118626) | function |
-| Ut8 | getSandboxRuntimePaths | chunks.44.mjs:2587 (Ln 118701) | function |
-| dt8 | getBpfFilterPath | chunks.44.mjs:2677 (Ln 118791) | function |
-| py1 | getApplySeccompPath | chunks.44.mjs:2653 (Ln 118767) | function |
-| _e8 | isNetworkPermissionAllowed | chunks.44.mjs:3324 (Ln 119440) | function |
-| b8A | domainMatchesPattern | chunks.44.mjs:3270 (Ln 119433) | function |
-| pP5 | getMitmSocketPath | chunks.44.mjs:3290 (Ln 119461) | function |
-| dP5 | startHttpProxyServer | chunks.44.mjs:3300 (Ln 119471) | function |
-| cP5 | startSocksProxyServer | chunks.44.mjs:3315 (Ln 119488) | function |
-| UP5 | registerCleanup | chunks.44.mjs:3250 (Ln 119423) | function |
-| u8A | sandboxReset | chunks.45.mjs:200 (Ln 119740) | function |
-| KW5 | getSandboxViolationStore | chunks.45.mjs:270 (Ln 119834) | function |
-| YW5 | annotateStderrWithSandboxFailures | chunks.45.mjs:275 (Ln 119838) | function |
-| nP5 | getFsReadConfig | chunks.45.mjs:~155 (Ln 119570) | function |
-| rP5 | getFsWriteConfig | chunks.45.mjs:~165 (Ln 119582) | function |
-| oP5 | getNetworkRestrictionConfig | chunks.45.mjs:~178 (Ln 119601) | function |
-| We8 | getHttpProxyPort | chunks.45.mjs:~108 (Ln 119653) | function |
-| Ge8 | getSocksProxyPort | chunks.45.mjs:~112 (Ln 119657) | function |
-| Ze8 | getLinuxHttpSocketPath | chunks.45.mjs:~116 (Ln 119661) | function |
-| fe8 | getLinuxSocksSocketPath | chunks.45.mjs:~120 (Ln 119665) | function |
-| Ve8 | waitForNetworkInitialization | chunks.45.mjs:~124 (Ln 119668) | function |
-| Sc | isCommandSandboxed | chunks.172.mjs:1763 (Ln 443570) | function |
-| Lzz | isCommandInExcludedList | chunks.172.mjs:1741 (Ln 443548) | function |
-| Ezz | checkBashPermissionWithSandbox | chunks.172.mjs:1363 (Ln ~443181) | function |
-| nBY | getSandboxSystemPromptBlock | chunks.146.mjs:883 (Ln 372152) | function |
+| vA | sandboxConfigObject | chunks.56.mjs:516-547 | object (public API facade) |
+| aO | sandboxModule (low-level) | chunks.55.mjs (referenced from vA) | object |
+| Xx3 | wrapWithSandbox | chunks.56.mjs:417 | function |
+| Px3 | sandboxInitialize | chunks.56.mjs:424 | function |
+| h21 | isSandboxingEnabled | chunks.56.mjs:357 | function |
+| Dx3 | getExcludedCommands | chunks.56.mjs:413 | function |
+| Wx3 | refreshSandboxConfig | chunks.56.mjs:447 | function |
+| Zx3 | sandboxReset | chunks.56.mjs:454 | function |
+| uZ7 | wrapWithLinuxSandbox | chunks.55.mjs:2564 | function |
+| QZ7 | wrapWithMacOSSandbox | chunks.55.mjs:2803 | function (invokes sandbox-exec with SBPL profile) |
+| xb3 | generateSeatbeltProfile | chunks.55.mjs:2755 | function (main SBPL generator) |
+| Lzz | isCommandInExcludedList | chunks.173.mjs:2714 | function |
+| Ti | isCommandSandboxed | chunks.172.mjs:2454 | function |
+| Ezz | checkBashPermissionWithSandbox | chunks.172.mjs:1363 | function |
+| E9z | getSandboxSystemPromptBlock | chunks.171.mjs:1892 | function |
+| HD6 | SandboxViolationStore | chunks.55.mjs:2902-2936 | class (ring buffer for violations) |
+| UZ7 | startLogMonitor | chunks.55.mjs:2843 | function (macOS log stream for sandbox violations) |
 | - | enableWeakerNetworkIsolation | settings | config key (macOS: allow Go TLS with custom proxy) |
+
+### SandboxViolationStore Class (HD6)
+
+> **Cross-validated location:** chunks.55.mjs:2902-2936
+
+| Method | Purpose |
+|--------|---------|
+| `constructor()` | Initialize: violations=[], totalCount=0, maxSize=100, listeners=new Set |
+| `addViolation(violation)` | Push to array, increment totalCount, trim if >maxSize, notify listeners |
+| `getViolations(count?)` | Return copy of all or last N violations |
+| `getCount()` | Return current array length |
+| `getTotalCount()` | Return lifetime total |
+| `getViolationsForCommand(encodedCommand)` | Filter by encoded command tag |
+| `clear()` | Empty violations array, notify listeners |
+| `subscribe(callback)` | Add to listeners Set, immediately call with current violations, return unsubscribe fn |
+| `notifyListeners()` | Call all callbacks with current violations copy |
+
+### Network Permission Control
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| nZ7 | checkNetworkPermission | chunks.55.mjs:2960-2978 | function (domain-based network access control) |
+| bw8 | matchesDomain | chunks.55.mjs:2952-2958 | function (domain pattern matching with wildcard support) |
+| gb3 | createHttpProxy | chunks.55.mjs:2992-3008 | function (creates HTTP proxy server) |
+| Fb3 | createSocksProxy | chunks.55.mjs:3010-3022 | function (creates SOCKS proxy server) |
+
+> **Previous Incorrect Mappings (v2.1.76):**
+> - `Ye8` at chunks.59.mjs:5105 was incorrectly mapped to wrapWithMacOSSandbox. Actual `Ye8` is React fiber commitWork code. The correct symbol is `QZ7` at chunks.55.mjs:2803.
+> - `FP5` at chunks.35.mjs:1456 was incorrectly mapped to buildSeatbeltProfile. Actual `FP5` is an AWS credential provider function. The correct symbol is `xb3` at chunks.55.mjs:2755.
+> - `Sc` was incorrectly mapped to isCommandSandboxed. Actual `Sc` location unknown; the real function is `Ti` at chunks.172.mjs:2454.
+> - `nBY` was incorrectly mapped to getSandboxSystemPromptBlock. Actual `nBY` location is different; the real function is `E9z` at chunks.171.mjs:1892.
+> - `FOq` was incorrectly mapped to buildMcpCliInstructions. Actual `FOq` in chunks.159.mjs:294 is a QR code numeric mode encoder (`ov6` class).
 
 ### Sandbox Permission Sync (Swarm)
 
@@ -392,6 +409,68 @@
 | ZAH | PermissionRequestSchema | chunks.130.mjs:2874 (Ln 326639) | object (Zod) |
 | cM6 | sandboxCallbackMap | chunks.130.mjs:2936 (Ln 326705) | variable (Map) |
 | RQ1 | permissionCallbackMap | chunks.130.mjs:2934 (Ln 326705) | variable (Map) |
+
+### Seatbelt Profile Generation (macOS)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| xb3 | generateSeatbeltProfile | chunks.55.mjs:2755 | function (main SBPL generator) |
+| Ib3 | generateFileReadRules | chunks.55.mjs:2715 | function (file read permission rules) |
+| bb3 | generateFileWriteRules | chunks.55.mjs:2729 | function (file write permission rules) |
+| Hv | quoteString | chunks.55.mjs:2789 | function (JSON stringification for SBPL) |
+| ub3 | getTempDirPaths | chunks.55.mjs:2793 | function (macOS temp directory resolution) |
+| QZ7 | wrapWithSeatbeltSandbox | chunks.55.mjs:2803 | function (invokes sandbox-exec) |
+
+### Bubblewrap Implementation (Linux)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| uZ7 | wrapWithLinuxSandbox | chunks.55.mjs:2564 | function (main bwrap command builder for Linux) |
+| xb3 | generateSeatbeltProfile | chunks.55.mjs:2755 | function (macOS SBPL profile generator) |
+| QZ7 | wrapWithMacOSSandbox | chunks.55.mjs:2803 | function (macOS sandbox-exec wrapper) |
+| Rb3 | generateBwrapArgs | chunks.55.mjs:2491 | function (filesystem mount arguments) |
+| Lb3 | buildBridgeWrapperCommand | chunks.55.mjs:2474 | function (network bridge wrapper) |
+| Sb3 | getDenyWritePaths | chunks.55.mjs:2669 | function (mandatory deny paths) |
+| Cb3 | generateLogTag | chunks.55.mjs:2678 | function (command correlation identifier) |
+| v21 | createdEmptyDirs | chunks.55.mjs:2666 | variable (Set for cleanup tracking) |
+| yw8 | createdSeccompFilters | chunks.55.mjs:2666 | variable (Set for seccomp cleanup) |
+
+### Network Proxy & Bridge Sockets
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| xZ7 | createBridgeSockets | chunks.55.mjs:2401 | function (Linux Unix socket bridges) |
+| f21 | getProxyEnvVars | chunks.55.mjs:2606 | function (HTTP_PROXY, SOCKS_PROXY env vars) |
+| AG7 | getHttpProxyPort | chunks.55.mjs:3183 | function |
+| qG7 | getSocksProxyPort | chunks.55.mjs:3187 | function |
+
+### Seccomp BPF Filter (Linux)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| Nw8 | getSeccompArch | chunks.55.mjs:2175 | function (maps arch to seccomp dir) |
+| Vw8 | getBpfFilterPath | chunks.55.mjs:2203 | function (finds pre-generated BPF file) |
+| Ex6 | getApplySeccompPath | chunks.55.mjs:2227 | function (finds apply-seccomp binary) |
+| RZ7 | validateSeccompAvailability | chunks.55.mjs:2251 | function |
+| Tb3 | findBpfFilterFile | chunks.55.mjs:2210 | function |
+| vb3 | findApplySeccompBinary | chunks.55.mjs:2234 | function |
+
+### Violation Monitoring (macOS)
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| UZ7 | startLogMonitor | chunks.55.mjs:2843 | function (macOS log stream monitoring) |
+| HD6 | SandboxViolationStore | chunks.55.mjs:2902 | class (ring buffer for violations) |
+| FZ7 | SANDBOX_LOG_TAG | chunks.55.mjs:2899 | constant (unique session identifier) |
+| T21 | encodeBase64 | chunks.55.mjs:2679 | function (command encoding) |
+| EZ7 | decodeBase64 | - | function (command decoding) |
+
+### Network Permission Control
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| nZ7 | checkNetworkPermission | chunks.55.mjs:2960 | function (domain-based network access control) |
+| bw8 | matchesDomain | chunks.55.mjs:2952 | function (domain pattern matching with wildcard support) |
 
 ### Bash/Sed Security
 

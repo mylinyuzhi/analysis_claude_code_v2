@@ -11,11 +11,15 @@ The MCP system connects to Claude Code's React UI at several integration points:
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key symbols in this document:
-- `mergeMcpClients` (XVq) - chunks.186.mjs:163 - Dedup merge of MCP client lists
-- `mergeCommands` (sgA) - chunks.186.mjs:177 - Dedup merge of slash command lists
-- `trackMcpIdeStatus` (fVq) - chunks.186.mjs:410 - IDE installation tracker hook
-- `ElicitationDialog` (WWq) - chunks.188.mjs:1247 - MCP server input request renderer
-- `onChangeAppStateHandler` (K11) - chunks.176.mjs:581 - App state → disk sync observer
+- `mergeMcpClients` (XVq) - chunks.178.mjs:446 - Dedup merge of MCP client lists
+- `ElicitationDialog` (ZIq) - chunks.190.mjs:1242 - MCP server input request renderer
+- `FormElicitationDialog` (BWz) - chunks.190.mjs:1268 - Form-mode elicitation renderer
+- `UrlElicitationDialog` (gWz) - chunks.190.mjs (referenced) - URL-mode elicitation renderer
+- `setupElicitationRequestHandler` (WT7) - chunks.58.mjs:3 - Elicitation request handler registration
+- `detectElicitationMode` (jB3) - chunks.57.mjs:2919 - Elicitation mode detection
+
+> **Note:** Previous documentation incorrectly mapped `WWq` to ElicitationDialog. Actual `WWq` in chunks.166.mjs:3188 is a StatsDialog component. The correct ElicitationDialog is `ZIq` in chunks.190.mjs:1242.
+> **Note:** `K11` was incorrectly documented as `onChangeAppStateHandler`. Actual `K11` in chunks.10.mjs:508 is unrelated to MCP state sync.
 
 ---
 
@@ -101,16 +105,17 @@ builtIn → plugin commands → MCP commands
 
 The MCP commands come from MCP servers that export `prompts` (slash-command-like tool invocations).
 
-### trackMcpIdeStatus (fVq) — chunks.186.mjs:410
+### IDE Connection Status Tracking
 
-**What it does:** A hook that watches the `mcpClients` list length and updates the IDE installation status flag when it changes. This enables the "IDE connected" UI indicator.
+**What it does:** The IDE connection status is tracked by watching the `mcpClients` list for a client named "ide". When present, the IDE is considered connected.
 
 **How it works:**
-1. Tracks `mcpClients.length` with `useEffect`
-2. When the count changes and `ideFlag` is true:
-   - If count > 0: marks IDE as "connected" (at least one MCP client active)
-   - If count drops to 0: marks as "disconnected"
-3. Used to show/hide the IDE connection badge in the status line
+1. The `getIdeConnectionStatus` hook (LV6 in chunks.190.mjs:2902) checks for an MCP client with `name === "ide"`
+2. Returns `{ status: "connected" | "pending" | "disconnected" | null, ideName: string | null }`
+3. Used by `IdeSelectionIndicator` (dIq) to show the IDE connection badge in the status line
+4. Also used by `hasConnectedIde` (L$1 in chunks.65.mjs:1811) for boolean checks
+
+> **Note:** Previous documentation incorrectly mapped `fVq` to `trackMcpIdeStatus`. No such function exists. IDE status tracking uses `getIdeConnectionStatus` (LV6) and `hasConnectedIde` (L$1).
 
 ---
 
@@ -193,9 +198,39 @@ if (sandboxPermissionQueue[0]) {
 
 **FIFO queue for elicitation:** `elicitation.queue` is an array processed front-to-back. If multiple MCP servers request input simultaneously, each gets its own dialog shown in order. This prevents dialog stacking while ensuring all requests are eventually fulfilled.
 
+### Modal State Machine
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           Modal States               │
+                    ├─────────────────────────────────────┤
+                    │                                     │
+   sandbox-perm ───►│  [1] sandbox-permission             │
+   queue[0]         │      macOS sandbox violation        │
+                    │      User must Allow/Deny           │
+                    │                                     │
+   tool-request ───►│  [2] tool-permission                │
+   queue[0]         │      Tool approval dialog           │
+                    │      User must Accept/Reject        │
+                    │                                     │
+   worker-sandbox ─►│  [3] worker-sandbox-permission      │
+   queue[0]         │      Worker process sandboxing      │
+                    │                                     │
+   elicitation ────►│  [4] elicitation                    │
+   queue[0]         │      MCP server input request       │
+                    │      Form or URL mode               │
+                    │                                     │
+                    └─────────────────────────────────────┘
+
+Transitions:
+- Any queue[0] becoming truthy → shows that modal
+- Modal dismissed → check next highest priority queue
+- All queues empty → no modal shown
+```
+
 ---
 
-## 5. ElicitationDialog Component (WWq) — chunks.188.mjs:1247
+## 5. ElicitationDialog Component (ZIq) — chunks.190.mjs:1242
 
 ### What it does
 
@@ -203,23 +238,131 @@ Renders the MCP server's input request as either a terminal form (for structured
 
 ### How it works
 
-**Two render modes (from `detectElicitationMode` - iaY):**
+**Two render modes (from `detectElicitationMode` - jB3):**
 
 **Form mode** (`mode === "form"` or no mode specified):
 - Receives a JSON Schema describing the required fields
-- Renders schema properties as terminal form elements:
+- Renders via `FormElicitationDialog` (BWz) component
+- Schema properties rendered as terminal form elements:
   - `type: "string"` → text input
   - `type: "boolean"` → toggle checkbox
   - `type: "string", enum: [...]` → select dropdown
   - `type: "array"` → multi-select list
-- User fills out the form and presses Enter
-- `applySchemaDefaults(nH6)` pre-populates fields with `default` values from the schema
+- Default values from `default` field in schema are pre-populated
 
 **URL mode** (`mode === "url"`):
+- Renders via `UrlElicitationDialog` (gWz) component
 - Receives a URL to open in the browser
 - Shows the URL to the user with instructions
 - Waits for user to complete the external flow
 - User signals completion; a `notifications/elicitation/complete` notification is sent back to the MCP server
+
+### Elicitation Request Schema
+
+```javascript
+// ============================================
+// Elicitation request format from MCP server
+// Location: chunks.57.mjs:2911 (detectElicitationMode)
+// ============================================
+
+interface ElicitationRequest {
+    id: string;              // Unique request ID for correlation
+    serverName: string;      // MCP server that made the request
+    message: string;         // User-facing prompt text
+    mode?: "form" | "url";   // Display mode (default: "form")
+    schema?: JSONSchema;     // For form mode: field definitions
+    url?: string;            // For url mode: external URL
+}
+
+interface JSONSchema {
+    type: "object";
+    properties: {
+        [fieldName: string]: {
+            type: "string" | "boolean" | "number" | "array";
+            description?: string;
+            enum?: string[];       // For dropdown selection
+            default?: any;         // Pre-filled default value
+            items?: JSONSchema;    // For array type
+        }
+    };
+    required?: string[];
+}
+```
+
+### Form Rendering Algorithm
+
+```javascript
+// ============================================
+// FormElicitationDialog - Schema-driven form rendering
+// Location: chunks.190.mjs:1268
+// ============================================
+
+// READABLE (for understanding):
+function FormElicitationDialog({ request, onResponse }) {
+    const [values, setValues] = useState(
+        // Initialize with defaults from schema
+        Object.fromEntries(
+            Object.entries(request.schema.properties).map(([key, prop]) => [
+                key,
+                prop.default ?? (prop.type === 'boolean' ? false : '')
+            ])
+        )
+    );
+
+    // Render each property as appropriate input
+    const fields = Object.entries(request.schema.properties).map(([name, prop]) => {
+        if (prop.type === 'boolean') {
+            return <ToggleField
+                key={name}
+                label={prop.description ?? name}
+                value={values[name]}
+                onChange={(v) => setValues(prev => ({ ...prev, [name]: v }))}
+            />;
+        }
+
+        if (prop.enum) {
+            return <SelectField
+                key={name}
+                label={prop.description ?? name}
+                options={prop.enum}
+                value={values[name]}
+                onChange={(v) => setValues(prev => ({ ...prev, [name]: v }))}
+            />;
+        }
+
+        if (prop.type === 'array') {
+            return <MultiSelectField
+                key={name}
+                label={prop.description ?? name}
+                options={prop.items?.enum ?? []}
+                values={values[name]}
+                onChange={(v) => setValues(prev => ({ ...prev, [name]: v }))}
+            />;
+        }
+
+        // Default: text input
+        return <TextField
+            key={name}
+            label={prop.description ?? name}
+            value={values[name]}
+            onChange={(v) => setValues(prev => ({ ...prev, [name]: v }))}
+        />;
+    });
+
+    return (
+        <Box flexDirection="column">
+            <Text bold>{request.message}</Text>
+            {fields}
+            <Box marginTop={1}>
+                <Button onPress={() => onResponse('accept', values)}>Submit</Button>
+                <Button onPress={() => onResponse('decline', null)}>Decline</Button>
+            </Box>
+        </Box>
+    );
+}
+
+// Mapping: BWz→FormElicitationDialog, gWz→UrlElicitationDialog
+```
 
 **Response handling:**
 
@@ -363,3 +506,463 @@ When MCPContext (ZQA) is running as a local HTTP bridge, it writes an additional
 ```
 
 The child `mcp-cli` process reads this file and constructs `callRemoteMcpEndpoint` requests to `http://127.0.0.1:{port}/mcp` with `Authorization: Bearer {secret}` headers, delegating all tool execution to the parent session's MCP connections.
+
+---
+
+## 8. Elicitation Flow State Machine
+
+### Complete Elicitation Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Elicitation Request Flow                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  MCP Server                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Server needs user input                                              │    │
+│  │ Calls: notifications/elicitation/request                            │    │
+│  │ Params: { id, message, mode?, schema?/url? }                        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│                           ▼                                                  │
+│  Transport Layer (SSE/WebSocket)                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ JSON-RPC notification received                                       │    │
+│  │ Routed to setupElicitationRequestHandler (WT7)                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│                           ▼                                                  │
+│  Elicitation Handler (FA)                                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ 1. Validate request format                                           │    │
+│  │ 2. Detect mode: detectElicitationMode(jB3)                          │    │
+│  │ 3. Add to queue: elicitation.queue.push(request)                    │    │
+│  │ 4. Set responder: elicitation.respond = createResponder()           │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│                           ▼                                                  │
+│  UI Rendering (React)                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Check modal priority stack:                                          │    │
+│  │   if (sandboxPermQueue[0]) → show sandbox dialog                    │    │
+│  │   else if (toolPermQueue[0]) → show tool permission                 │    │
+│  │   else if (workerSandboxQueue[0]) → show worker sandbox             │    │
+│  │   else if (elicitation.queue[0]) → show elicitation dialog         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│           ┌───────────────┴───────────────┐                                 │
+│           │                               │                                  │
+│           ▼                               ▼                                  │
+│  ┌─────────────────────┐       ┌─────────────────────┐                     │
+│  │ Form Mode           │       │ URL Mode            │                     │
+│  │ (FormElicitation)   │       │ (UrlElicitation)    │                     │
+│  │                     │       │                     │                     │
+│  │ - Render form fields│       │ - Show URL to user  │                     │
+│  │ - Validate input    │       │ - Open in browser   │                     │
+│  │ - Submit/Decline    │       │ - Wait for callback │                     │
+│  └─────────┬───────────┘       └─────────┬───────────┘                     │
+│            │                             │                                   │
+│            └──────────────┬──────────────┘                                 │
+│                           │                                                  │
+│                           ▼                                                  │
+│  User Response                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ onResponse(action, content)                                          │    │
+│  │                                                                       │    │
+│  │ action: "accept" | "decline" | "cancel"                              │    │
+│  │ content: form data (for accept) | null (for decline/cancel)         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│                           ▼                                                  │
+│  Response to MCP Server                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ elicitationHandler.respond({ action, content })                      │    │
+│  │                                                                       │    │
+│  │ Sends: notifications/elicitation/complete                           │    │
+│  │ Params: { id, action, content }                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           │                                                  │
+│                           ▼                                                  │
+│  Queue Advance                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ elicitation.queue = elicitation.queue.slice(1)                      │    │
+│  │ // If queue[0] exists, next elicitation shown automatically         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### URL Mode Details
+
+**Location:** `chunks.190.mjs` (UrlElicitationDialog component)
+
+URL mode is used for OAuth flows and external authentication:
+
+```javascript
+// ============================================
+// UrlElicitationDialog - Handle OAuth/browser-based elicitation
+// Location: chunks.190.mjs
+// ============================================
+
+// READABLE (for understanding):
+function UrlElicitationDialog({ request, onResponse }) {
+    let [status, setStatus] = useState('pending');  // 'pending' | 'opened' | 'completed'
+    let [callbackData, setCallbackData] = useState(null);
+
+    // Open URL in browser
+    async function openUrl() {
+        setStatus('opened');
+        await openInBrowser(request.url);
+
+        // Poll for callback or wait for webhook
+        // (implementation depends on OAuth flow type)
+    }
+
+    // User completed external flow
+    function handleComplete(data) {
+        setCallbackData(data);
+        setStatus('completed');
+        onResponse('accept', data);
+    }
+
+    // User cancelled
+    function handleCancel() {
+        onResponse('cancel', null);
+    }
+
+    return (
+        <Box flexDirection="column">
+            <Text bold>{request.message}</Text>
+            <Text dimColor>URL: {request.url}</Text>
+
+            {status === 'pending' && (
+                <Button onPress={openUrl}>Open in Browser</Button>
+            )}
+
+            {status === 'opened' && (
+                <>
+                    <Text>Waiting for you to complete authentication...</Text>
+                    <Spinner />
+                    <Button onPress={handleCancel}>Cancel</Button>
+                </>
+            )}
+
+            {status === 'completed' && (
+                <Text color="green">✓ Authentication complete</Text>
+            )}
+        </Box>
+    );
+}
+```
+
+**URL Mode Use Cases:**
+- OAuth 2.0 authorization code flow
+- Device code flow (display code, user enters on another device)
+- SAML SSO flows
+- Magic link authentication
+
+---
+
+## 9. Hook Interception
+
+### Elicitation Hook Events
+
+The elicitation system can be intercepted by hooks:
+
+```javascript
+// ============================================
+// Elicitation hook integration
+// Location: chunks.57.mjs (setupElicitationRequestHandler)
+// ============================================
+
+// Hook event types for elicitation:
+// - "elicitation_request": Before showing dialog to user
+// - "elicitation_response": After user responds, before sending to server
+
+// READABLE (for understanding):
+async function setupElicitationRequestHandler(mcpClient, hookManager) {
+    mcpClient.onNotification('notifications/elicitation/request', async (params) => {
+        let request = {
+            id: params.id,
+            serverName: mcpClient.name,
+            message: params.message,
+            mode: params.mode,
+            schema: params.schema,
+            url: params.url
+        };
+
+        // Fire pre-elicitation hook
+        if (hookManager) {
+            let hookResult = await hookManager.fireHook('elicitation_request', {
+                request,
+                serverName: mcpClient.name
+            });
+
+            // Hook can modify or block the elicitation
+            if (hookResult.blocked) {
+                // Automatically decline
+                elicitationHandler.respond({
+                    id: params.id,
+                    action: 'decline',
+                    content: null
+                });
+                return;
+            }
+
+            // Hook can pre-fill values
+            if (hookResult.prefilledValues) {
+                request.prefilledValues = hookResult.prefilledValues;
+            }
+        }
+
+        // Add to UI queue
+        elicitation.queue.push(request);
+    });
+}
+```
+
+**Hook use cases:**
+- Auto-approve certain elicitation types (e.g., known OAuth flows)
+- Pre-fill form values from previous sessions
+- Block elicitation from untrusted servers
+- Log elicitation requests for audit
+
+---
+
+## 10. MCP Progress Notifications UI Integration
+
+### What it does
+
+When MCP tools report progress during execution (long-running operations), the progress notifications are displayed in the UI through the `onProgress` callback mechanism.
+
+### Progress Notification Flow
+
+```javascript
+// ============================================
+// MCP Progress Notification Handler
+// Location: chunks.170.mjs (inside fetchMcpTools tool.call)
+// ============================================
+
+// Progress notification types:
+// - type: "mcp_progress"
+// - status: "started" | "completed" | "failed"
+// - serverName: string
+// - toolName: string
+// - elapsedTimeMs?: number
+
+interface McpProgressNotification {
+    toolUseID: string;
+    data: {
+        type: "mcp_progress";
+        status: "started" | "completed" | "failed";
+        serverName: string;
+        toolName: string;
+        elapsedTimeMs?: number;
+    }
+}
+```
+
+### UI Display
+
+Progress notifications are typically shown in:
+1. **Tool result area** - While tool is executing
+2. **Status line** - Brief indicator of active MCP operation
+3. **Transcript** - Logged with the tool use result
+
+---
+
+## 11. MCP Connection Status UI Indicators
+
+### MCP Client Status Display
+
+The `mcpClients` array from app state is used to display connection status:
+
+```javascript
+// ============================================
+// MCP Connection Status Display
+// Location: chunks.190.mjs (getIdeConnectionStatus pattern)
+// ============================================
+
+function getMcpConnectionStatus(mcpClients) {
+    let connected = mcpClients.filter(c => c.type === "connected");
+    let pending = mcpClients.filter(c => c.type === "pending");
+    let disconnected = mcpClients.filter(c => c.type === "disconnected");
+
+    return {
+        connectedCount: connected.length,
+        pendingCount: pending.length,
+        disconnectedCount: disconnected.length,
+        servers: connected.map(c => c.name)
+    };
+}
+```
+
+### Status Bar Integration
+
+When MCP servers are connected, the status bar can show:
+- `MCP: 3 servers` - Count of connected servers
+- Server names on hover or expand
+- Warning indicator if any servers disconnected
+
+---
+
+## 12. MCP Tool Discovery in REPL
+
+### Tool List Integration
+
+MCP tools are merged with built-in tools in the REPL component:
+
+```
+Built-in Tools (Bash, Read, Edit, etc.)
+    │
+    ▼
+mergeMcpClients(initialMcpClients, mcpClientsFromAppState)
+    │
+    ▼
+loadTools(permissionContext) → filteredTools
+    │
+    ▼
+Active Tool Set (built-in + MCP + custom)
+    │
+    ▼
+Passed to query builder
+```
+
+### Tool Name Display
+
+MCP tools appear with their prefixed names:
+- `mcp__sqlite__query` → displayed as "sqlite: query"
+- `mcp__github__search` → displayed as "github: search"
+
+The `userFacingName()` method provides human-readable names:
+
+```javascript
+userFacingName() {
+    let w = z.annotations?.title || z.name;
+    return `${A.name} - ${w} (MCP)`
+}
+```
+
+---
+
+## 13. MCP Notification Handler (ZBq)
+
+### What it does
+
+Handles MCP server notifications and displays them in the UI.
+
+### Location
+
+**chunks.195.mjs** - MCP notification handler component
+
+### Notification Types
+
+| Notification Type | UI Action |
+|-------------------|-----------|
+| `resources/list_changed` | Refresh resource list |
+| `tools/list_changed` | Refresh tool list |
+| `elicitation/request` | Show elicitation dialog |
+| `progress` | Update progress indicator |
+| `log` | Add to transcript |
+
+### Implementation
+
+```javascript
+// ============================================
+// MCP Notification Handler
+// Location: chunks.195.mjs
+// ============================================
+
+function useMcpNotifications(mcpClients, addNotification) {
+    useEffect(() => {
+        if (!mcpClients) return;
+
+        for (let client of mcpClients) {
+            if (client.type !== "connected") continue;
+
+            // Register notification handlers
+            client.onNotification('notifications/resources/list_changed', () => {
+                addNotification({
+                    type: "mcp_refresh",
+                    message: `Resources updated for ${client.name}`
+                });
+            });
+
+            client.onNotification('notifications/tools/list_changed', () => {
+                addNotification({
+                    type: "mcp_refresh",
+                    message: `Tools updated for ${client.name}`
+                });
+            });
+        }
+    }, [mcpClients]);
+}
+```
+
+---
+
+## 14. Cross-Module UI Integration Summary
+
+### MCP ↔ System Reminder UI Flow
+
+```
+MCP Server Connects
+    │
+    ├─► mcpClients state updated
+    │
+    ├─► Session file written (mcp-cli discovery)
+    │
+    └─► System prompt builder includes MCP instructions
+            │
+            └─► Model sees: "You have access to N MCP servers"
+```
+
+### MCP ↔ Permission UI Flow
+
+```
+MCP Tool Call
+    │
+    ├─► Permission check triggered
+    │
+    ├─► If needs approval:
+    │       │
+    │       └─► Permission dialog shown
+    │               │
+    │               ├─► Allow → Execute tool
+    │               └─► Deny → Return error
+    │
+    └─► If auto-allowed → Execute directly
+```
+
+### MCP ↔ Elicitation UI Flow
+
+```
+MCP Server requests input
+    │
+    ├─► elicitation.queue.push(request)
+    │
+    ├─► Modal priority check:
+    │       if (no higher priority dialogs)
+    │           show ElicitationDialog
+    │
+    ├─► User responds
+    │       │
+    │       ├─► accept + content → Send to MCP server
+    │       ├─► decline → Send decline to server
+    │       └─► cancel → Send cancel to server
+    │
+    └─► elicitation.queue.shift() → Show next if any
+```
+
+---
+
+## Related Documents
+
+- [implementation.md](./implementation.md) - MCP implementation details
+- [mcp_hub.md](./mcp_hub.md) - McpHub and MCPContext
+- [elicitation_handler.md](./elicitation_handler.md) - Elicitation system
+- [transport_layer.md](./transport_layer.md) - Transport implementations
+- [cross_module_integration.md](./cross_module_integration.md) - Cross-module integration
+- [../04_system_reminder/implementation_details.md](../04_system_reminder/implementation_details.md) - System reminder system
+- [../22_ide_integration/ui_linkage.md](../22_ide_integration/ui_linkage.md) - IDE UI integration

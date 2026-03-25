@@ -932,17 +932,75 @@
 
 ## Module: IDE Integration
 
-> Full analysis: [22_ide_integration/overview.md](../22_ide_integration/overview.md)
+> Full analysis: [22_ide_integration/](../22_ide_integration/)
 > UI linkage: [22_ide_integration/ui_linkage.md](../22_ide_integration/ui_linkage.md)
 
-### Core Detection & Connection (chunks.80.mjs)
+### DiagnosticsManager (Gb) - Core Class
+
+> **Cross-validated location:** chunks.170.mjs:740-879
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| iV | findConnectedIdeClient | chunks.80.mjs:1868 | function |
-| N$6 | hasConnectedIde | chunks.80.mjs:1648 | function |
-| T$6 | getIdeName | chunks.80.mjs:1842 | function |
-| DXA | getIdeDisplayName | chunks.80.mjs:1847 | function |
+| Gb | DiagnosticsManager | chunks.170.mjs:740 | class |
+| Nl | diagnosticsManagerInstance | chunks.170.mjs (getInstance) | singleton |
+| - | getInstance | chunks.170.mjs:747-750 | static method |
+| - | initialize | chunks.170.mjs:751-754 | method |
+| - | shutdown | chunks.170.mjs:755-757 | method |
+| - | reset | chunks.170.mjs:758-760 | method |
+| - | normalizeFileUri | chunks.170.mjs:761-769 | method |
+| - | ensureFileOpened | chunks.170.mjs:770-784 | method |
+| - | beforeFileEdited | chunks.170.mjs:785-805 | method |
+| - | getNewDiagnostics | chunks.170.mjs:806-839 | method |
+| - | parseDiagnosticResult | chunks.170.mjs:840-846 | method |
+| - | areDiagnosticsEqual | chunks.170.mjs:847-849 | method |
+| - | areDiagnosticArraysEqual | chunks.170.mjs:850-853 | method |
+| - | handleQueryStart | chunks.170.mjs:854-859 | method |
+| - | formatDiagnosticsSummary | chunks.170.mjs:860-874 | static method |
+| - | getSeveritySymbol | chunks.170.mjs:875-879 | static method |
+
+### IDE Connection & Status
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gv | findConnectedIdeClient | chunks.65.mjs:2032 | function (finds connected "ide" MCP client) |
+| L$1 | hasConnectedIde | chunks.65.mjs:1812 | function (checks mcpClients for name==="ide" && type==="connected") |
+| R$1 | getIdeName | chunks.65.mjs:2007 | function (returns display name: "VS Code", "Cursor", etc.) |
+| LV6 | getIdeConnectionStatus | chunks.190.mjs:2902 | hook (returns {status, ideName} React state) |
+| dIq | IdeSelectionIndicator | chunks.191.mjs:7 | component (status bar selection badge) |
+| pSq | IDEDiffHandler | chunks.188.mjs:880-940 | component (diff routing for IDE vs terminal) |
+| EPz | openDiffInIde | chunks.188.mjs:955-1011 | function (opens diff via MCP, BLOCKING for user response) |
+| kPz | computeDiffEdits | chunks.188.mjs:942-953 | function (computes final edits from old/new content) |
+| Cs8 | closeDiffTab | chunks.188.mjs (referenced) | function (closes diff tab in IDE via MCP) |
+| cuY | getIdeDiagnosticsAttachment | chunks.147.mjs:789 | function (system reminder attachment producer) |
+| kuY | getIdeSelectionAttachment | chunks.147.mjs (referenced) | function (selection attachment producer) |
+
+> **Symbol Validation (v2.1.76):**
+> - `pSq` (IDEDiffHandler) location corrected to chunks.188.mjs:880 (was incorrectly documented as chunks.180.mjs)
+> - `EPz` (openDiffInIde) added - critical blocking function that shows IDE diff and waits for user response
+> - `dIq` (IdeSelectionIndicator) location confirmed at chunks.191.mjs:7
+> - `Gv` (findConnectedIdeClient) location confirmed at chunks.65.mjs:2032
+
+### IDE Configuration Registry (IDE_CONFIG / gX6)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gX6 | IDE_CONFIG | chunks.65.mjs:2112-2239 | object |
+| kN7 | JETBRAINS_PLUGIN_ID_MAP | chunks.65.mjs (referenced) | object |
+| vl3 | VSCODE_EXTENSION_ID | chunks.65.mjs (referenced) | constant |
+| bp3 | JETBRAINS_PLUGIN_ID | chunks.65.mjs (referenced) | constant |
+
+> Full analysis: [22_ide_integration/overview.md](../22_ide_integration/overview.md)
+> UI linkage: [22_ide_integration/ui_linkage.md](../22_ide_integration/ui_linkage.md)
+> **✅ Symbol Validation:** Key symbols validated against source code (v2.1.76). `Gb`, `gX6`, `vl3` mappings confirmed correct.
+
+### Core Detection & Connection (chunks.80.mjs, chunks.65.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gv | findConnectedIdeClient | chunks.65.mjs:2032 | function (finds connected "ide" MCP client) |
+| L$1 | hasConnectedIde | chunks.65.mjs:1811 | function (returns true if "ide" client connected) |
+| R$1 | getIdeName | chunks.65.mjs:2006 | function (returns display name of connected IDE) |
+| T$6 | getIdeDisplayName | chunks.80.mjs:1847 | function |
 | Q01 | getDefaultIdeType | chunks.80.mjs:1392 | function |
 | f$6 | isVsCodeIde | chunks.80.mjs:1380 | function |
 | Oh | isJetBrainsIde | chunks.80.mjs:1386 | function |
@@ -952,6 +1010,8 @@
 | U01 | IDE_CONFIG_MAP | chunks.80.mjs:1953 | object (18-IDE registry: 3 VSCode + 15 JetBrains) |
 | wD9 | VSCODE_EXTENSION_ID | chunks.80.mjs:1922 | constant (`"anthropic.claude-code"`) |
 | OD9 | findVsCodeBinaryFromParentProcess | chunks.80.mjs:1718 | function (macOS: walks ppid tree) |
+
+> **⚠️ Correction:** `iV` at chunks.80.mjs:1868 was incorrectly mapped to findConnectedIdeClient. The actual findConnectedIdeClient is `Gv` at chunks.65.mjs:2032 (VERIFIED via source code analysis).
 
 ### IDE Discovery & Installation (chunks.80.mjs)
 
@@ -981,44 +1041,107 @@
 | mx7 | closeAllDiffTabs | chunks.80.mjs:1874 | function |
 | VG6 | WebSocketClientTransport | chunks.144.mjs:1 | class (ws-ide transport, handles Bun+Node.js) |
 
-### Tool Invocation Layer (chunks.145.mjs)
+### Tool Invocation Layer (chunks.65.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| _h | callMcpTool | chunks.145.mjs:~1430 | function (thin wrapper: toolName+args+client → content) |
-| lo4 | executeMcpTool | chunks.145.mjs:1676 | function (async: timeout race, 30s progress log, auth error) |
+| pC | callMcpTool | chunks.65.mjs | function (MCP tool invocation via JSON-RPC) |
+| N$6 | hasConnectedIde | chunks.80.mjs:1648 | function (returns true if "ide" client connected) |
 
-### Diff Review Tools (chunks.180.mjs)
-
-| Obfuscated | Readable | File:Line | Type |
-|------------|----------|-----------|------|
-| MPq | IDEDiffHandler | chunks.180.mjs:3 | function (hook: routes diff to IDE vs terminal) |
-| aJz | openDiffInIde | chunks.180.mjs:78 | function (async: blocking openDiff call + response handling) |
-| aQA | closeDiffTab | chunks.180.mjs:132 | function (async: `close_tab` MCP tool call) |
-| eJz | isFileSaved | chunks.180.mjs:151 | function (checks FILE_SAVED response code) |
-| sJz | isTabClosed | chunks.180.mjs:143 | function (checks TAB_CLOSED response code) |
-| tJz | isDiffRejected | chunks.180.mjs:147 | function (checks DIFF_REJECTED response code) |
-
-### Diagnostics Bridge (chunks.146.mjs)
+### Diff Review Tools (chunks.188.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| KI | DiagnosticsManager | chunks.146.mjs:3 | class (singleton: baseline+delta IDE diagnostics) |
+| pSq | IDEDiffHandler | chunks.188.mjs:880 | component (routes diff to IDE vs terminal) |
+| EPz | openDiffInIde | chunks.188.mjs:955 | function (async: blocking openDiff call + response handling) |
+| Cs8 | closeDiffTab | chunks.188.mjs:1013 | function (async: `close_tab` MCP tool call) |
+| $R7 | closeAllDiffTabs | chunks.65.mjs:2038 | function (async: closeAllDiffTabs MCP tool call) |
+| RPz | isFileSavedResponse | chunks.188.mjs | function (checks FILE_SAVED response code) |
+| yPz | isTabClosedResponse | chunks.188.mjs | function (checks TAB_CLOSED response code) |
+| LPz | isDiffRejectedResponse | chunks.188.mjs | function (checks DIFF_REJECTED response code) |
 
-### Selection Tracking (chunks.186.mjs)
+### UI Components (chunks.191.mjs, chunks.190.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| fVq | useIdeSelection | chunks.186.mjs:410 | function (hook: subscribes to selection_changed) |
-| oMz | selectionChangedSchema | chunks.186.mjs:463 | object (Zod schema for selection_changed notification) |
-| aVq | syncPermissionModeToIde | chunks.186.mjs:1736 | function (hook: sends set_permission_mode to Chrome MCP) |
+| dIq | IdeSelectionIndicator | chunks.191.mjs:7 | component (status bar "⧉ N lines selected" badge) |
+| LV6 | getIdeConnectionStatus | chunks.190.mjs:2902 | hook (returns { status, ideName } for IDE MCP client) |
+
+> **Correction:** `FWq` was incorrectly mapped to IdeSelectionIndicator. Actual `FWq` at chunks.168.mjs:327 is a brief mode slash command initializer. The correct IdeSelectionIndicator is `dIq` at chunks.191.mjs:7.
+
+### Diagnostics Manager (chunks.170.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Gb | DiagnosticsManager | chunks.170.mjs:740-883 | class (singleton: baseline+delta IDE diagnostics) |
+| Nl | diagnosticsManagerInstance | chunks.170.mjs:900 | constant (singleton instance via Gb.getInstance()) |
+| GGq | DiagnosticsPathMismatchError | chunks.170.mjs:899 | class (error for URI validation failures) |
+| ZGq | MAX_DIAGNOSTIC_SUMMARY_LENGTH | chunks.170.mjs:887 | constant (4000 chars max for formatted output) |
+| cuY | getIdeDiagnosticsAttachment | chunks.147.mjs:789 | function (system reminder integration) |
+
+> **DiagnosticsManager Methods (Gb):**
+> - `getInstance()`: Returns singleton instance
+> - `initialize(mcpClient)`: Sets up MCP client reference
+> - `shutdown()`: Clears all state, sets initialized=false
+> - `reset()`: Clears baseline, rightFileDiagnosticsState, timestamps
+> - `normalizeFileUri(uri)`: Strips `file://`, `_claude_fs_right:`, `_claude_fs_left:` prefixes
+> - `ensureFileOpened(filePath)`: Opens file in IDE (preview=false, makeFrontmost=false)
+> - `beforeFileEdited(filePath)`: Captures baseline diagnostics before edit (lines 785-805)
+> - `getNewDiagnostics()`: Computes and returns delta diagnostics (lines 806-839)
+> - `parseDiagnosticResult(result)`: Parses MCP tool result into diagnostic array
+> - `areDiagnosticsEqual(a, b)`: Compares 8 fields for diagnostic identity
+> - `areDiagnosticArraysEqual(a, b)`: Array-level equality check
+> - `handleQueryStart(toolUseContext)`: Initializes on session start if IDE connected
+> - `formatDiagnosticsSummary(diagnostics)`: Static method, formats for LLM context
+> - `getSeveritySymbol(severity)`: Static method, returns icon for Error/Warning/Info/Hint
+
+### IDE Configuration (chunks.65.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| gX6 | IDE_CONFIG | chunks.65.mjs:2112-2239 | object (19-IDE registry with ideKind, displayName, processKeywords) |
+| sj8 | resolveIdeDisplayName | chunks.65.mjs:2011-2014 | function (extracts ideName from config or terminal type) |
+| Y$ | getIdeDisplayNameFromType | chunks.65.mjs:2016-2030 | function (resolves display name from IDE type string) |
+| lu6 | isVSCodeFamilyDetected | chunks.65.mjs:2240 | function (memoized: checks VSCode family from terminal) |
+| FX6 | isJetBrainsFamilyDetected | chunks.65.mjs:2242 | function (memoized: checks JetBrains family from terminal) |
+| FM | isRunningInIdeTerminal | chunks.65.mjs:2244 | function (memoized: true if Claude Code in IDE terminal) |
+| kN7 | JETBRAINS_PLUGIN_ID_MAP | chunks.58.mjs:1698 | object (JetBrains plugin directory names) |
+| vl3 | VSCODE_EXTENSION_ID | chunks.65.mjs:2082 | constant ("anthropic.claude-code") |
+| bp3 | JETBRAINS_PLUGIN_ID | chunks.58.mjs:1688 | constant ("claude-code-jetbrains-plugin") |
+| Dl1 | JETBRAINS_IDE_NAMES | chunks.14.mjs:444 | array (JetBrains IDE name list) |
+| eL7 | TERMINAL_EDITOR_NAMES | chunks.65.mjs:2247 | object (terminal editor display names) |
+| Nl3 | installVSCodeExtension | chunks.65.mjs:1827 | function (CLI-based extension installer) |
+| kl3 | resolveIdeCliPath | chunks.65.mjs:1881 | function (macOS process tree path resolver) |
+
+> **gX6 (IDE_CONFIG) Structure:** 19 IDEs total. Each entry has:
+> - `ideKind`: "vscode" or "jetbrains" (only two families)
+> - `displayName`: Human-readable name (e.g., "VS Code", "IntelliJ IDEA")
+> - `processKeywordsMac`: Array of process names to detect on macOS
+> - `processKeywordsWindows`: Array of process names to detect on Windows
+> - `processKeywordsLinux`: Array of process names to detect on Linux
+
+### Selection Tracking (chunks.191.mjs / chunks.194.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dIq | IdeSelectionIndicator | chunks.191.mjs:7 | component (status bar selection badge: "⧉ 3 lines selected") |
+| LV6 | getIdeConnectionStatus | chunks.190.mjs:2902 | function (hook: returns {status, ideName} for IDE client) |
+| kmq | selectionChangedSchemaModule | chunks.194.mjs:1028 | function (module init for selection_changed schema) |
+| afz | selectionChangedSchema | chunks.194.mjs:1032 | object (Zod schema for selection_changed notification) |
+
+> **Symbol Corrections (v2.1.76):**
+> - `FWq` was incorrectly mapped to IdeSelectionIndicator. Actual `FWq` in chunks.168.mjs:327 is a brief mode slash command initializer.
+> - `fVq` was incorrectly mapped to useIdeSelection. Actual `fVq` in chunks.178.mjs:729 is a module initializer for tool display name mappings (Read: "Reading", Write: "Writing", etc.).
+> - The correct IdeSelectionIndicator is `dIq` at chunks.191.mjs:7.
+> - The correct getIdeConnectionStatus is `LV6` at chunks.190.mjs:2902.
+> - `Rf1` in chunks.182.mjs:1500 was previously mapped to getIdeConnectionStatus - needs verification.
 
 ### UI Components (chunks.182.mjs / chunks.187.mjs / chunks.188.mjs)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| FWq | IdeSelectionIndicator | chunks.182.mjs:1514 | component (status bar: "⧉ 3 lines selected" / "⧉ In file.ts") |
-| Rf1 | getIdeConnectionStatus | chunks.182.mjs:1500 | function (hook: "connected"\|"disconnected"\|null) |
+| dIq | IdeSelectionIndicator | chunks.191.mjs:7 | component (status bar selection badge) |
+| Rf1 | getIdeConnectionStatus (legacy) | chunks.182.mjs:1500 | function (hook: "connected"|"disconnected"|null) |
 | dLq | useIdeStatusMonitoring | chunks.187.mjs:2265 | function (hook: 4 notification effects for IDE state) |
 | Nx7 | IDEOnboardingDialog | chunks.188.mjs:1268 | component (first-run onboarding dialog) |
 

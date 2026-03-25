@@ -4,10 +4,12 @@
 
 Claude Code's MCP infrastructure includes two internal servers that bridge different parts of the system:
 
-1. **McpHub** (nXq): A Unix domain socket IPC server that routes messages between Chrome browser MCP connections and local MCP client instances.
-2. **MCPContext** (ZQA): A localhost HTTP server that bridges the `mcp-cli` CLI tool (a separate process) to the active MCP server connections in the main Claude Code session.
+1. **McpHub** (JVq): A Unix domain socket IPC server that routes messages between Chrome browser MCP connections and local MCP client instances.
+2. **MCPContext**: A localhost HTTP server that bridges the `mcp-cli` CLI tool (a separate process) to the active MCP server connections in the main Claude Code session.
 
 These two components solve different isolation problems: McpHub solves the "browser ↔ agent" message routing problem, while MCPContext solves the "child process ↔ parent session" state sharing problem.
+
+> **⚠️ Symbol Correction:** The actual McpHub class is `JVq` in chunks.178.mjs:235, not `nXq` as previously documented. The symbol `nXq` in chunks.165.mjs:864 is an object literal, not a class.
 
 ## Related Symbols
 
@@ -15,9 +17,7 @@ These two components solve different isolation problems: McpHub solves the "brow
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - MCP Hub/Context section
 
 Key symbols in this document:
-- `McpHub` (nXq) - chunks.175.mjs:1897 - Unix socket IPC server
-- `MCPContext` (ZQA) - chunks.176.mjs:2333 - Localhost HTTP bridge
-- `onChangeAppStateHandler` (K11) - chunks.176.mjs:581 - App state → disk sync observer
+- `McpHub` (JVq) - chunks.178.mjs:235 - Unix socket IPC server
 - `findMcpClientByServerName` (Jf1) - chunks.175.mjs:1211 - Client lookup helper
 - `listMcpServers` (pT6) - chunks.175.mjs:962 - CLI servers subcommand
 - `filterMcpTools` (dT6) - chunks.175.mjs:975 - CLI tools subcommand
@@ -28,7 +28,7 @@ Key symbols in this document:
 
 ---
 
-## 1. McpHub (nXq)
+## 1. McpHub (JVq)
 
 ### What it does
 
@@ -371,12 +371,137 @@ If the tool call exceeds the timeout, the AbortSignal fires and the call rejects
 
 **Tool name de-obfuscation:** The session state stores `originalToolName` alongside the namespaced `mcp__server__tool` name. When the model calls `mcp-cli call server/tool`, the tool name is looked up in the hub to find the original name as registered by the server (which may differ in case or include special characters not allowed in the `mcp__` namespace).
 
-### findMcpClientByServerName (Jf1) — chunks.175.mjs:1211
+---
 
-Helper that searches the active client list for a server matching the given name, with normalized (case-insensitive) comparison:
+## 6. 4-Byte Framing Protocol Details
+
+### Message Framing Implementation
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  Unix Socket Stream (boundary-less)                        │
+├────────────────────────────────────────────────────────────┤
+│  [msg1_len(4)] [msg1_json(N)] [msg2_len(4)] [msg2_json(M)] │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Why 4-byte little-endian:**
+- Maximum message size: 4GB (more than enough for JSON)
+- Little-endian is native to x86/ARM, no byte-swap overhead
+- Consistent with Chrome native messaging protocol
+
+### Framing Implementation
+
 ```javascript
-function findMcpClientByServerName(serverName) {
-  const normalized = serverName.toLowerCase();
-  return mcpClients.find(c => c.name.toLowerCase() === normalized);
+// ============================================
+// McpHub message framing - 4-byte length prefix
+// Location: chunks.178.mjs:280-320
+// ============================================
+
+// READABLE (for understanding):
+function writeFramedMessage(socket, jsonMessage) {
+    const payload = Buffer.from(JSON.stringify(jsonMessage), 'utf8');
+    const lengthBuf = Buffer.alloc(4);
+
+    // Write 4-byte little-endian length
+    lengthBuf.writeUInt32LE(payload.length, 0);
+
+    socket.write(Buffer.concat([lengthBuf, payload]));
+}
+
+function readFramedMessage(client) {
+    // Accumulate data in buffer
+    while (true) {
+        // Need at least 4 bytes for length
+        if (client.buffer.length < 4) return null;
+
+        const msgLen = client.buffer.readUInt32LE(0);
+
+        // Check if full message is available
+        if (client.buffer.length < 4 + msgLen) return null;
+
+        // Extract message
+        const payload = client.buffer.slice(4, 4 + msgLen);
+        client.buffer = client.buffer.slice(4 + msgLen);
+
+        return JSON.parse(payload.toString('utf8'));
+    }
+}
+
+// Mapping: writeUInt32LE→writeUInt32LE, readUInt32LE→readUInt32LE
+```
+
+**State accumulation in buffer:**
+- Each client connection maintains its own `buffer: Buffer`
+- On `data` event: `client.buffer = Buffer.concat([client.buffer, newChunk])`
+- After extracting a message: `client.buffer = client.buffer.slice(4 + msgLen)`
+- This handles partial reads and multiple messages per chunk
+
+---
+
+## 7. Client Registry Management
+
+### Registry Structure
+
+```javascript
+// McpHub client registry
+mcpClients: Map<clientId, ClientEntry>
+
+interface ClientEntry {
+    id: number;           // Sequential unique ID
+    socket: net.Socket;   // Connected Unix socket
+    buffer: Buffer;       // Accumulated read data
+    serverName?: string;  // Registered MCP server name (after handshake)
 }
 ```
+
+### Client Lifecycle
+
+```
+Chrome extension connects
+    │
+    ▼
+handleMcpClient(socket) [chunks.178.mjs:300]
+    │ Creates: { id: nextClientId++, socket, buffer: Buffer.alloc(0) }
+    │ Adds to: mcpClients.set(id, client)
+    │
+    ▼
+Wait for 'mcp_connected' message
+    │
+    ├─ Contains: { serverName: "my-server", capabilities: {...} }
+    │
+    └─ Updates: client.serverName = message.serverName
+         Adds to: serverIndex.set(serverName, clientId)
+    │
+    ▼
+Message routing active
+    │
+    ├─ Incoming 'tool_request' → lookup client by serverName → forward
+    │
+    └─ Incoming 'tool_response' → lookup original requester → forward back
+    │
+    ▼
+Socket 'close' event
+    │
+    ├─ Remove from mcpClients.delete(clientId)
+    │
+    └─ If serverName set: serverIndex.delete(serverName)
+```
+
+### Server Name Index
+
+**What it does:** A reverse lookup map from server name to client ID for O(1) routing.
+
+```javascript
+// Secondary index for fast server lookup
+serverIndex: Map<serverName, clientId>
+
+// Lookup flow
+function findClientByServerName(serverName) {
+    const clientId = this.serverIndex.get(serverName.toLowerCase());
+    if (!clientId) return null;
+    return this.mcpClients.get(clientId);
+}
+```
+
+**Why case-insensitive:** Chrome extension configurations may use different casing than the registered server name. Normalizing to lowercase prevents routing failures due to case mismatches.

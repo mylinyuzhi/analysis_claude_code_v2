@@ -6,10 +6,12 @@ Claude Code v2.1.76 implements four transport mechanisms for MCP client connecti
 
 | Transport | Protocol | Use Case |
 |---|---|---|
-| `StdioClientTransport` (SJA) | Subprocess stdin/stdout | Local MCP servers |
-| `SSEClientTransport` (D$6) | HTTP + Server-Sent Events | Remote HTTP servers |
+| `StdioClientTransport` (SO8) | Subprocess stdin/stdout | Local MCP servers |
+| `SSEClientTransport` | HTTP + Server-Sent Events | Remote HTTP servers |
 | `StreamableHTTPClientTransport` (j$6) | HTTP long-polling | Stateless HTTP servers |
 | `WebSocketClientTransport` (VG6) | WebSocket frames | WebSocket-capable servers |
+
+> **⚠️ Symbol Correction:** Transport classes are located in chunks.57.mjs and chunks.5.mjs, not chunks.79/80.mjs as previously documented. `Dy6` (chunks.5.mjs:2668) is the actual LineBuffer class, not `hb1`. `SO8` (chunks.57.mjs:1098) is the actual StdioClientTransport class.
 
 ### v2.1.76 Changes
 - **MCP reconnect spinner fix**: When an MCP transport disconnects and reconnects, the UI spinner was previously left in a stale state. v2.1.76 correctly resets and re-shows the spinner during reconnection attempts.
@@ -22,16 +24,16 @@ Claude Code v2.1.76 implements four transport mechanisms for MCP client connecti
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - IDE Integration (VG6)
 
 Key symbols in this document:
-- `StdioClientTransport` (SJA) - chunks.79.mjs:1922 - Subprocess-based transport
-- `LineBuffer` (hb1) - chunks.79.mjs:1881 - Newline-delimited JSON parser
-- `SSEClientTransport` (D$6) - chunks.80.mjs:458 - HTTP+SSE bidirectional transport
+- `StdioClientTransport` (SO8) - chunks.57.mjs:1098 - Subprocess-based transport
+- `LineBuffer` (Dy6) - chunks.5.mjs:2668 - Newline-delimited JSON parser
+- `SSEClientTransport` - chunks.57.mjs:2492 (start method) - HTTP+SSE bidirectional transport
 - `createEventSourceParser` (sH6) - chunks.79.mjs:2028 - RFC 6202-compliant SSE parser
 - `StreamableHTTPClientTransport` (j$6) - chunks.80.mjs:650 - Long-poll HTTP transport
 - `WebSocketClientTransport` (VG6) - chunks.144.mjs - WebSocket transport
 
 ---
 
-## 1. StdioClientTransport (SJA)
+## 1. StdioClientTransport (SO8)
 
 ### What it does
 
@@ -41,7 +43,7 @@ Spawns a child process and communicates via `stdin`/`stdout` pipes using newline
 
 **Constructor:**
 - Accepts `ServerParameters` (command, args, env, cwd, stderr)
-- Initializes a `LineBuffer` (hb1) for message framing
+- Initializes a `LineBuffer` (Dy6) for message framing
 - Optional `stderr` stream parameter for capturing server error output
 
 **`start()` method:**
@@ -58,80 +60,165 @@ Spawns a child process and communicates via `stdin`/`stdout` pipes using newline
    - `close` event → triggers `onClose()` callback, enabling reconnection logic
    - `stdout.on('data')` → feeds raw Buffer chunks into `LineBuffer.append()`
 
-**`send()` method:**
-1. Serializes message: `JSON.stringify(message) + "\n"`
-2. Writes to `stdin` with backpressure handling:
-   - If `stdin.write()` returns `false`, waits for `drain` event before resolving
-   - This prevents buffer overflow when the MCP server is slow to consume input
-
 ```javascript
 // ============================================
-// StdioClientTransport.start - Spawn child process for MCP server
-// Location: chunks.79.mjs:1922-1985
+// StdioClientTransport - Spawn child process for MCP server
+// Location: chunks.57.mjs:1098-1177
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function start() {
-  return new Promise((resolve, reject) => {
-    let process = childProcess.spawn(this._serverParams.command,
-      this._serverParams.args || [], {
-        env: { ...getInheritableEnvironmentVars(process.env), ...this._serverParams.env },
-        stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
-        cwd: this._serverParams.cwd,
-        windowsHide: true
-      });
-    process.on("error", reject);
-    process.on("spawn", () => {
-      this._process = process;
-      resolve();
-    });
-    process.on("close", (code, signal) => { this.onClose(); });
-    process.stdout.on("data", (chunk) => {
-      this._readBuffer.append(chunk);
-      this.processReadBuffer();
-    });
-    this._process = process;
-  });
+class SO8 {
+    constructor(A) {
+        this._readBuffer = new Dy6;
+        this._stderrStream = null;
+        this._serverParams = A;
+        if (A.stderr === "pipe" || A.stderr === "overlapped")
+            this._stderrStream = new Sm3
+    }
+    async start() {
+        if (this._process) throw Error("StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+        return new Promise((A, q) => {
+            this._process = cf7.default(this._serverParams.command,
+                this._serverParams.args ?? [], {
+                    env: { ...Im3(), ...this._serverParams.env },
+                    stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
+                    shell: !1,
+                    windowsHide: _w1.platform === "win32" && bm3(),
+                    cwd: this._serverParams.cwd
+                });
+            this._process.on("error", (K) => { q(K); this.onerror?.(K) });
+            this._process.on("spawn", () => A());
+            this._process.on("close", (K) => { this._process = void 0; this.onclose?.() });
+            this._process.stdin?.on("error", (K) => { this.onerror?.(K) });
+            this._process.stdout?.on("data", (K) => {
+                this._readBuffer.append(K);
+                this.processReadBuffer()
+            });
+            this._process.stdout?.on("error", (K) => { this.onerror?.(K) });
+            if (this._stderrStream && this._process.stderr)
+                this._process.stderr.pipe(this._stderrStream)
+        })
+    }
+    get stderr() { return this._stderrStream ?? this._process?.stderr ?? null }
+    get pid() { return this._process?.pid ?? null }
+    processReadBuffer() {
+        while (!0) try {
+            let A = this._readBuffer.readMessage();
+            if (A === null) break;
+            this.onmessage?.(A)
+        } catch (A) { this.onerror?.(A) }
+    }
+    async close() {
+        if (this._process) {
+            let A = this._process;
+            this._process = void 0;
+            let q = new Promise((K) => { A.once("close", () => K()) });
+            try { A.stdin?.end() } catch {}
+            await Promise.race([q, new Promise((K) => setTimeout(K, 2000).unref())]);
+            if (A.exitCode === null) {
+                try { A.kill("SIGTERM") } catch {}
+                await Promise.race([q, new Promise((K) => setTimeout(K, 2000).unref())])
+            }
+            if (A.exitCode === null) try { A.kill("SIGKILL") } catch {}
+        }
+        this._readBuffer.clear()
+    }
+    send(A) {
+        return new Promise((q) => {
+            if (!this._process?.stdin) throw Error("Not connected");
+            let K = j61(A);  // JSON.stringify with newline
+            if (this._process.stdin.write(K)) q();
+            else this._process.stdin.once("drain", q)
+        })
+    }
 }
 
 // READABLE (for understanding):
-async function start() {
-  return new Promise((resolve, reject) => {
-    const childProc = childProcess.spawn(
-      this._serverParams.command,
-      this._serverParams.args ?? [],
-      {
-        env: {
-          ...getInheritableEnvironmentVars(process.env), // safe parent env vars
-          ...this._serverParams.env                       // server-specific overrides
-        },
-        stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
-        cwd: this._serverParams.cwd,
-        windowsHide: true  // suppress Windows console window
-      }
-    );
+class StdioClientTransport {
+    constructor(serverParams) {
+        this._readBuffer = new LineBuffer();  // Dy6
+        this._stderrStream = null;
+        this._serverParams = serverParams;
+        if (serverParams.stderr === "pipe" || serverParams.stderr === "overlapped") {
+            this._stderrStream = new PassThrough();
+        }
+    }
 
-    childProc.on("error", reject);   // ENOENT if binary not found
-    childProc.on("spawn", () => {
-      this._process = childProc;
-      resolve();
-    });
-    childProc.on("close", () => this.onClose()); // triggers reconnection
+    async start() {
+        if (this._process) throw new Error("StdioClientTransport already started!");
 
-    // Feed raw bytes into LineBuffer for NDJSON framing
-    childProc.stdout.on("data", (chunk) => {
-      this._readBuffer.append(chunk);
-      this.processReadBuffer();  // try to parse complete lines
-    });
-  });
+        return new Promise((resolve, reject) => {
+            this._process = childProcess.spawn(
+                this._serverParams.command,
+                this._serverParams.args ?? [],
+                {
+                    env: { ...getInheritableEnvironmentVars(), ...this._serverParams.env },
+                    stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
+                    shell: false,
+                    windowsHide: process.platform === "win32" && isWindowsTerminal(),
+                    cwd: this._serverParams.cwd
+                }
+            );
+
+            this._process.on("error", (err) => {
+                reject(err);
+                this.onerror?.(err);
+            });
+            this._process.on("spawn", () => resolve());
+            this._process.on("close", () => {
+                this._process = undefined;
+                this.onclose?.();
+            });
+
+            this._process.stdout.on("data", (chunk) => {
+                this._readBuffer.append(chunk);
+                this.processReadBuffer();
+            });
+        });
+    }
 }
 
-// Mapping: process→childProc, this._serverParams→serverParams
+// Mapping: SO8→StdioClientTransport, Dy6→LineBuffer, Im3→getInheritableEnvironmentVars, cf7→childProcess,
+//          Sm3→PassThrough, _w1→process, bm3→isWindowsTerminal, j61→JSON.stringify with newline
 ```
+
+### close() Algorithm: Graceful Shutdown
+
+**What it does:** The close() method implements a graceful shutdown sequence with escalation from soft to hard termination.
+
+**How it works:**
+```
+close() called
+    │
+    ├─ 1. Capture process reference, clear this._process
+    │
+    ├─ 2. Create promise that resolves on 'close' event
+    │
+    ├─ 3. Close stdin (soft signal: "no more input coming")
+    │      └─ process.stdin.end()
+    │
+    ├─ 4. Wait up to 2 seconds for process to exit gracefully
+    │      └─ Promise.race([closePromise, timeout(2000)])
+    │
+    ├─ 5. If still running (exitCode === null):
+    │      └─ Send SIGTERM (soft kill)
+    │      └─ Wait up to 2 more seconds
+    │
+    ├─ 6. If STILL running:
+    │      └─ Send SIGKILL (hard kill, cannot be caught)
+    │
+    └─ 7. Clear the read buffer
+```
+
+**Why this escalation:**
+- `stdin.end()` allows the subprocess to finish any pending work
+- SIGTERM gives the process a chance to clean up (close files, flush buffers)
+- SIGKILL is the last resort for hung processes
+- The 2-second windows balance responsiveness vs. graceful shutdown
 
 ---
 
-## 2. LineBuffer (hb1)
+## 2. LineBuffer (Dy6)
 
 ### What it does
 
@@ -149,50 +236,62 @@ A stateful buffer that accumulates raw binary chunks from `stdout` and extracts 
    - Returns `null` if no complete line yet
 3. `processReadBuffer()` (on transport): loops calling `readMessage()` until `null`, then calls `JSON.parse()` on each complete line and fires `onMessage()`
 
-**Why this approach:**
-- Node.js streams deliver data in arbitrary chunks — a 4KB read buffer can contain half a JSON object
-- The LineBuffer decouples chunk delivery from message framing
-- Using `Buffer.concat` (binary-safe) rather than string concatenation handles multi-byte UTF-8 sequences that might be split across chunk boundaries
-
 ```javascript
 // ============================================
-// LineBuffer.readMessage - Extract one complete NDJSON line
-// Location: chunks.79.mjs:1881-1920
+// LineBuffer - Extract complete NDJSON lines from stream
+// Location: chunks.5.mjs:2668-2683
 // ============================================
 
 // ORIGINAL (for source lookup):
-readMessage() {
-  let lineEnd = this._buffer.indexOf("\n");
-  if (lineEnd === -1) return null;
-  let line = this._buffer.slice(0, lineEnd);
-  if (line.length > 0 && line[line.length - 1] === "\r".charCodeAt(0))
-    line = line.slice(0, -1);
-  this._buffer = this._buffer.slice(lineEnd + 1);
-  return line.toString("utf8");
+class Dy6 {
+    append(A) {
+        this._buffer = this._buffer ? Buffer.concat([this._buffer, A]) : A
+    }
+    readMessage() {
+        if (!this._buffer) return null;
+        let A = this._buffer.indexOf(`\n`);
+        if (A === -1) return null;
+        let q = this._buffer.toString("utf8", 0, A).replace(/\r$/, "");
+        return this._buffer = this._buffer.subarray(A + 1), Ztq(q)
+    }
+    clear() {
+        this._buffer = void 0
+    }
 }
 
 // READABLE (for understanding):
-readMessage() {
-  const newlinePos = this._buffer.indexOf("\n");
-  if (newlinePos === -1) return null;  // incomplete message, wait for more data
+class LineBuffer {
+    append(chunk) {
+        this._buffer = this._buffer
+            ? Buffer.concat([this._buffer, chunk])
+            : chunk;
+    }
 
-  let line = this._buffer.slice(0, newlinePos);
+    readMessage() {
+        if (!this._buffer) return null;
 
-  // Handle Windows-style \r\n line endings
-  if (line.length > 0 && line[line.length - 1] === "\r".charCodeAt(0)) {
-    line = line.slice(0, -1);  // strip trailing \r
-  }
+        const newlinePos = this._buffer.indexOf('\n');
+        if (newlinePos === -1) return null;  // incomplete message
 
-  this._buffer = this._buffer.slice(newlinePos + 1);  // advance past \n
-  return line.toString("utf8");  // return decoded JSON string
+        let line = this._buffer.toString("utf8", 0, newlinePos);
+        // Handle Windows-style \r\n line endings
+        line = line.replace(/\r$/, "");
+
+        this._buffer = this._buffer.subarray(newlinePos + 1);
+        return JSON.parse(line);  // Ztq is the JSON.parse wrapper
+    }
+
+    clear() {
+        this._buffer = undefined;
+    }
 }
 
-// Mapping: lineEnd→newlinePos, line→line
+// Mapping: Dy6→LineBuffer, Ztq→parseJsonMessage
 ```
 
 ---
 
-## 3. SSEClientTransport (D$6)
+## 3. SSEClientTransport
 
 ### What it does
 
@@ -230,6 +329,174 @@ Implements bidirectional communication over HTTP using Server-Sent Events (SSE).
 2. v2.1.76 emits a `reconnecting` state event to the app state, which triggers the UI spinner
 3. When the connection is re-established, a `connected` event clears the spinner
 4. Previously, only errors (not normal reconnects) updated the spinner state
+
+### SSEClientTransport Class Implementation
+
+```javascript
+// ============================================
+// SSEClientTransport - HTTP+SSE bidirectional MCP transport
+// Location: chunks.57.mjs:2492-2715
+// ============================================
+
+// ORIGINAL (for source lookup):
+class Nw1 {
+    constructor(A, q) {
+        this._hasCompletedAuthFlow = !1;
+        this._url = A;
+        this._resourceMetadataUrl = void 0;
+        this._scope = void 0;
+        this._requestInit = q?.requestInit;
+        this._authProvider = q?.authProvider;
+        this._fetch = q?.fetch;
+        this._fetchWithInit = AK6(q?.fetch, q?.requestInit);
+        this._sessionId = q?.sessionId;
+        this._reconnectionOptions = q?.reconnectionOptions ?? OB3;
+    }
+    async start() {
+        if (this._eventSource) throw Error("SSEClientTransport already started!");
+        return await this._startOrAuth()
+    }
+    async send(A) {
+        if (!this._endpoint) throw Error("Not connected");
+        let q = await this._commonHeaders();
+        q.set("content-type", "application/json");
+        let K = { ...this._requestInit, method: "POST", headers: q, body: JSON.stringify(A), signal: this._abortController?.signal };
+        let Y = await (this._fetch ?? fetch)(this._endpoint, K);
+        if (!Y.ok) {
+            if (Y.status === 401 && this._authProvider) {
+                // OAuth retry logic
+                return this.send(A);
+            }
+            throw Error(`Error POSTing to endpoint (HTTP ${Y.status})`);
+        }
+        await Y.body?.cancel();
+    }
+    _scheduleReconnection(A, q = 0) {
+        let K = this._reconnectionOptions.maxRetries;
+        if (q >= K) {
+            this.onerror?.(Error(`Maximum reconnection attempts (${K}) exceeded.`));
+            return;
+        }
+        let Y = this._getNextReconnectionDelay(q);
+        this._reconnectionTimeout = setTimeout(() => {
+            this._startOrAuthSse(A).catch((z) => {
+                this.onerror?.(Error(`Failed to reconnect SSE stream: ${z.message}`));
+                this._scheduleReconnection(A, q + 1);
+            });
+        }, Y);
+    }
+    _getNextReconnectionDelay(A) {
+        if (this._serverRetryMs !== void 0) return this._serverRetryMs;
+        let q = this._reconnectionOptions.initialReconnectionDelay,
+            K = this._reconnectionOptions.reconnectionDelayGrowFactor,
+            Y = this._reconnectionOptions.maxReconnectionDelay;
+        return Math.min(q * Math.pow(K, A), Y);
+    }
+}
+
+// READABLE (for understanding):
+class SSEClientTransport {
+    constructor(url, options) {
+        this._hasCompletedAuthFlow = false;
+        this._url = url;
+        this._resourceMetadataUrl = undefined;  // OAuth resource server URL
+        this._scope = undefined;                 // OAuth scope
+        this._requestInit = options?.requestInit;
+        this._authProvider = options?.authProvider;
+        this._fetch = options?.fetch;            // Custom fetch for testing
+        this._sessionId = options?.sessionId;    // MCP session ID header
+        this._reconnectionOptions = options?.reconnectionOptions ?? DEFAULT_RECONNECT;
+    }
+
+    async start() {
+        if (this._eventSource) {
+            throw new Error("SSEClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+        }
+        return await this._startOrAuth();
+    }
+
+    async send(message) {
+        if (!this._endpoint) {
+            throw new Error("Not connected");
+        }
+
+        const headers = await this._commonHeaders();
+        headers.set("content-type", "application/json");
+
+        const response = await (this._fetch ?? fetch)(this._endpoint, {
+            ...this._requestInit,
+            method: "POST",
+            headers,
+            body: JSON.stringify(message),
+            signal: this._abortController?.signal
+        });
+
+        if (!response.ok) {
+            // Handle 401 with OAuth retry
+            if (response.status === 401 && this._authProvider) {
+                await this._handleAuthChallenge(response);
+                return this.send(message);  // Retry after auth
+            }
+            throw new Error(`Error POSTing to endpoint (HTTP ${response.status})`);
+        }
+
+        // Cancel response body - we don't need it for POST
+        await response.body?.cancel();
+    }
+
+    _scheduleReconnection(resumptionOptions, attempt = 0) {
+        const maxRetries = this._reconnectionOptions.maxRetries;
+        if (attempt >= maxRetries) {
+            this.onerror?.(new Error(`Maximum reconnection attempts (${maxRetries}) exceeded.`));
+            return;
+        }
+
+        const delay = this._getNextReconnectionDelay(attempt);
+        this._reconnectionTimeout = setTimeout(() => {
+            this._startOrAuthSse(resumptionOptions).catch((err) => {
+                this.onerror?.(new Error(`Failed to reconnect SSE stream: ${err.message}`));
+                this._scheduleReconnection(resumptionOptions, attempt + 1);
+            });
+        }, delay);
+    }
+
+    _getNextReconnectionDelay(attempt) {
+        // Server-specified retry takes precedence
+        if (this._serverRetryMs !== undefined) return this._serverRetryMs;
+
+        // Exponential backoff with caps
+        const initial = this._reconnectionOptions.initialReconnectionDelay;
+        const growFactor = this._reconnectionOptions.reconnectionDelayGrowFactor;
+        const maxDelay = this._reconnectionOptions.maxReconnectionDelay;
+
+        return Math.min(initial * Math.pow(growFactor, attempt), maxDelay);
+    }
+}
+
+// Mapping: Nw1→SSEClientTransport, A→url, q→options, _scheduleReconnection→_scheduleReconnection
+```
+
+### Reconnection Algorithm Analysis
+
+**What it does:** The exponential backoff reconnection strategy ensures the client doesn't overwhelm the server with rapid reconnection attempts while still recovering from transient network issues.
+
+**How it works:**
+1. On SSE stream disconnect, `_handleSseStream` catches the error
+2. If not explicitly closed by user, `_scheduleReconnection` is called with attempt=0
+3. Each retry calculates delay: `initialDelay * (growFactor ^ attempt)` capped at `maxDelay`
+4. Default values: `initial=1s`, `factor=2`, `max=30s`
+5. After 10 attempts (default), `maxRetries` exceeded → permanent failure
+
+**Why exponential backoff:**
+- Network issues are often transient (proxy restart, brief outage)
+- Immediate retries would waste resources during extended outages
+- Progressive delays give infrastructure time to recover
+- Caps prevent infinite reconnection storms
+
+**Resumption token integration:**
+- `onresumptiontoken` callback receives the last event ID before disconnect
+- On reconnect, `Last-Event-ID` header tells server where to resume
+- Prevents message loss during brief disconnects
 
 ---
 

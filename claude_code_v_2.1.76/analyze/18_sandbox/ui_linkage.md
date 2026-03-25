@@ -906,3 +906,245 @@ async function initializeSandboxFromSettings(networkPermissionCallback) {
 ```
 
 **Key insight:** The settings subscription (`r8A`) means the sandbox config updates live when the user changes settings (e.g., adds a path to `allowWrite` in their settings file). No restart required. The `hO.updateConfig()` call updates `c3` (the internal config variable in chunks.44/45), which then gets used on the next `wrapWithSandbox()` call.
+
+---
+
+## 11. Violation Indicator Animation Behavior
+
+### Status Line Flash Pattern
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Violation Indicator Animation                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Timeline:                                                                   │
+│                                                                              │
+│  T=0s   Violation detected                                                  │
+│         ┌─────────────────────────────────────────────────────────────┐    │
+│         │ ⧈ Sandbox blocked 1 operation · ctrl+o for details          │    │
+│         └─────────────────────────────────────────────────────────────┘    │
+│         count = 1, visible = true                                           │
+│                                                                              │
+│  T=2s   Second violation (while first still visible)                        │
+│         ┌─────────────────────────────────────────────────────────────┐    │
+│         │ ⧈ Sandbox blocked 2 operations · ctrl+o for details         │    │
+│         └─────────────────────────────────────────────────────────────┘    │
+│         count = 2 (delta), timer reset to 5s from now                       │
+│                                                                              │
+│  T=7s   Auto-dismiss (5s after last violation)                              │
+│         ┌─────────────────────────────────────────────────────────────┐    │
+│         │ (status line hidden)                                         │    │
+│         └─────────────────────────────────────────────────────────────┘    │
+│         count = 0, visible = false                                          │
+│                                                                              │
+│  T=10s  New violation after dismissal                                       │
+│         ┌─────────────────────────────────────────────────────────────┐    │
+│         │ ⧈ Sandbox blocked 1 operation · ctrl+o for details          │    │
+│         └─────────────────────────────────────────────────────────────┘    │
+│         Fresh delta count, new 5s timer                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key behaviors:**
+1. **Delta count, not total**: Shows new violations since last reset, not cumulative
+2. **Timer reset on new violation**: Each new violation extends visibility by 5s
+3. **Consecutive violations accumulate**: 3 violations in 1s = "blocked 3 operations"
+4. **Clean slate after dismiss**: After 5s idle, count resets to 0
+
+### Animation State Machine
+
+```javascript
+// ============================================
+// Violation indicator state machine
+// ============================================
+
+// States:
+// - IDLE: No violations, indicator hidden
+// - VISIBLE: Violations displayed, timer running
+// - DISMISSED: Timer fired, indicator hidden
+
+// Transitions:
+// IDLE --[violation]--> VISIBLE (count=1, start 5s timer)
+// VISIBLE --[violation]--> VISIBLE (count++, reset timer to 5s)
+// VISIBLE --[5s timeout]--> IDLE (count=0)
+// VISIBLE --[component unmount]--> IDLE (cleanup timer)
+
+// Implementation pattern:
+let [count, setCount] = useState(0);
+let timerRef = useRef(null);
+
+function onViolation(delta) {
+    setCount(prev => prev + delta);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCount(0), 5000);
+}
+```
+
+---
+
+## 12. Mode Selector State Transitions
+
+### Three-Way Mode Selector
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Sandbox Mode Selector State Machine                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Available Modes:                                                            │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Mode 1: auto-allow                                                   │    │
+│  │   enabled: true                                                      │    │
+│  │   autoAllowBashIfSandboxed: true                                     │    │
+│  │   Behavior: All bash commands auto-approved, run in sandbox         │    │
+│  │   Use case: Trusted environment, quick iteration                    │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Mode 2: regular                                                      │    │
+│  │   enabled: true                                                      │    │
+│  │   autoAllowBashIfSandboxed: false                                    │    │
+│  │   Behavior: Bash commands require permission, run in sandbox        │    │
+│  │   Use case: Standard security posture                               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Mode 3: disabled                                                     │    │
+│  │   enabled: false                                                     │    │
+│  │   autoAllowBashIfSandboxed: false                                    │    │
+│  │   Behavior: No OS-level isolation, standard permissions             │    │
+│  │   Use case: Troubleshooting, constrained environments               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  State Transitions (via /sandbox UI):                                       │
+│                                                                              │
+│         ┌───────────────┐                                                  │
+│         │   disabled    │                                                  │
+│         │   (current)   │◄─────────────────────────┐                       │
+│         └───────┬───────┘                          │                       │
+│                 │ select "auto-allow"             │ select "disabled"     │
+│                 │ [setSandboxSettings]            │ [setSandboxSettings]  │
+│                 ▼                                  │                       │
+│         ┌───────────────┐                          │                       │
+│         │  auto-allow   │                          │                       │
+│         │   (current)   │◄───────┐                │                       │
+│         └───────┬───────┘        │                │                       │
+│                 │ select "regular"                │                       │
+│                 │ [setSandboxSettings]            │                       │
+│                 ▼                │                │                       │
+│         ┌───────────────┐        │                │                       │
+│         │   regular     │────────┘                │                       │
+│         │   (current)   │─────────────────────────┘                       │
+│         └───────────────┘  select "disabled"                              │
+│                              [setSandboxSettings]                          │
+│                                                                              │
+│  Note: (current) marker follows live state via getter                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Override Policy Toggle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Override Policy State Machine                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Precondition: Sandbox must be enabled (modes 1 or 2)                       │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ open mode                                                           │    │
+│  │   allowUnsandboxedCommands: true                                    │    │
+│  │   Behavior:                                                         │    │
+│  │   - Model can request dangerouslyDisableSandbox: true              │    │
+│  │   - User sees permission prompt: "Run outside of the sandbox"      │    │
+│  │   - Self-healing: Model retries failed commands unsandboxed        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                           ▲                       │                          │
+│                           │ toggle                │ toggle                  │
+│                           └───────────────────────┘                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ closed mode                                                         │    │
+│  │   allowUnsandboxedCommands: false                                   │    │
+│  │   Behavior:                                                         │    │
+│  │   - dangerouslyDisableSandbox parameter is ignored                 │    │
+│  │   - No permission prompts for sandbox bypass                       │    │
+│  │   - Model must work within sandbox constraints                     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Note: Closed mode enforces strictest security posture                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. /doctor Integration Details
+
+### Sandbox Doctor Check Triggers
+
+```javascript
+// ============================================
+// When SandboxDoctorCheck appears in /doctor
+// ============================================
+
+// Conditions checked:
+// 1. Platform must be supported (macOS, Linux, WSL)
+// 2. Sandbox must be enabled in settings
+// 3. Dependencies must have errors OR warnings
+
+// Show conditions:
+if (isSupportedPlatform() && isSandboxEnabledInSettings()) {
+    let depCheck = checkDependencies();
+    if (depCheck.errors.length > 0 || depCheck.warnings.length > 0) {
+        // Show the check panel
+    }
+}
+
+// DepCheck structure:
+{
+    errors: [
+        "bubblewrap (bwrap) not found - install with: apt install bubblewrap",
+        "socat not found - install with: apt install socat"
+    ],
+    warnings: [
+        "seccomp filter not found - Unix domain sockets will not be blocked"
+    ]
+}
+
+// Error = sandbox cannot function
+// Warning = sandbox works but with reduced security
+```
+
+### Doctor Output Format
+
+```
+Sandbox
+└ Status: Missing dependencies
+└ bubblewrap (bwrap) not found - install with: apt install bubblewrap
+└ socat not found - install with: apt install socat
+└ Run /sandbox for install instructions
+
+-- OR --
+
+Sandbox
+└ Status: Available (with warnings)
+└ seccomp filter not found - Unix domain sockets will not be blocked
+└ Install @anthropic-ai/sandbox-runtime for full protection
+
+-- OR --
+
+(No sandbox section if all dependencies OK)
+```
+
+---
+
+## Related Documents
+
+- [overview.md](./overview.md) - Sandbox architecture overview
+- [seatbelt_profile.md](./seatbelt_profile.md) - macOS sandbox-exec implementation
+- [bwrap_implementation.md](./bwrap_implementation.md) - Linux bubblewrap implementation
+- [violation_system.md](./violation_system.md) - Violation correlation and reporting

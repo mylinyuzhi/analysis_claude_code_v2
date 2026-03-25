@@ -15,13 +15,13 @@ In v2.1.76, the elicitation architecture was significantly expanded: hook integr
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `setupElicitationRequestHandler` (RV6) - Registers the elicitation request handler on the MCP client (chunks.156.mjs)
-- `detectElicitationMode` (iaY) - Determines if elicitation is "url" or "form" mode
-- `isElicitationEnabled` (xq1) - Checks the feature flag for MCP elicitation
-- `parseElicitationCapabilities` ($X9) - Determines which elicitation modes the client supports
-- `applySchemaDefaults` (nH6) - Recursively applies default values from JSON Schema to response content
+- `setupElicitationRequestHandler` (WT7) - Registers the elicitation request handler on the MCP client (chunks.58.mjs:3)
+- `detectElicitationMode` (jB3) - Determines if elicitation is "url" or "form" mode (chunks.57.mjs:2919)
+- `isElicitationEnabled` (KK6) - Checks the feature flag for MCP elicitation (chunks.57.mjs:2911)
+- `findElicitationQueueIndex` (JB3) - Finds elicitation by server name and ID (chunks.57.mjs:2923)
+- `runElicitationHook` (sx6) - Executes the Elicitation hook (chunks.58.mjs:86)
 - `McpClient` (rH6) - The MCP Client class that handles elicitation protocol on the client side
-- `McpServer` (in chunks.166.mjs) - The MCP Server class with `elicitInput` method
+- `elicitInput` - Server-side method in chunks.11.mjs:1715
 
 ## Elicitation Protocol Architecture
 
@@ -46,30 +46,21 @@ Key functions in this document:
 
 ```javascript
 // ============================================
-// parseElicitationCapabilities - Determine supported elicitation modes from client capabilities
-// Location: chunks.79.mjs:1528-1539
+// detectElicitationMode - Determine elicitation mode from params
+// Location: chunks.57.mjs:2919-2921
 // ============================================
 
 // ORIGINAL (for source lookup):
-function $X9(A) {
-    if (!A) return { supportsFormMode: !1, supportsUrlMode: !1 };
-    let q = A.form !== void 0,
-        K = A.url !== void 0;
-    return { supportsFormMode: q || !q && !K, supportsUrlMode: K }
+function jB3(A) {
+    return A.mode === "url" ? "url" : "form"
 }
 
 // READABLE (for understanding):
-function parseElicitationCapabilities(elicitationCapability) {
-    if (!elicitationCapability) return { supportsFormMode: false, supportsUrlMode: false };
-    let hasFormCapability = elicitationCapability.form !== undefined;
-    let hasUrlCapability = elicitationCapability.url !== undefined;
-    return {
-        supportsFormMode: hasFormCapability || (!hasFormCapability && !hasUrlCapability),
-        supportsUrlMode: hasUrlCapability
-    };
+function detectElicitationMode(params) {
+    return params.mode === "url" ? "url" : "form";
 }
 
-// Mapping: $X9→parseElicitationCapabilities, A→elicitationCapability, q→hasFormCapability, K→hasUrlCapability
+// Mapping: jB3→detectElicitationMode, A→params
 ```
 
 **Capability fallback logic:**
@@ -88,83 +79,140 @@ This ensures that older clients that advertise elicitation capability without sp
 ```javascript
 // ============================================
 // setupElicitationRequestHandler - Register the handler that queues elicitation requests for UI rendering
-// Location: chunks.156.mjs:1544-1586
+// Location: chunks.58.mjs:3-84 (validated)
 // ============================================
 
 // ORIGINAL (for source lookup):
-function RV6(A, q, K) {
-    A.setRequestHandler(vq1, async (Y, z) => {
-        SA(q, `Received elicitation request: ${Q1(Y)}`);
-        let w = iaY(Y.params);
-        c("tengu_mcp_elicitation_shown", { mode: w });
-        try {
-            let H = new Promise(($) => {
-                let O = () => { $({ action: "cancel" }) };
-                if (z.signal.aborted) { O(); return }
-                K((_) => ({
-                    ..._,
-                    elicitation: {
-                        queue: [..._.elicitation.queue, {
-                            serverName: q,
-                            params: Y.params,
-                            signal: z.signal,
-                            respond: (J) => {
-                                z.signal.removeEventListener("abort", O),
-                                c("tengu_mcp_elicitation_response", { mode: w, action: J.action }),
-                                $(J)
+function WT7(A, q, K) {
+    try {
+        A.setRequestHandler(yp, async (Y, z) => {
+            n1(q, `Received elicitation request: ${B6(Y)}`);
+            let _ = jB3(Y.params);
+            d("tengu_mcp_elicitation_shown", { mode: _ });
+            try {
+                let w = await sx6(q, Y.params, z.signal);
+                if (w) return n1(q, `Elicitation resolved by hook: ${B6(w)}`),
+                    d("tengu_mcp_elicitation_response", { mode: _, action: w.action }), w;
+                let O = _ === "url" && "elicitationId" in Y.params ? Y.params.elicitationId : void 0,
+                    H = await new Promise((J) => {
+                        let M = () => { J({ action: "cancel" }) };
+                        if (z.signal.aborted) { M(); return }
+                        K((X) => ({
+                            ...X,
+                            elicitation: {
+                                queue: [...X.elicitation.queue, {
+                                    serverName: q,
+                                    requestId: z.requestId,
+                                    params: Y.params,
+                                    signal: z.signal,
+                                    waitingState: O ? { actionLabel: "Skip confirmation" } : void 0,
+                                    respond: (P) => {
+                                        z.signal.removeEventListener("abort", M),
+                                        d("tengu_mcp_elicitation_response", { mode: _, action: P.action }),
+                                        J(P)
+                                    }
+                                }]
                             }
-                        }]
-                    }
-                })),
-                z.signal.addEventListener("abort", O)
-            });
-            return SA(q, `Elicitation response: ${Q1(H)}`), H
-        } catch (H) {
-            return Kz(q, `Elicitation error: ${H}`), { action: "cancel" }
-        }
-    })
+                        })),
+                        z.signal.addEventListener("abort", M)
+                    });
+                return n1(q, `Elicitation response: ${B6(H)}`), await tx6(q, H, z.signal, _, O)
+            } catch (w) {
+                return EY(q, `Elicitation error: ${w}`), { action: "cancel" }
+            }
+        }),
+        A.setNotificationHandler(My6, (Y) => {
+            let { elicitationId: z } = Y.params;
+            n1(q, `Received elicitation completion notification: ${z}`);
+            let _ = !1;
+            if (K((w) => {
+                    let O = JB3(w.elicitation.queue, q, z);
+                    if (O === -1) return w;
+                    _ = !0;
+                    let $ = [...w.elicitation.queue];
+                    return $[O] = { ...$[O], completed: !0 }, { ...w, elicitation: { queue: $ } }
+                }), !_) n1(q, `Ignoring completion notification for unknown elicitation: ${z}`)
+        })
+    } catch { return }
 }
 
 // READABLE (for understanding):
 function setupElicitationRequestHandler(mcpClient, serverName, updateState) {
-    mcpClient.setRequestHandler(ElicitationCreateSchema, async (request, context) => {
-        logMcp(serverName, `Received elicitation request: ${JSON.stringify(request)}`);
-        let mode = detectElicitationMode(request.params);
-        trackEvent("tengu_mcp_elicitation_shown", { mode });
-        try {
-            let responsePromise = new Promise((resolve) => {
-                let onAbort = () => { resolve({ action: "cancel" }) };
-                if (context.signal.aborted) { onAbort(); return }
-                updateState((state) => ({
-                    ...state,
-                    elicitation: {
-                        queue: [...state.elicitation.queue, {
-                            serverName,
-                            params: request.params,
-                            signal: context.signal,
-                            respond: (response) => {
-                                context.signal.removeEventListener("abort", onAbort);
-                                trackEvent("tengu_mcp_elicitation_response", {
-                                    mode, action: response.action
-                                });
-                                resolve(response);
-                            }
-                        }]
-                    }
-                }));
-                context.signal.addEventListener("abort", onAbort);
+    try {
+        mcpClient.setRequestHandler(ElicitationCreateSchema, async (request, context) => {
+            logMcp(serverName, `Received elicitation request: ${JSON.stringify(request)}`);
+            let mode = detectElicitationMode(request.params);
+            trackEvent("tengu_mcp_elicitation_shown", { mode });
+
+            try {
+                // Check if hook wants to intercept/modify the elicitation
+                let hookResult = await runElicitationHook(serverName, request.params, context.signal);
+                if (hookResult) {
+                    logMcp(serverName, `Elicitation resolved by hook: ${JSON.stringify(hookResult)}`);
+                    trackEvent("tengu_mcp_elicitation_response", { mode, action: hookResult.action });
+                    return hookResult;
+                }
+
+                let elicitationId = mode === "url" && "elicitationId" in request.params
+                    ? request.params.elicitationId : undefined;
+
+                let responsePromise = new Promise((resolve) => {
+                    let onAbort = () => { resolve({ action: "cancel" }) };
+
+                    if (context.signal.aborted) { onAbort(); return; }
+
+                    updateState((state) => ({
+                        ...state,
+                        elicitation: {
+                            queue: [...state.elicitation.queue, {
+                                serverName,
+                                requestId: context.requestId,
+                                params: request.params,
+                                signal: context.signal,
+                                waitingState: elicitationId ? { actionLabel: "Skip confirmation" } : undefined,
+                                respond: (response) => {
+                                    context.signal.removeEventListener("abort", onAbort);
+                                    trackEvent("tengu_mcp_elicitation_response", {
+                                        mode, action: response.action
+                                    });
+                                    resolve(response);
+                                }
+                            }]
+                        }
+                    }));
+                    context.signal.addEventListener("abort", onAbort);
+                });
+
+                logMcp(serverName, `Elicitation response: ${JSON.stringify(responsePromise)}`);
+                return await runElicitationResultHook(serverName, responsePromise, context.signal, mode, elicitationId);
+            } catch (error) {
+                logMcpError(serverName, `Elicitation error: ${error}`);
+                return { action: "cancel" };
+            }
+        });
+
+        // Handle completion notification for URL mode
+        mcpClient.setNotificationHandler(ElicitationCompleteNotification, (notification) => {
+            let { elicitationId } = notification.params;
+            logMcp(serverName, `Received elicitation completion notification: ${elicitationId}`);
+            let found = false;
+            updateState((state) => {
+                let index = findElicitationQueueIndex(state.elicitation.queue, serverName, elicitationId);
+                if (index === -1) return state;
+                found = true;
+                let queue = [...state.elicitation.queue];
+                queue[index] = { ...queue[index], completed: true };
+                return { ...state, elicitation: { queue } };
             });
-            return logMcp(serverName, `Elicitation response: ${JSON.stringify(responsePromise)}`),
-                   responsePromise;
-        } catch (error) {
-            logMcpError(serverName, `Elicitation error: ${error}`);
-            return { action: "cancel" };
-        }
-    });
+            if (!found) logMcp(serverName, `Ignoring completion notification for unknown elicitation: ${elicitationId}`);
+        });
+    } catch { return; }
 }
 
-// Mapping: RV6→setupElicitationRequestHandler, A→mcpClient, q→serverName, K→updateState,
-//          Y→request, z→context, w→mode, H→responsePromise, $→resolve, O→onAbort
+// Mapping: WT7→setupElicitationRequestHandler, A→mcpClient, q→serverName, K→updateState,
+//          Y→request, z→context, _→mode, w→hookResult, H→responsePromise, J→resolve, M→onAbort,
+//          yp→ElicitationCreateSchema, jB3→detectElicitationMode, sx6→runElicitationHook,
+//          tx6→runElicitationResultHook, JB3→findElicitationQueueIndex, n1→logMcp, d→trackEvent, EY→logMcpError
 ```
 
 ### Queue-Based Elicitation Flow
@@ -372,16 +420,20 @@ capabilities: {
 ```javascript
 // ============================================
 // isElicitationEnabled - Check if MCP elicitation is enabled via feature flag
-// Location: chunks.80.mjs:950-952
+// Location: chunks.57.mjs:2911-2913 (validated)
 // ============================================
 
 // ORIGINAL (for source lookup):
-function xq1() { return x8("tengu_mcp_elicitation", !1) }
+function KK6() {
+    return w8("tengu_mcp_elicitation", !1)
+}
 
 // READABLE (for understanding):
-function isElicitationEnabled() { return getFeatureFlag("tengu_mcp_elicitation", false) }
+function isElicitationEnabled() {
+    return getFeatureFlag("tengu_mcp_elicitation", false);
+}
 
-// Mapping: xq1→isElicitationEnabled, x8→getFeatureFlag
+// Mapping: KK6→isElicitationEnabled, w8→getFeatureFlag
 ```
 
 **Key insight:** The elicitation feature is entirely opt-in via the `tengu_mcp_elicitation` feature flag with a default of `false`. When disabled, the client simply does not advertise the elicitation capability, so MCP servers cannot request user input through this mechanism. This provides a clean kill-switch for the feature.
@@ -404,12 +456,16 @@ function isElicitationEnabled() { return getFeatureFlag("tengu_mcp_elicitation",
 
 ### Elicitation Schema (Zod Definitions)
 
-The elicitation protocol uses Zod schemas defined in `chunks.76.mjs`:
+The elicitation protocol uses Zod schemas defined in `chunks.5.mjs`:
 
-- `b99` - Elicitation capability schema: `{ form?: {}, url?: {} }`
-- `vq1` - Elicitation create request schema (with `mode`, `requestedSchema`, `message` fields)
-- `M01` - Elicitation result schema: `{ action: "accept"|"cancel"|"decline", content?: object }`
-- `elicitationId` - String identifier used for URL elicitation completion tracking
+- `yp` - ElicitationCreateSchema: `{ method: "elicitation/create", params: Htq }`
+- `Htq` - Union of form mode (`Otq`) and URL mode (`$tq`) params
+- `Otq` - Form mode params (extends rE6 with mode: "form", message, requestedSchema)
+- `$tq` - URL mode params: `{ mode: "url", message, elicitationId, url }`
+- `Cn` - ElicitationResultSchema: `{ action: "accept"|"cancel"|"decline", content?: object }`
+- `My6` - ElicitationCompleteNotification schema for URL mode completion
+
+> **Note:** Previous documentation incorrectly mapped `b99`, `vq1`, `M01` to elicitation schemas. These are unrelated: `vq1` is a hash function in chunks.28.mjs:2117, `M01` is a git options object in chunks.92.mjs:393.
 
 ## Elicitation Response Actions
 
@@ -422,6 +478,166 @@ The user can respond to an elicitation with one of three actions:
 | `decline` | User explicitly declined to provide input | No content |
 
 The distinction between `cancel` and `decline` is semantic: `cancel` typically means the user dismissed the dialog, while `decline` means they actively chose not to answer. MCP servers can use this distinction to decide whether to retry.
+
+## UI Dialog Components (v2.1.76)
+
+### Form-Mode Elicitation Dialog
+
+**Location:** chunks.190.mjs:1330-1630
+
+The form-mode elicitation dialog is rendered when `state.elicitation.queue[0]` exists and the mode is `"form"`. The dialog handles multiple JSON Schema field types with full keyboard navigation.
+
+```javascript
+// ============================================
+// ElicitationDialog - Form-mode elicitation UI component
+// Location: chunks.190.mjs:1330-1630 (excerpts)
+// ============================================
+
+// READABLE (for understanding):
+function ElicitationDialog({ elicitation, onResponse }) {
+    // State for form values, selected field index, and validation errors
+    let [formValues, setFormValues] = useState({});
+    let [selectedIndex, setSelectedIndex] = useState(0);
+    let [validationErrors, setValidationErrors] = useState({});
+    let [actionFocus, setActionFocus] = useState(null); // "accept" or "decline"
+
+    // Keyboard navigation
+    useInput((char, key) => {
+        // Up/Down: navigate between fields
+        if (key.upArrow || key.downArrow) {
+            navigateFields(key.upArrow ? "up" : "down");
+        }
+        // Enter: submit or navigate
+        if (key.return) {
+            if (actionFocus === "accept") handleSubmit();
+            else if (actionFocus === "decline") handleDecline();
+            else navigateFields("down");
+        }
+        // Space: toggle boolean / select in dropdown
+        if (char === " ") {
+            if (currentField?.type === "boolean") toggleBoolean();
+            else if (isEnumField) selectEnumValue();
+        }
+        // Escape: cancel
+        if (key.escape) {
+            onResponse({ action: "cancel" });
+        }
+    });
+
+    // Schema field types supported:
+    // - string (text input, with optional format validation)
+    // - number/integer (numeric input with parsing)
+    // - boolean (toggle: yes/no)
+    // - enum (single-select dropdown)
+    // - array with enum items (multi-select)
+}
+```
+
+### Supported JSON Schema Field Types
+
+| Type | UI Control | Keyboard Interaction |
+|------|------------|---------------------|
+| `string` | Text input | Type to enter, Backspace to clear |
+| `string` + `enum` | Single-select | Up/Down to navigate, Space/Enter to select |
+| `number`/`integer` | Text input | Type numbers, parsed on submit |
+| `boolean` | Toggle | Space to toggle between true/false |
+| `array` + `enum` | Multi-select | Up/Down to navigate, Space to toggle item |
+
+### URL-Mode Elicitation Dialog
+
+**Location:** chunks.190.mjs:1950-2000
+
+The URL-mode dialog shows the external URL and provides a "Skip confirmation" button.
+
+```javascript
+// ============================================
+// URLElicitationDialog - URL-mode elicitation UI component
+// Location: chunks.190.mjs:1950-2000
+// ============================================
+
+// READABLE (for understanding):
+function URLElicitationDialog({ elicitation, onResponse }) {
+    let { params, waitingState } = elicitation;
+
+    return (
+        <Box flexDirection="column">
+            <Text bold>{params.message}</Text>
+            <Text dimColor>URL: {params.url}</Text>
+
+            {/* URL display with copy hint */}
+            <Box marginTop={1}>
+                <Text dimColor>If your browser doesn't open automatically, copy this URL:</Text>
+                <URLDisplay url={params.url} />
+            </Box>
+
+            {/* Action button */}
+            <Box marginTop={1}>
+                <Button onPress={() => onResponse({ action: waitingState?.actionLabel === "Skip" ? "accept" : "cancel" })}>
+                    {waitingState?.actionLabel || "Cancel"}
+                </Button>
+            </Box>
+        </Box>
+    );
+}
+```
+
+### Elicitation State Management
+
+**State shape:**
+
+```javascript
+// In REPL state (chunks.148.mjs)
+{
+    elicitation: {
+        queue: [
+            {
+                serverName: "my-mcp-server",
+                requestId: "req-123",
+                params: {
+                    mode: "form",
+                    message: "Please enter your API key",
+                    requestedSchema: { type: "object", properties: { apiKey: { type: "string" } } }
+                },
+                signal: AbortSignal,
+                waitingState: undefined, // or { actionLabel: "Skip confirmation" } for URL mode
+                respond: (response) => void, // Resolves the pending Promise
+                completed: false // Set when notifications/elicitation/complete received
+            }
+        ]
+    }
+}
+```
+
+### Dialog State Machine
+
+```
+                    ┌──────────────┐
+                    │  Queue Empty │
+                    └──────┬───────┘
+                           │
+         elicitation/create│
+                           ▼
+                    ┌──────────────┐
+                    │ Dialog Shown │◄──────┐
+                    └──────┬───────┘       │
+                           │               │
+           ┌───────────────┼───────────────┤
+           │               │               │
+           ▼               ▼               ▼
+    ┌────────────┐  ┌────────────┐  ┌────────────┐
+    │   Accept   │  │   Cancel   │  │   Decline  │
+    └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+          │               │               │
+          │               │               │
+          ▼               ▼               ▼
+    ┌─────────────────────────────────────────────┐
+    │ respond({ action, content? }) called        │
+    │ Promise resolves, MCP response sent         │
+    │ Queue shifts: queue.slice(1)                │
+    └─────────────────────────────────────────────┘
+```
+
+---
 
 ## Data Flow Diagram
 

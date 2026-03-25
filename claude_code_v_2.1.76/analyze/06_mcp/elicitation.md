@@ -222,9 +222,10 @@ This protects users on older or restricted deployments from receiving unexpected
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - UI Components
 
 Key functions in this document:
-- `setupElicitationRequestHandler` (RV6) - Handler registration in chunks.156.mjs
-- `ElicitationDialog` (WWq) - UI rendering in chunks.188.mjs:1247
-- `detectElicitationMode` (iaY) - Mode detection
-- `applySchemaDefaults` (nH6) - Schema default value application
-- `isElicitationEnabled` (xq1) - Feature flag check
-- `parseElicitationCapabilities` ($X9) - Client capability parsing
+- `setupElicitationRequestHandler` (WT7) - Handler registration in chunks.58.mjs:3
+- `ElicitationDialog` (ZIq) - UI rendering in chunks.190.mjs:1242
+- `FormElicitationDialog` (BWz) - Form mode renderer in chunks.190.mjs:1268
+- `detectElicitationMode` (jB3) - Mode detection in chunks.57.mjs:2919
+- `isElicitationEnabled` (KK6) - Feature flag check in chunks.57.mjs:2911
+- `runElicitationHook` (sx6) - Elicitation hook execution in chunks.58.mjs:86
+- `findElicitationQueueIndex` (JB3) - Queue lookup in chunks.57.mjs:2923
