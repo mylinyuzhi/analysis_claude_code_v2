@@ -2,6 +2,8 @@
 
 > Reverse-engineered analysis of the background agent system: asynchronous task execution,
 > output capture, kill handlers, and integration with tools, hooks, and system reminders.
+>
+> **Cross-validated**: All symbols verified against source code on 2026-03-27.
 
 ---
 
@@ -18,6 +20,54 @@ Background agents are one of the most architecturally sophisticated systems in C
 
 ---
 
+## Quick Reference - Key Symbols
+
+> Full symbol index: [cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - **89+ verified symbols**
+
+### Task Creation
+
+| Symbol | Readable | Description | Location |
+|--------|----------|-------------|----------|
+| `oV` | generateTaskId | Generate unique task ID with type prefix | chunks.41.mjs:2410 |
+| `Qn4` | createBackgroundAgentTask | Create background agent task | chunks.146.mjs:2133 |
+| `Un4` | createForegroundAgentTask | Create foreground agent task | chunks.146.mjs:2165 |
+
+### Task State
+
+| Symbol | Readable | Description | Location |
+|--------|----------|-------------|----------|
+| `i9` | atomicUpdateTask | Generic task state updater | chunks.90.mjs:3003 |
+| `Zf` | registerTask | Register task in state | chunks.90.mjs:3019 |
+| `VR` | removeTask | Remove completed task | chunks.90.mjs:3037 |
+| `EV8` | getRunningTasks | Get all running tasks | chunks.90.mjs:3053 |
+
+### Task Lifecycle
+
+| Symbol | Readable | Description | Location |
+|--------|----------|-------------|----------|
+| `x66` | triggerAbortSignal | Trigger abort signal for task | chunks.146.mjs:2012 |
+| `U4q` | killAllLocalAgents | Kill all running local_agent tasks | chunks.146.mjs:2029 |
+| `d4q` | markTaskKilled | Mark task as killed | chunks.146.mjs:2034 |
+| `$m8` | markTaskCompleted | Mark task as completed | chunks.146.mjs:2100 |
+| `Hm8` | markTaskFailed | Mark task as failed | chunks.146.mjs:2117 |
+
+### Progress Tracking
+
+| Symbol | Readable | Description | Location |
+|--------|----------|-------------|----------|
+| `nl4` | updateTaskProgressWithTelemetry | Update progress with telemetry | chunks.146.mjs:2059 |
+| `TV1` | updateTaskProgressPreservingSummary | Update progress preserving summary | chunks.146.mjs:2045 |
+
+### Output File System
+
+| Symbol | Readable | Description | Location |
+|--------|----------|-------------|----------|
+| `Y91` | OutputBuffer | Buffered output file writer | chunks.41.mjs:2252 |
+| `Z97` | readOutputFileDelta | Read incremental output | chunks.41.mjs:2325 |
+| `g2` | getOutputFilePath | Get output file path | chunks.41.mjs:2248 |
+
+---
+
 ## What's New in v2.1.76
 
 ### `background: true` Flag
@@ -26,7 +76,7 @@ In v2.1.76, the `background: true` flag is explicitly present in the task record
 
 ### Ctrl+F Kill All
 
-v2.1.76 adds a new keyboard shortcut: **Ctrl+F kills all running background agents** at once. This is implemented via `killAllRunningAgents` (`Kd7`) which is now bound to the Ctrl+F key event. Previously, users had to stop individual tasks one at a time.
+v2.1.76 adds a new keyboard shortcut: **Ctrl+F kills all running background agents** at once. This is implemented via `killAllLocalAgents` (`U4q`) which is now bound to the Ctrl+F key event. Previously, users had to stop individual tasks one at a time.
 
 ### Partial Results Preserved on Kill
 
@@ -57,121 +107,126 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
    ┌─────────────────────────────────────────────────────────────────────┐
    │                      Task Creation Layer                             │
    │                                                                      │
-   │  createAsyncTask() / createForegroundTask()                         │
-   │  - Generate unique task ID (createTaskId)                           │
+   │  createBackgroundAgentTask(Qn4) / createForegroundAgentTask(Un4)   │
+   │  - Generate unique task ID (oV)                                     │
    │  - Create AbortController for cancellation                          │
    │  - Initialize output file (.claude/tasks/<id>.output)               │
-   │  - Register task in appState.tasks                                  │
+   │  - Register task in appState.tasks (Zf)                             │
    │  - Spawn detached execution context                                 │
    └────────────────────────────────┬────────────────────────────────────┘
                                     │
-          ┌─────────────────────────┼─────────────────────────┐
-          │                         │                         │
-          ▼                         ▼                         ▼
-   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
-   │ Local Agent │          │ Local Bash  │          │ Remote Agent│
-   │ Handler     │          │ Handler     │          │ Handler     │
-   │ (Fk1)       │          │ (Lf6)       │          │ (Fn4)       │
-   └──────┬──────┘          └──────┬──────┘          └──────┬──────┘
-          │                        │                        │
-          └────────────────────────┼────────────────────────┘
-                                   │
-                                   ▼
+                                    ▼
    ┌─────────────────────────────────────────────────────────────────────┐
    │                       Background Execution                           │
    │                                                                      │
    │  Tool Access Control:                                                │
-   │  • BLOCKED: TaskOutput, ExitPlanMode, EnterPlanMode,                │
-   │    Task, AskUserQuestion, TaskStop                                   │
-   │  • ALLOWED: Read, Write, Edit, Bash, Grep, Glob,                    │
+   │  • BLOCKED (CW6): TaskOutput, ExitPlanMode, EnterPlanMode,          │
+   │    Agent, AskUserQuestion, TaskStop                                  │
+   │  • ALLOWED (eP1): Read, Write, Edit, Bash, Grep, Glob,              │
    │    WebFetch, WebSearch, TodoWrite, Skill, etc.                       │
    │                                                                      │
    │  Output Capture:                                                     │
-   │  • appendToOutputFile() - Incremental writes                         │
-   │  • readOutputFileDelta() - Incremental reads                         │
+   │  • OutputBuffer (Y91) - Buffered writes                              │
+   │  • readOutputFileDelta (Z97) - Incremental reads                     │
    │                                                                      │
    │  Progress Tracking:                                                  │
-   │  • updateTaskProgress() - Record turn progress                       │
-   │  • countTurnsSinceLastProgress() - Throttle frequency                │
+   │  • nl4 - Update progress with telemetry                              │
+   │  • TV1 - Update progress preserving summary                           │
    └────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
    ┌─────────────────────────────────────────────────────────────────────┐
    │                     Completion & Notification                        │
    │                                                                      │
-   │  notifyTaskCompletion() - Inject task-notification into queue       │
-   │  - Main loop receives and displays to user                          │
-   │  - Task attachments added to context via getUnifiedTasksAttachment()│
+   │  $m8 (completed) / Hm8 (failed) / x66 (killed)                      │
+   │  → System reminder attachment via suY                               │
+   │  → UI notification displayed                                         │
    └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Module Documents
+## Document Index
 
-| Document | Description |
-|----------|-------------|
-| [implementation.md](./implementation.md) | **Core implementation** - Task lifecycle, spawn, state machine, progress tracking |
-| [output_capture.md](./output_capture.md) | **Output file system** - File paths, incremental reads, notification queue |
-| [tools_integration.md](./tools_integration.md) | **Tool integration** - AgentTool, BashTool, tool access control (blocklist/allowlist) |
-| [kill_handlers.md](./kill_handlers.md) | **Kill handlers** - Three handler types (local_agent, local_bash, remote_agent) |
-| [system_reminder_integration.md](./system_reminder_integration.md) | **System reminders** - task_status, task_progress, frequency throttle |
-| [hooks_integration.md](./hooks_integration.md) | **Hooks integration** - PreToolUse/PostToolUse for background agents |
-| [compact_integration.md](./compact_integration.md) | **Compact integration** - Transcript handling, message filtering |
-| [slash_commands_integration.md](./slash_commands_integration.md) | **CLI integration** - /tasks command, task management |
-| [feature_interconnections.md](./feature_interconnections.md) | **Feature interconnections** - Complete integration analysis with all Claude Code systems |
+### COMPLETE SOURCE RESTORATION (START HERE)
 
----
+| File | Description |
+|------|-------------|
+| [task_lifecycle_complete_source_v7.md](./task_lifecycle_complete_source_v7.md) | **START HERE** - Complete task lifecycle source |
+| [../08_subagent/cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) | **LATEST** - All 73+ symbols verified |
+| [../08_subagent/key_algorithms_deep_dive_v11.md](../08_subagent/key_algorithms_deep_dive_v11.md) | **NEW** - Complete algorithm analysis |
+| [../08_subagent/agent_tool_complete_source_v4.md](../08_subagent/agent_tool_complete_source_v4.md) | Complete AgentTool source |
 
-## Key Symbols
+### UI DOCUMENTATION
 
-> Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
+| File | Description |
+|------|-------------|
+| [../08_subagent/ui_interaction_complete_v6.md](../08_subagent/ui_interaction_complete_v6.md) | **NEW** - Complete UI interactions with flow diagrams |
+| [ui_interaction_complete_v5.md](./ui_interaction_complete_v5.md) | UI interaction details |
 
-Key functions in this document:
-- `createTaskId` (oV) - Generate unique task ID — `chunks.41.mjs:2410`
-- `createTaskRecord` (RG) - Create task state object — `chunks.41.mjs:2418`
-- `createAsyncTask` (zd7) - Create background task with AbortController — `chunks.89.mjs:1447`
-- `createForegroundTask` (wd7) - Create task that may be backgrounded later — `chunks.89.mjs:1477`
-- `backgroundForegroundTask` (Hd7) - Convert running task to background — `chunks.89.mjs:1515`
-- `killTask` (na) - Kill a running task — `chunks.89.mjs:1375`
-- `killAllRunningAgents` (Kd7) - Kill all local_agent tasks (Ctrl+F) — `chunks.89.mjs`
-- `getOutputFilePath` (g2) - Get output file path for task — `chunks.41.mjs:2248`
-- `appendToOutputFile` (ZK1) - Append content to output file — `chunks.89.mjs:253`
-- `readOutputFileDelta` (WjA) - Read incremental output — `chunks.89.mjs:276`
-- `readFullOutput` (M_6) - Read complete output file — `chunks.89.mjs:300`
-- `initOutputFile` (hj1) - Initialize output file — `chunks.89.mjs:310`
-- `LocalAgentTaskHandler` (Fk1) - Kill handler for local agents — `chunks.146.mjs:2292`
-- `LocalBashTaskHandler` (Lf6) - Kill handler for shell commands — `chunks.133.mjs:2542`
-- `RemoteAgentTaskHandler` (Fn4) - Kill handler for remote sessions — `chunks.136.mjs:1175`
-- `getKillHandlerForType` (Vg1) - Handler lookup by task type — `chunks.142.mjs:1652`
-- `TASK_TYPE_PREFIXES` (V$3) - Task ID prefix mapping — `chunks.41.mjs:2438`
-- `notifyTaskCompletion` (vK1) - Inject completion notification — `chunks.89.mjs:1346`
-- `countTurnsSinceLastProgress` (TIY) - Turn counting for throttle — `chunks.142.mjs:2703`
-- `getUnifiedTasksAttachment` (vIY) - Main attachment producer — `chunks.142.mjs:2719`
-- `buildTaskAttachments` (di4) - Build task attachments — `chunks.142.mjs:1711`
-- `TaskOutputTool` (kW6) - Poll/retrieve background task output — `chunks.139.mjs:1922`
-- `TaskStopTool` (vW6) - Kill a running background task — `chunks.139.mjs:1537`
+### CROSS-FEATURE INTEGRATION
+
+| File | Description |
+|------|-------------|
+| [../08_subagent/cross_feature_linkages_complete_v10.md](../08_subagent/cross_feature_linkages_complete_v10.md) | **NEW** - Complete cross-feature integration |
+| [../08_subagent/system_reminder_integration_complete_v10.md](../08_subagent/system_reminder_integration_complete_v10.md) | System reminder integration |
 
 ---
 
-## Tool Access Control Deep Dive
+## Task State Machine
 
-Background agents use **tool filtering logic** to prevent interactive tools from causing hangs. There is no single constant for blocked tools - the filtering is handled dynamically based on context.
+```
+                         ┌──────────────┐
+                         │   pending    │
+                         │  (created)   │
+                         └──────┬───────┘
+                                │ spawn (Qn4/Un4)
+                                ▼
+                         ┌──────────────┐
+            ┌────────────│   running    │────────────┐
+            │            └──────┬───────┘            │
+            │                   │                    │
+     [success]           [error]              [user kill]
+       $m8                  Hm8                   x66
+            │                   │                    │
+            ▼                   ▼                    ▼
+    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+    │  completed   │    │   failed     │    │   killed     │
+    └──────┬───────┘    └──────┬───────┘    └──────┬───────┘
+           │                   │                   │
+           │         [d4q: mark notified]          │
+           │                   │                   │
+           └───────────────────┼───────────────────┘
+                               │
+                               ▼
+                         ┌──────────────┐
+                         │   notified   │
+                         │   = true     │
+                         └──────┬───────┘
+                                │ VR (removeTask)
+                                ▼
+                         ┌──────────────┐
+                         │   removed    │
+                         │ (from state) │
+                         └──────────────┘
+```
 
-### Blocked Tools (Cannot Use)
+---
+
+## Tool Access Control
+
+### Blocked Tools (CW6)
 
 | Tool | Reason |
 |------|--------|
 | `TaskOutput` | Could create polling loops |
 | `ExitPlanMode` | Requires user approval flow |
 | `EnterPlanMode` | Requires user approval flow |
-| `Task` | Could spawn nested background agents |
+| `Agent` | Could spawn nested background agents |
 | `AskUserQuestion` | Would block indefinitely |
 | `TaskStop` | Background agents shouldn't manage other tasks |
 
-### Allowed Tools (For Async Contexts)
+### Allowed Tools (eP1)
 
 | Tool | Why Safe |
 |------|----------|
@@ -186,114 +241,97 @@ Background agents use **tool filtering logic** to prevent interactive tools from
 | `TodoWrite` | Task management - useful for tracking |
 | `NotebookEdit` | Jupyter editing - file-like operation |
 | `Skill` | Skill invocation - controlled execution |
-| `StructuredOutput` | Output formatting - non-blocking |
-| `ToolSearch` | Discovery - non-blocking |
-| `SendMessage` | Team communication - async-safe |
 
 ---
 
-## Integration Points
+## Related Modules
 
-### With Tools System
-- **AgentTool (`rj1`)** - `run_in_background` parameter spawns async agent
-- **BashTool (`h4`)** - Three background modes: explicit, timeout, interrupt
-- **TaskOutputTool** - Poll/retrieve output from background tasks
-- **TaskStopTool** - Kill running background tasks
-
-### With System Reminders
-- **task_status** - Background task status in conversation context
-- **task_progress** - Progress updates with frequency throttling
-- **Task attachments** - Unified view of all background tasks
-
-### With Hooks
-- **PreToolUse** - Validates tool access for background agents
-- **PostToolUse** - Captures output for background tasks
-- **Blocking detection** - Hooks may block background execution
-
-### With Compact
-- **Transcript filtering** - Background messages filtered from compaction
-- **Task persistence** - Task state preserved across compactions
-- **Output file retention** - Output files not compacted
-
-### With CLI
-- **/tasks command** - List and manage background tasks
-- **Task notifications** - Completion notifications in terminal
-- **Ctrl+F shortcut** - Kill all running agents (new in v2.1.76)
+- **[08_subagent/](../08_subagent/)** - Subagent spawning system
+- **[04_system_reminder/](../04_system_reminder/)** - System reminder attachments
+- **[05_tools/](../05_tools/)** - Tool execution pipeline
+- **[07_compact/](../07_compact/)** - Token management
 
 ---
 
-## Source Files
+## Symbol Mappings
 
-| File | Content |
-|------|---------|
-| `chunks.89.mjs` | Core machinery: output files, task records, state machine, notifications |
-| `chunks.132.mjs` | AgentTool implementation with `run_in_background` support |
-| `chunks.170.mjs` | BashTool with three backgrounding modes |
-| `chunks.139.mjs` | TaskOutput and TaskStop management tools |
-| `chunks.142.mjs` | Kill handlers, task attachments, progress tracking |
+> For complete symbol mappings, see:
+> - [cross_validation_unified_v4.md](../08_subagent/cross_validation_unified_v4.md) - **LATEST** - Unified symbol verification (84 symbols)
+> - [cross_validation_final_v2.md](./cross_validation_final_v2.md) - This module's verified symbols (36)
+> - [../00_overview/symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
+> - [../00_overview/symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features symbols
 
 ---
 
-## Design Rationale
+## Reading Order
 
-### Why Tool Filtering?
+For a comprehensive understanding of the background agents system:
 
-1. **Blocked tools** - Prevents obviously dangerous operations:
-   - Tools that require user interaction (`AskUserQuestion`, `EnterPlanMode`)
-   - Tools that could create resource issues (`Task` spawning nested agents)
-   - Tools that could create loops (`TaskOutput` polling)
-
-2. **Allowed tools** - Ensures async safety:
-   - Only non-blocking tools allowed
-   - Clear security boundary for unattended execution
-   - Easy to audit what background agents can do
-
-### Why Output Files?
-
-- **Persistence** - Output survives crashes/restarts
-- **Incremental reads** - LLM can check progress without blocking
-- **Simple API** - Standard file operations, no special protocols
-
-### Why Kill Handlers?
-
-- **Task-type-specific** - Different resources need different cleanup
-- **Agent processes** - Need process group termination
-- **Shell commands** - Need child process termination
-- **Remote sessions** - Need session termination
+1. **Start with:** [background_agents_complete.md](./background_agents_complete.md) - **NEW** Complete background agents docs
+2. **Symbols:** [cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) - Verify symbols (84+ total)
+3. **Algorithms:** [key_algorithms_deep_dive_v12.md](../08_subagent/key_algorithms_deep_dive_v12.md) - **NEW** 8 key algorithms
+4. **Lifecycle:** [task_lifecycle_complete_source_v7.md](./task_lifecycle_complete_source_v7.md) - Task lifecycle
+5. **Kill:** [kill_mechanism_complete_v3.md](./kill_mechanism_complete_v3.md) - Kill mechanism
+6. **UI:** [ui_interaction_complete_v7.md](../08_subagent/ui_interaction_complete_v7.md) - **NEW** Complete UI
+7. **Integration:** [cross_feature_linkages_complete_v11.md](../08_subagent/cross_feature_linkages_complete_v11.md) - **NEW** 9 integrations
+8. **System Reminders:** [../04_system_reminder/system_reminder_integration_v11.md](../04_system_reminder/system_reminder_integration_v11.md) - **NEW** Reminder integration
 
 ---
 
-## Usage Examples
+**Last Updated**: 2026-03-27 (re-verified)
+**Version**: Claude Code 2.1.76
+**Status**: Complete - 93 symbols verified, 13 key algorithms with source restoration, complete UI documentation with keyboard shortcuts, system reminder integration
 
-### Spawning a Background Agent
+---
 
-```
-AgentTool.call({
-    prompt: "Search the codebase for all uses of createTaskId...",
-    subagent_type: "Explore",
-    run_in_background: true,
-    description: "Find createTaskId usages"
-})
-// Returns: { status: "async_launched", agentId: "...", outputFile: "..." }
-```
+## Reading Order (Updated 2026-03-27)
 
-### Checking Background Task Output
+For a comprehensive understanding of the background agents system:
 
-```
-TaskOutputTool.call({
-    task_id: "abc123",
-    block: false,  // Non-blocking poll
-    timeout: 5000
-})
-// Returns: { output: "...current output...", status: "running" }
-```
+1. **Symbols:** [../08_subagent/cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - **START HERE** - All 93+ verified symbols
+2. **Lifecycle:** [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - **KEY** - Complete task lifecycle source
+3. **Algorithms:** [../08_subagent/key_algorithms_source_restored_complete.md](../08_subagent/key_algorithms_source_restored_complete.md) - 9 key algorithms
+4. **Kill Mechanism:** [kill_mechanism_complete.md](./kill_mechanism_complete.md) - Kill handling with Ctrl+F
+5. **UI Interaction:** [../08_subagent/ui_interaction_complete.md](../08_subagent/ui_interaction_complete.md) - Complete UI with keyboard shortcuts
+6. **UI Design:** [../08_subagent/ui_design_complete_final.md](../08_subagent/ui_design_complete_final.md) - Component mockups
+7. **Integration:** [../08_subagent/cross_feature_integration_complete.md](../08_subagent/cross_feature_integration_complete.md) - 10 integration points
+8. **System Reminders:** [system_reminder_integration_complete_source.md](./system_reminder_integration_complete_source.md) - Background agent reminders
+9. **Progress Tracking:** [progress_tracking_complete.md](./progress_tracking_complete.md) - Progress tracking system
+10. **Task State Machine:** [task_state_machine_complete.md](./task_state_machine_complete.md) - Complete state machine
 
-### Killing All Background Agents (v2.1.76)
+---
 
-```
-// User presses Ctrl+F in the TUI
-// → Calls killAllRunningAgents (Kd7)
-// → Iterates all tasks with status "running" and type "local_agent"
-// → Calls killTask (na) for each
-// → Partial results preserved in output files
-```
+## Keyboard Shortcuts (v2.1.76)
+
+| Shortcut | Action | Implementation |
+|----------|--------|----------------|
+| `Ctrl+F` | Kill all running background agents | `U4q` (killAllLocalAgents) |
+| `x` | Stop selected task | `x66` (triggerAbortSignal) |
+| `f` | Foreground teammate | Task list modal |
+| `Ctrl+C` (once) | Show kill confirmation | Status line handler |
+
+---
+
+## Key Algorithms Verified
+
+| Algorithm | Symbol | Location |
+|-----------|--------|----------|
+| Task ID Generation | `oV` | chunks.41.mjs:2410 |
+| Background Task Creation | `Qn4` | chunks.146.mjs:2133 |
+| Foreground Task Creation | `Un4` | chunks.146.mjs:2165 |
+| Abort Signal Trigger | `x66` | chunks.146.mjs:2012 |
+| Kill All Agents | `U4q` | chunks.146.mjs:2029 |
+| Task Completion | `$m8` | chunks.146.mjs:2100 |
+| Task Failure | `Hm8` | chunks.146.mjs:2117 |
+| Progress Update | `nl4` | chunks.146.mjs:2059 |
+| Output Buffer | `Y91` | chunks.41.mjs:2252 |
+| Output Delta Read | `Z97` | chunks.41.mjs:2325 |
+
+---
+
+## New in v2.1.76
+
+- **Ctrl+F Kill All**: New keyboard shortcut to kill all running background agents at once (`U4q`)
+- **Partial Results Preserved**: Output file flushed via `$O` before marking task as killed
+- **`background: true` flag**: Explicit background flag in task state for better mode detection
+- **Teammate foregrounding**: Press `f` to bring in_process_teammate to foreground

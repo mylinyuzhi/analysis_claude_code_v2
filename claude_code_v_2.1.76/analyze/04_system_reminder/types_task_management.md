@@ -68,8 +68,12 @@ Each reminder type has a specific producer function that determines when it trig
 | `todo` | `wIY` (getChangedFilesAttachment) | chunks.142.mjs:2285-2335 | File watch detects modification of todo file |
 | `todo_reminder` | `fIY` (getTodoReminderAttachment) | chunks.142.mjs:2645-2661 | `turnsSinceLastTodoWrite >= 10 && turnsSinceLastReminder >= 10` |
 | `task_reminder` | `NIY` (getTaskReminderAttachment) | chunks.142.mjs:2684-2701 | Same thresholds + `jH()` (isTaskSystemEnabled); no activeForm required (v2.1.76) |
-| `task_status` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | State change in `di4(appState)` |
-| `task_progress` | `vIY` (getUnifiedTasksAttachment) | chunks.142.mjs:2719-2756 | Progress message + `turnsSinceProgress >= 3` |
+| `task_status` | `suY` (getTaskStatusAttachments) | chunks.147.mjs:1033 | Built from `wY4` poll results + `Nqq` unnotified tasks |
+| `task_progress` | `suY` (getTaskStatusAttachments) | chunks.147.mjs:1033 | Progress message + throttle |
+
+> **CORRECTION (2026-03-26):** Previous versions incorrectly mapped `vIY`, `di4`, `TIY` to task attachment functions.
+> Correct symbols: `suY` → `getTaskStatusAttachments`, `Nqq` → `getUnretrievedTaskStatuses`, `wY4` → `pollTaskOutputs`.
+> The actual meanings: `vIY` = call graph file counter, `di4` = teammate pane creator, `TIY` = outgoing file counter.
 
 ### Timing Constants
 

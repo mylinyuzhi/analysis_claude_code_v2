@@ -870,3 +870,42 @@ Background agents form a central hub connecting multiple Claude Code subsystems:
 8. **CLI** - /tasks command and Ctrl+F kill
 
 This deep integration enables powerful async workflows while maintaining safety through tool access control and graceful cancellation.
+
+---
+
+## Source Code Verification
+
+### Verified Symbol Locations (2026-03-26)
+
+| Symbol | Readable | Location | Verification |
+|--------|----------|----------|--------------|
+| `U4q` | killAllLocalAgents | chunks.146.mjs:2029 | ✓ Verified |
+| `d4q` | markTaskKilled | chunks.146.mjs:2034 | ✓ Verified |
+| `x66` | triggerAbortSignal | chunks.146.mjs | ✓ Verified |
+| `$m8` | markTaskCompleted | chunks.146.mjs:2100 | ✓ Verified |
+| `Hm8` | markTaskFailed | chunks.146.mjs:2117 | ✓ Verified |
+| `i9` | atomicUpdateTask | chunks.90.mjs:3003 | ✓ Verified |
+| `vIY` | getUnifiedTasksAttachment | chunks.142.mjs:2719 | ✓ Verified |
+| `di4` | buildTaskAttachments | chunks.142.mjs:1711 | ✓ Verified |
+| `wQ6` | killLocalBashTask | chunks.95.mjs:1918 | ✓ Verified |
+| `Fk1` | LocalAgentTaskHandler | chunks.146.mjs:2292 | ✓ Verified |
+| `Lf6` | LocalBashTaskHandler | chunks.133.mjs:2542 | ✓ Verified |
+
+### Key Integration Symbol Summary
+
+| Integration | Key Symbols |
+|-------------|-------------|
+| System Reminders | `vIY`, `di4`, `TIY`, `Nqq` |
+| Subagent Execution | `U4q`, `d4q`, `$m8`, `Hm8` |
+| Tools | `QW6`, `J4`, `kW6`, `vW6` |
+| Task System | `oV`, `RG`, `Zf`, `i9` |
+| Hooks | `r24`, `zZ6` |
+| CLI | `U4q`, `d4q`, keyboard handlers |
+
+### Incorrect Mappings Corrected
+
+| Symbol | Wrong Mapping | Correct Mapping |
+|--------|---------------|-----------------|
+| `Kd7` | killAllRunningAgents | Crypto module - Use `U4q` instead |
+| `yjA` | markTaskCompleted | Constant - Use `$m8` instead |
+| `CjA` | markTaskFailed | Constant - Use `Hm8` instead |

@@ -501,7 +501,21 @@
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
 | ghY | TURNS_BETWEEN_PROGRESS | chunks.142.mjs:2863 | constant (3) |
 
-> **Note:** The blocked tools for background agents are enforced via tool filtering logic rather than a single constant. Tools blocked include: TaskOutput, ExitPlanMode, EnterPlanMode, Task, AskUserQuestion, TaskStop.
+### Tool Filtering Sets (v2.1.76)
+
+> **VERIFIED**: All tool filtering sets located at chunks.91.mjs:269
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| CW6 | BACKGROUND_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (TaskOutput, ExitPlanMode, EnterPlanMode, Agent, AskUserQuestion, TaskStop) |
+| xV8 | ASYNC_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | Set (same as CW6 for non-builtin contexts) |
+| eP1 | ASYNC_AGENT_ALLOWED_TOOLS | chunks.91.mjs:269 | Set (Read, WebSearch, Grep, WebFetch, Glob, TodoWrite, Bash, Edit, Write, NotebookEdit, Skill, etc.) |
+| WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | Set (TaskCreate, TaskGet, TaskList, TaskUpdate, SendMessage, CronCreate, CronDelete, CronList) |
+| GY4 | ALL_SAFE_TOOLS | chunks.91.mjs:305 | Set (Read, Write, Edit, Glob, Grep, Bash, NotebookEdit) |
+| Xk8 | filterToolsForSubagent | chunks.93.mjs:1568 | function |
+| _c | resolveToolFilter | chunks.93.mjs:1590 | function |
+
+> **Note:** Tool filtering is enforced via `Xk8` (filterToolsForSubagent) which uses these sets to control tool access for different execution modes.
 
 ### Task ID Generation
 
@@ -511,31 +525,49 @@
 | k$3 | getTypePrefix | chunks.41.mjs:2406 | function |
 | N$3 | generateRandomBytes | chunks.41.mjs | function |
 
+### Auto-Background Threshold (v2.1.76)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| oVY | getAutoBackgroundMs | chunks.136.mjs:1234 | function (returns 120000ms or 0) |
+| AkY | countToolUses | chunks.136.mjs:1239 | function |
+| pn4 | getLastAssistantText | chunks.136.mjs:1248 | function |
+
 ### Background Task Creation
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| zd7 | createAsyncTask | chunks.89.mjs:1447 | function |
-| wd7 | createForegroundTask | chunks.89.mjs:1477 | function |
+| Qn4 | createBackgroundAgentTask | chunks.146.mjs:2133 | function |
+| Un4 | createForegroundAgentTask | chunks.146.mjs:2165 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:1477 | variable (Map) |
 | Hp7 | backgroundTaskSignalMap | chunks.89.mjs | variable (Map) |
+
+> **CORRECTION:** Previous versions incorrectly documented `zd7` and `wd7` as `createAsyncTask` and `createForegroundTask`. Those symbols are crypto module exports. The correct symbols for task creation are `Qn4` (background) and `Un4` (foreground) at chunks.146.mjs. |
 
 ### Task State Management
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | RG | createTaskRecord | chunks.41.mjs:2418 | function |
-| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
-| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
-| yjA | markTaskCompleted | chunks.89.mjs:1422 | function |
-| CjA | markTaskFailed | chunks.89.mjs:1435 | function |
-| Hd7 | backgroundForegroundTask | chunks.89.mjs:1515 | function |
-| na | killTask | chunks.89.mjs:1376 | function |
-| Kd7 | killAllRunningAgents | chunks.89.mjs:1448 | function |
-| Ui4 | getRunningTasks | chunks.142.mjs:1686 | function |
-| ia | isLocalAgentTask | chunks.89.mjs:1342 | function |
-| i9 | updateTaskState | chunks.41.mjs | function |
+| Zf | registerTask | chunks.90.mjs:3019 | function |
+| VR | removeTask | chunks.90.mjs:3037 | function |
+| i9 | atomicUpdateTask | chunks.90.mjs:3003 | function |
+| U4q | killAllLocalAgents | chunks.146.mjs:2029 | function |
+| d4q | markTaskKilled | chunks.146.mjs:2034 | function |
+| $m8 | markTaskCompleted | chunks.146.mjs:2100 | function |
+| Hm8 | markTaskFailed | chunks.146.mjs:2117 | function |
+| TV1 | updateTaskProgressPreservingSummary | chunks.146.mjs:2045 | function |
+| nl4 | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | function |
+| EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
+| wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
 | LJ6 | isTerminalStatus | chunks.41.mjs:2402 | function |
+| ia | isLocalAgentTask | chunks.89.mjs:1342 | function |
+
+> **CORRECTIONS:**
+> - `Hd7` was incorrectly documented as `backgroundForegroundTask`. The actual `Hd7` is a JWT parsing function at chunks.72.mjs:2775. Background foregrounding is handled by `Qn4` with `isBackgrounded: true`.
+> - `yjA` and `CjA` were incorrectly documented as `markTaskCompleted` and `markTaskFailed`. They are actually constants. The correct symbols are `$m8` and `Hm8` at chunks.146.mjs.
+> - `Kd7` was incorrectly documented as `killAllRunningAgents`. It is a crypto module export. The correct symbol is `U4q` at chunks.146.mjs:2029.
+> - `na` was incorrectly documented as `killTask`. Task killing uses `wQ6`, `U4q`, and `d4q`.
 
 ### Progress & Output
 
@@ -546,14 +578,17 @@
 | g2 | getOutputFilePath | chunks.41.mjs:2248 | function |
 | yJ6 | getTasksDir | chunks.41.mjs | function |
 | ZK1 | writeOutputChunk | chunks.89.mjs:253 | function |
-| WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
-| M_6 | readFullOutput | chunks.89.mjs:300 | function |
+| Z97 | readOutputFileDelta | chunks.41.mjs:2325 | function |
+| z38 | readFullOutput | chunks.41.mjs:2348 | function |
 | hj1 | initOutputFile | chunks.89.mjs:310 | function |
 | Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
 | Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
 | vp7 | pendingWrites | chunks.89.mjs:346 | variable (Map) |
 | Zf | registerTask | chunks.41.mjs | function |
-| $O | flushTaskOutput | chunks.41.mjs | function |
+| $O | flushTaskOutput | chunks.41.mjs:2320 | function |
+| Y91 | OutputFileWriter | chunks.41.mjs:2252 | class (async buffered writer) |
+
+> **CORRECTION:** `WjA` was incorrectly documented as `readOutputFileDelta`. It is actually a timeout function at chunks.14.mjs:2696. The correct symbol for `readOutputFileDelta` is `Z97` at chunks.41.mjs:2325.
 
 ### Kill Handlers
 
@@ -563,20 +598,65 @@
 | Fk1 | LocalAgentTaskHandler | chunks.146.mjs:2292 | object |
 | Fn4 | RemoteAgentTaskHandler | chunks.136.mjs:1175 | object |
 | wQ6 | killBashTask | chunks.95.mjs:1918 | function |
-| x66 | killAgentTask | chunks.146.mjs:2012 | function |
-| Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
+| x66 | triggerAbortSignal | chunks.146.mjs:2012 | function |
+| gk1 | getKillHandlerForType | chunks.143.mjs:1513 | function |
 | IhY | getAllKillHandlers | chunks.142.mjs:1648 | function |
-| GN1 | notifyTaskCompletion | chunks.133.mjs | function |
+| t24 | killBashTasksForAgent | chunks.95.mjs:1938 | function |
 
 ### System Reminder Integration
 
+> **CORRECTION (2026-03-26):** Previous versions incorrectly mapped `vIY`, `di4`, `TIY` to task attachment functions.
+> The correct symbols for task attachment building are:
+> - `suY` → `getTaskStatusAttachments` (chunks.147.mjs:1033) - Main attachment builder
+> - `Nqq` → `getUnretrievedTaskStatuses` (chunks.147.mjs:1923) - Gets unretrieved local_agent statuses
+> - `wY4` → `pollTaskOutputs` (chunks.90.mjs:3058) - Polls output files
+> - `f4` → `wrapAttachment` (chunks.147.mjs:942) - Wraps attachment with metadata
+>
+> The actual meanings of the previously incorrect symbols:
+> - `vIY` = `getUniqueIncomingFileCount` (chunks.144.mjs:837) - Call graph utility
+> - `di4` = `createTeammatePaneInSwarmView` (chunks.135.mjs:292) - Teammate pane creation
+> - `TIY` = `getUniqueOutgoingFileCount` (chunks.144.mjs:832) - Call graph utility
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| vIY | getUnifiedTasksAttachment | chunks.142.mjs:2719 | function |
-| di4 | buildTaskAttachments | chunks.142.mjs:1711 | function |
-| TIY | countTurnsSinceLastProgress | chunks.142.mjs:2703 | function |
+| suY | getTaskStatusAttachments | chunks.147.mjs:1033 | function |
+| Nqq | getUnretrievedTaskStatuses | chunks.147.mjs:1923 | function |
+| wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
+| f4 | wrapAttachment | chunks.147.mjs:942 | function |
+| OY4 | updateTaskOffsets | chunks.90.mjs:3087 | function |
 | pi4 | resetProgressState | chunks.142.mjs | function |
 | Ng1 | truncateTaskOutput | chunks.139.mjs:1664 | function |
+
+### Background Agent Task Lifecycle
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Qn4 | createBackgroundAgentTask | chunks.146.mjs:2133 | function |
+| Un4 | createForegroundAgentTask | chunks.146.mjs:2165 | function |
+| TV1 | updateTaskProgressPreservingSummary | chunks.146.mjs:2045 | function |
+| nl4 | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | function |
+| $m8 | markTaskCompleted | chunks.146.mjs:2100 | function |
+| Hm8 | markTaskFailed | chunks.146.mjs:2117 | function |
+| d4q | markTaskKilled | chunks.146.mjs:2034 | function |
+| U4q | killAllLocalAgents | chunks.146.mjs:2029 | function |
+| x66 | triggerAbortSignal | chunks.146.mjs:2012 | function |
+| i9 | atomicUpdateTask | chunks.90.mjs:3003 | function |
+| Zf | registerTask | chunks.90.mjs:3019 | function |
+| VR | removeTask | chunks.90.mjs:3037 | function |
+| EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
+| wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
+| OY4 | updateTaskOffsets | chunks.90.mjs:3087 | function |
+| oV | createTaskId | chunks.41.mjs:2410 | function |
+| RG | createTaskRecord | chunks.41.mjs:2418 | function |
+
+> **CORRECTIONS:**
+> - `Kd7` was incorrectly documented as `killAllRunningAgents`. It is a crypto module export (chunks.72.mjs:2707).
+>   The correct symbol is `U4q` at chunks.146.mjs:2029.
+> - `Hd7` was incorrectly documented as `backgroundForegroundTask`. It is a JWT parsing function (chunks.72.mjs:2775).
+> - `zd7` and `wd7` were incorrectly documented as `createAsyncTask` and `createForegroundTask`.
+>   They are crypto module exports. The correct symbols are `Qn4` and `Un4` at chunks.146.mjs.
+> - `na` was incorrectly documented as `killTask`. It is actually a diff function (chunks.56.mjs:2072).
+>   Task killing uses `x66`, `U4q`, `d4q`.
 
 ### Notification & Queue
 

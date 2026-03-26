@@ -1389,6 +1389,16 @@
 | ZIq | ElicitationRouter | chunks.190.mjs:1242 | component (MCP elicitation dialog router) ✅ |
 | zs8 | MessageSelector | chunks.185.mjs:1179 | component (conversation history browser) ✅ |
 
+### Background Agent UI Components (chunks.133.mjs, chunks.162.mjs, chunks.193.mjs)
+
+> Full analysis: [26_background_agents/ui_interaction.md](../26_background_agents/ui_interaction.md), [08_subagent/ui_interaction.md](../08_subagent/ui_interaction.md)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Vc4 | AgentStatusComponent | chunks.133.mjs:124 | component (renders subagent status badge with type color, description, tool count) |
+| TaskListRow | TaskListRow | chunks.162.mjs:836-981 | component (task list row with keyboard actions) |
+| hasRunningAgents | hasRunningAgents | chunks.193.mjs:2605 | selector (checks if any local_agent tasks are running) |
+
 ### Message Rendering Components (chunks.161.mjs, chunks.58.mjs) - ✅ ALL VERIFIED 2026-03-22
 
 | Obfuscated | Readable | File:Line | Type |

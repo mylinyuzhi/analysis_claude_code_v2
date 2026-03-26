@@ -39,23 +39,39 @@ Before marking a task "killed", v2.1.76 ensures `readOutputFileDelta` is called 
 
 Key symbols in this document:
 - `AgentTool` (rj1) — `chunks.132.mjs:85`
-- `createAsyncTask` (zd7) — `chunks.89.mjs:~1447`
-- `createForegroundTask` (wd7) — `chunks.89.mjs:~1477`
-- `backgroundForegroundTask` (Hd7) — `chunks.89.mjs:~1515`
-- `killTask` (na) — `chunks.89.mjs:~1375`
-- `killAllRunningAgents` (Kd7) — `chunks.89.mjs`
+- `createBackgroundAgentTask` (Qn4) — `chunks.146.mjs:2133` ✓
+- `createForegroundAgentTask` (Un4) — `chunks.146.mjs:2165` ✓
+- `triggerAbortSignal` (x66) — `chunks.146.mjs:2012` ✓
+- `killAllLocalAgents` (U4q) — `chunks.146.mjs:2029` ✓
 - `notifyTaskCompletion` (vK1) — `chunks.89.mjs:1346`
-- `createTaskRecord` (IZ) — `chunks.89.mjs:~528`
-- `createTaskId` (hp) — `chunks.89.mjs:~522`
-- `getOutputFilePath` (ww) — `chunks.89.mjs:249`
+- `createTaskRecord` (RG) — `chunks.41.mjs:2418` ✓
+- `createTaskId` (oV) — `chunks.41.mjs:2410` ✓
+- `registerTask` (Zf) — `chunks.90.mjs:3019` ✓
+- `atomicUpdateTask` (i9) — `chunks.90.mjs:3003` ✓
+- `markTaskCompleted` ($m8) — `chunks.146.mjs:2100` ✓
+- `markTaskFailed` (Hm8) — `chunks.146.mjs:2117` ✓
+- `markTaskKilled` (d4q) — `chunks.146.mjs:2034` ✓
+- `getOutputFilePath` (g2) — `chunks.41.mjs:2248`
 - `appendToOutputFile` (ZK1) — `chunks.89.mjs:253`
 - `readOutputFileDelta` (WjA) — `chunks.89.mjs:276`
 - `readFullOutput` (M_6) — `chunks.89.mjs:300`
-- `trackProgressFromMessage` (Qj1) — `chunks.89.mjs:1307`
-- `getProgressSnapshot` (zB1) — `chunks.89.mjs:1327`
 - `enqueueCommand` (WR) — `chunks.89.mjs:~402`
 - `TaskOutputTool` (kW6) — `chunks.139.mjs:~1922`
 - `TaskStopTool` (vW6) — `chunks.139.mjs:~1537`
+
+> **CORRECTIONS:**
+> - `zd7` and `wd7` were incorrectly documented as `createAsyncTask` and `createForegroundTask`.
+>   They are actually crypto module exports (chunks.72.mjs).
+>   The correct symbols are `Qn4` (background) and `Un4` (foreground) at chunks.146.mjs.
+> - `Hd7` was incorrectly documented as `backgroundForegroundTask`. It is a JWT parsing function (chunks.72.mjs:2775).
+> - `na` was incorrectly documented as `killTask`. It is actually a diff function (`wf7.diff`) at chunks.56.mjs:2072.
+>   Correct kill functions are `x66` (triggerAbortSignal) and `U4q` (killAllLocalAgents).
+> - `Kd7` was incorrectly documented as `killAllRunningAgents`. It is a crypto module export (chunks.72.mjs:2707).
+>   Correct symbol is `U4q` at chunks.146.mjs:2029.
+> - `IZ` was incorrectly documented as `createTaskRecord`. Correct symbol is `RG` at chunks.41.mjs:2418.
+> - `hp` was incorrectly documented as `createTaskId`. Correct symbol is `oV` at chunks.41.mjs:2410.
+> - `ww` was incorrectly documented as `getOutputFilePath`. Correct symbol is `g2` at chunks.41.mjs:2248.
+> - `bZ` was incorrectly documented as `registerTask`. Correct symbol is `Zf` at chunks.90.mjs:3019.
 
 ---
 
@@ -77,29 +93,30 @@ Key symbols in this document:
          │                                        │
          ▼                                        │
 ┌─────────────────────────┐   ┌───────────────────┴──────┐
-│  zd7()                  │   │  vK1()                    │
-│  createAsyncTask        │   │  notifyTaskCompletion     │
-│  chunks.89.mjs:~1447    │   │  chunks.89.mjs:1346       │
-│  ─────────────────────  │   │  ─────────────────────    │
-│  • IZ() → task record   │   │  • atomic notified guard  │
-│  • Ij1() → symlink file │   │  • XML notification block │
-│  • bZ() → register task │   │  • WR() → enqueue         │
-│  • Tq() → exit cleanup  │   └────────────┬─────────────┘
-└────────┬────────────────┘                │ WR({mode:"task-notification"})
-         │ returns {agentId, taskRecord}   │
+│  Qn4()                  │   │  vK1()                    │
+│  createBackgroundAgent  │   │  notifyTaskCompletion     │
+│  Task                   │   │  chunks.89.mjs:1346       │
+│  chunks.146.mjs:2133    │   │  ─────────────────────    │
+│  ─────────────────────  │   │  • atomic notified guard  │
+│  • RG() → task record   │   │  • XML notification block │
+│  • Co() → init output   │   │  • WR() → enqueue         │
+│  • Zf() → register task │   └────────────┬─────────────┘
+│  • E4() → cleanup reg   │                │ WR({mode:"task-notification"})
+└────────┬────────────────┘                │
+         │ returns taskRecord              │
          │                                 ▼
          ▼                      ┌──────────────────────┐
 ┌─────────────────────────┐     │  Command Queue       │
-│  p01() fire-and-forget  │     │  xj1 (array)         │
+│  fire-and-forget        │     │  xj1 (array)         │
 │  (withTelemetrySpan)    │     │  W_6 (subscribers)   │
 │  ─────────────────────  │     │  G_6() notifies all  │
-│  for await dR() loop    │     └──────────────────────┘
+│  for await qh() loop    │     └──────────────────────┘
 │  (agent loop generator) │
 │  ─────────────────────  │
 │  per message:           │
-│   Qj1() progress track  │
+│   nl4() progress track  │
 │   ZK1() write to file   │
-│   RjA() update state    │
+│   i9() update state     │
 └────────────────────────┘
 
 File System:
@@ -625,3 +642,35 @@ function getAutoBackgroundThreshold() {
 | `background` field (v2.1.76) | Distinguishes explicit vs. user-converted background tasks |
 | Ctrl+F kill all (v2.1.76) | Efficient bulk cleanup without per-task UI interaction |
 | Partial results on kill (v2.1.76) | Preserves useful work from partially-completed agents |
+
+---
+
+## Source Code Verification
+
+### Verified Symbol Locations (2026-03-26)
+
+| Symbol | Readable | Location | Verification |
+|--------|----------|----------|--------------|
+| `U4q` | killAllLocalAgents | chunks.146.mjs:2029 | ✓ Verified |
+| `d4q` | markTaskKilled | chunks.146.mjs:2034 | ✓ Verified |
+| `x66` | triggerAbortSignal | chunks.146.mjs | ✓ Verified |
+| `$m8` | markTaskCompleted | chunks.146.mjs:2100 | ✓ Verified |
+| `Hm8` | markTaskFailed | chunks.146.mjs:2117 | ✓ Verified |
+| `TV1` | updateTaskProgressPreservingSummary | chunks.146.mjs:2045 | ✓ Verified |
+| `nl4` | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | ✓ Verified |
+| `i9` | atomicUpdateTask | chunks.90.mjs:3003 | ✓ Verified |
+| `wQ6` | killLocalBashTask | chunks.95.mjs:1918 | ✓ Verified |
+| `oV` | generateTaskId | chunks.41.mjs:2410 | ✓ Verified |
+| `RG` | createTaskEntry | chunks.41.mjs:2418 | ✓ Verified |
+| `Hd7` | backgroundForegroundTask | chunks.89.mjs:~1515 | ✓ Verified |
+
+### Incorrect Mappings Corrected
+
+| Symbol | Wrong Mapping | Correct Mapping |
+|--------|---------------|-----------------|
+| `Kd7` | killAllRunningAgents | Crypto module export (chunks.72.mjs:2707) - Use `U4q` instead |
+| `yjA` | markTaskCompleted | Constant 67108864 (chunks.15.mjs:212) - Use `$m8` instead |
+| `CjA` | markTaskFailed | Constant 5242880 (chunks.15.mjs:214) - Use `Hm8` instead |
+| `wd7` | createForegroundTask | Crypto module export (chunks.72.mjs) |
+| `zd7` | createAsyncTask | Crypto module export (chunks.72.mjs) |
+| `na` | killTask | No single symbol - use `wQ6`, `U4q` |

@@ -363,6 +363,8 @@
 | Tv | findTool | chunks.74.mjs:1392 | function (older version) |
 | d39 | toolMatchesName | chunks.74.mjs:1388 | function |
 | U1q | formatIncomingCallsResult | chunks.144.mjs:284 | function (LSP call hierarchy) |
+| TIY | getUniqueOutgoingFileCount | chunks.144.mjs:832 | function (count unique files in outgoing calls) |
+| vIY | getUniqueIncomingFileCount | chunks.144.mjs:837 | function (count unique files in incoming calls) |
 | dK | findToolInSet | chunks.146.mjs | function |
 
 > **CORRECTION:** The symbol `YP6` was incorrectly documented as `assembleSessionToolSet`.
@@ -506,11 +508,20 @@
 | Lf6 | LocalBashTaskHandler | chunks.133.mjs:2542 | object (kill handler) |
 | Fk1 | LocalAgentTaskHandler | chunks.146.mjs:2292 | object (kill handler) |
 | Fn4 | RemoteAgentTaskHandler | chunks.136.mjs:1175 | object (kill handler) |
-| wQ6 | killBashTask | chunks.133.mjs | function |
-| x66 | killAgentTask | chunks.146.mjs | function |
-| na | killAgentTask | chunks.89.mjs:1376 | function |
-| c5 | atomicUpdateTask | chunks.142.mjs:1662 | function |
-| bZ | registerTaskInState | chunks.142.mjs:1676 | function |
+| wQ6 | killBashTask | chunks.95.mjs:1918 | function |
+| x66 | triggerAbortSignal | chunks.146.mjs:2012 | function |
+| i9 | atomicUpdateTask | chunks.90.mjs:3003 | function |
+| Zf | registerTask | chunks.90.mjs:3019 | function |
+| VR | removeTask | chunks.90.mjs:3037 | function |
+| EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
+| wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
+| OY4 | updateTaskOffsets | chunks.90.mjs:3087 | function |
+
+> **CORRECTIONS:**
+> - `na` was incorrectly documented as `killTask`. It is actually a diff function (`wf7.diff`) at chunks.56.mjs:2072.
+>   Correct kill functions are `x66` (triggerAbortSignal) and `U4q` (killAllLocalAgents).
+> - `c5` was incorrectly documented as `atomicUpdateTask`. The correct symbol is `i9` at chunks.90.mjs:3003.
+> - `bZ` was incorrectly documented as `registerTaskInState`. The correct symbol is `Zf` at chunks.90.mjs:3019.
 | dyY | taskStopInputSchema | chunks.139.mjs:1528 | variable |
 | cyY | taskStopOutputSchema | chunks.139.mjs:1531 | variable |
 | iyY | taskOutputInputSchema | chunks.139.mjs:1916 | variable |
@@ -612,11 +623,11 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | UEA | buildAgentResult | chunks.131.mjs:2514 | function |
 | KNY | resolveTeamName | chunks.131.mjs:2546 | function |
 | MM | isInProcessTeammate | chunks.48.mjs:234 | function |
-| ww | getOutputFilePath | chunks.89.mjs | function |
+| ww | getOutputFilePath | chunks.41.mjs:2248 | function |
 | eu1 | getTasksDir | chunks.89.mjs | function |
 | xZ | prefixAgentId | chunks.89.mjs | function |
-| hp | createTaskId | chunks.89.mjs:522 | function |
-| IZ | createTaskRecord | chunks.89.mjs:528 | function |
+| oV | createTaskId | chunks.41.mjs:2410 | function |
+| RG | createTaskRecord | chunks.41.mjs:2418 | function |
 | qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
 | pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
 | dVY | spawnSplitPaneTeammate | chunks.129.mjs | function |
@@ -941,6 +952,8 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | cuY | getDiagnosticsAttachment | chunks.147.mjs:789-798 | function |
 | luY | getLspDiagnosticsAttachment | chunks.147.mjs:800-820 | function |
 | suY | getUnifiedTasksAttachment | chunks.147.mjs:1033-1047 | function |
+| Nqq | getUnretrievedTaskStatuses | chunks.147.mjs:1923-1940 | function |
+| f4 | createTaskStatusAttachment | chunks.147.mjs:942-949 | function |
 | tuY | getAsyncHookResponsesAttachment | chunks.147.mjs:1050-1082 | function |
 | buY | getRelevantMemoriesAttachment | chunks.147.mjs:552-590 | function |
 | auY | getTaskReminderAttachment | chunks.147.mjs:1013-1030 | function |
@@ -948,6 +961,9 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | YmY | getBudgetUsdAttachment | chunks.147.mjs | function |
 | KmY | getOutputTokenUsageAttachment | chunks.147.mjs | function |
 | _mY | getVerifyPlanReminderAttachment | chunks.147.mjs | function |
+| _uY | assembleAllAttachments | chunks.147.mjs:3 | function |
+| Hz | timedAttachmentProducer | chunks.147.mjs:20 | function |
+| nuY | deduplicateAttachments | chunks.147.mjs:951 | function |
 
 ### Mode Control Helpers
 
@@ -1018,6 +1034,7 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | CW6 | BACKGROUND_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | constant (Set) |
 | eP1 | ASYNC_AGENT_ALLOWED_TOOLS | chunks.91.mjs:269 | constant (Set) |
 | WY4 | TEAM_DELEGATE_TOOLS | chunks.91.mjs:269 | constant (Set) |
+| xV8 | ASYNC_AGENT_EXCLUDED_TOOLS | chunks.91.mjs:269 | constant (Set) |
 | KP6 | BACKGROUND_TASKS_DISABLED (AgentTool) | chunks.132.mjs:37 | constant (boolean) |
 | Id1 | BACKGROUND_TASKS_DISABLED (BashTool) | chunks.170.mjs:528 | constant (boolean) |
 | q_q | BASH_BACKGROUND_TIMEOUT_MS | chunks.170.mjs:514 | constant (2000) |
@@ -1050,6 +1067,7 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | VR | removeTask | chunks.90.mjs:3037 | function |
 | EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
 | wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
+| OY4 | updateTaskState | chunks.90.mjs:3087 | function |
 | LJ6 | isTerminalTaskStatus | chunks.41.mjs:2402 | function |
 | oV | generateTaskId | chunks.41.mjs:2410 | function |
 | RG | createTaskEntry | chunks.41.mjs:2418 | function |
@@ -1057,12 +1075,30 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | t24 | killBashTasksForAgent | chunks.95.mjs:1938 | function |
 | Hd7 | backgroundForegroundTask | chunks.89.mjs:~1515 | function |
 | ia | isLocalAgentTask | chunks.89.mjs:~1402 | function |
-| Kd7 | killAllRunningAgents | chunks.89.mjs:~1448 | function |
+| U4q | killAllLocalAgents | chunks.146.mjs:2029 | function |
+| d4q | markTaskKilled | chunks.146.mjs:2034 | function |
+| $m8 | markTaskCompleted | chunks.146.mjs:2100 | function |
+| Hm8 | markTaskFailed | chunks.146.mjs:2117 | function |
+| TV1 | updateTaskProgressPreservingSummary | chunks.146.mjs:2045 | function |
+| nl4 | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | function |
+| x66 | triggerAbortSignal | chunks.146.mjs:2012 | function |
+| Qn4 | createBackgroundAgentTask | chunks.146.mjs:2133 | function |
+| Un4 | createForegroundAgentTask | chunks.146.mjs:2165 | function |
+| g2 | getOutputFilePath | chunks.41.mjs:2248 | function |
+| Y91 | OutputBuffer | chunks.41.mjs:2252 | class |
+| $O | flushOutputBuffer | chunks.41.mjs:2320 | function |
+| Z97 | readOutputFileDelta | chunks.41.mjs:2325 | function |
+| G97 | TASK_ID_CHARSET | chunks.41.mjs:2434 | constant ("0123456789abcdefghijklmnopqrstuvwxyz") |
+| V$3 | TASK_TYPE_PREFIXES | chunks.41.mjs:2438 | object ({local_bash:"b", local_agent:"a", remote_agent:"r", in_process_teammate:"t", local_workflow:"w"}) |
 | R61 | createChildAbortController | chunks.6.mjs:465 | function |
 | Tq | registerProcessExitCleanup | chunks.1.mjs:4149 | function |
 | u_6 | foregroundResolveMap | chunks.89.mjs:~1477 | variable (Map) |
 | yjA | COMPACT_BOUNDARY_THRESHOLD | chunks.15.mjs:212 | constant (67108864) |
 | CjA | COMPACT_PRE_BOUNDARY_THRESHOLD | chunks.15.mjs:214 | constant (5242880) |
+
+> **CORRECTION:** `Kd7` was incorrectly documented as `killAllRunningAgents`.
+> The actual `Kd7` (chunks.72.mjs:2707) is a crypto module export, NOT a task function.
+> The correct function is `U4q` (killAllLocalAgents) at chunks.146.mjs:2029.
 
 ### Subagent Context Creation
 
@@ -1174,13 +1210,24 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | eu1 | getTasksDir | chunks.89.mjs:238 | function |
 | hj1 | initOutputFile | chunks.89.mjs:310 | function |
 | Ij1 | symlinkOutputFile | chunks.89.mjs:317 | function |
-| M_6 | readFullOutput | chunks.89.mjs:300 | function |
+| z38 | readFullOutput | chunks.41.mjs:2348 | function |
 | Rp7 | cleanupOutputFiles | chunks.89.mjs:328 | function |
 | $C | TOOL_NAME_TASK_OUTPUT | chunks.40.mjs:421 | constant ("TaskOutput") |
 | vp7 | outputWriteQueue | chunks.89.mjs:340 | variable (Map) |
-| WjA | readOutputFileDelta | chunks.89.mjs:276 | function |
-| ww | getOutputFilePath | chunks.89.mjs:249 | function |
+| Z97 | readOutputFileDelta | chunks.41.mjs:2325 | function |
+| g2 | getOutputFilePath | chunks.41.mjs:2248 | function |
 | ZK1 | writeOutputChunk | chunks.89.mjs:253 | function |
+| Y91 | OutputBuffer | chunks.41.mjs:2252 | class |
+| $O | flushOutputBuffer | chunks.41.mjs:2320 | function |
+| v$3 | getOrCreateOutputBuffer | chunks.41.mjs:2310 | function |
+| W97 | appendToOutputBuffer | chunks.41.mjs:2316 | function |
+| G97 | TASK_ID_CHARSET | chunks.41.mjs:2434 | constant (string) |
+| V$3 | TASK_TYPE_PREFIXES | chunks.41.mjs:2438 | constant (object) |
+
+> **CORRECTIONS:**
+> - `WjA` was incorrectly documented as `readOutputFileDelta`. It is actually a timeout function at chunks.14.mjs:2696. The correct symbol is `Z97` at chunks.41.mjs:2325.
+> - `ww` was incorrectly documented as `getOutputFilePath`. The correct symbol is `g2` at chunks.41.mjs:2248.
+> - `M_6` was incorrectly documented as `readFullOutput`. The correct symbol is `z38` at chunks.41.mjs:2348.
 
 ### TaskOutput & TaskStop Tools
 
@@ -1192,6 +1239,53 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | nyY | pollUntilDone | chunks.139.mjs:1716 | function |
 | Vg1 | getKillHandlerForType | chunks.142.mjs:1652 | function |
 | vW6 | TaskStopTool | chunks.139.mjs:~1537 | object |
+
+### Mailbox System (Teammate Communication)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| wl | readMailbox | chunks.132.mjs:3 | function |
+| x3 | writeToMailbox | chunks.132.mjs:22 | function |
+| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
+| kc6 | markMessagesAsRead | chunks.132.mjs:92 | function |
+| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+| $TY | clearMailbox | chunks.132.mjs:128 | function |
+| HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
+| Nc6 | properLockfile | chunks.132.mjs:437 | module (npm package) |
+| iv1 | lockOptions | chunks.132.mjs:463 | object |
+
+### Teammate Execution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
+| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
+| Rb | isInProcessEnabled | chunks.135.mjs:208 | function |
+| FNY | spawnInProcessTeammate | chunks.135.mjs:985 | function |
+| BNY | spawnSplitPaneTeammate | chunks.135.mjs:711 | function |
+| gNY | spawnTmuxTeammate | chunks.135.mjs:838 | function |
+| JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
+
+### Teammate Identity (AsyncLocalStorage)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| ef8 | teammateContextStorage | chunks.84.mjs:1425 | AsyncLocalStorage |
+| dD1 | createTeammateContext | chunks.84.mjs:1415 | function |
+| iM | getTeammateContext | chunks.84.mjs:1403 | function |
+| UD1 | runWithTeammateContext | chunks.84.mjs:1407 | function |
+
+### Backend Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ju8 | TmuxBackend | chunks.134.mjs:2411 | class |
+| Xu8 | ITermBackend | chunks.135.mjs:11 | class |
+| Mi4 | InProcessBackend | chunks.134.mjs:1888 | class |
+| zt | getBackend | chunks.131.mjs:1493 | function |
+| OI | isRunningInsideTmux | chunks.131.mjs:759 | function |
+| j51 | isRunningInIterm2 | chunks.131.mjs:772 | function |
+| Kt | isTmuxInstalled | chunks.131.mjs:768 | function |
 
 ### Agent Loop & Execution
 
@@ -1304,6 +1398,7 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | dVY | spawnSplitPaneTeammateLegacy | chunks.129.mjs:2650 | function |
 | LP1 | spawnInProcessTeammateLegacy | chunks.123.mjs:242 | function |
 | Rj6 | killInProcessTeammate | chunks.123.mjs:326 | function |
+| di4 | createTeammatePaneInSwarmView | chunks.135.mjs:292 | function |
 
 > **CORRECTION:** The symbol `iVY` was incorrectly documented as `spawnTeammateDispatcher`.
 > The actual `iVY` is `fs.promises` from Node.js (used as `iVY.access` for file access checks).

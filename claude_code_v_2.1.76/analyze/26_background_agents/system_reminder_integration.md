@@ -14,13 +14,17 @@
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 
 Key functions in this document:
-- `getUnifiedTasksAttachment` (vIY) - Main producer for task-related system reminders — `chunks.142.mjs:2719`
-- `buildTaskAttachments` (di4) - Builds task_status and task_progress attachments — `chunks.142.mjs:1711`
-- `countTurnsSinceLastProgress` (TIY) - Counts assistant turns since last progress reminder — `chunks.142.mjs:2703`
+- `getTaskStatusAttachments` (suY) - Main producer for task-related system reminders — `chunks.147.mjs:1033`
+- `getUnretrievedTaskStatuses` (Nqq) - Gets unnotified terminal task statuses — `chunks.147.mjs:1923`
+- `pollTaskOutputs` (wY4) - Polls task output files for attachments — `chunks.90.mjs:3058`
+- `wrapAttachment` (f4) - Wraps attachment with metadata — `chunks.147.mjs:942`
 - `ghY` (TURNS_BETWEEN_PROGRESS) - Frequency throttle: show progress every 3 turns — `chunks.142.mjs:2863`
 - `readOutputFileDelta` (WjA) - Reads new content from output file — `chunks.89.mjs:276`
 - `truncateTaskOutput` (Ng1) - Truncates large output for reminders — `chunks.139.mjs:1664`
 - `getKillHandlerForType` (Vg1) - Gets progress message generator — `chunks.142.mjs:1652`
+
+> **CORRECTION (2026-03-26):** Previous versions incorrectly mapped `vIY`, `di4`, `TIY` to task attachment functions.
+> Correct symbols are `suY`, `Nqq`, `wY4`, `f4`. See symbol_index files for details.
 
 ---
 

@@ -498,7 +498,10 @@ Hook output visible to LLM in conversation
 **Files**:
 - Todo producer: `chunks.142.mjs:2645-2661` (fIY - getTodoReminderAttachment)
 - Task producer: `chunks.142.mjs:2684-2701` (NIY - getTaskReminderAttachment)
-- Task status producer: `chunks.142.mjs:2719-2756` (vIY - getUnifiedTasksAttachment)
+- Task status producer: `chunks.147.mjs:1033` (suY - getTaskStatusAttachments)
+
+> **CORRECTION (2026-03-26):** Previous versions incorrectly mapped `vIY` to `getUnifiedTasksAttachment`.
+> Correct symbol is `suY` → `getTaskStatusAttachments`.
 
 **Integration points**:
 
@@ -528,7 +531,7 @@ LLM receives reminder (but instructed not to mention it to user)
 
 #### Task System
 1. **Feature flag check**: Task system is conditional on `jH()` (isTasksEnabled)
-2. **Unified status updates**: `vIY` provides task status changes (pending→in_progress→completed)
+2. **Unified status updates**: `suY` provides task status changes (pending→in_progress→completed)
 3. **Task progress messages**: Background tasks can send progress updates delivered as attachments
 4. **State synchronization**: Updates app state with latest task status after delivery
 
@@ -538,7 +541,7 @@ Task state changes (e.g., agent marks task as in_progress)
     ↓
 Task state stored in appState.tasks registry
     ↓
-vIY (getUnifiedTasksAttachment) fetches task status changes
+suY (getTaskStatusAttachments) fetches task status changes
     ↓
 Generates two attachment types:
     1. task_status: Status transitions (pending→in_progress, etc.)

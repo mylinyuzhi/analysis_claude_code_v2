@@ -342,27 +342,30 @@ if (J.additionalContexts && J.additionalContexts.length > 0) {
 From `04_system_reminder/attachment_producers.md`:
 
 ```javascript
-// vIY (getUnifiedTasksAttachment) in chunks.142.mjs:2719-2756
+// suY (getTaskStatusAttachments) in chunks.147.mjs:1033
 // This attachment producer checks for task status changes and generates attachments
 
-async function getUnifiedTasksAttachment(sessionContext, messages) {
-    // Get task status changes from state
-    let taskStatusChanges = getPendingTaskStatusUpdates();
+async function getTaskStatusAttachments(sessionContext) {
+    // Poll output files and check task states
+    let { attachments } = await pollTaskOutputs(appState);
 
-    if (taskStatusChanges.length === 0) {
-        return [];  // No changes to report
-    }
+    // Get unnotified terminal tasks
+    let unnotifiedTasks = await getUnretrievedTaskStatuses(sessionContext);
 
     // Create attachments for each status change
-    return taskStatusChanges.map((change) => ({
+    return [...attachments, ...unnotifiedTasks].map((task) => ({
         type: "task_status",
-        taskId: change.taskId,
-        previousStatus: change.previousStatus,
-        currentStatus: change.currentStatus,
-        timestamp: change.timestamp
+        taskId: task.taskId,
+        taskType: task.taskType,
+        status: task.status,
+        description: task.description,
+        deltaSummary: task.deltaSummary
     }));
 }
 ```
+
+> **Note:** Previous versions incorrectly referenced `vIY` for this function.
+> Correct symbol is `suY` → `getTaskStatusAttachments`.
 
 **Task status flow:**
 
@@ -382,7 +385,7 @@ Task executes asynchronously
     └─→ Failure → Status changed to "failed"
     │
     ▼
-Next agent turn: vIY (getUnifiedTasksAttachment) called
+Next agent turn: suY (getTaskStatusAttachments) called
     │
     ▼
 Attachment generated with status change
@@ -557,12 +560,12 @@ Complete mapping of triggering events to their generated attachment types:
 | PreToolUse hook — permission decision (hook source) | `hook_permission_decision` | `fxY` stage 4 when `decisionReason.type === "hook"` |
 | PostToolUse hook — stopped continuation | `hook_stopped_continuation` | `k4q` emitting `preventContinuation` |
 | PostToolUse MCP hook — replaced output | *(no new attachment)* | `k4q` replaces `tool_result` content in-place |
-| Background task — status changed | `task_status` | `getUnifiedTasksAttachment` (vIY) on next turn |
+| Background task — status changed | `task_status` | `getTaskStatusAttachments` (suY) on next turn |
 | Tool result — has `structured_output` field | `structured_output` | `fxY` stage 8 detecting `structured_output` key |
 
 **Why `updatedMCPToolOutput` produces no separate attachment:** The PostToolUse MCP hook directly replaces the content of the already-assembled `tool_result` message rather than appending a new message. From the LLM's perspective, it sees only the modified result — the replacement is invisible.
 
-**Why `task_status` fires on the *next* turn:** Background tasks run asynchronously. The status change happens while a different turn may be executing. The `vIY` attachment producer checks for unread status changes at the start of each turn's attachment assembly phase.
+**Why `task_status` fires on the *next* turn:** Background tasks run asynchronously. The status change happens while a different turn may be executing. The `suY` attachment producer checks for unread status changes at the start of each turn's attachment assembly phase.
 
 ---
 

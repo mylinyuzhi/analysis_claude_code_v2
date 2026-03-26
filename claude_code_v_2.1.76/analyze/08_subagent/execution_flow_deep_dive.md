@@ -1855,3 +1855,292 @@ async function writeAgentMetadata(agentId, metadata) {
 2. **Orphan processes** - Child bash processes continue after agent exits
 3. **Stale hooks** - Hook handlers fire for non-existent agents
 4. **Failed resumes** - Corrupted transcript state prevents agent resume
+
+---
+
+## Tool Filtering Algorithm
+
+### What it does
+
+Determines which tools are available to a subagent based on:
+- Agent definition's `tools` list
+- Execution mode (async vs sync)
+- Tool restrictions (excluded/allowed sets)
+
+### How it works
+
+**Location:** chunks.93.mjs:1568-1620
+
+```javascript
+// ============================================
+// Xk8 - filterToolsForSubagent - Filter tools based on agent type
+// Location: chunks.93.mjs:1568
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Xk8(A, q, K) {
+    let Y = _c(A, q, K);
+    return Y
+}
+
+// READABLE (for understanding):
+function filterToolsForSubagent(agentDefinition, allTools, isAsync) {
+    let result = resolveToolFilter(agentDefinition, allTools, isAsync);
+    return result.resolvedTools;
+}
+
+// Mapping: Xk8→filterToolsForSubagent, _c→resolveToolFilter
+```
+
+### resolveToolFilter (_c) Algorithm
+
+```javascript
+// ============================================
+// _c - resolveToolFilter - Resolve tool list with wildcards and restrictions
+// Location: chunks.93.mjs:1590-1620
+// ============================================
+
+// READABLE (for understanding):
+function resolveToolFilter(agentDefinition, allTools, isAsync) {
+    let requestedTools = agentDefinition.tools;
+    let resolvedTools = [];
+    let warnings = [];
+
+    // Step 1: Handle wildcard "*"
+    if (requestedTools.includes("*")) {
+        // Include all tools
+        resolvedTools = [...allTools];
+    } else {
+        // Step 2: Resolve each requested tool
+        for (let toolName of requestedTools) {
+            let tool = findToolByName(allTools, toolName);
+            if (tool) {
+                resolvedTools.push(tool);
+            } else {
+                warnings.push(`Tool '${toolName}' not found`);
+            }
+        }
+    }
+
+    // Step 3: Apply async restrictions
+    if (isAsync) {
+        // Remove excluded tools (TaskOutput, ExitPlanMode, etc.)
+        resolvedTools = resolvedTools.filter(
+            (tool) => !EXCLUDED_TOOLS.has(tool.name)
+        );
+    }
+
+    // Step 4: Check MCP requirements
+    if (agentDefinition.requiredMcpServers?.length) {
+        // Verify MCP servers are available
+        // ... validation logic
+    }
+
+    return { resolvedTools, warnings };
+}
+```
+
+### Tool Restriction Sets
+
+**EXCLUDED_TOOLS (CW6)** - Tools excluded from background agents:
+- `TaskOutput` - Would create polling loops
+- `ExitPlanMode` - Requires user approval
+- `EnterPlanMode` - Requires user approval
+- `Agent` - Could spawn nested background agents
+- `AskUserQuestion` - Would block indefinitely
+- `TaskStop` - Background agents shouldn't manage tasks
+
+**ASYNC_ALLOWED_TOOLS (eP1)** - Tools explicitly allowed for async:
+- `Read`, `Write`, `Edit`, `Bash`
+- `Grep`, `Glob`, `WebFetch`, `WebSearch`
+- `TodoWrite`, `NotebookEdit`, `Skill`
+- `StructuredOutput`, `ToolSearch`
+
+### Why this approach
+
+1. **Prevents hangs** - Background agents can't call blocking tools
+2. **Security boundary** - Clear allowlist for unattended execution
+3. **Flexibility** - Agent definitions can specify custom tool sets
+
+---
+
+## Fork Context Building
+
+### What it does
+
+When a subagent is spawned via the "Fork" feature (no explicit `subagent_type`), the parent's conversation context is cloned and passed to the child.
+
+### How it works
+
+```javascript
+// ============================================
+// Fx8 - cloneForkContext - Clone parent messages for fork subagent
+// Location: chunks.133.mjs:1788-1803
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Fx8(A) {
+    let q = new Set;
+    for (let K of A)
+        if (K?.type === "user") {
+            let z = K.message.content;
+            if (Array.isArray(z)) {
+                for (let _ of z)
+                    if (_.type === "tool_result" && _.tool_use_id) q.add(_.tool_use_id)
+            }
+        } return A.filter((K) => {
+        if (K?.type === "assistant") {
+            let z = K.message.content;
+            if (Array.isArray(z)) return !z.some((w) => w.type === "tool_use" && w.id && !q.has(w.id))
+        }
+        return !0
+    })
+}
+
+// READABLE (for understanding):
+function cloneForkContext(messages) {
+    // Step 1: Collect all tool_result IDs from user messages
+    let toolResultIds = new Set();
+    for (let message of messages) {
+        if (message?.type === "user") {
+            let content = message.message.content;
+            if (Array.isArray(content)) {
+                for (let block of content) {
+                    if (block.type === "tool_result" && block.tool_use_id) {
+                        toolResultIds.add(block.tool_use_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 2: Filter orphaned tool_use blocks from assistant messages
+    // Keep only tool_use blocks that have corresponding tool_results
+    return messages.filter((message) => {
+        if (message?.type === "assistant") {
+            let content = message.message.content;
+            if (Array.isArray(content)) {
+                // Reject if any tool_use has no matching tool_result
+                return !content.some(
+                    (block) => block.type === "tool_use" &&
+                               block.id &&
+                               !toolResultIds.has(block.id)
+                );
+            }
+        }
+        return true;
+    });
+}
+
+// Mapping: Fx8→cloneForkContext, A→messages, q→toolResultIds
+```
+
+### Why orphan filtering
+
+When cloning context for a fork:
+1. **Incomplete tool calls** - Parent may have tool_use without tool_result
+2. **API validation** - Anthropic API rejects orphaned tool_use blocks
+3. **Context hygiene** - Avoid confusing the child with incomplete operations
+
+---
+
+## Worktree Isolation (v2.1.76)
+
+### What it does
+
+Subagents can declare `isolation: "worktree"` to run in an isolated git worktree, preventing file conflicts with the parent agent.
+
+### How it works
+
+```javascript
+// In agentLoopRunner, when isolation === "worktree":
+let worktreeName = `agent-${agentId.slice(0, 8)}`;
+let worktree = await createWorktree(worktreeName);
+
+// Worktree structure:
+// - Creates new branch: agent-{id}
+// - Clones working directory to isolated path
+// - Sets worktreePath in derived context
+// - On completion: merges or keeps based on changes
+```
+
+### Creation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Worktree Isolation Flow                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. AgentTool.call() with isolation: "worktree"                             │
+│     │                                                                        │
+│     ▼                                                                        │
+│  2. createWorktree(worktreeName)                                             │
+│     • git worktree add .claude/worktrees/agent-{id} -b agent-{id}            │
+│     • Returns { worktreePath, worktreeBranch, headCommit, gitRoot }         │
+│     │                                                                        │
+│     ▼                                                                        │
+│  3. agentLoopRunner with worktreePath set                                    │
+│     • All file operations relative to worktreePath                          │
+│     • Child process cwd = worktreePath                                       │
+│     │                                                                        │
+│     ▼                                                                        │
+│  4. On completion:                                                           │
+│     • If no changes: remove worktree and branch                             │
+│     • If changes: keep worktree, notify user                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Benefits
+
+1. **True isolation** - Each subagent has own working directory
+2. **Safe parallelism** - Multiple agents can edit files simultaneously
+3. **Easy cleanup** - Worktrees removed automatically if no changes
+4. **Conflict prevention** - No race conditions on file writes
+
+---
+
+## Related Documents
+
+- [tools_integration.md](./tools_integration.md) - Tool assembly details
+- [communication_and_coordination.md](./communication_and_coordination.md) - Teammate messaging
+- [ui_interaction.md](./ui_interaction.md) - UI components for subagents
+- [../26_background_agents/implementation.md](../26_background_agents/implementation.md) - Background task implementation
+
+---
+
+## Source Code Verification
+
+### Verified Symbol Locations (2026-03-26)
+
+| Symbol | Readable | Location | Verification |
+|--------|----------|----------|--------------|
+| `qh` | agentLoopRunner | chunks.133.mjs:1565 | ✓ Verified |
+| `TvY` | isMessageRecordable | chunks.133.mjs:1561 | ✓ Verified |
+| `Fx8` | cloneForkContext | chunks.133.mjs:1788 | ✓ Verified |
+| `vvY` | buildAgentSystemPrompt | chunks.133.mjs:1806 | ✓ Verified |
+| `X66` | runWithAgentIdentity | chunks.133.mjs:841 | ✓ Verified |
+| `Tf6` | getCurrentAgentIdentity | chunks.133.mjs:837 | ✓ Verified |
+| `mc4` | agentIdentityStorage | chunks.133.mjs:835 | ✓ Verified |
+| `Ux8` | executeSubagentStartHooks | chunks.175.mjs:2666 | ✓ Verified |
+| `r24` | registerAgentHooks | chunks.95.mjs:1842 | ✓ Verified |
+| `zZ6` | deregisterAgentHooks | chunks.95.mjs:1830 | ✓ Verified |
+| `_c` | resolveToolFilter | chunks.93.mjs:1590 | ✓ Verified |
+| `C01` | resolveModelConfig | chunks.93.mjs:1476 | ✓ Verified |
+| `bI` | generateAgentId | chunks.93.mjs:1557 | ✓ Verified |
+| `U4q` | killAllLocalAgents | chunks.146.mjs:2029 | ✓ Verified |
+| `d4q` | markTaskKilled | chunks.146.mjs:2034 | ✓ Verified |
+| `$m8` | markTaskCompleted | chunks.146.mjs:2100 | ✓ Verified |
+| `Hm8` | markTaskFailed | chunks.146.mjs:2117 | ✓ Verified |
+| `i9` | atomicUpdateTask | chunks.90.mjs:3003 | ✓ Verified |
+
+### Incorrect Mappings Corrected
+
+| Symbol | Wrong Mapping | Correct Mapping |
+|--------|---------------|-----------------|
+| `Kd7` | killAllRunningAgents | Crypto module export (chunks.72.mjs:2707) |
+| `yjA` | markTaskCompleted | Constant 67108864 (chunks.15.mjs:212) |
+| `CjA` | markTaskFailed | Constant 5242880 (chunks.15.mjs:214) |
+| `wd7` | createForegroundTask | Crypto module export (chunks.72.mjs) |
+| `zd7` | createAsyncTask | Crypto module export (chunks.72.mjs) |
+| `na` | killTask | No single symbol - use `wQ6`, `U4q`, `d4q` |

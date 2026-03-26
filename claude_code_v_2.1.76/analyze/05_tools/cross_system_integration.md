@@ -158,7 +158,7 @@ Using user-role messages with `isMeta: true` preserves cache efficiency while st
 | Permission decision (hook source) | `hook_permission_decision` | `fxY` stage 4 |
 | PostToolUse hook — stop | `hook_stopped_continuation` | `k4q` emitting `preventContinuation` |
 | PostToolUse MCP hook — replace | *(in-place replacement)* | `k4q` replaces `tool_result` |
-| Background task status change | `task_status` | `vIY` (getUnifiedTasksAttachment) on next turn |
+| Background task status change | `task_status` | `suY` (getTaskStatusAttachments) on next turn |
 | Tool result with structured output | `structured_output` | `fxY` stage 8 |
 
 ### Bash Progress Throttling
