@@ -125,6 +125,7 @@ function handlePlanModeTransition(fromMode, toMode) {
 
 | Document | Description |
 |----------|-------------|
+| [plan_mode_complete_source_restoration_v2.md](plan_mode_complete_source_restoration_v2.md) | **NEW v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [plan_mode_source_restoration.md](plan_mode_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
 | [plan_mode_state_machine_complete.md](plan_mode_state_machine_complete.md) | **NEW** - Complete state machine with swarm approval workflow |
 | [implementation.md](implementation.md) | Complete plan mode implementation |
@@ -401,7 +402,13 @@ MODE_CONFIGURATION = {
 
 **Last validated:** 2026-03-27
 
-All symbols in this module have been cross-validated against source code. Key validated symbols:
+All symbols in this module have been cross-validated against source code.
+
+### Validation Reports
+- [symbol_validation_report.md](symbol_validation_report.md) - Complete symbol validation
+- [plan_mode_source_restoration.md](plan_mode_source_restoration.md) - Full source restoration with algorithms
+
+### Key Validated Symbols
 
 | Symbol | Validated Location | Status |
 |--------|-------------------|--------|
@@ -410,6 +417,9 @@ All symbols in this module have been cross-validated against source code. Key va
 | dt (TOOL_NAME_ENTER_PLAN_MODE) | chunks.90.mjs:3121 | ✅ Correct |
 | aJ (TOOL_NAME_EXIT_PLAN_MODE) | chunks.90.mjs:507 | ✅ Correct |
 | Dp (handlePlanModeTransition) | chunks.1.mjs:2946 | ✅ Correct |
+| AhY (handlePlanApproval) | chunks.145.mjs:2521 | ✅ Correct |
+| Vx4 (PlanApprovalRequestMessageSchema) | chunks.129.mjs:1546 | ✅ Correct |
+| Nx4 (PlanApprovalResponseMessageSchema) | chunks.129.mjs:1553 | ✅ Correct |
 
 ---
 
@@ -418,10 +428,15 @@ All symbols in this module have been cross-validated against source code. Key va
 ### Plan Mode ↔ System Reminder (04)
 
 Plan mode generates the following attachment types:
-- `plan_mode` - Injected each turn while in plan mode
-- `plan_mode_exit` - Generated on exit from plan mode
-- Turn counting for sparse reminder timing
-- Plan file path included in attachments
+- `plan_mode` - Full 5-phase workflow instructions (injected each turn)
+- `plan_mode_reentry` - Re-entering plan mode (brief reminder)
+- `plan_mode_exit` - Exited plan mode notification
+- `plan_file_reference` - Existing plan file content (post-compact)
+
+**Attachment Variants:**
+- Full format - Complete 5-phase workflow
+- Sparse format - Minimal reminder for experienced users
+- Subagent format - Brief for nested agents (no plan file editing)
 
 ### Plan Mode ↔ Tools (05)
 
@@ -432,17 +447,33 @@ Tool filtering in plan mode:
 - `EnterPlanMode` allowed for re-entry
 - `AskUserQuestion` allowed for clarification
 
+**Tool Filtering Algorithm:**
+```javascript
+function filterToolsForPlanMode(tools, planFilePath) {
+    return tools.filter(tool => {
+        if (tool.isReadOnly?.()) return true;
+        if (tool.name === "ExitPlanMode") return true;
+        if (tool.name === "EnterPlanMode") return true;
+        if (tool.name === "AskUserQuestion") return true;
+        if (tool.name === "Write" || tool.name === "Edit") return true; // Path checked at execution
+        return false;
+    });
+}
+```
+
 ### Plan Mode ↔ Hooks (11)
 
 - PreToolUse hooks can modify tool availability
 - PostToolUse hooks for plan file changes
 - PreCompact hooks for plan preservation
+- Elicitation hooks for plan approval workflows
 
 ### Plan Mode ↔ Compact (07)
 
 - Plan preserved as state-preservation attachment
 - Plan file not affected by compaction
-- TodoWrite state preserved
+- TodoWrite state preserved during compaction
+- `plan_file_reference` attachment injected post-compact
 
 ### Plan Mode ↔ Agent Teams (30)
 
@@ -451,3 +482,22 @@ Swarm teammate plan approval workflow:
 - Team-lead reviews and responds with `plan_approval_response`
 - Approved plans allow exit from plan mode
 - Rejected plans require revision
+
+**Message Flow:**
+```
+Teammate (in plan mode)
+    │ ExitPlanMode called
+    ▼
+plan_approval_request → writeToMailbox
+    │
+    ▼
+Team-lead inbox (readMailbox)
+    │ Show approval dialog
+    ▼
+plan_approval_response → writeToMailbox
+    │
+    ▼
+Teammate receives response
+    ├─→ approved: Exit plan mode
+    └─→ rejected: Stay in plan mode
+```

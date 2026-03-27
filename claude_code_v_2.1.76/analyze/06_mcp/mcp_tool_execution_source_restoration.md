@@ -563,6 +563,161 @@ MCP tool execution generates the following attachments:
 
 ---
 
+## 6. Elicitation Handler (WT7) - Server → User Input
+
+**What it does:**
+Sets up the request handler for `elicitation/create` messages from MCP servers. When an MCP server needs user input (e.g., authentication credentials), it sends an elicitation request that this handler processes and queues for UI display.
+
+**How it works:**
+1. Register handler for `elicitation/create` method via `setRequestHandler`
+2. Detect elicitation mode (form or URL) via `detectElicitationMode` (jB3)
+3. Run elicitation hook (sx6) for potential auto-response
+4. If hook doesn't resolve, queue elicitation for UI display
+5. Wait for user response via Promise
+6. Return response to MCP server
+
+**Why this approach:**
+- Hooks can auto-respond to known elicitation patterns (e.g., OAuth flows)
+- Queue-based processing enables modal priority management
+- Promise-based response allows async waiting for user input
+
+```javascript
+// ============================================
+// setupElicitationRequestHandler - Handle elicitation/create from MCP server
+// Location: chunks.58.mjs:3-50
+// ============================================
+
+// ORIGINAL (for source lookup):
+function WT7(A, q, K) {
+    try {
+        A.setRequestHandler(yp, async (Y, z) => {
+            n1(q, `Received elicitation request: ${B6(Y)}`);
+            let _ = jB3(Y.params);
+            d("tengu_mcp_elicitation_shown", {
+                mode: _
+            });
+            try {
+                let w = await sx6(q, Y.params, z.signal);
+                if (w) return n1(q, `Elicitation resolved by hook: ${B6(w)}`), d("tengu_mcp_elicitation_response", {
+                    mode: _,
+                    action: w.action
+                }), w;
+                let O = _ === "url" && "elicitationId" in Y.params ? Y.params.elicitationId : void 0,
+                    H = await new Promise((J) => {
+                        let M = () => { J({ action: "cancel" }) };
+                        K.setAppState((G) => ({
+                            ...G,
+                            elicitation: {
+                                ...G.elicitation,
+                                queue: [...G.elicitation.queue, {
+                                    id: O || generateId(),
+                                    serverName: q,
+                                    params: Y.params,
+                                    mode: _,
+                                    resolve: J,
+                                    onCancel: M
+                                }]
+                            }
+                        }))
+                    });
+                return d("tengu_mcp_elicitation_response", {
+                    mode: _,
+                    action: H.action
+                }), H
+            } catch (w) {
+                throw n1(q, `Elicitation error: ${_1(w)}`), w
+            }
+        })
+    } catch (Y) {
+        EY(q, `Failed to set up elicitation handler: ${_1(Y)}`)
+    }
+}
+
+// READABLE (for understanding):
+function setupElicitationRequestHandler(client, serverName, sessionContext) {
+    try {
+        client.setRequestHandler(ElicitationCreateSchema, async (request, context) => {
+            logInfo(serverName, `Received elicitation request: ${JSON.stringify(request)}`);
+
+            // Detect mode (form or URL)
+            const mode = detectElicitationMode(request.params);
+            emitTelemetry("tengu_mcp_elicitation_shown", { mode });
+
+            try {
+                // Try to resolve via hook first
+                const hookResponse = await runElicitationHook(serverName, request.params, context.signal);
+                if (hookResponse) {
+                    logInfo(serverName, `Elicitation resolved by hook: ${JSON.stringify(hookResponse)}`);
+                    emitTelemetry("tengu_mcp_elicitation_response", { mode, action: hookResponse.action });
+                    return hookResponse;
+                }
+
+                // Extract elicitation ID for URL mode
+                const elicitationId = mode === "url" && "elicitationId" in request.params
+                    ? request.params.elicitationId
+                    : undefined;
+
+                // Queue for UI display and wait for user response
+                const userResponse = await new Promise((resolve) => {
+                    const onCancel = () => resolve({ action: "cancel" });
+
+                    sessionContext.setAppState((state) => ({
+                        ...state,
+                        elicitation: {
+                            ...state.elicitation,
+                            queue: [...state.elicitation.queue, {
+                                id: elicitationId || generateId(),
+                                serverName,
+                                params: request.params,
+                                mode,
+                                resolve,
+                                onCancel
+                            }]
+                        }
+                    }));
+                });
+
+                emitTelemetry("tengu_mcp_elicitation_response", { mode, action: userResponse.action });
+                return userResponse;
+
+            } catch (error) {
+                logError(serverName, `Elicitation error: ${serializeError(error)}`);
+                throw error;
+            }
+        });
+    } catch (error) {
+        logError(serverName, `Failed to set up elicitation handler: ${serializeError(error)}`);
+    }
+}
+
+// Mapping: WT7→setupElicitationRequestHandler, A→client, q→serverName, K→sessionContext,
+//          yp→ElicitationCreateSchema, jB3→detectElicitationMode, sx6→runElicitationHook,
+//          B6→JSON.stringify, _1→serializeError, n1→logInfo, EY→logError
+```
+
+**Key insight:**
+The elicitation handler uses a Promise-based queue pattern. The Promise's `resolve` function is stored in the queue item, allowing the UI component to resolve it when the user submits or cancels. This creates a clean separation between the MCP protocol handler and the UI layer.
+
+### Elicitation Mode Detection
+
+```javascript
+// jB3 - detectElicitationMode
+function detectElicitationMode(params) {
+    // URL mode: has 'uris' array
+    if (params.uris && Array.isArray(params.uris)) {
+        return "url";
+    }
+    // Form mode: has 'requestedSchema' object
+    if (params.requestedSchema) {
+        return "form";
+    }
+    // Default to form mode
+    return "form";
+}
+```
+
+---
+
 ## Cross-Reference
 
 - [mcp_tool_execution_complete.md](./mcp_tool_execution_complete.md) - Original analysis

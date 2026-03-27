@@ -101,6 +101,7 @@ User: mcp-cli call sqlite/query '{"sql": "SELECT * FROM users"}'
 
 | Document | Description |
 |----------|-------------|
+| [mcp_complete_source_restoration_v2.md](mcp_complete_source_restoration_v2.md) | **NEW v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [mcp_tool_execution_source_restoration.md](mcp_tool_execution_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
 | [mcp_tool_execution_complete.md](mcp_tool_execution_complete.md) | **NEW** - Complete tool execution with elicitation and retry logic |
 | [implementation.md](implementation.md) | Core MCP implementation and mcp-cli interception |
@@ -320,7 +321,13 @@ MCP_TIMEOUT_MS = 1800000  // 30 minute timeout (CYz)
 
 **Last validated:** 2026-03-27
 
-All symbols in this module have been cross-validated against source code. Key validated symbols:
+All symbols in this module have been cross-validated against source code.
+
+### Validation Reports
+- [symbol_validation_report.md](symbol_validation_report.md) - Complete symbol validation
+- [mcp_complete_source_restoration.md](mcp_complete_source_restoration.md) - Full source restoration with algorithms
+
+### Key Validated Symbols
 
 | Symbol | Validated Location | Status |
 |--------|-------------------|--------|
@@ -328,7 +335,12 @@ All symbols in this module have been cross-validated against source code. Key va
 | pC (callMcpTool) | chunks.169.mjs:1910 | ✅ Correct |
 | JVq (McpHub) | chunks.178.mjs:235 | ✅ Correct |
 | F3z (executeMcpToolCall) | chunks.170.mjs:607 | ✅ Correct |
-| yT6 (getMcpClientConnection) | chunks.170.mjs:606 | ✅ Correct |
+| yT6 (getMcpClientConnection) | chunks.169.mjs:1886 | ✅ Correct |
+| qn8 (McpSessionLostError) | chunks.170.mjs | ✅ Correct |
+| EV (McpToolExecutionError) | chunks.170.mjs | ✅ Correct |
+| WT7 (setupElicitationRequestHandler) | chunks.58.mjs:3 | ✅ Correct |
+| ZP (memoize) | chunks.170.mjs | ✅ Correct |
+| $58 (buildMcpToolName) | chunks.170.mjs | ✅ Correct |
 
 ---
 
@@ -336,30 +348,45 @@ All symbols in this module have been cross-validated against source code. Key va
 
 ### MCP ↔ Tools (05)
 
-- MCP tools are registered in the tool registry with `mcp__` prefix
+MCP tools are registered in the tool registry with `mcp__` prefix:
+- Tool discovery via `fetchMcpTools` (JE) → `tools/list` JSON-RPC
 - Tool execution routes through standard pipeline (fxY)
 - Permission checks apply to MCP tools
 - MCP tool annotations map to tool methods:
   - `readOnlyHint` → `isReadOnly()`
   - `destructiveHint` → `isDestructive()`
   - `openWorldHint` → `isOpenWorld()`
+- Progress tracking via `mcp_progress` events
+- Session recovery retry for `McpSessionLostError`
 
 ### MCP ↔ System Reminder (04)
 
-- MCP resources can generate attachments
+MCP resources can generate attachments:
+- `mcp_resource` - MCP resource content
+- `elicitation` - Elicitation request from server
+- `elicitation_result` - Elicitation response
 - Tool discovery status in session state
-- Elicitation as special attachment type
 - Binary content (PDFs, images) saved to disk and referenced
 
 ### MCP ↔ UI (02)
 
-- MCP state slice in REPL component
+MCP state slice in REPL component:
+- MCP server connection status display
 - Elicitation dialog rendering (form/URL modes)
-- Modal priority management: `elicitation` is priority 7
-- Server connection status display
+- Modal priority management: `elicitation` is priority 4 (lowest)
+- Server connection status: `connected` | `needs-auth` | `disconnected`
+- Progress indicator for MCP tool execution
 
 ### MCP ↔ Remote Sessions (33)
 
-- McpHub bridges browser connections to CLI session
+McpHub bridges browser connections to CLI session:
 - Unix socket IPC for secure message passing
 - Chrome extension can invoke MCP tools through bridge
+- Session state persistence for reconnection
+
+### MCP ↔ Hooks (11)
+
+Elicitation hooks can intercept server requests:
+- `Elicitation` hook - Pre-process elicitation requests
+- `ElicitationResult` hook - Post-process responses
+- Hook can auto-respond to known elicitation patterns

@@ -109,6 +109,7 @@ Key functions in this module:
 
 | Document | Description |
 |----------|-------------|
+| [tools_complete_source_restoration_v2.md](tools_complete_source_restoration_v2.md) | **NEW v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [tool_execution_pipeline_complete.md](tool_execution_pipeline_complete.md) | **NEW** - Complete 8-stage pipeline with ORIGINAL/READABLE code |
 | [tool_dispatcher_source_restoration.md](tool_dispatcher_source_restoration.md) | Complete source-level restoration with ORIGINAL/READABLE code |
 | [tool_dispatcher_complete.md](tool_dispatcher_complete.md) | Complete source-level analysis of dispatch flow |
@@ -265,7 +266,13 @@ BACKGROUND_AGENT_TOOLS = new Set(["TaskCreate", "TaskGet", "TaskList", "TaskUpda
 
 **Last validated:** 2026-03-27
 
-All symbols in this module have been cross-validated against source code. Key validated symbols:
+All symbols in this module have been cross-validated against source code.
+
+### Validation Reports
+- [symbol_validation_report.md](symbol_validation_report.md) - Complete symbol validation
+- [tools_complete_source_restoration.md](tools_complete_source_restoration.md) - Full source restoration with algorithms
+
+### Key Validated Symbols
 
 | Symbol | Validated Location | Status |
 |--------|-------------------|--------|

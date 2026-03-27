@@ -1,558 +1,259 @@
-# Cross-Module Integration Analysis (Claude Code 2.1.76)
+# Cross-Module Integration Matrix (Claude Code 2.1.76)
 
-> Complete analysis of interactions between Tools (05), MCP (06), Plan Mode (12), Task System (13), and System Reminder (04).
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    CROSS-MODULE INTEGRATION                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    System Reminder (04)                        │  │
-│  │                                                                 │  │
-│  │  ← Tool execution progress                                     │  │
-│  │  ← MCP elicitation requests                                    │  │
-│  │  ← Plan mode state changes                                     │  │
-│  │  ← Task status updates                                         │  │
-│  │                                                                 │  │
-│  │  → Attachments injected into LLM context                       │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│       ▲              ▲              ▲              ▲                 │
-│       │              │              │              │                 │
-│       │              │              │              │                 │
-│  ┌────┴────┐    ┌────┴────┐    ┌────┴────┐    ┌────┴────┐          │
-│  │  Tools  │    │   MCP   │    │  Plan   │    │  Task   │          │
-│  │  (05)   │    │  (06)   │    │ Mode    │    │ System  │          │
-│  │         │    │         │    │  (12)   │    │  (13)   │          │
-│  └─────────┘    └─────────┘    └─────────┘    └─────────┘          │
-│       │              │              │              │                 │
-│       └──────────────┴──────────────┴──────────────┘                 │
-│                          Tool Execution                              │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
-```
+> Complete mapping of integration points between Tools, MCP, Plan Mode, Task System, and System Reminder modules.
 
 ---
 
-## Integration 1: Tools ↔ System Reminder
+## Overview
 
-### Attachment Types Generated
-
-| Attachment Type | Trigger | Content |
-|-----------------|---------|---------|
-| `progress` | Tool progress callback | Streaming updates (Bash output) |
-| `hook_additional_context` | PreToolUse hook | Additional context from hooks |
-| `hook_blocking_error` | Hook denial | Rejection message |
-| `task_status` | Background task change | Task completion/failure |
-| `permission_decision` | After canUseTool | User decision record |
-
-### Data Flow
-
-```
-Tool Execution (toolDispatcher)
-    │
-    ├─→ PreToolUse hooks execute
-    │       │
-    │       └─→ hook_additional_context attachment
-    │           (if hook provides context)
-    │
-    ├─→ Permission check
-    │       │
-    │       └─→ permission_decision attachment
-    │           (recorded in toolDecisions)
-    │
-    ├─→ Tool.call() executes
-    │       │
-    │       └─→ progress callbacks
-    │           (for streaming tools like Bash)
-    │
-    └─→ PostToolUse hooks execute
-            │
-            └─→ task_status attachment
-                (if hooks trigger task changes)
-```
-
-### Code Location
-
-The attachment generation happens in `toolExecutionPipeline` (fxY):
-
-```javascript
-// chunks.146.mjs - Tool execution generates attachments
-
-// Pre-tool hooks can generate additional context
-for await (let hookEvent of executePreToolHooks(...)) {
-    switch (hookEvent.type) {
-        case "additionalContext":
-            results.push(hookEvent.message);  // Attachment
-            break;
-    }
-}
-
-// Progress updates during tool execution
-progressCallback({
-    toolUseID: toolUseId,
-    data: {
-        type: "mcp_progress",  // Or other progress type
-        status: "progress",
-        // ...
-    }
-});
-```
+This document provides a comprehensive view of how the four core modules interact with each other and with the System Reminder system.
 
 ---
 
-## Integration 2: MCP ↔ System Reminder
+## Integration Matrix
 
-### MCP-Specific Attachments
-
-| Attachment Type | Trigger | Purpose |
-|-----------------|---------|---------|
-| `mcp_progress` | Tool call lifecycle | Start/progress/complete/fail |
-| `mcp_elicitation` | Server requests input | OAuth flows, forms |
-| `mcp_resource` | Resource subscription | Resource updates |
-
-### Elicitation Integration
-
-```
-MCP Tool Execution
-    │
-    ├─→ Tool returns UrlElicitationRequired error (-32042)
-    │
-    ├─→ executeMcpToolCall parses elicitation requests
-    │
-    ├─→ Check for hook handler
-    │       │
-    │       ├─→ Hook handles → continue
-    │       └─→ No hook → queue UI elicitation
-    │
-    ├─→ UI shows elicitation dialog
-    │       (form fields or URL link)
-    │
-    └─→ User responds → submit to server → retry tool
-```
-
-### Code Flow
-
-```javascript
-// chunks.169.mjs:2246 - Elicitation handling
-
-async function executeMcpToolCall({ ... }) {
-    for (let attempt = 0; ; attempt++) {
-        try {
-            return await mcpToolCallCore({ ... });
-        } catch (error) {
-            // Check for URL elicitation required
-            if (error.code === ErrorCode.UrlElicitationRequired) {
-                // Queue elicitation in UI state
-                setAppState((state) => ({
-                    ...state,
-                    elicitation: {
-                        queue: [...state.elicitation.queue, {
-                            serverName,
-                            requestId: `error-elicit-${elicitationId}`,
-                            params: elicitationRequest,
-                            // ...
-                        }]
-                    }
-                }));
-
-                // Wait for user response
-                const response = await waitForElicitationResponse();
-
-                // Submit and retry
-                await submitElicitationResponse(response);
-            }
-        }
-    }
-}
-```
+| From → To | 05_tools | 06_mcp | 12_plan_mode | 13_task_system | 04_system_reminder |
+|-----------|----------|--------|--------------|----------------|---------------------|
+| **05_tools** | - | MCP tool delegation | Tool filtering | Task tools | Progress, hooks, permissions |
+| **06_mcp** | Tool registration | - | - | - | Elicitation, resources |
+| **12_plan_mode** | Tool restrictions | - | - | Task integration | Plan mode attachments |
+| **13_task_system** | Task tools | - | Plan integration | - | Task status, progress |
+| **04_system_reminder** | Attachment types | MCP resources | Plan reminders | Task reminders | - |
 
 ---
 
-## Integration 3: Plan Mode ↔ System Reminder
+## Detailed Integration Points
 
-### Plan Mode Attachments
+### 1. Tools ↔ MCP
 
-| Attachment Type | Trigger | Content |
-|-----------------|---------|---------|
-| `plan_mode` | Enter plan mode | 5-phase workflow instructions |
-| `plan_mode_exit` | Exit plan mode | Transition context |
+**Integration Type:** Tool Discovery and Delegation
 
-### Attachment Generation
+| Aspect | Details |
+|--------|---------|
+| **Tool Discovery** | `fetchMcpTools` (JE) discovers MCP tools via `tools/list` |
+| **Tool Naming** | MCP tools prefixed with `mcp__<server>__<tool>` |
+| **Execution** | Routes through standard `toolExecutionPipeline` (fxY) |
+| **Annotations** | `readOnlyHint` → `isReadOnly()`, `destructiveHint` → `isDestructive()` |
+| **Error Handling** | `McpSessionLostError` (qn8) triggers retry, `McpToolExecutionError` (EV) wraps errors |
+| **Progress** | `mcp_progress` events for started/completed/failed |
 
-```javascript
-// Plan mode attachment producer
-function getPlanModeAttachment(context) {
-    if (context.toolPermissionContext.mode !== "plan") return null;
-
-    // Count previous plan reminders for sparse/full decision
-    const previousReminders = countPreviousPlanReminders(context);
-
-    return {
-        type: "plan_mode",
-        reminderType: previousReminders > 0 ? "sparse" : "full",
-        planFilePath: getPlanFilePath(context.agentId),
-        isSubAgent: !!context.agentId,
-        iterativeMode: isIterativeModeEnabled()
-    };
-}
-```
-
-### Variant Dispatching
-
-```javascript
-// Plan mode reminder variants
-function planModeReminderDispatcher(attachment) {
-    if (attachment.isSubAgent) {
-        return formatSubagentPlanReminder(attachment);  // Brief
-    }
-    if (attachment.reminderType === "sparse") {
-        return formatSparsePlanReminder(attachment);    // Short
-    }
-    if (attachment.iterativeMode) {
-        return formatIterativePlanReminder(attachment); // Pair-planning
-    }
-    return formatFullPlanReminder(attachment);          // 5-phase workflow
-}
-```
-
-### Mode Transition Hook
-
-```javascript
-// chunks.1.mjs:2946 - Mode transition triggers attachment flag
-
-function handlePlanModeTransition(fromMode, toMode) {
-    // Entering plan mode: reset exit attachment
-    if (toMode === "plan" && fromMode !== "plan") {
-        globalSessionState.needsPlanModeExitAttachment = false;
-    }
-
-    // Leaving plan mode: request exit attachment
-    if (fromMode === "plan" && toMode !== "plan") {
-        globalSessionState.needsPlanModeExitAttachment = true;
-    }
-}
-```
+**Key Symbols:**
+- `JE` (fetchMcpTools) - chunks.170.mjs:533
+- `pC` (callMcpTool) - chunks.169.mjs:1910
+- `F3z` (executeMcpToolCall) - chunks.170.mjs:607
+- `yT6` (getMcpClientConnection) - chunks.170.mjs:606
 
 ---
 
-## Integration 4: Task System ↔ System Reminder
+### 2. Tools ↔ Plan Mode
 
-### Task Attachments
+**Integration Type:** Tool Filtering
 
-| Attachment Type | Trigger | Content |
-|-----------------|---------|---------|
-| `task_status` | Task created/updated/completed | Task summary |
-| `task_assignment` | Task claimed by agent | Assignment info |
-| `task_blocking` | Dependency blocks execution | Blocking task IDs |
+| Aspect | Details |
+|--------|---------|
+| **Read-Only Tools** | `isReadOnly()` tools always allowed in plan mode |
+| **Write/Edit** | Only allowed to plan file path |
+| **Exit** | `ExitPlanMode` is the only programmatic exit |
+| **Re-entry** | `EnterPlanMode` allowed for re-entry |
+| **Clarification** | `AskUserQuestion` allowed for user interaction |
 
-### Task State Changes
-
+**Tool Filtering Algorithm:**
 ```javascript
-// Task state changes trigger attachments
-
-async function updateTask(taskManager, taskId, updates) {
-    const task = await loadTask(taskManager, taskId);
-
-    // Update task
-    const updatedTask = { ...task, ...updates, id: taskId };
-    await writeFile(getTaskFilePath(taskManager, taskId), JSON.stringify(updatedTask));
-
-    // Status change → generate attachment
-    if (updates.status && updates.status !== task.status) {
-        enqueueAttachment({
-            type: "task_status",
-            taskId,
-            oldStatus: task.status,
-            newStatus: updates.status,
-            subject: updatedTask.subject
-        });
-    }
-
-    return updatedTask;
-}
-```
-
-### Dependency Resolution
-
-```javascript
-// Claim validation checks dependencies and generates blocking attachment
-
-async function claimTask(taskManager, taskId, agentId) {
-    const task = await loadTask(taskManager, taskId);
-
-    // Check blocking tasks
-    const allTasks = await loadAllTasks(taskManager);
-    const incompleteTasks = allTasks.filter(t => t.status !== "completed");
-    const blockingIncomplete = task.blockedBy.filter(id =>
-        incompleteTasks.some(t => t.id === id)
-    );
-
-    if (blockingIncomplete.length > 0) {
-        // Generate blocking attachment
-        enqueueAttachment({
-            type: "task_blocking",
-            taskId,
-            blockedBy: blockingIncomplete,
-            message: `Task ${taskId} is blocked by incomplete tasks: ${blockingIncomplete.join(", ")}`
-        });
-
-        return { success: false, reason: "blocked", blockedByTasks: blockingIncomplete };
-    }
-
-    // Claim successful
-    return { success: true, task: await updateTask(taskManager, taskId, { owner: agentId }) };
-}
-```
-
----
-
-## Integration 5: Tools ↔ MCP ↔ Plan Mode
-
-### Tool Filtering in Plan Mode
-
-```javascript
-// Tool filtering considers MCP tools
-
 function filterToolsForPlanMode(tools, planFilePath) {
     return tools.filter(tool => {
-        // Read-only tools always allowed
         if (tool.isReadOnly?.()) return true;
-
-        // Plan mode exit/entry tools
-        if (tool.name === "ExitPlanMode" || tool.name === "EnterPlanMode") return true;
-
-        // AskUserQuestion for gathering requirements
+        if (tool.name === "ExitPlanMode") return true;
+        if (tool.name === "EnterPlanMode") return true;
         if (tool.name === "AskUserQuestion") return true;
-
-        // Write/Edit only to plan file
-        if (tool.name === "Write" || tool.name === "Edit") {
-            // Checked at execution time
-            return true;
-        }
-
-        // MCP tools: check if read-only
-        if (tool.isMcp && tool.isReadOnly?.()) return true;
-
+        if (tool.name === "Write" || tool.name === "Edit") return true;
         return false;
     });
 }
 ```
 
-### MCP Tool Execution in Plan Mode
-
-MCP tools that are `readOnlyHint: true` are allowed in plan mode:
-- Code indexing tools (search, list)
-- Documentation tools
-- Read-only database queries
-
----
-
-## Integration 6: Plan Mode ↔ Task System
-
-### Plan to Task Conversion
-
-After plan approval, structured steps can be converted to tasks:
-
-```javascript
-// ExitPlanMode returns task tool availability
-
-async function exitPlanMode(input, context) {
-    // ... approval logic ...
-
-    // Check if Task tools are available
-    const hasTaskTool = context.options.tools.some(t => matchesTool(t, "Agent"));
-
-    return {
-        data: {
-            plan: planContent,
-            hasTaskTool,  // Enables task suggestions
-            // ...
-        }
-    };
-}
-
-// In result formatting:
-if (hasTaskTool) {
-    return {
-        type: "tool_result",
-        content: `User approved the plan.
-
-You can now implement. Consider using TaskCreate to track your progress:
-1. Create tasks for each major step
-2. Set dependencies between tasks
-3. Update task status as you progress
-
-${planContent}`,
-        tool_use_id: toolUseId
-    };
-}
-```
+**Key Symbols:**
+- `Ki6` (EnterPlanModeTool) - chunks.144.mjs:1579
+- `zD` (ExitPlanModeTool) - chunks.143.mjs:2802
+- `dt` (TOOL_NAME_ENTER_PLAN_MODE) - chunks.90.mjs:3121
+- `aJ` (TOOL_NAME_EXIT_PLAN_MODE) - chunks.90.mjs:507
 
 ---
 
-## Integration 7: MCP ↔ Tools (Tool Discovery)
+### 3. Tools ↔ Task System
 
-### MCP Tool Registration
+**Integration Type:** Tool Definitions
 
-```javascript
-// MCP tools are discovered and registered dynamically
+| Tool | Symbol | Purpose |
+|------|--------|---------|
+| TaskCreate | `TR` | Create new task with auto-increment ID |
+| TaskUpdate | `ck` | Update task status, owner, dependencies |
+| TaskGet | `lt` | Load single task by ID |
+| TaskList | `it` | Load all tasks for listing |
+| TodoWrite | `MB` | Simple todo list (when tasks disabled) |
 
-async function initializeMcpClients(config) {
-    for (const [serverName, serverConfig] of Object.entries(config)) {
-        const client = await connectToMcpServer(serverName, serverConfig);
-
-        // Discover tools
-        const tools = await fetchMcpTools(client);
-
-        // Tools are added to session tool set
-        // with mcp__serverName__toolName naming
-    }
-}
-
-// Tool lookup finds MCP tools
-function findTool(tools, toolName) {
-    // First check session tools
-    const sessionTool = tools.find(t => t.name === toolName);
-
-    // Then check MCP alias registry
-    if (!sessionTool) {
-        const mcpTool = findTool(getMcpToolRegistry(), toolName);
-        if (mcpTool?.aliases?.includes(toolName)) return mcpTool;
-    }
-
-    return sessionTool;
-}
-```
+**Key Symbols:**
+- `jf` (getTaskManager) - chunks.84.mjs:1619
+- `aD1` (createTask) - chunks.84.mjs:1669
+- `DB` (loadTask) - chunks.84.mjs:1687
+- `WI` (updateTask) - chunks.84.mjs:1701
+- `OT8` (claimTask) - chunks.84.mjs:1781
 
 ---
 
-## Attachment Pipeline Summary
+### 4. Tools ↔ System Reminder
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    ATTACHMENT PIPELINE                               │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│  1. Event Occurs (tool call, plan mode change, task update)         │
-│                                                                       │
-│  2. Attachment Producer Called                                       │
-│     ├─ assembleAttachments() collects all pending                   │
-│     └─ Each module contributes its attachments                       │
-│                                                                       │
-│  3. Normalization                                                    │
-│     ├─ normalizeAttachmentForAPI() converts to message format       │
-│     └─ wrapWithSystemReminderTags() wraps in XML tags               │
-│                                                                       │
-│  4. Injection                                                        │
-│     ├─ buildContextMessages() inserts into message array            │
-│     └─ Positioned before user message in API call                    │
-│                                                                       │
-│  5. LLM Processing                                                   │
-│     └─ LLM receives meta-messages alongside conversation            │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
-```
+**Integration Type:** Attachment Generation
+
+| Attachment Type | When Generated | Purpose |
+|-----------------|----------------|---------|
+| `progress` | During tool execution | Streaming updates (Bash output) |
+| `hook_additional_context` | Pre-tool hook execution | Additional context from hooks |
+| `hook_blocking_error` | Hook denial | Hook rejection message |
+| `hook_stopped_continuation` | Hook stopped execution | Early termination notification |
+| `permission_decision` | After canUseTool | Record of user decision |
+| `structured_output` | Tool returned structured data | Non-text tool results |
+
+**Key Functions:**
+- `p1` (createUserMessage) - Creates messages with `isMeta: true`
+- `f4` (createAttachmentMessage) - Wraps tool-specific attachments
+- `C4q` (createProgressMessage) - Progress message factory
 
 ---
 
-## Key Integration Patterns
+### 5. MCP ↔ System Reminder
 
-### Pattern 1: State-Based Attachment Generation
+**Integration Type:** Elicitation and Resources
 
-Modules generate attachments based on session state, not direct calls:
+| Attachment Type | When Generated | Purpose |
+|-----------------|----------------|---------|
+| `mcp_resource` | Resource fetch | MCP resource content |
+| `elicitation` | Server requests input | Form/URL mode dialog |
+| `elicitation_result` | User responds | Response to MCP server |
 
-```javascript
-// Each turn, attachment producers poll state
-function assembleAttachments(context) {
-    const attachments = [];
-
-    // Tools: check tool execution state
-    if (context.pendingToolProgress) {
-        attachments.push(...generateToolProgressAttachments(context));
-    }
-
-    // Plan mode: check mode state
-    if (context.toolPermissionContext.mode === "plan") {
-        attachments.push(generatePlanModeAttachment(context));
-    }
-
-    // Tasks: check task changes
-    if (context.taskChanges?.length) {
-        attachments.push(...generateTaskAttachments(context));
-    }
-
-    return attachments;
-}
+**Elicitation Flow:**
+```
+MCP Server → elicitation/create → WT7 (handler)
+    │
+    ▼
+Queue in appState.elicitation.queue
+    │
+    ▼
+UI displays form/URL dialog
+    │
+    ▼
+User response → resolve Promise
+    │
+    ▼
+Response sent to MCP server
 ```
 
-### Pattern 2: Event-Driven UI Updates
-
-UI state updates trigger re-renders without blocking:
-
-```javascript
-// Modal priority determination
-function determineActiveModal() {
-    // Tools permission
-    if (toolPermissionQueue[0]) return "tool-permission";
-
-    // MCP elicitation
-    if (elicitation.queue[0]) return "elicitation";
-
-    // Task status (lower priority)
-    if (taskStatusQueue[0]) return "task-status";
-
-    return undefined;
-}
-```
-
-### Pattern 3: Cross-Module Validation
-
-Modules validate each other's state:
-
-```javascript
-// ExitPlanMode validates plan mode state
-async function validateInput(input, { getAppState }) {
-    const state = getAppState();
-    if (state.toolPermissionContext.mode !== "plan") {
-        return {
-            result: false,
-            message: "You are not in plan mode."
-        };
-    }
-    return { result: true };
-}
-
-// Task claiming validates dependencies
-async function claimTask(taskManager, taskId) {
-    const task = await loadTask(taskManager, taskId);
-    const blockers = await checkDependencies(task);
-    if (blockers.length > 0) {
-        return { success: false, reason: "blocked", blockedByTasks: blockers };
-    }
-    // ...
-}
-```
+**Key Symbols:**
+- `WT7` (setupElicitationRequestHandler) - chunks.58.mjs:3
+- `jB3` (detectElicitationMode) - chunks.57.mjs:2919
+- `sx6` (runElicitationHook) - chunks.58.mjs:86
 
 ---
 
-## Verification
+### 6. Plan Mode ↔ System Reminder
 
-1. **Check attachment types in system reminder**:
-   ```bash
-   grep -n "type:" /path/to/04_system_reminder/reminder_types.md
-   ```
+**Integration Type:** Plan Mode Attachments
 
-2. **Validate plan mode attachment producer**:
-   ```bash
-   grep -n "plan_mode" source/chunks.*.mjs
-   ```
+| Attachment Type | When Generated | Content |
+|-----------------|----------------|---------|
+| `plan_mode` | Each turn in plan mode | 5-phase workflow instructions |
+| `plan_mode_reentry` | Re-entering plan mode | Brief reminder |
+| `plan_mode_exit` | Exiting plan mode | Exit notification |
+| `plan_file_reference` | Post-compact | Existing plan file content |
 
-3. **Check elicitation queue in UI state**:
-   ```bash
-   grep -n "elicitation.queue" source/chunks.*.mjs
-   ```
+**Attachment Variants:**
+- **Full format** - Complete 5-phase workflow (default)
+- **Sparse format** - Minimal reminder for experienced users
+- **Subagent format** - Brief for nested agents (no plan file editing)
+
+**Key Symbols:**
+- `Wzz` (planModeReminderDispatcher) - chunks.173.mjs:2525
+- `Nzz` (fullPlanReminder) - chunks.173.mjs
+- `Ezz` (sparsePlanReminder) - chunks.173.mjs
+
+---
+
+### 7. Task System ↔ System Reminder
+
+**Integration Type:** Task Status Attachments
+
+| Attachment Type | When Generated | Content |
+|-----------------|----------------|---------|
+| `task_status` | Task create/update/delete | Task state changes |
+| `task_claimed` | Task assigned | Owner info |
+| `task_completed` | Task marked complete | Dependency notification |
+| `task_progress` | During task execution | Progress messages |
+
+**Trigger Conditions:**
+- Task created → `task_status` with `action: "created"`
+- Task updated → `task_status` with `action: "updated"`
+- Task deleted → `task_status` with `action: "deleted"`
+- Task claimed → `task_claimed` with owner info
+- Task completed → `task_completed` for dependent tasks
+
+---
+
+### 8. Plan Mode ↔ Agent Teams (Swarm)
+
+**Integration Type:** Plan Approval Workflow
+
+```
+Teammate (in plan mode)
+    │ ExitPlanMode called
+    ▼
+plan_approval_request → writeToMailbox (x3)
+    │
+    ▼
+Team-lead inbox (readMailbox - wl)
+    │ Show approval dialog
+    ▼
+handlePlanApproval (AhY)
+    │
+    ▼
+plan_approval_response → writeToMailbox
+    │
+    ▼
+Teammate receives response
+    ├─→ approved: Exit plan mode
+    └─→ rejected: Stay in plan mode
+```
+
+**Key Symbols:**
+- `AhY` (handlePlanApproval) - chunks.145.mjs:2521
+- `Vx4` (PlanApprovalRequestMessageSchema) - chunks.129.mjs:1546
+- `Nx4` (PlanApprovalResponseMessageSchema) - chunks.129.mjs:1553
+- `wl` (readMailbox) - chunks.132.mjs:3
+- `x3` (writeToMailbox) - chunks.132.mjs:22
+
+---
+
+## Attachment Type Summary
+
+| Type | Module | Trigger | Purpose |
+|------|--------|---------|---------|
+| `progress` | Tools | Tool execution | Streaming updates |
+| `hook_additional_context` | Tools | Pre-hook | Context injection |
+| `hook_blocking_error` | Tools | Hook denial | Rejection message |
+| `hook_stopped_continuation` | Tools | Hook stop | Early termination |
+| `permission_decision` | Tools | canUseTool | User decision record |
+| `mcp_progress` | MCP | MCP tool execution | Server/tool status |
+| `elicitation` | MCP | Server request | User input dialog |
+| `plan_mode` | Plan Mode | Each turn | Workflow instructions |
+| `plan_mode_exit` | Plan Mode | Exit | Exit notification |
+| `task_status` | Task System | Task changes | State updates |
+| `task_claimed` | Task System | Assignment | Owner info |
+| `task_completed` | Task System | Completion | Dependency notification |
+
+---
+
+## Cross-Reference
+
+- [05_tools/README.md](../05_tools/README.md) - Tools module overview
+- [06_mcp/README.md](../06_mcp/README.md) - MCP module overview
+- [12_plan_mode/README.md](../12_plan_mode/README.md) - Plan Mode module overview
+- [13_task_system/README.md](../13_task_system/README.md) - Task System module overview
+- [04_system_reminder/README.md](../04_system_reminder/README.md) - System Reminder module overview
