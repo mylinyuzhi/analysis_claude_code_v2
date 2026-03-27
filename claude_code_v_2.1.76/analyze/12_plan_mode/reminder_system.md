@@ -694,3 +694,103 @@ if (Math.random() < 0.05) {
 │   → Brief reminder                                           │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 13. Cross-Feature Integration Details
+
+### Tool Filtering Integration
+
+Plan mode affects tool availability through the permission system:
+
+```javascript
+// ============================================
+// Plan mode tool filtering
+// Location: chunks.146.mjs (tool dispatcher)
+// ============================================
+
+// When in plan mode, certain tools are filtered/modified:
+const PLAN_MODE_READ_ONLY_TOOLS = [
+    "Read", "Grep", "Glob", "Agent", "WebFetch", "WebSearch",
+    "TaskOutput", "CronList"
+];
+
+// Write/Edit allowed ONLY for plan file
+const PLAN_MODE_PLAN_FILE_TOOLS = ["Write", "Edit"];
+
+// Tools explicitly blocked in plan mode:
+// - Bash (destructive)
+// - Skill (slash commands)
+// - NotebookEdit (modifies notebooks)
+// - EnterPlanMode (already in plan mode)
+// - TodoWrite (use Task tools instead)
+```
+
+### Permission Integration
+
+The permission system checks plan mode state when validating tool use:
+
+```javascript
+// ============================================
+// Permission check for plan mode
+// Location: chunks.146.mjs (canUseTool)
+// ============================================
+
+function checkPlanModePermission(tool, input, context) {
+    const mode = context.getAppState().toolPermissionContext.mode;
+
+    if (mode !== "plan") {
+        return { allowed: true };  // Normal mode
+    }
+
+    // In plan mode - check if tool is allowed
+    if (PLAN_MODE_READ_ONLY_TOOLS.includes(tool.name)) {
+        return { allowed: true };
+    }
+
+    // Write/Edit only allowed for plan file path
+    if (PLAN_MODE_PLAN_FILE_TOOLS.includes(tool.name)) {
+        const planFilePath = getPlanFilePath(context.agentId);
+        if (input.file_path === planFilePath) {
+            return { allowed: true };
+        }
+        return {
+            allowed: false,
+            message: "In plan mode, edits are only allowed to the plan file"
+        };
+    }
+
+    return {
+        allowed: false,
+        message: "Tool not allowed in plan mode"
+    };
+}
+```
+
+### Hook Integration
+
+Plan mode state changes trigger hook events:
+
+| Event | Trigger | Hook Type |
+|-------|---------|-----------|
+| `plan_mode_enter` | User enters plan mode | Notification |
+| `plan_mode_exit` | User exits plan mode | Notification |
+| `plan_approved` | Plan approved via ExitPlanMode | Notification |
+| `plan_rejected` | Plan rejected | Notification |
+
+### System Reminder Cross-Reference
+
+Plan mode attachments are part of the broader system reminder system documented in:
+
+- [04_system_reminder/types_mode_control.md](../04_system_reminder/types_mode_control.md) - Mode control attachments
+- [04_system_reminder/attachment_producers.md](../04_system_reminder/attachment_producers.md) - All attachment producers
+- [04_system_reminder/normalization_flow_diagram.md](../04_system_reminder/normalization_flow_diagram.md) - Normalization flow
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 2.1.76 | Interview phase improvements, sparse reminder optimization |
+| 2.1.72 | Throttling constants refinement |
+| 2.1.32 | Plan mode attachments introduced |
+| 2.1.18 | Initial plan mode implementation |

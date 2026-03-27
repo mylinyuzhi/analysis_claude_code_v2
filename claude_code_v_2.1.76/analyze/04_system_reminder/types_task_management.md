@@ -1005,3 +1005,107 @@ Key functions in this document:
 - [README.md](./README.md) - Documentation index
 - [implementation_details.md](./implementation_details.md) - Core implementation
 - [types_status_budget.md](./types_status_budget.md) - Status notifications
+
+---
+
+## Cross-Feature Integration
+
+### Task System ↔ System Reminder Integration
+
+The task system integrates with system reminders through multiple attachment types:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│           Task System Attachment Pipeline                         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Task State Change                                                │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ TaskCreate, TaskUpdate, TaskClaim                          │   │
+│  │         ↓                                                   │   │
+│  │ getTaskReminderAttachment (NIY)                            │   │
+│  │         ↓                                                   │   │
+│  │ task_reminder attachment                                   │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                         ↓                                         │
+│  Background Task Progress                                         │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ Background agent running                                   │   │
+│  │         ↓                                                   │   │
+│  │ getTaskProgressHistory (TIY)                               │   │
+│  │         ↓                                                   │   │
+│  │ task_progress attachment (throttled to every 3 turns)      │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                         ↓                                         │
+│  Task Status Changes                                              │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ Task completed, killed, or error                           │   │
+│  │         ↓                                                   │   │
+│  │ getUnifiedTasksAttachment (suY)                            │   │
+│  │         ↓                                                   │   │
+│  │ task_status attachment                                     │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Task System ↔ Plan Mode Integration
+
+When in plan mode, the task tools behave differently:
+
+| Feature | Normal Mode | Plan Mode |
+|---------|-------------|-----------|
+| TaskCreate | Available | Available for planning |
+| TaskUpdate | Available | Read-only preview |
+| TodoWrite | Available | Blocked (use Task tools) |
+| Task reminders | Normal throttle | Increased throttle |
+
+### Task System ↔ Agent Teams Integration
+
+For teammate agents in swarm mode:
+
+```javascript
+// ============================================
+// Task claiming in team context
+// Location: chunks.134.mjs
+// ============================================
+
+// Teammates can claim tasks from shared task list
+async function claimTeamTask(teammateContext) {
+    // Get tasks assigned to this teammate
+    const assignedTasks = await findTasksByAssignee(teammateContext.id);
+
+    // Or claim unclaimed tasks
+    if (assignedTasks.length === 0) {
+        return claimUnclaimedTask();  // Ji4
+    }
+
+    return assignedTasks[0];
+}
+```
+
+### Task System ↔ Hooks Integration
+
+Task state changes can trigger hooks:
+
+| Hook Event | Trigger | Data |
+|------------|---------|------|
+| `task_created` | TaskCreate tool used | taskId, subject |
+| `task_updated` | TaskUpdate tool used | taskId, oldStatus, newStatus |
+| `task_completed` | Status set to completed | taskId, subject |
+| `task_claimed` | Task assigned to agent | taskId, agentId |
+
+### Related Symbol Index
+
+> For complete symbol mappings, see:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Task System module
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Tools section
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 2.1.76 | Removed `activeForm` requirement for task reminders |
+| 2.1.72 | Added task progress throttling |
+| 2.1.32 | Task system introduced (replaced simple TodoWrite) |
+| 2.1.18 | Initial TodoWrite implementation |

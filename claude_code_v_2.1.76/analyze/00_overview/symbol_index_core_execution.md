@@ -383,8 +383,8 @@
 | ui6 | StreamingToolExecutor | chunks.148.mjs:3 | class |
 | Wm | cloneAbortController | chunks.148.mjs:16 | function (creates sibling abort controller) |
 | Wi6 | toolDispatcher | chunks.146.mjs:285 | async generator |
-| ZxY | executeToolWithProgress | chunks.146.mjs:391 | async generator |
-| fxY | executeToolCore | chunks.146.mjs:442 | async function |
+| ZxY | toolExecutionOrchestrator | chunks.146.mjs:391 | async generator (queued iterator) |
+| fxY | toolExecutionPipeline | chunks.146.mjs:442 | async function (8-stage pipeline) |
 | y4q | executePreToolHooksIterator | chunks.146.mjs:74 | async generator |
 | k4q | executePostToolHooksIterator | chunks.145.mjs:3107 | async generator |
 | E4q | executePostToolFailureHooksIterator | chunks.146.mjs:3 | async generator |
@@ -397,6 +397,7 @@
 | NS1 | hasHooksForEvent | chunks.175.mjs | function |
 | yF8 | formatHookBlockingError | chunks.175.mjs | function |
 | umY | clearInProgressToolUseID | chunks.148.mjs:230 | function |
+| C4q | createToolProgressMessage | chunks.172.mjs:2943 | function (progress attachment factory) |
 
 ### Tool Coordination Symbols
 

@@ -430,7 +430,7 @@
 | yF6 | getTaskFilePath | chunks.84.mjs:1634 | function |
 | L06 | sanitizeTaskListId | chunks.84.mjs:1626 | function |
 | wN9 | getHighWaterMark | chunks.84.mjs:1664 | async function |
-| zT8 | readHighWaterMarkFile | chunks.84.mjs (inferred) | async function |
+| zT8 | readHighWaterMarkFile | chunks.84.mjs:1569 | async function |
 | P84 | writeHighWaterMark | chunks.84.mjs:1580 | async function |
 | Gt | invalidateTaskCache | chunks.84.mjs (inferred) | function |
 
@@ -447,9 +447,12 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| X84 | getHighWatermarkFilePath | chunks.84.mjs:1565 | function |
+| zT8 | readHighWaterMarkFile | chunks.84.mjs:1569 | async function |
 | P84 | writeHighWaterMark | chunks.84.mjs:1580 | async function |
-| zT8 | readHighWaterMarkFile | chunks.84.mjs (inferred) | async function |
 | W84 | getMaxTaskIdFromFiles | chunks.84.mjs:1647 | async function |
+| wN9 | getHighWaterMark | chunks.84.mjs:1664 | async function |
+| _N9 | HIGHWATERMARK_FILENAME | chunks.84.mjs:1914 | constant (".highwatermark") |
 | Gt | invalidateTaskCache | chunks.84.mjs (inferred) | function |
 
 ### Task Claim Functions (chunks.84.mjs)
