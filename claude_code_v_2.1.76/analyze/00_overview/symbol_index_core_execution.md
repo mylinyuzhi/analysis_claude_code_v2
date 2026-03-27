@@ -398,6 +398,13 @@
 | yF8 | formatHookBlockingError | chunks.175.mjs | function |
 | umY | clearInProgressToolUseID | chunks.148.mjs:230 | function |
 | C4q | createToolProgressMessage | chunks.172.mjs:2943 | function (progress attachment factory) |
+| GxY | getDeferredToolSchemaHint | chunks.146.mjs:432 | function |
+| PE1 | applyInputParamAliases | chunks.146.mjs:240 | function |
+| XxY | formatErrorForTelemetry | chunks.146.mjs:229 | function |
+| R4q | getNextImagePasteId | chunks.146.mjs:257 | function |
+| h4q | getMcpServerFromToolName | chunks.146.mjs:266 | function |
+| PxY | getMcpServerType | chunks.146.mjs:273 | function |
+| WxY | getMcpServerBaseUrl | chunks.146.mjs:279 | function |
 
 ### Tool Coordination Symbols
 

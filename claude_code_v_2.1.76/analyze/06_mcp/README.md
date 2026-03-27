@@ -101,7 +101,8 @@ User: mcp-cli call sqlite/query '{"sql": "SELECT * FROM users"}'
 
 | Document | Description |
 |----------|-------------|
-| [mcp_complete_source_restoration_v2.md](mcp_complete_source_restoration_v2.md) | **NEW v2** - Complete source restoration with ORIGINAL/READABLE code |
+| [mcp_source_restoration_final.md](mcp_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
+| [mcp_complete_source_restoration_v2.md](mcp_complete_source_restoration_v2.md) | **v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [mcp_tool_execution_source_restoration.md](mcp_tool_execution_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
 | [mcp_tool_execution_complete.md](mcp_tool_execution_complete.md) | **NEW** - Complete tool execution with elicitation and retry logic |
 | [implementation.md](implementation.md) | Core MCP implementation and mcp-cli interception |
@@ -123,6 +124,13 @@ User: mcp-cli call sqlite/query '{"sql": "SELECT * FROM users"}'
 | [elicitation_ui_complete.md](elicitation_ui_complete.md) | Elicitation UI components and form rendering |
 | [binary_content_handling.md](binary_content_handling.md) | PDF/audio/image handling in MCP responses |
 | [mcp_reminder_integration.md](mcp_reminder_integration.md) | **NEW** - System reminder integration |
+
+### Cross-Module Integration
+
+| Document | Description |
+|----------|-------------|
+| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | **NEW** - Complete cross-module integration for all 4 modules |
+| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | **NEW** - UI components for Tools, MCP, Plan Mode, Task System |
 
 ---
 

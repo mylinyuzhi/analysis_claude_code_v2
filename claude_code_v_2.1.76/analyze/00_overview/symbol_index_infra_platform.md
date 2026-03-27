@@ -205,6 +205,13 @@
 | SHz | runMcpCliCommand | chunks.175.mjs:452397 | function |
 | qn8 | McpSessionLostError | chunks.170.mjs (in tool call) | class (session disconnection error, triggers retry) |
 | EV | McpToolExecutionError | chunks.170.mjs (in tool call) | class (wrapped error for UI display) |
+| $58 | buildMcpToolName | chunks.170.mjs | function (creates prefixed tool name: mcp__server__tool) |
+| Ws | ensureArray | chunks.170.mjs | function (ensures array output) |
+| x3z | filterToolByVisibility | chunks.169.mjs:1869 | function (filters IDE tools) |
+| Yn8 | getLocalServerBatchSize | chunks.169.mjs:1857 | function (batch size for stdio) |
+| I3z | getRemoteServerBatchSize | chunks.169.mjs:1861 | function (batch size for HTTP/SSE) |
+| ei8 | getConnectionCacheKey | chunks.169.mjs:1873 | function (memoization key) |
+| DGq | isConfigEqual | chunks.169.mjs:1893 | function (config comparison) |
 
 ### MCP Transport Layer
 

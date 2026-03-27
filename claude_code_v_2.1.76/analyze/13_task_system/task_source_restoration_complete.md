@@ -12,12 +12,80 @@ This document provides complete source-level restoration of key functions in the
 
 ---
 
-## 1. Get Task Manager (jf)
+## Related Symbols
+
+> Symbol mappings:
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Task System section)
+
+Key functions documented here:
+- `getTaskManager` (jf) - Resolve task list ID - chunks.84.mjs:1619
+- `createTask` (aD1) - Atomic task creation - chunks.84.mjs:1669
+- `loadTask` (DB) - Load and validate - chunks.84.mjs:1687
+- `updateTask` (WI) - Update with validation - chunks.84.mjs:1701
+- `deleteTask` (sD1) - Delete with cleanup - chunks.84.mjs:1713
+- `loadAllTasks` (DX) - Load all tasks - chunks.84.mjs:1742
+- `claimTask` (OT8) - Lock-based claiming - chunks.84.mjs:1781
+- `getHighWaterMark` (wN9) - Max ID tracking - chunks.84.mjs:1664
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TASK SYSTEM ARCHITECTURE                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    Agent Interface                         │  │
+│  │  TaskCreate │ TaskUpdate │ TaskGet │ TaskList             │  │
+│  └────────────────────────┬─────────────────────────────────┘  │
+│                           │                                      │
+│  ┌────────────────────────▼─────────────────────────────────┐  │
+│  │                 Core Functions (Async)                     │  │
+│  │  getTaskManager │ createTask │ loadTask │ updateTask      │  │
+│  │  deleteTask │ loadAllTasks │ claimTask                    │  │
+│  └────────────────────────┬─────────────────────────────────┘  │
+│                           │                                      │
+│  ┌────────────────────────▼─────────────────────────────────┐  │
+│  │              Storage Layer (~/.claude/tasks/)              │  │
+│  │  ├── {team-name}/           # Team-isolated tasks          │  │
+│  │  │   ├── 1.json            # Task file                    │  │
+│  │  │   ├── 2.json                                            │  │
+│  │  │   ├── .highwatermark    # Max ID tracking               │  │
+│  │  │   └── .lock             # Concurrency control           │  │
+│  │  └── {agent-id}/           # Solo agent tasks              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                 Integration Points                         │  │
+│  │  • TaskCompleted Hooks - Pre-completion validation        │  │
+│  │  • Team Messaging - Assignment notifications               │  │
+│  │  • UI State - expandedView: "tasks"                        │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1. getTaskManager (jf) - Resolve Task List ID
 
 ### What it does
-Resolves the task list ID from the current context. Priority: environment variable → teammate context → agent ID → default.
 
-### Source Code
+Resolves the task list ID from the current context. This determines which task directory to use for operations.
+
+### How it works
+
+1. Check `CLAUDE_CODE_TASK_LIST_ID` environment variable
+2. Check teammate context (for swarm/team scenarios)
+3. Fall back to agent ID or default/generate
+
+### Why this approach
+
+- **Environment override** enables testing and debugging
+- **Team isolation** via teammate context
+- **Graceful fallback** ensures a valid ID always exists
 
 ```javascript
 // ============================================
@@ -54,24 +122,33 @@ function getTaskManager() {
 //          VF6→DEFAULT_AGENT_ID, R1→generateUUID
 ```
 
-### Key insight
-The task list ID determines task isolation. Different agents/teams get separate task directories.
-
 ---
 
-## 2. Create Task (aD1)
+## 2. createTask (aD1) - Atomic Task Creation
 
 ### What it does
+
 Atomically creates a new task with auto-increment ID. Uses file locking to prevent race conditions.
 
 ### How it works
-1. Ensure task directory exists
-2. Acquire lock on `.lock` file
-3. Get current high watermark (max ID)
-4. Increment and create new task
-5. Write task file and release lock
 
-### Source Code
+1. Ensure task directory exists and get lock file path
+2. Acquire file lock with retry options
+3. Get current high watermark (max ID in use)
+4. Increment to create new ID
+5. Write task file with JSON content
+6. Invalidate cache
+7. Release lock in finally block
+
+### Why this approach
+
+- **Atomic operation** via file locking prevents ID conflicts
+- **Auto-increment IDs** are simpler than UUIDs for dependency management
+- **Lock retry** handles transient conflicts gracefully
+
+### Key insight
+
+The high watermark is derived from both file scanning and a `.highwatermark` file, providing redundancy in case either source is corrupted.
 
 ```javascript
 // ============================================
@@ -81,17 +158,17 @@ Atomically creates a new task with auto-increment ID. Uses file locking to preve
 
 // ORIGINAL (for source lookup):
 async function aD1(A, q) {
-    let K = await wT8(A),
+    let K = await wT8(A),       // Ensure directory + get lock path
         Y;
     try {
-        Y = await EF6.lock(K, nD1);
-        let z = await wN9(A),
-            _ = String(z + 1),
+        Y = await EF6.lock(K, nD1);  // Acquire lock
+        let z = await wN9(A),        // Get high watermark
+            _ = String(z + 1),       // Increment ID
             w = {
                 id: _,
                 ...q
             },
-            O = yF6(A, _);
+            O = yF6(A, _);           // Task file path
         return await iD1(O, B6(w, null, 2)), Gt(), _
     } finally {
         if (Y) await Y()
@@ -142,22 +219,21 @@ async function createTask(taskListId, taskData) {
 //          iD1→writeFile, B6→JSON.stringify, Gt→invalidateTaskCache
 ```
 
-### Why this approach
-- **File locking** prevents race conditions when multiple agents create tasks simultaneously
-- **High watermark** ensures IDs are always increasing, even after deletions
-- **try/finally** ensures lock is always released, even on error
-
-### Key insight
-The lock is on a separate `.lock` file, not the task file itself. This allows concurrent reads but serializes creates.
-
 ---
 
-## 3. Load Task (DB)
+## 3. loadTask (DB) - Load and Validate Task
 
 ### What it does
-Loads a task from disk and validates it against the schema.
 
-### Source Code
+Loads a task from disk and validates it against the Zod schema.
+
+### How it works
+
+1. Build task file path
+2. Read file content
+3. Parse JSON
+4. Validate against schema
+5. Return validated task or null
 
 ```javascript
 // ============================================
@@ -185,53 +261,50 @@ async function loadTask(taskListId, taskId) {
     const taskFilePath = getTaskFilePath(taskListId, taskId);
 
     try {
-        // Read file
-        const content = await readFile(taskFilePath, "utf-8");
-
-        // Parse JSON
-        const parsed = JSON.parse(content);
+        const fileContent = await readFile(taskFilePath, "utf-8");
+        const parsed = JSON.parse(fileContent);
 
         // Validate against schema
-        const schemaResult = taskSchema().safeParse(parsed);
-        if (!schemaResult.success) {
-            debugLog(`[Tasks] Task ${taskId} failed schema validation: ${schemaResult.error.message}`);
+        const validationResult = taskSchema().safeParse(parsed);
+        if (!validationResult.success) {
+            logWarning(`[Tasks] Task ${taskId} failed schema validation: ${validationResult.error.message}`);
             return null;
         }
 
-        return schemaResult.data;
+        return validationResult.data;
 
     } catch (error) {
-        // File not found - task doesn't exist
-        if (error.code === "ENOENT") {
-            return null;
-        }
+        // File not found
+        if (error.code === "ENOENT") return null;
 
-        // Other error (corrupt file, permissions, etc.)
-        debugLog(`[Tasks] Failed to read task ${taskId}: ${formatError(error)}`);
+        logWarning(`[Tasks] Failed to read task ${taskId}: ${formatError(error)}`);
         reportError(error);
         return null;
     }
 }
 
 // Mapping: DB→loadTask, A→taskListId, q→taskId, yF6→getTaskFilePath,
-//          H84→readFile, i1→JSON.parse, zN9→taskSchema, k→debugLog, _1→formatError, _6→reportError
+//          H84→readFile, i1→JSON.parse, zN9→taskSchema, k→logWarning, _1→formatError, _6→reportError
 ```
-
-### Key insight
-Returns `null` for missing tasks rather than throwing, allowing callers to check existence easily.
 
 ---
 
-## 4. Update Task (WI)
+## 4. updateTask (WI) - Update with Validation
 
 ### What it does
-Updates an existing task with new data while preserving the ID.
 
-### Source Code
+Updates an existing task with new data, preserving the ID.
+
+### How it works
+
+1. Load existing task
+2. Merge with updates (ID preserved)
+3. Write back to file
+4. Invalidate cache
 
 ```javascript
 // ============================================
-// updateTask - Update task with validation and persistence
+// updateTask - Update task with validation
 // Location: chunks.84.mjs:1701-1711
 // ============================================
 
@@ -250,24 +323,22 @@ async function WI(A, q, K) {
 
 // READABLE (for understanding):
 async function updateTask(taskListId, taskId, updates) {
-    // Step 1: Load existing task
+    // Load existing task
     const existingTask = await loadTask(taskListId, taskId);
-    if (!existingTask) {
-        return null;
-    }
+    if (!existingTask) return null;
 
-    // Step 2: Merge updates (ID is preserved)
+    // Merge updates (ID always preserved)
     const updatedTask = {
         ...existingTask,
         ...updates,
-        id: taskId  // Ensure ID is never changed
+        id: taskId  // Ensure ID is not overwritten
     };
 
-    // Step 3: Write updated task
+    // Write back to file
     const taskFilePath = getTaskFilePath(taskListId, taskId);
     await writeFile(taskFilePath, JSON.stringify(updatedTask, null, 2));
 
-    // Step 4: Invalidate cache
+    // Invalidate cache
     invalidateTaskCache();
 
     return updatedTask;
@@ -277,32 +348,201 @@ async function updateTask(taskListId, taskId, updates) {
 //          DB→loadTask, yF6→getTaskFilePath, iD1→writeFile, B6→JSON.stringify, Gt→invalidateTaskCache
 ```
 
-### Key insight
-The `id: taskId` line ensures the ID can never be accidentally overwritten by the updates object.
+---
+
+## 5. deleteTask (sD1) - Delete with Cleanup
+
+### What it does
+
+Deletes a task and cleans up all dependency references in other tasks.
+
+### How it works
+
+1. Update high watermark if deleted task ID is higher
+2. Delete task file
+3. Remove from `blocks` and `blockedBy` arrays in all other tasks
+
+```javascript
+// ============================================
+// deleteTask - Delete task and clean dependency references
+// Location: chunks.84.mjs:1713-1740
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function sD1(A, q) {
+    let K = yF6(A, q);
+    try {
+        let Y = parseInt(q, 10);
+        if (!isNaN(Y)) {
+            let _ = await zT8(A);
+            if (Y > _) await P84(A, Y)
+        }
+        try {
+            await j84(K)
+        } catch (_) {
+            if (_.code === "ENOENT") return !1;
+            throw _
+        }
+        let z = await DX(A);
+        for (let _ of z) {
+            let w = _.blocks.filter(($) => $ !== q),
+                O = _.blockedBy.filter(($) => $ !== q);
+            if (w.length !== _.blocks.length || O.length !== _.blockedBy.length) await WI(A, _.id, {
+                blocks: w,
+                blockedBy: O
+            })
+        }
+        return Gt(), !0
+    } catch {
+        return !1
+    }
+}
+
+// READABLE (for understanding):
+async function deleteTask(taskListId, taskId) {
+    const taskFilePath = getTaskFilePath(taskListId, taskId);
+
+    try {
+        // Update high watermark if needed
+        const taskIdNum = parseInt(taskId, 10);
+        if (!isNaN(taskIdNum)) {
+            const currentWatermark = await readHighWaterMarkFile(taskListId);
+            if (taskIdNum > currentWatermark) {
+                await writeHighWaterMark(taskListId, taskIdNum);
+            }
+        }
+
+        // Delete task file
+        try {
+            await deleteFile(taskFilePath);
+        } catch (error) {
+            if (error.code === "ENOENT") return false;
+            throw error;
+        }
+
+        // Clean up dependency references in other tasks
+        const allTasks = await loadAllTasks(taskListId);
+        for (const task of allTasks) {
+            const newBlocks = task.blocks.filter(id => id !== taskId);
+            const newBlockedBy = task.blockedBy.filter(id => id !== taskId);
+
+            if (newBlocks.length !== task.blocks.length || newBlockedBy.length !== task.blockedBy.length) {
+                await updateTask(taskListId, task.id, {
+                    blocks: newBlocks,
+                    blockedBy: newBlockedBy
+                });
+            }
+        }
+
+        invalidateTaskCache();
+        return true;
+
+    } catch {
+        return false;
+    }
+}
+
+// Mapping: sD1→deleteTask, A→taskListId, q→taskId, yF6→getTaskFilePath,
+//          zT8→readHighWaterMarkFile, P84→writeHighWaterMark, j84→deleteFile,
+//          DX→loadAllTasks, WI→updateTask, Gt→invalidateTaskCache
+```
 
 ---
 
-## 5. Claim Task (OT8)
+## 6. loadAllTasks (DX) - Load All Tasks
 
 ### What it does
-Atomically claims a task for an agent. Validates dependencies and ownership.
+
+Loads all tasks from the task directory.
 
 ### How it works
-1. Quick existence check
-2. Delegate to agent-busy validation if requested
+
+1. List directory contents
+2. Filter for .json files
+3. Load each task in parallel
+4. Filter out null results
+
+```javascript
+// ============================================
+// loadAllTasks - Load all tasks from directory
+// Location: chunks.84.mjs:1742-1752
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function DX(A) {
+    let q = wR(A),
+        K;
+    try {
+        K = await YT8(q)
+    } catch {
+        return []
+    }
+    let Y = K.filter((_) => _.endsWith(".json")).map((_) => _.replace(".json", ""));
+    return (await Promise.all(Y.map((_) => DB(A, _)))).filter((_) => _ !== null)
+}
+
+// READABLE (for understanding):
+async function loadAllTasks(taskListId) {
+    const taskDirectory = getTaskDirectory(taskListId);
+
+    let files;
+    try {
+        files = await readDirectory(taskDirectory);
+    } catch {
+        return [];
+    }
+
+    // Get task IDs from .json files
+    const taskIds = files
+        .filter(filename => filename.endsWith(".json"))
+        .map(filename => filename.replace(".json", ""));
+
+    // Load all tasks in parallel
+    const tasks = await Promise.all(
+        taskIds.map(taskId => loadTask(taskListId, taskId))
+    );
+
+    // Filter out null results (failed loads)
+    return tasks.filter(task => task !== null);
+}
+
+// Mapping: DX→loadAllTasks, A→taskListId, wR→getTaskDirectory,
+//          YT8→readDirectory, DB→loadTask
+```
+
+---
+
+## 7. claimTask (OT8) - Lock-based Claiming
+
+### What it does
+
+Atomically claims a task for an agent, validating ownership, status, and dependencies.
+
+### How it works
+
+1. Quick check if task exists
+2. Option to delegate to agent-busy validation
 3. Acquire lock on task file
-4. Re-verify after lock (task could have changed)
+4. Re-verify task state after lock
 5. Check ownership conflicts
 6. Check completion status
 7. Check dependency completion
-8. Set owner and status
+8. Set owner and return result
 
-### Source Code
+### Why this approach
+
+- **Lock-based claiming** prevents race conditions
+- **Dependency validation** ensures tasks run in correct order
+- **Re-verification** handles concurrent modifications
+
+### Key insight
+
+The `checkAgentBusy` option enables additional validation that the claiming agent isn't already busy with another task, useful for workload management.
 
 ```javascript
 // ============================================
 // claimTask - Lock-based claiming with dependency validation
-// Location: chunks.84.mjs:1781-1829
+// Location: chunks.84.mjs:1781-1830
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -415,7 +655,7 @@ async function claimTask(taskListId, taskId, owner, options = {}) {
         };
 
     } catch (error) {
-        debugLog(`[Tasks] Failed to claim task ${taskId}: ${formatError(error)}`);
+        logWarning(`[Tasks] Failed to claim task ${taskId}: ${formatError(error)}`);
         reportError(error);
         return { success: false, reason: "task_not_found" };
 
@@ -427,25 +667,28 @@ async function claimTask(taskListId, taskId, owner, options = {}) {
 // Mapping: OT8→claimTask, A→taskListId, q→taskId, K→owner, Y→options,
 //          DB→loadTask, $N9→claimTaskWithAgentBusyValidation, yF6→getTaskFilePath,
 //          EF6→lockfile, nD1→LOCK_OPTIONS, DX→loadAllTasks, WI→updateTask,
-//          k→debugLog, _1→formatError, _6→reportError
+//          k→logWarning, _1→formatError, _6→reportError
 ```
-
-### Why this approach
-- **Lock on task file** prevents race conditions during claiming
-- **Re-verification after lock** handles the case where another agent claimed the task while we waited
-- **Dependency check** ensures tasks can't start until their dependencies complete
-
-### Key insight
-The claim result includes detailed failure reasons, allowing the caller to provide specific feedback.
 
 ---
 
-## 6. Get High Watermark (wN9)
+## 8. getHighWaterMark (wN9) - Max ID Tracking
 
 ### What it does
-Gets the maximum task ID in use. Uses two sources for robustness: scanning files and reading `.highwatermark` file.
 
-### Source Code
+Gets the maximum task ID from two sources: scanning task files and reading the `.highwatermark` file.
+
+### How it works
+
+1. Scan task files to find max ID
+2. Read `.highwatermark` file
+3. Return the maximum of both
+
+### Why this approach
+
+- **Dual-source tracking** provides redundancy
+- **File scan** catches any missing watermark updates
+- **Watermark file** provides fast lookup without scanning
 
 ```javascript
 // ============================================
@@ -474,26 +717,15 @@ async function getHighWaterMark(taskListId) {
 // Mapping: wN9→getHighWaterMark, A→taskListId, W84→getMaxTaskIdFromFiles, zT8→readHighWaterMarkFile
 ```
 
-### Why this approach
-- **Two sources** provide robustness - if one is corrupted, the other provides a fallback
-- **Parallel execution** minimizes latency
-- **Math.max** ensures we never reuse an ID
-
-### Key insight
-The `.highwatermark` file is written after each create, but the file scan provides a fallback if that file is missing or corrupted.
-
 ---
 
-## 7. Get Task Directory (wR) and Get Task File Path (yF6)
+## 9. Helper Functions
 
-### What they do
-Construct paths for task storage.
-
-### Source Code
+### getTaskDirectory (wR)
 
 ```javascript
 // ============================================
-// getTaskDirectory - Get task storage directory
+// getTaskDirectory - Get task directory path
 // Location: chunks.84.mjs:1630-1632
 // ============================================
 
@@ -504,13 +736,17 @@ function wR(A) {
 
 // READABLE (for understanding):
 function getTaskDirectory(taskListId) {
-    return path.join(getHomeDirectory(), "tasks", sanitizeTaskListId(taskListId));
+    return path.join(getClaudeDir(), "tasks", sanitizeForFilename(taskListId));
 }
 
-// Mapping: wR→getTaskDirectory, A→taskListId, kF6→path.join, c8→getHomeDirectory, L06→sanitizeTaskListId
+// Mapping: wR→getTaskDirectory, A→taskListId, kF6→path.join, c8→getClaudeDir, L06→sanitizeForFilename
+```
 
+### getTaskFilePath (yF6)
+
+```javascript
 // ============================================
-// getTaskFilePath - Get path to specific task file
+// getTaskFilePath - Get task file path
 // Location: chunks.84.mjs:1634-1636
 // ============================================
 
@@ -521,119 +757,94 @@ function yF6(A, q) {
 
 // READABLE (for understanding):
 function getTaskFilePath(taskListId, taskId) {
-    return path.join(getTaskDirectory(taskListId), `${sanitizeTaskListId(taskId)}.json`);
+    return path.join(getTaskDirectory(taskListId), `${sanitizeForFilename(taskId)}.json`);
 }
 
-// Mapping: yF6→getTaskFilePath, A→taskListId, q→taskId, wR→getTaskDirectory, kF6→path.join, L06→sanitizeTaskListId
+// Mapping: yF6→getTaskFilePath, A→taskListId, q→taskId, wR→getTaskDirectory, L06→sanitizeForFilename
 ```
 
-### Path Structure
-```
-~/.claude/tasks/
-├── {team-name}/           # Team-isolated tasks
-│   ├── 1.json
-│   ├── 2.json
-│   ├── .highwatermark
-│   └── .lock
-└── {agent-id}/           # Solo agent tasks
-    ├── 1.json
-    └── ...
-```
-
----
-
-## 8. Task Schema (zN9)
-
-### What it does
-Defines the Zod schema for task validation.
-
-### Source Code
+### getLockFilePath (ON9)
 
 ```javascript
 // ============================================
-// taskSchema - Zod schema for task validation
-// Location: chunks.84.mjs:1932
-// ============================================
-
-// READABLE (for understanding):
-const taskStatusSchema = z.enum(["pending", "in_progress", "completed"]);
-
-const taskSchema = z.object({
-    id: z.string(),                    // Auto-increment integer as string
-    subject: z.string(),               // Brief title (required)
-    description: z.string(),           // Detailed requirements (required)
-    activeForm: z.string().optional(), // Present continuous status for UI spinner
-    status: taskStatusSchema,          // pending | in_progress | completed
-    owner: z.string().optional(),      // Agent name who owns this task
-    blocks: z.array(z.string()),       // Task IDs waiting for this task
-    blockedBy: z.array(z.string()),    // Task IDs this task is waiting for
-    metadata: z.record(z.unknown()).optional()  // Arbitrary key-value pairs
-});
-
-// Mapping: zN9→taskSchema, H36→taskStatusSchema
-```
-
----
-
-## 9. Lock Configuration (nD1)
-
-### What it does
-Configuration for file locking with retry behavior.
-
-### Source Code
-
-```javascript
-// ============================================
-// lockOptions - File lock retry configuration
-// Location: chunks.84.mjs:1942
+// getLockFilePath - Get lock file path
+// Location: chunks.84.mjs:1766-1768
 // ============================================
 
 // ORIGINAL (for source lookup):
-nD1 = { retries: 10, minTimeout: 5, maxTimeout: 100 }
+function ON9(A) {
+    return kF6(wR(A), ".lock")
+}
 
 // READABLE (for understanding):
+function getLockFilePath(taskListId) {
+    return path.join(getTaskDirectory(taskListId), ".lock");
+}
+
+// Mapping: ON9→getLockFilePath, A→taskListId, wR→getTaskDirectory
+```
+
+### isTaskSystemEnabled (r$)
+
+```javascript
+// ============================================
+// isTaskSystemEnabled - Check if structured tasks are enabled
+// Location: chunks.84.mjs:1585-1588
+// ============================================
+
+// ORIGINAL (for source lookup):
+function r$() {
+    if (t6(process.env.CLAUDE_CODE_ENABLE_TASKS)) return !0;
+    return !q7()
+}
+
+// READABLE (for understanding):
+function isTaskSystemEnabled() {
+    // Explicit environment variable
+    if (isTruthy(process.env.CLAUDE_CODE_ENABLE_TASKS)) return true;
+    // Check if TodoWrite mode is disabled
+    return !isTodoWriteMode();
+}
+
+// Mapping: r$→isTaskSystemEnabled, t6→isTruthy, q7→isTodoWriteMode
+```
+
+---
+
+## Task Schema
+
+```typescript
+interface Task {
+    id: string;              // Auto-increment integer as string
+    subject: string;         // Brief title (required)
+    description: string;     // Detailed requirements (required)
+    activeForm?: string;     // Present continuous status for UI spinner
+    status: "pending" | "in_progress" | "completed";
+    owner?: string;          // Agent name who owns this task
+    blocks: string[];        // Task IDs waiting for this task
+    blockedBy: string[];     // Task IDs this task is waiting for
+    metadata?: Record<string, unknown>;  // Arbitrary key-value pairs
+}
+```
+
+---
+
+## Lock Configuration
+
+```javascript
 const LOCK_OPTIONS = {
-    retries: 10,      // Maximum retry attempts
-    minTimeout: 5,    // Minimum wait between retries (ms)
-    maxTimeout: 100   // Maximum wait between retries (ms)
+    retries: 10,
+    minTimeout: 5,    // 5ms
+    maxTimeout: 100   // 100ms
 };
-
-// Mapping: nD1→LOCK_OPTIONS
-```
-
-### Key insight
-The exponential backoff (5ms to 100ms) with 10 retries means the lock will be attempted for up to ~1 second before failing.
-
----
-
-## Task State Machine
-
-```
-┌──────────┐     TaskUpdate(status: "in_progress")     ┌──────────────┐
-│ PENDING  │ ─────────────────────────────────────────▶│ IN_PROGRESS  │
-└──────────┘                                            └──────┬───────┘
-     │                                                         │
-     │                    TaskUpdate(status: "completed")      │
-     │                   + Hook validation passes              │
-     │                                                         │
-     │                    ┌──────────┐                         │
-     └───────────────────▶│COMPLETED │◀────────────────────────┘
-                          └──────────┘
-
-     Any state + TaskUpdate(status: "deleted")
-                          ┌──────────┐
-                          │ DELETED  │ (File removed, dependencies cleaned)
-                          └──────────┘
 ```
 
 ---
 
-## Summary
+## Symbol Validation Summary
 
-### Validated Symbols
-
-| Obfuscated | Readable | Location | Status |
-|------------|----------|----------|--------|
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
 | jf | getTaskManager | chunks.84.mjs:1619 | ✅ Verified |
 | aD1 | createTask | chunks.84.mjs:1669 | ✅ Verified |
 | DB | loadTask | chunks.84.mjs:1687 | ✅ Verified |
@@ -642,28 +853,48 @@ The exponential backoff (5ms to 100ms) with 10 retries means the lock will be at
 | DX | loadAllTasks | chunks.84.mjs:1742 | ✅ Verified |
 | OT8 | claimTask | chunks.84.mjs:1781 | ✅ Verified |
 | wN9 | getHighWaterMark | chunks.84.mjs:1664 | ✅ Verified |
-| W84 | getMaxTaskIdFromFiles | chunks.84.mjs:1647 | ✅ Verified |
-| zT8 | readHighWaterMarkFile | chunks.84.mjs:1569 | ✅ Verified |
 | P84 | writeHighWaterMark | chunks.84.mjs:1580 | ✅ Verified |
+| zT8 | readHighWaterMarkFile | chunks.84.mjs:1569 | ✅ Verified |
+| W84 | getMaxTaskIdFromFiles | chunks.84.mjs:1647 | ✅ Verified |
 | wR | getTaskDirectory | chunks.84.mjs:1630 | ✅ Verified |
 | yF6 | getTaskFilePath | chunks.84.mjs:1634 | ✅ Verified |
-| L06 | sanitizeTaskListId | chunks.84.mjs:1626 | ✅ Verified |
-| nD1 | lockOptions | chunks.84.mjs:1942 | ✅ Verified |
-| zN9 | taskSchema | chunks.84.mjs:1932 | ✅ Verified |
-| H36 | taskStatusSchema | chunks.84.mjs:1932 | ✅ Verified |
+| ON9 | getLockFilePath | chunks.84.mjs:1766 | ✅ Verified |
+| r$ | isTaskSystemEnabled | chunks.84.mjs:1585 | ✅ Verified |
+| _N9 | HIGHWATERMARK_FILENAME | ".highwatermark" | ✅ Verified |
+| nD1 | lockOptions | {retries:10, minTimeout:5, maxTimeout:100} | ✅ Verified |
 
-### Key Dependencies
+**Total validated**: 17 symbols
 
-| Symbol | Purpose |
-|--------|---------|
-| EF6 | lockfile (npm package) |
-| H84 | readFile |
-| iD1 | writeFile |
-| i1 | JSON.parse |
-| B6 | JSON.stringify |
-| kF6 | path.join |
-| c8 | getHomeDirectory |
-| Gt | invalidateTaskCache |
-| k | debugLog |
-| _1 | formatError |
-| _6 | reportError |
+---
+
+## Cross-Module Integration
+
+### Task System ↔ System Reminder (04)
+
+Task operations generate the following attachment types:
+- `task_status` - Task state changes (create/update/delete)
+- `task_claimed` - Task assignment notifications
+- `task_completed` - Completion status for dependencies
+- `task_progress` - Progress messages during execution
+
+### Task System ↔ Tools (05)
+
+- `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate` tools
+- `TodoWrite` tool for simple todo mode (when `r$()` returns false)
+- Task operations use file locking for concurrency
+- Permission checks via `canUseTool`
+
+### Task System ↔ Hooks (11)
+
+- `TaskCompleted` hooks run before marking complete
+- Hook can prevent completion with validation
+- `getTaskCompletedHookMessage` generates hook messages
+- `executeTaskCompletedHooks` is an async generator
+
+### Task System ↔ Agent Teams (30)
+
+- Team-isolated task storage (`~/.claude/tasks/{team-name}/`)
+- `claimTask` with agent busy validation (`$N9`)
+- `unassignTeammateTasks` on agent shutdown
+- Teammate context determines task list ID via `getTeammateContext()`
+- `claimUnclaimedTask` for auto-task assignment

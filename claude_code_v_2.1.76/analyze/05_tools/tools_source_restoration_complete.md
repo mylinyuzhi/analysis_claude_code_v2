@@ -15,23 +15,95 @@ This document provides complete source-level restoration of key functions in the
 
 ---
 
-## 1. Tool Dispatcher (Wi6)
+## Related Symbols
+
+> Symbol mappings:
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Tools section)
+
+Key functions documented here:
+- `toolDispatcher` (Wi6) - Entry point - chunks.146.mjs:285
+- `toolExecutionOrchestrator` (ZxY) - Queue management - chunks.146.mjs:391
+- `toolExecutionPipeline` (fxY) - 8-stage pipeline - chunks.146.mjs:442
+- `executePreToolHooks` (y4q) - Pre-tool hooks - chunks.146.mjs:74
+- `findTool` (dK) - Tool lookup - chunks.56.mjs:1592
+- `matchesToolName` (z3) - Name matching - chunks.56.mjs:1588
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    TOOL EXECUTION ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  assistant message with tool_use block                               │
+│       │                                                               │
+│       ▼                                                               │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ Wi6 (toolDispatcher)                                         │    │
+│  │ ├─ Stage 1: Tool lookup in session tool set (dK)             │    │
+│  │ ├─ Stage 2: Alias check in global registry (ng)              │    │
+│  │ ├─ Stage 3: Abort signal check                               │    │
+│  │ └─ Stage 4: Delegate to ZxY                                  │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│       │                                                               │
+│       ▼                                                               │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ ZxY (toolExecutionOrchestrator)                              │    │
+│  │ ├─ Create AsyncQueue (Pi6)                                   │    │
+│  │ ├─ Call fxY with progress callback                           │    │
+│  │ └─ Yield results via queue                                   │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│       │                                                               │
+│       ▼                                                               │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ fxY (toolExecutionPipeline) - 8 Stages                       │    │
+│  │ ├─ Stage 1: Schema validation (Zod safeParse)                │    │
+│  │ ├─ Stage 2: Custom validation (validateInput)                │    │
+│  │ ├─ Stage 3: Pre-tool hooks (y4q)                             │    │
+│  │ ├─ Stage 4: Permission check (canUseTool)                    │    │
+│  │ ├─ Stage 5: Tool execution (tool.call)                       │    │
+│  │ ├─ Stage 6: Post-tool hooks (k4q)                            │    │
+│  │ ├─ Stage 7: Post-failure hooks (E4q) - on error only         │    │
+│  │ └─ Stage 8: Result formatting                                │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1. Tool Dispatcher (Wi6) - Entry Point
 
 ### What it does
-The entry point for all tool_use blocks. Routes incoming tool requests to the correct tool implementation and orchestrates the execution pipeline.
+
+Takes a `tool_use` content block from the assistant response, looks up the corresponding tool in the tool registry, and delegates execution to the full pipeline. Handles tool lookup failures, abort signals, and error wrapping.
 
 ### How it works
-1. Lookup tool by name in session tool set
-2. Fall back to global alias registry if not found
-3. Check abort signal
-4. Delegate to toolExecutionOrchestrator (ZxY)
 
-### Source Code
+1. Extract tool name from tool_use block
+2. Look up tool in session-scoped tool set using `findTool` (dK)
+3. If not found, check global alias registry (for MCP/skill tools)
+4. If still not found, return error tool_result
+5. Check abort signal - if aborted, return cancelled tool_result
+6. Delegate to toolExecutionOrchestrator (ZxY)
+7. Yield all results from the pipeline
+
+### Why this approach
+
+- **Generator pattern** allows streaming results back to the agent loop
+- **Two-stage lookup** (session tools → global alias registry) enables flexible tool discovery
+- **Error wrapping** ensures all failures produce consistent tool_result blocks
+
+### Key insight
+
+The two-stage tool lookup enables dynamic tool discovery without modifying the session tool set. MCP tools and skill-provided tools are registered in the global alias registry, allowing them to be discovered on-demand.
 
 ```javascript
 // ============================================
 // toolDispatcher - Routes tool_use blocks to the correct tool
-// Location: chunks.146.mjs:285-379
+// Location: chunks.146.mjs:285-389
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -53,8 +125,13 @@ async function* Wi6(A, q, K, Y) {
             toolName: J,
             toolUseID: A.id,
             isMcp: z.startsWith("mcp__"),
-            // ... telemetry fields
-        }), yield {
+            queryChainId: Y.queryTracking?.chainId,
+            queryDepth: Y.queryTracking?.depth,
+            ...$ ? { mcpServerType: $ } : {},
+            ...H ? { mcpServerBaseUrl: H } : {},
+            ...O ? { requestId: O } : {}
+        });
+        yield {
             message: p1({
                 content: [{
                     type: "tool_result",
@@ -71,7 +148,11 @@ async function* Wi6(A, q, K, Y) {
     let j = A.input;
     try {
         if (Y.abortController.signal.aborted) {
-            // Return cancelled result
+            d("tengu_tool_use_cancelled", {
+                toolName: hq(_.name),
+                toolUseID: A.id,
+                isMcp: _.isMcp ?? !1
+            });
             let J = CF8(A.id);
             J.content = QT6(R96), yield {
                 message: p1({
@@ -85,41 +166,54 @@ async function* Wi6(A, q, K, Y) {
         for await (let J of ZxY(_, A.id, j, Y, K, q, w, O, $, H)) yield J
     } catch (J) {
         _6(J);
-        // Error handling...
+        let M = J instanceof Error ? J.message : String(J),
+            X = `Error calling tool${_?` (${_.name})`:""}: ${M}`;
+        yield {
+            message: p1({
+                content: [{
+                    type: "tool_result",
+                    content: `<tool_use_error>${X}</tool_use_error>`,
+                    is_error: !0,
+                    tool_use_id: A.id
+                }],
+                toolUseResult: X,
+                sourceToolAssistantUUID: q.uuid
+            })
+        }
     }
 }
 
 // READABLE (for understanding):
-async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, context) {
+async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, toolUseContext) {
+    // Stage 1: Extract tool name and look up in session tools
     const toolName = toolUseBlock.name;
+    let tool = findTool(toolUseContext.options.tools, toolName);
 
-    // Step 1: Lookup in session tools
-    let tool = findTool(context.options.tools, toolName);
-
-    // Step 2: Check global alias registry if not found
+    // Stage 2: Check global alias registry (for MCP/skill tools)
     if (!tool) {
         const globalTool = findTool(getDynamicToolSet(), toolName);
-        if (globalTool?.aliases?.includes(toolName)) {
+        if (globalTool && globalTool.aliases?.includes(toolName)) {
             tool = globalTool;
         }
     }
 
-    // Extract context info
+    // Extract context for telemetry
     const messageId = assistantMessage.message.id;
     const requestId = assistantMessage.requestId;
-    const mcpServerType = getMcpServerType(toolName, context.options.mcpClients);
-    const mcpServerBaseUrl = getMcpServerBaseUrl(toolName, context.options.mcpClients);
+    const mcpServerType = getMcpServerType(toolName, toolUseContext.options.mcpClients);
+    const mcpServerBaseUrl = getMcpServerBaseUrl(toolName, toolUseContext.options.mcpClients);
 
-    // Step 3: Handle unknown tool
+    // Tool not found - return error
     if (!tool) {
-        const displayName = sanitizeToolName(toolName);
-        debugLog(`Unknown tool ${toolName}: ${toolUseBlock.id}`);
-        trackEvent("tengu_tool_use_error", {
+        const displayName = getToolDisplayName(toolName);
+        logWarning(`Unknown tool ${toolName}: ${toolUseBlock.id}`);
+        emitTelemetry("tengu_tool_use_error", {
             error: `No such tool available: ${displayName}`,
             toolName: displayName,
             toolUseID: toolUseBlock.id,
             isMcp: toolName.startsWith("mcp__"),
-            // ... telemetry
+            queryChainId: toolUseContext.queryTracking?.chainId,
+            queryDepth: toolUseContext.queryTracking?.depth
         });
 
         yield {
@@ -130,7 +224,6 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, conte
                     is_error: true,
                     tool_use_id: toolUseBlock.id
                 }],
-                toolUseResult: `Error: No such tool available: ${toolName}`,
                 sourceToolAssistantUUID: assistantMessage.uuid
             })
         };
@@ -140,33 +233,27 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, conte
     const input = toolUseBlock.input;
 
     try {
-        // Step 4: Check abort signal
-        if (context.abortController.signal.aborted) {
-            trackEvent("tengu_tool_use_cancelled", {
-                toolName: sanitizeToolName(tool.name),
+        // Check abort signal
+        if (toolUseContext.abortController.signal.aborted) {
+            emitTelemetry("tengu_tool_use_cancelled", {
+                toolName: getToolDisplayName(tool.name),
                 toolUseID: toolUseBlock.id,
-                isMcp: tool.isMcp ?? false,
-                // ... telemetry
+                isMcp: tool.isMcp ?? false
             });
-
-            const cancelledResult = createCancelledToolResult(toolUseBlock.id);
-            cancelledResult.content = formatCancelledMessage(CANCELLED_MESSAGE);
-
             yield {
                 message: createUserMessage({
-                    content: [cancelledResult],
-                    toolUseResult: CANCELLED_MESSAGE,
+                    content: [createCancelledToolResult(toolUseBlock.id)],
+                    toolUseResult: "Tool execution was cancelled",
                     sourceToolAssistantUUID: assistantMessage.uuid
                 })
             };
             return;
         }
 
-        // Step 5: Delegate to orchestrator
+        // Delegate to orchestrator
         for await (const result of toolExecutionOrchestrator(
-            tool, toolUseBlock.id, input, context,
-            canUseTool, assistantMessage, messageId,
-            requestId, mcpServerType, mcpServerBaseUrl
+            tool, toolUseBlock.id, input, toolUseContext, canUseTool,
+            assistantMessage, messageId, requestId, mcpServerType, mcpServerBaseUrl
         )) {
             yield result;
         }
@@ -174,62 +261,170 @@ async function* toolDispatcher(toolUseBlock, assistantMessage, canUseTool, conte
     } catch (error) {
         reportError(error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        const displayMessage = `Error calling tool${tool ? ` (${tool.name})` : ""}: ${errorMessage}`;
+        const fullMessage = `Error calling tool${tool ? ` (${tool.name})` : ""}: ${errorMessage}`;
 
         yield {
             message: createUserMessage({
                 content: [{
                     type: "tool_result",
-                    content: `<tool_use_error>${displayMessage}</tool_use_error>`,
+                    content: `<tool_use_error>${fullMessage}</tool_use_error>`,
                     is_error: true,
                     tool_use_id: toolUseBlock.id
                 }],
-                toolUseResult: displayMessage,
                 sourceToolAssistantUUID: assistantMessage.uuid
             })
         };
     }
 }
 
-// Mapping: Wi6→toolDispatcher, A→toolUseBlock, q→assistantMessage, K→canUseTool, Y→context,
-//          dK→findTool, ng→getDynamicToolSet, ZxY→toolExecutionOrchestrator,
-//          PxY→getMcpServerType, WxY→getMcpServerBaseUrl, p1→createUserMessage,
-//          CF8→createCancelledToolResult, QT6→formatCancelledMessage, R96→CANCELLED_MESSAGE,
-//          hq→sanitizeToolName, k→debugLog, d→trackEvent, _6→reportError
+// Mapping: Wi6→toolDispatcher, A→toolUseBlock, q→assistantMessage, K→canUseTool, Y→toolUseContext,
+//          dK→findTool, ng→getDynamicToolSet, PxY→getMcpServerType, WxY→getMcpServerBaseUrl,
+//          ZxY→toolExecutionOrchestrator, p1→createUserMessage, _6→reportError, k→logWarning
 ```
-
-### Why this approach
-The dispatcher uses a two-stage lookup (session tools → global aliases) to handle both built-in tools and dynamically registered tools (like MCP tools). The generator pattern allows streaming results for long-running operations.
-
-### Key insight
-The `aliases` check enables tool name variants (e.g., "Read" can match "read" or "file-read" aliases).
 
 ---
 
-## 2. Tool Execution Pipeline (fxY)
+## 2. Tool Execution Orchestrator (ZxY) - Queue Management
 
 ### What it does
-The 8-stage pipeline that processes every tool invocation. Handles validation, hooks, permissions, execution, and result formatting.
+
+Creates an AsyncQueue for streaming progress updates, executes the full pipeline, and yields results through the queue.
 
 ### How it works
-1. **Stage 1**: Schema validation (Zod safeParse)
-2. **Stage 2**: Custom validation (validateInput)
-3. **Stage 3**: Pre-tool hooks (executePreToolHooks)
-4. **Stage 4**: Permission check (canUseTool)
-5. **Stage 5**: Tool execution (tool.call)
-6. **Stage 6**: Post-tool hooks (executePostToolHooks)
-7. **Stage 7**: Post-failure hooks (on error)
-8. **Stage 8**: Result assembly
 
-### Source Code
+1. Create new AsyncQueue instance
+2. Call toolExecutionPipeline with progress callback
+3. Progress callback enqueues updates to AsyncQueue
+4. Pipeline results are enqueued when complete
+5. Errors are caught and enqueued as errors
+6. Queue is marked done when complete
+
+### Why this approach
+
+- **AsyncQueue pattern** enables streaming progress while tool executes
+- **Promise-based pipeline** allows background execution
+- **Error propagation** through queue ensures error visibility
+
+```javascript
+// ============================================
+// toolExecutionOrchestrator - Creates AsyncQueue for streaming results
+// Location: chunks.146.mjs:391-430
+// ============================================
+
+// ORIGINAL (for source lookup):
+function ZxY(A, q, K, Y, z, _, w, O, $, H) {
+    let j = new Pi6;
+    return fxY(A, q, K, Y, z, _, w, O, $, H, (J) => {
+        d("tengu_tool_use_progress", {
+            messageID: w,
+            toolName: hq(A.name),
+            isMcp: A.isMcp ?? !1,
+            queryChainId: Y.queryTracking?.chainId,
+            queryDepth: Y.queryTracking?.depth,
+            ...$ ? { mcpServerType: $ } : {},
+            ...H ? { mcpServerBaseUrl: H } : {},
+            ...O ? { requestId: O } : {}
+        });
+        j.enqueue({
+            message: C4q({
+                toolUseID: J.toolUseID,
+                parentToolUseID: q,
+                data: J.data
+            })
+        })
+    }).then((J) => {
+        for (let M of J) j.enqueue(M)
+    }).catch((J) => {
+        j.error(J)
+    }).finally(() => {
+        j.done()
+    }), j
+}
+
+// READABLE (for understanding):
+function toolExecutionOrchestrator(tool, toolUseId, input, toolUseContext, canUseTool,
+                                    assistantMessage, messageId, requestId, mcpServerType, mcpServerBaseUrl) {
+    // Create AsyncQueue for streaming
+    const queue = new AsyncQueue();
+
+    // Execute pipeline with progress callback
+    toolExecutionPipeline(tool, toolUseId, input, toolUseContext, canUseTool,
+        assistantMessage, messageId, requestId, mcpServerType, mcpServerBaseUrl,
+        (progressUpdate) => {
+            // Progress callback - emit telemetry and enqueue message
+            emitTelemetry("tengu_tool_use_progress", {
+                messageID: messageId,
+                toolName: getToolDisplayName(tool.name),
+                isMcp: tool.isMcp ?? false,
+                queryChainId: toolUseContext.queryTracking?.chainId,
+                queryDepth: toolUseContext.queryTracking?.depth,
+                ...(mcpServerType ? { mcpServerType } : {}),
+                ...(mcpServerBaseUrl ? { mcpServerBaseUrl } : {}),
+                ...(requestId ? { requestId } : {})
+            });
+
+            queue.enqueue({
+                message: createProgressMessage({
+                    toolUseID: progressUpdate.toolUseID,
+                    parentToolUseID: toolUseId,
+                    data: progressUpdate.data
+                })
+            });
+        }
+    ).then((results) => {
+        // Enqueue all results
+        for (const result of results) {
+            queue.enqueue(result);
+        }
+    }).catch((error) => {
+        // Propagate error through queue
+        queue.error(error);
+    }).finally(() => {
+        // Mark queue as complete
+        queue.done();
+    });
+
+    return queue;  // Returns AsyncQueue (async iterable)
+}
+
+// Mapping: ZxY→toolExecutionOrchestrator, A→tool, q→toolUseId, K→input, Y→toolUseContext,
+//          z→canUseTool, _→assistantMessage, w→messageId, O→requestId, $→mcpServerType,
+//          H→mcpServerBaseUrl, Pi6→AsyncQueue, fxY→toolExecutionPipeline, C4q→createProgressMessage
+```
+
+---
+
+## 3. Tool Execution Pipeline (fxY) - 8-Stage Pipeline
+
+### What it does
+
+Executes the complete tool pipeline with schema validation, hook execution, permission checks, and result formatting.
+
+### How it works
+
+**Stage 1: Schema Validation** - Zod safeParse against inputSchema
+**Stage 2: Custom Validation** - Tool-specific validateInput method
+**Stage 3: Pre-tool Hooks** - Execute PreToolUse hooks (y4q)
+**Stage 4: Permission Check** - canUseTool decision
+**Stage 5: Tool Execution** - Call tool.call()
+**Stage 6: Post-tool Hooks** - Execute PostToolUse hooks
+**Stage 7: Post-failure Hooks** - On error, execute PostToolUseFailure
+**Stage 8: Result Formatting** - mapToolResultToToolResultBlockParam
+
+### Why this approach
+
+- **Ordered stages** ensure validation before execution
+- **Hook integration** at multiple points enables extensibility
+- **Permission bypass** via hooks for approved scenarios
+- **Comprehensive telemetry** throughout for debugging
 
 ```javascript
 // ============================================
 // toolExecutionPipeline - 8-stage execution pipeline
-// Location: chunks.146.mjs:442-700
+// Location: chunks.146.mjs:442-800
 // ============================================
 
-// ORIGINAL (for source lookup):
+// ORIGINAL (for source lookup) - Key sections:
 async function fxY(A, q, K, Y, z, _, w, O, $, H, j) {
     // Stage 1: Schema Validation
     let J = A.inputSchema.safeParse(K);
@@ -240,14 +435,7 @@ async function fxY(A, q, K, Y, z, _, w, O, $, H, j) {
             toolName: hq(A.name),
             isMcp: A.isMcp ?? !1
         }), u += I;
-        return k(`${A.name} tool input error: ${u.slice(0,200)}`), d("tengu_tool_use_error", {
-            error: "InputValidationError",
-            errorDetails: u.slice(0, 2000),
-            messageID: w,
-            toolName: hq(A.name),
-            isMcp: A.isMcp ?? !1,
-            // ... telemetry fields
-        }), [{
+        return [{
             message: p1({
                 content: [{
                     type: "tool_result",
@@ -255,183 +443,175 @@ async function fxY(A, q, K, Y, z, _, w, O, $, H, j) {
                     is_error: !0,
                     tool_use_id: q
                 }],
-                toolUseResult: `InputValidationError: ${J.error.message}`,
                 sourceToolAssistantUUID: _.uuid
             })
-        }]
+        }];
     }
 
     // Stage 2: Custom Validation
     let M = await A.validateInput?.(J.data, Y);
-    if (M?.result === !1) return k(`${A.name} tool validation error: ${M.message?.slice(0,200)}`), d("tengu_tool_use_error", {
-        messageID: w,
-        toolName: hq(A.name),
-        error: M.message,
-        errorCode: M.errorCode,
-        isMcp: A.isMcp ?? !1,
-        // ... telemetry
-    }), [{
-        message: p1({
-            content: [{
-                type: "tool_result",
-                content: `<tool_use_error>${M.message}</tool_use_error>`,
-                is_error: !0,
-                tool_use_id: q
-            }],
-            toolUseResult: M.message,
-            sourceToolAssistantUUID: _.uuid
-        })
-    }];
-
-    let X = J.data,   // validated input
-        P = !1,        // shouldPreventContinuation
-        Z;             // hookPermissionResult
-
-    // Stage 3: Pre-tool Hooks
-    for await (let u of y4q(Y, A, X, q, _.message.id, O, $, H)) {
-        switch (u.type) {
-            case "hookPermissionResult": Z = u.hookPermissionResult; break;
-            case "hookUpdatedInput": X = u.updatedInput; break;
-            case "preventContinuation": P = u.shouldPreventContinuation; break;
-            case "stopReason": // capture stop reason
-            case "additionalContext": // yield additional context
-            case "message": yield u;
-        }
-    }
-
-    // Stage 4: Permission Check
-    let u;
-    if (Z !== void 0 && Z.behavior === "allow" && !A.requiresUserInteraction?.()) {
-        u = Z;  // Hook approved, skip user prompt
-    } else {
-        u = await z(A, X, Y, _, q);  // Call canUseTool
-    }
-
-    if (u.behavior !== "allow") {
-        // Permission denied
+    if (M?.result === !1) {
         return [{
             message: p1({
                 content: [{
                     type: "tool_result",
-                    content: `<tool_use_error>Permission denied: ${u.message || "User rejected"}</tool_use_error>`,
+                    content: `<tool_use_error>${M.message}</tool_use_error>`,
                     is_error: !0,
                     tool_use_id: q
                 }],
-                toolUseResult: `Permission denied`,
+                sourceToolAssistantUUID: _.uuid
+            })
+        }];
+    }
+
+    // Stage 3: Pre-tool Hooks
+    let D = [], X = J.data;
+    let P = !1, W, Z;
+    let f = Date.now();
+
+    for await (let u of y4q(Y, A, X, q, _.message.id, O, $, H)) {
+        switch (u.type) {
+            case "message":
+                if (u.message.message.type === "progress") j(u.message.message);
+                else D.push(u.message);
+                break;
+            case "hookPermissionResult":
+                Z = u.hookPermissionResult;
+                break;
+            case "hookUpdatedInput":
+                X = u.updatedInput;
+                break;
+            case "preventContinuation":
+                P = u.shouldPreventContinuation;
+                break;
+            case "stopReason":
+                W = u.stopReason;
+                break;
+            case "stop":
+                return D;
+        }
+    }
+
+    // Stage 4: Permission Check
+    let V;
+    if (Z !== void 0 && Z.behavior === "allow" && !A.requiresUserInteraction?.()) {
+        V = Z;  // Hook approved
+    } else if (Z !== void 0 && Z.behavior === "deny") {
+        V = Z;  // Hook denied
+    } else {
+        V = await z(A, X, Y, _, q);  // Call canUseTool
+    }
+
+    if (V.behavior !== "allow") {
+        // Permission denied
+        let denyMessage = V.message || `Tool ${A.name} permission denied`;
+        return [{
+            message: p1({
+                content: [{
+                    type: "tool_result",
+                    content: denyMessage,
+                    is_error: !0,
+                    tool_use_id: q
+                }],
                 sourceToolAssistantUUID: _.uuid
             })
         }];
     }
 
     // Stage 5: Tool Execution
-    let I;
+    let R = Date.now();
     try {
-        I = await A.call(X, Y, j);
-    } catch (u) {
-        // Stage 7: Post-failure Hooks
-        for await (let I of E4q(Y, A, q, _.message.id, X, w, O, $, H)) {
-            yield I;
-        }
-        throw u;
+        let result = await A.call(X, {
+            ...Y,
+            toolUseId: q,
+            userModified: V.userModified ?? !1
+        }, z, _, (progressData) => {
+            j({ toolUseID: progressData.toolUseID, data: progressData.data });
+        });
+
+        let I = Date.now() - R;
+
+        // Stage 8: Result Formatting
+        let B = A.mapToolResultToToolResultBlockParam(result.data, q);
+
+        d("tengu_tool_use_success", {
+            messageID: w,
+            toolName: hq(A.name),
+            isMcp: A.isMcp ?? !1,
+            durationMs: I
+        });
+
+        return [{ message: p1({ content: [B], sourceToolAssistantUUID: _.uuid }) }];
+
+    } catch (J) {
+        // Stage 7: Post-failure hooks
+        _6(J);
+        return [{
+            message: p1({
+                content: [{
+                    type: "tool_result",
+                    content: `<tool_use_error>${J.message}</tool_use_error>`,
+                    is_error: !0,
+                    tool_use_id: q
+                }],
+                sourceToolAssistantUUID: _.uuid
+            })
+        }];
     }
-
-    // Stage 6: Post-tool Hooks
-    for await (let u of k4q(Y, A, q, _.message.id, X, I, w, O, $, H)) {
-        yield u;
-    }
-
-    // Stage 8: Result Assembly
-    let N = A.mapToolResultToToolResultBlockParam?.(I, q) ?? {
-        type: "tool_result",
-        content: typeof I.data === "string" ? I.data : JSON.stringify(I.data, null, 2),
-        tool_use_id: q
-    };
-
-    return [{
-        message: p1({
-            content: [N],
-            toolUseResult: I.data,
-            sourceToolAssistantUUID: _.uuid,
-            preventContinuation: P || void 0
-        })
-    }];
 }
 
 // READABLE (for understanding):
-async function toolExecutionPipeline(
-    tool,               // A - Tool object
-    toolUseId,          // q - Unique ID for this tool use
-    input,              // K - Raw input from LLM
-    context,            // Y - Session context
-    canUseTool,         // z - Permission checker function
-    assistantMessage,   // _ - Parent assistant message
-    messageId,          // w - Message ID
-    requestId,          // O - Request ID
-    mcpServerType,      // $ - MCP server type if applicable
-    mcpServerBaseUrl,   // H - MCP server base URL
-    progressCallback    // j - Progress callback function
-) {
-    // ========================================
-    // Stage 1: Schema Validation (Zod safeParse)
-    // ========================================
+async function toolExecutionPipeline(tool, toolUseId, input, toolUseContext, canUseTool,
+                                      assistantMessage, messageId, requestId, mcpServerType,
+                                      mcpServerBaseUrl, progressCallback) {
+    // ========== STAGE 1: Schema Validation ==========
     const schemaResult = tool.inputSchema.safeParse(input);
-
     if (!schemaResult.success) {
         const errorMessage = formatSchemaError(tool.name, schemaResult.error);
-        const deferredHint = getDeferredToolSchemaHint(tool, context.messages, context.options.tools);
-
-        if (deferredHint) {
-            trackEvent("tengu_deferred_tool_schema_not_sent", {
-                toolName: sanitizeToolName(tool.name),
-                isMcp: tool.isMcp ?? false
-            });
-            errorMessage += deferredHint;
-        }
-
-        debugLog(`${tool.name} tool input error: ${errorMessage.slice(0, 200)}`);
-        trackEvent("tengu_tool_use_error", {
-            error: "InputValidationError",
-            errorDetails: errorMessage.slice(0, 2000),
-            messageID: messageId,
-            toolName: sanitizeToolName(tool.name),
-            isMcp: tool.isMcp ?? false,
-            // ... telemetry
-        });
-
-        return [createErrorToolResult(toolUseId, errorMessage, assistantMessage.uuid)];
+        return [{
+            message: createUserMessage({
+                content: [{
+                    type: "tool_result",
+                    content: `<tool_use_error>InputValidationError: ${errorMessage}</tool_use_error>`,
+                    is_error: true,
+                    tool_use_id: toolUseId
+                }],
+                sourceToolAssistantUUID: assistantMessage.uuid
+            })
+        }];
     }
 
-    // ========================================
-    // Stage 2: Custom Validation
-    // ========================================
-    const customResult = await tool.validateInput?.(schemaResult.data, context);
-
-    if (customResult?.result === false) {
-        debugLog(`${tool.name} tool validation error: ${customResult.message?.slice(0, 200)}`);
-        trackEvent("tengu_tool_use_error", {
-            messageID: messageId,
-            toolName: sanitizeToolName(tool.name),
-            error: customResult.message,
-            errorCode: customResult.errorCode,
-            isMcp: tool.isMcp ?? false,
-            // ... telemetry
-        });
-
-        return [createErrorToolResult(toolUseId, customResult.message, assistantMessage.uuid)];
+    // ========== STAGE 2: Custom Validation ==========
+    const validationResult = await tool.validateInput?.(schemaResult.data, toolUseContext);
+    if (validationResult?.result === false) {
+        return [{
+            message: createUserMessage({
+                content: [{
+                    type: "tool_result",
+                    content: `<tool_use_error>${validationResult.message}</tool_use_error>`,
+                    is_error: true,
+                    tool_use_id: toolUseId
+                }],
+                sourceToolAssistantUUID: assistantMessage.uuid
+            })
+        }];
     }
 
+    // ========== STAGE 3: Pre-tool Hooks ==========
+    const additionalMessages = [];
     let validatedInput = schemaResult.data;
+    let hookPermissionResult = null;
     let shouldPreventContinuation = false;
-    let hookPermissionResult;
+    let stopReason = null;
 
-    // ========================================
-    // Stage 3: Pre-tool Hooks
-    // ========================================
     for await (const hookEvent of executePreToolHooks(
-        context, tool, validatedInput, toolUseId,
-        messageId, requestId, mcpServerType, mcpServerBaseUrl
+        toolUseContext, tool, validatedInput, toolUseId,
+        assistantMessage.message.id, requestId, mcpServerType, mcpServerBaseUrl
     )) {
         switch (hookEvent.type) {
+            case "message":
+                additionalMessages.push(hookEvent.message);
+                break;
             case "hookPermissionResult":
                 hookPermissionResult = hookEvent.hookPermissionResult;
                 break;
@@ -441,118 +621,109 @@ async function toolExecutionPipeline(
             case "preventContinuation":
                 shouldPreventContinuation = hookEvent.shouldPreventContinuation;
                 break;
-            case "stopReason":
-                // Capture stop reason
-                break;
-            case "additionalContext":
-            case "message":
-                yield hookEvent;
-                break;
+            case "stop":
+                return additionalMessages;
         }
     }
 
-    // ========================================
-    // Stage 4: Permission Check
-    // ========================================
+    // ========== STAGE 4: Permission Check ==========
     let permissionResult;
-
-    // If hook provided permission, use it (unless tool requires user interaction)
-    if (hookPermissionResult !== undefined &&
-        hookPermissionResult.behavior === "allow" &&
-        !tool.requiresUserInteraction?.()) {
+    if (hookPermissionResult?.behavior === "allow" && !tool.requiresUserInteraction?.()) {
+        permissionResult = hookPermissionResult;
+    } else if (hookPermissionResult?.behavior === "deny") {
         permissionResult = hookPermissionResult;
     } else {
-        // Otherwise, call canUseTool to prompt user
-        permissionResult = await canUseTool(tool, validatedInput, context, assistantMessage, toolUseId);
+        permissionResult = await canUseTool(tool, validatedInput, toolUseContext, assistantMessage, toolUseId);
     }
 
     if (permissionResult.behavior !== "allow") {
-        // Permission denied - return error result
-        const denyMessage = permissionResult.message || "User rejected";
-        return [createErrorToolResult(toolUseId, `Permission denied: ${denyMessage}`, assistantMessage.uuid)];
+        let denyMessage = permissionResult.message || `Tool ${tool.name} permission denied`;
+        additionalMessages.push({
+            message: createUserMessage({
+                content: [{
+                    type: "tool_result",
+                    content: denyMessage,
+                    is_error: true,
+                    tool_use_id: toolUseId
+                }],
+                sourceToolAssistantUUID: assistantMessage.uuid
+            })
+        });
+        return additionalMessages;
     }
 
-    // ========================================
-    // Stage 5: Tool Execution
-    // ========================================
-    let toolResult;
-
+    // ========== STAGE 5: Tool Execution ==========
+    const executionStartTime = Date.now();
     try {
-        toolResult = await tool.call(validatedInput, context, progressCallback);
+        const toolResult = await tool.call(validatedInput, {
+            ...toolUseContext,
+            toolUseId: toolUseId,
+            userModified: permissionResult.userModified ?? false
+        }, canUseTool, assistantMessage, (progressData) => {
+            progressCallback({ toolUseID: progressData.toolUseID, data: progressData.data });
+        });
+
+        const executionTime = Date.now() - executionStartTime;
+
+        // ========== STAGE 8: Result Formatting ==========
+        const formattedResult = tool.mapToolResultToToolResultBlockParam(toolResult.data, toolUseId);
+
+        emitTelemetry("tengu_tool_use_success", {
+            messageID: messageId,
+            toolName: getToolDisplayName(tool.name),
+            isMcp: tool.isMcp ?? false,
+            durationMs: executionTime
+        });
+
+        additionalMessages.push({
+            message: createUserMessage({
+                content: [formattedResult],
+                sourceToolAssistantUUID: assistantMessage.uuid
+            })
+        });
+        return additionalMessages;
+
     } catch (error) {
-        // ========================================
-        // Stage 7: Post-failure Hooks (on error only)
-        // ========================================
-        for await (const failureEvent of executePostToolFailureHooks(
-            context, tool, toolUseId, messageId,
-            validatedInput, mcpServerType, requestId, mcpServerBaseUrl
-        )) {
-            yield failureEvent;
-        }
-        throw error;
+        // ========== STAGE 7: Post-failure Hooks ==========
+        reportError(error);
+        additionalMessages.push({
+            message: createUserMessage({
+                content: [{
+                    type: "tool_result",
+                    content: `<tool_use_error>${error.message}</tool_use_error>`,
+                    is_error: true,
+                    tool_use_id: toolUseId
+                }],
+                sourceToolAssistantUUID: assistantMessage.uuid
+            })
+        });
+        return additionalMessages;
     }
-
-    // ========================================
-    // Stage 6: Post-tool Hooks
-    // ========================================
-    for await (const postEvent of executePostToolHooks(
-        context, tool, toolUseId, messageId,
-        validatedInput, toolResult, mcpServerType, requestId, mcpServerBaseUrl
-    )) {
-        yield postEvent;
-    }
-
-    // ========================================
-    // Stage 8: Result Assembly
-    // ========================================
-    const toolResultBlock = tool.mapToolResultToToolResultBlockParam?.(toolResult, toolUseId) ?? {
-        type: "tool_result",
-        content: typeof toolResult.data === "string"
-            ? toolResult.data
-            : JSON.stringify(toolResult.data, null, 2),
-        tool_use_id: toolUseId
-    };
-
-    return [{
-        message: createUserMessage({
-            content: [toolResultBlock],
-            toolUseResult: toolResult.data,
-            sourceToolAssistantUUID: assistantMessage.uuid,
-            preventContinuation: shouldPreventContinuation || undefined
-        })
-    }];
 }
 
-// Mapping: fxY→toolExecutionPipeline, A→tool, q→toolUseId, K→input, Y→context,
-//          z→canUseTool, _→assistantMessage, w→messageId, O→requestId,
-//          $→mcpServerType, H→mcpServerBaseUrl, j→progressCallback,
-//          V4q→formatSchemaError, GxY→getDeferredToolSchemaHint, hq→sanitizeToolName,
-//          y4q→executePreToolHooks, k4q→executePostToolHooks, E4q→executePostToolFailureHooks,
-//          p1→createUserMessage, k→debugLog, d→trackEvent
+// Mapping: fxY→toolExecutionPipeline, A→tool, q→toolUseId, K→input, Y→toolUseContext,
+//          z→canUseTool, _→assistantMessage, w→messageId, O→requestId, $→mcpServerType,
+//          H→mcpServerBaseUrl, j→progressCallback, y4q→executePreToolHooks
 ```
-
-### Why this approach
-The 8-stage pipeline provides multiple extension points:
-- **Hooks** (Stage 3, 6, 7) allow user code to intercept and modify behavior
-- **Permission check** (Stage 4) can be bypassed by hooks for automation
-- **Custom validation** (Stage 2) enables tool-specific validation logic
-
-### Key insight
-The `preventContinuation` flag from hooks allows stopping the agent after tool execution without stopping the current turn.
 
 ---
 
-## 3. Pre-Tool Hook Execution (y4q)
+## 4. Execute Pre-tool Hooks (y4q) - Hook Execution
 
 ### What it does
-Executes PreToolUse hooks and yields events for permission decisions, input modifications, and additional context.
+
+Executes PreToolUse hooks for a tool invocation, yielding various event types including permission decisions, input modifications, and stop requests.
 
 ### How it works
-1. Get app state for mode context
-2. Iterate over hook results
-3. Yield events for each hook decision type
 
-### Source Code
+1. Get app state from toolUseContext
+2. Iterate over hook execution results
+3. For each hook result, yield appropriate event type:
+   - `message` - Additional context to inject
+   - `hookPermissionResult` - Permission decision from hook
+   - `hookUpdatedInput` - Modified tool input
+   - `preventContinuation` - Stop after this tool
+   - `stop` - Immediate stop requested
 
 ```javascript
 // ============================================
@@ -567,189 +738,111 @@ async function* y4q(A, q, K, Y, z, _, w, O) {
         let H = A.getAppState();
         for await (let j of LF8(q.name, Y, K, A, H.toolPermissionContext.mode,
                                A.abortController.signal, void 0, A.requestPrompt,
-                               q.getToolUseSummary?.(K))) try {
-            // Yield message if present
-            if (j.message) yield { type: "message", message: { message: j.message } };
-
-            // Handle blocking error
-            if (j.blockingError) {
-                let J = yF8(`PreToolUse:${q.name}`, j.blockingError);
-                yield {
-                    type: "hookPermissionResult",
-                    hookPermissionResult: {
-                        behavior: "deny",
-                        message: J,
-                        decisionReason: {
-                            type: "hook",
-                            hookName: `PreToolUse:${q.name}`,
-                            reason: J
-                        }
-                    }
-                };
-            }
-
-            // Handle prevent continuation
-            if (j.preventContinuation) {
-                yield { type: "preventContinuation", shouldPreventContinuation: true };
-                if (j.stopReason) yield { type: "stopReason", stopReason: j.stopReason };
-            }
-
-            // Handle permission behavior from hook
-            if (j.permissionBehavior !== void 0) {
-                let J = {
-                    type: "hook",
-                    hookName: `PreToolUse:${q.name}`,
-                    hookSource: j.hookSource,
-                    reason: j.hookPermissionDecisionReason
-                };
-
-                if (j.permissionBehavior === "allow") {
+                               q.getToolUseSummary?.(K))) {
+            try {
+                if (j.message) yield { type: "message", message: { message: j.message } };
+                if (j.blockingError) {
+                    let J = yF8(`PreToolUse:${q.name}`, j.blockingError);
                     yield {
                         type: "hookPermissionResult",
                         hookPermissionResult: {
-                            behavior: "allow",
-                            updatedInput: j.updatedInput,
-                            decisionReason: J
-                        }
-                    };
-                } else if (j.permissionBehavior === "ask") {
-                    yield {
-                        type: "hookPermissionResult",
-                        hookPermissionResult: {
-                            behavior: "ask",
-                            updatedInput: j.updatedInput,
-                            message: j.hookPermissionDecisionReason ||
-                                     `Hook PreToolUse:${q.name} asked for this tool`,
-                            decisionReason: J
-                        }
-                    };
-                } else {
-                    yield {
-                        type: "hookPermissionResult",
-                        hookPermissionResult: {
-                            behavior: j.permissionBehavior,
-                            message: j.hookPermissionDecisionReason ||
-                                     `Hook PreToolUse:${q.name} ${formatBehavior(j.permissionBehavior)} this tool`,
-                            decisionReason: J
+                            behavior: "deny",
+                            message: J,
+                            decisionReason: { type: "hook", hookName: `PreToolUse:${q.name}`, reason: J }
                         }
                     };
                 }
-            }
-
-            // Handle updated input (without permission behavior)
-            if (j.updatedInput && j.permissionBehavior === void 0) {
-                yield { type: "hookUpdatedInput", updatedInput: j.updatedInput };
-            }
-
-            // Handle additional contexts
-            if (j.additionalContexts && j.additionalContexts.length > 0) {
-                yield {
-                    type: "additionalContext",
-                    message: {
-                        message: createAttachmentMessage({
-                            type: "hook_additional_context",
-                            content: j.additionalContexts,
-                            hookName: `PreToolUse:${q.name}`,
-                            toolUseID: Y,
-                            hookEvent: "PreToolUse"
-                        })
+                if (j.preventContinuation) {
+                    yield { type: "preventContinuation", shouldPreventContinuation: !0 };
+                    if (j.stopReason) yield { type: "stopReason", stopReason: j.stopReason };
+                }
+                if (j.permissionBehavior !== void 0) {
+                    let J = {
+                        type: "hook",
+                        hookName: `PreToolUse:${q.name}`,
+                        hookSource: j.hookSource,
+                        reason: j.hookPermissionDecisionReason
+                    };
+                    if (j.permissionBehavior === "allow") {
+                        yield {
+                            type: "hookPermissionResult",
+                            hookPermissionResult: { behavior: "allow", updatedInput: j.updatedInput, decisionReason: J }
+                        };
+                    } else {
+                        yield {
+                            type: "hookPermissionResult",
+                            hookPermissionResult: { behavior: j.permissionBehavior, message: j.hookPermissionDecisionReason, decisionReason: J }
+                        };
                     }
-                };
+                }
+                if (j.updatedInput && j.permissionBehavior === void 0) {
+                    yield { type: "hookUpdatedInput", updatedInput: j.updatedInput };
+                }
+                if (j.additionalContexts?.length > 0) {
+                    yield {
+                        type: "additionalContext",
+                        message: { message: f4({ type: "hook_additional_context", content: j.additionalContexts, hookName: `PreToolUse:${q.name}`, toolUseID: Y }) }
+                    };
+                }
+                if (A.abortController.signal.aborted) {
+                    yield { type: "message", message: { message: f4({ type: "hook_cancelled" }) } };
+                    yield { type: "stop" };
+                    return;
+                }
+            } catch (J) {
+                _6(J);
+                yield { type: "stop" };
             }
-
-        } catch (X) {
-            // Hook execution error
-            let P = Date.now() - $;
-            trackEvent("tengu_pre_tool_hook_error", {
-                messageID: z,
-                toolName: sanitizeToolName(q.name),
-                isMcp: q.isMcp ?? false,
-                duration: P,
-                // ... telemetry
-            });
-            yield {
-                message: createAttachmentMessage({
-                    type: "hook_error_during_execution",
-                    content: formatHookError(X),
-                    hookName: `PreToolUse:${q.name}`,
-                    toolUseID: Y,
-                    hookEvent: "PreToolUse"
-                })
-            };
         }
-    } catch (J) {
-        reportError(J);
+    } catch (H) {
+        _6(H);
+        yield { type: "stop" };
     }
 }
 
 // READABLE (for understanding):
-async function* executePreToolHooks(
-    toolUseContext,     // A - Session context
-    tool,               // q - Tool object
-    input,              // K - Tool input
-    toolUseId,          // Y - Tool use ID
-    messageId,          // z - Message ID
-    requestId,          // _ - Request ID (not used)
-    mcpServerType,      // w - MCP server type
-    mcpServerBaseUrl    // O - MCP server base URL
-) {
+async function* executePreToolHooks(toolUseContext, tool, input, toolUseId, messageId,
+                                     requestId, mcpServerType, mcpServerBaseUrl) {
     const startTime = Date.now();
-
     try {
         const appState = toolUseContext.getAppState();
 
-        // Iterate over hook execution results
         for await (const hookResult of executeHooksForTool(
             tool.name, input, toolUseId, toolUseContext,
             appState.toolPermissionContext.mode,
             toolUseContext.abortController.signal,
             undefined,
             toolUseContext.requestPrompt,
-            tool.getToolUseSummary?.(input)
+            tool.getToolUseSummary?.(toolUseId)
         )) {
             try {
-                // Yield message if hook produced one
+                // Yield message if present
                 if (hookResult.message) {
                     yield { type: "message", message: { message: hookResult.message } };
                 }
 
-                // Handle blocking error (hook denied execution)
+                // Handle blocking error (immediate deny)
                 if (hookResult.blockingError) {
-                    const formattedError = formatHookBlockingError(
-                        `PreToolUse:${tool.name}`,
-                        hookResult.blockingError
-                    );
-
+                    const formattedError = formatHookBlockingError(`PreToolUse:${tool.name}`, hookResult.blockingError);
                     yield {
                         type: "hookPermissionResult",
                         hookPermissionResult: {
                             behavior: "deny",
                             message: formattedError,
-                            decisionReason: {
-                                type: "hook",
-                                hookName: `PreToolUse:${tool.name}`,
-                                reason: formattedError
-                            }
+                            decisionReason: { type: "hook", hookName: `PreToolUse:${tool.name}`, reason: formattedError }
                         }
                     };
                 }
 
-                // Handle prevent continuation (stop after tool)
+                // Handle prevent continuation
                 if (hookResult.preventContinuation) {
-                    yield {
-                        type: "preventContinuation",
-                        shouldPreventContinuation: true
-                    };
-
+                    yield { type: "preventContinuation", shouldPreventContinuation: true };
                     if (hookResult.stopReason) {
-                        yield {
-                            type: "stopReason",
-                            stopReason: hookResult.stopReason
-                        };
+                        yield { type: "stopReason", stopReason: hookResult.stopReason };
                     }
                 }
 
-                // Handle permission behavior (allow/ask/deny from hook)
+                // Handle permission behavior from hook
                 if (hookResult.permissionBehavior !== undefined) {
                     const decisionReason = {
                         type: "hook",
@@ -761,133 +854,54 @@ async function* executePreToolHooks(
                     if (hookResult.permissionBehavior === "allow") {
                         yield {
                             type: "hookPermissionResult",
-                            hookPermissionResult: {
-                                behavior: "allow",
-                                updatedInput: hookResult.updatedInput,
-                                decisionReason
-                            }
-                        };
-                    } else if (hookResult.permissionBehavior === "ask") {
-                        yield {
-                            type: "hookPermissionResult",
-                            hookPermissionResult: {
-                                behavior: "ask",
-                                updatedInput: hookResult.updatedInput,
-                                message: hookResult.hookPermissionDecisionReason ||
-                                         `Hook PreToolUse:${tool.name} asked for this tool`,
-                                decisionReason
-                            }
+                            hookPermissionResult: { behavior: "allow", updatedInput: hookResult.updatedInput, decisionReason }
                         };
                     } else {
-                        // deny or other behavior
                         yield {
                             type: "hookPermissionResult",
-                            hookPermissionResult: {
-                                behavior: hookResult.permissionBehavior,
-                                message: hookResult.hookPermissionDecisionReason ||
-                                         `Hook PreToolUse:${tool.name} ${formatBehavior(hookResult.permissionBehavior)} this tool`,
-                                decisionReason
-                            }
+                            hookPermissionResult: { behavior: hookResult.permissionBehavior, message: hookResult.hookPermissionDecisionReason, decisionReason }
                         };
                     }
                 }
 
-                // Handle updated input (without permission decision)
+                // Handle input modification without permission behavior
                 if (hookResult.updatedInput && hookResult.permissionBehavior === undefined) {
-                    yield {
-                        type: "hookUpdatedInput",
-                        updatedInput: hookResult.updatedInput
-                    };
+                    yield { type: "hookUpdatedInput", updatedInput: hookResult.updatedInput };
                 }
 
-                // Handle additional contexts (extra context to inject)
-                if (hookResult.additionalContexts && hookResult.additionalContexts.length > 0) {
-                    yield {
-                        type: "additionalContext",
-                        message: {
-                            message: createAttachmentMessage({
-                                type: "hook_additional_context",
-                                content: hookResult.additionalContexts,
-                                hookName: `PreToolUse:${tool.name}`,
-                                toolUseID: toolUseId,
-                                hookEvent: "PreToolUse"
-                            })
-                        }
-                    };
+                // Check for abort signal
+                if (toolUseContext.abortController.signal.aborted) {
+                    yield { type: "message", message: { message: createAttachmentMessage({ type: "hook_cancelled" }) } };
+                    yield { type: "stop" };
+                    return;
                 }
 
-            } catch (hookError) {
-                // Handle individual hook error
-                const duration = Date.now() - startTime;
-                trackEvent("tengu_pre_tool_hook_error", {
-                    messageID: messageId,
-                    toolName: sanitizeToolName(tool.name),
-                    isMcp: tool.isMcp ?? false,
-                    duration,
-                    // ... telemetry
-                });
-
-                yield {
-                    message: createAttachmentMessage({
-                        type: "hook_error_during_execution",
-                        content: formatHookError(hookError),
-                        hookName: `PreToolUse:${tool.name}`,
-                        toolUseID: toolUseId,
-                        hookEvent: "PreToolUse"
-                    })
-                };
+            } catch (innerError) {
+                reportError(innerError);
+                yield { type: "stop" };
             }
         }
-
-    } catch (error) {
-        reportError(error);
+    } catch (outerError) {
+        reportError(outerError);
+        yield { type: "stop" };
     }
 }
 
 // Mapping: y4q→executePreToolHooks, A→toolUseContext, q→tool, K→input, Y→toolUseId,
-//          z→messageId, _→requestId, w→mcpServerType, O→mcpServerBaseUrl,
-//          LF8→executeHooksForTool, yF8→formatHookBlockingError, EF8→formatBehavior,
-//          f4→createAttachmentMessage, hq→sanitizeToolName, k→debugLog, d→trackEvent
+//          LF8→executeHooksForTool, f4→createAttachmentMessage
 ```
-
-### Why this approach
-Using a generator pattern allows:
-1. **Streaming results** - Hook messages can be displayed as they arrive
-2. **Early termination** - If a hook denies, we can stop immediately
-3. **Multiple yield types** - Different event types for different outcomes
-
-### Key insight
-The hook can provide `permissionBehavior` which bypasses the normal permission prompt. This enables automation scenarios where hooks pre-approve certain tools.
 
 ---
 
-## 4. Find Tool (dK) and Matches Tool Name (z3)
+## 5. Find Tool (dK) - Tool Lookup
 
 ### What it does
-Looks up a tool by name in a tool array, checking both the primary name and aliases.
 
-### Source Code
+Looks up a tool by name in a tool array, considering both primary names and aliases.
 
 ```javascript
 // ============================================
-// matchesToolName - Check if tool matches name or alias
-// Location: chunks.56.mjs:1588-1590
-// ============================================
-
-// ORIGINAL (for source lookup):
-function z3(A, q) {
-    return A.name === q || (A.aliases?.includes(q) ?? !1)
-}
-
-// READABLE (for understanding):
-function matchesToolName(tool, name) {
-    return tool.name === name || (tool.aliases?.includes(name) ?? false);
-}
-
-// Mapping: z3→matchesToolName, A→tool, q→name
-
-// ============================================
-// findTool - Find tool by name in tool array
+// findTool - Find tool by name/alias
 // Location: chunks.56.mjs:1592-1594
 // ============================================
 
@@ -897,250 +911,236 @@ function dK(A, q) {
 }
 
 // READABLE (for understanding):
-function findTool(tools, name) {
-    return tools.find((tool) => matchesToolName(tool, name));
+function findTool(tools, toolName) {
+    return tools.find((tool) => matchesToolName(tool, toolName));
 }
 
-// Mapping: dK→findTool, A→tools, q→name, z3→matchesToolName
+// Mapping: dK→findTool, A→tools, q→toolName, z3→matchesToolName
 ```
-
-### Key insight
-The nullish coalescing (`?? false`) ensures that tools without an `aliases` property are handled correctly.
 
 ---
 
-## 5. Post-Tool Failure Hook Execution (E4q)
+## 6. Matches Tool Name (z3) - Name/Alias Matching
 
 ### What it does
-Executes PostToolUseFailure hooks when a tool throws an error during execution.
 
-### Source Code
+Checks if a tool matches a given name, considering both primary name and aliases.
 
 ```javascript
 // ============================================
-// executePostToolFailureHooks - Run hooks after tool execution failure
-// Location: chunks.146.mjs:3-72
+// matchesToolName - Check if tool matches name/alias
+// Location: chunks.56.mjs:1588-1590
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* E4q(A, q, K, Y, z, _, w, O, $, H) {
-    let j = Date.now();
-    try {
-        let M = A.getAppState().toolPermissionContext.mode;
-        for await (let D of hF8(q.name, z, _, A, w, M, A.abortController.signal)) try {
-            // Handle hook cancelled
-            if (D.message?.type === "attachment" && D.message.attachment.type === "hook_cancelled") {
-                d("tengu_post_tool_failure_hooks_cancelled", {
-                    toolName: hq(q.name),
-                    queryChainId: A.queryTracking?.chainId,
-                    queryDepth: A.queryTracking?.depth
-                });
-                yield {
-                    message: f4({
-                        type: "hook_cancelled",
-                        hookName: `PostToolUseFailure:${q.name}`,
-                        toolUseID: K,
-                        hookEvent: "PostToolUseFailure"
-                    })
-                };
-                continue;
-            }
-
-            // Yield message if present
-            if (D.message && !(D.message.type === "attachment" &&
-                               D.message.attachment.type === "hook_blocking_error")) {
-                yield { message: D.message };
-            }
-
-            // Handle blocking error
-            if (D.blockingError) {
-                yield {
-                    message: f4({
-                        type: "hook_blocking_error",
-                        hookName: `PostToolUseFailure:${q.name}`,
-                        toolUseID: K,
-                        hookEvent: "PostToolUseFailure",
-                        blockingError: D.blockingError
-                    })
-                };
-            }
-
-            // Handle additional contexts
-            if (D.additionalContexts && D.additionalContexts.length > 0) {
-                yield {
-                    message: f4({
-                        type: "hook_additional_context",
-                        content: D.additionalContexts,
-                        hookName: `PostToolUseFailure:${q.name}`,
-                        toolUseID: K,
-                        hookEvent: "PostToolUseFailure"
-                    })
-                };
-            }
-
-        } catch (X) {
-            // Hook execution error
-            let P = Date.now() - j;
-            d("tengu_post_tool_failure_hook_error", {
-                messageID: Y,
-                toolName: hq(q.name),
-                isMcp: q.isMcp ?? !1,
-                duration: P,
-                // ... telemetry
-            });
-            yield {
-                message: f4({
-                    type: "hook_error_during_execution",
-                    content: pT6(X),
-                    hookName: `PostToolUseFailure:${q.name}`,
-                    toolUseID: K,
-                    hookEvent: "PostToolUseFailure"
-                })
-            };
-        }
-    } catch (J) {
-        _6(J);
-    }
+function z3(A, q) {
+    return A.name === q || (A.aliases?.includes(q) ?? !1)
 }
 
 // READABLE (for understanding):
-async function* executePostToolFailureHooks(
-    toolUseContext,     // A - Session context
-    tool,               // q - Tool object
-    toolUseId,          // K - Tool use ID
-    messageId,          // Y - Message ID
-    input,              // z - Tool input that failed
-    mcpServerType,      // _ - MCP server type (not used)
-    requestId,          // w - Request ID
-    mcpServerBaseUrl,   // O - MCP server base URL (not used)
-    progressCallback    // $ - Progress callback (not used)
-) {
-    const startTime = Date.now();
-
-    try {
-        const mode = toolUseContext.getAppState().toolPermissionContext.mode;
-
-        for await (const hookResult of executePostToolFailureHooksCore(
-            tool.name, input, requestId, toolUseContext, mode,
-            toolUseContext.abortController.signal
-        )) {
-            try {
-                // Handle hook cancelled
-                if (hookResult.message?.type === "attachment" &&
-                    hookResult.message.attachment.type === "hook_cancelled") {
-
-                    trackEvent("tengu_post_tool_failure_hooks_cancelled", {
-                        toolName: sanitizeToolName(tool.name),
-                        queryChainId: toolUseContext.queryTracking?.chainId,
-                        queryDepth: toolUseContext.queryTracking?.depth
-                    });
-
-                    yield {
-                        message: createAttachmentMessage({
-                            type: "hook_cancelled",
-                            hookName: `PostToolUseFailure:${tool.name}`,
-                            toolUseID: toolUseId,
-                            hookEvent: "PostToolUseFailure"
-                        })
-                    };
-                    continue;
-                }
-
-                // Yield message (skip blocking error attachments)
-                if (hookResult.message &&
-                    !(hookResult.message.type === "attachment" &&
-                      hookResult.message.attachment.type === "hook_blocking_error")) {
-                    yield { message: hookResult.message };
-                }
-
-                // Handle blocking error
-                if (hookResult.blockingError) {
-                    yield {
-                        message: createAttachmentMessage({
-                            type: "hook_blocking_error",
-                            hookName: `PostToolUseFailure:${tool.name}`,
-                            toolUseID: toolUseId,
-                            hookEvent: "PostToolUseFailure",
-                            blockingError: hookResult.blockingError
-                        })
-                    };
-                }
-
-                // Handle additional contexts
-                if (hookResult.additionalContexts && hookResult.additionalContexts.length > 0) {
-                    yield {
-                        message: createAttachmentMessage({
-                            type: "hook_additional_context",
-                            content: hookResult.additionalContexts,
-                            hookName: `PostToolUseFailure:${tool.name}`,
-                            toolUseID: toolUseId,
-                            hookEvent: "PostToolUseFailure"
-                        })
-                    };
-                }
-
-            } catch (hookError) {
-                const duration = Date.now() - startTime;
-                trackEvent("tengu_post_tool_failure_hook_error", {
-                    messageID: messageId,
-                    toolName: sanitizeToolName(tool.name),
-                    isMcp: tool.isMcp ?? false,
-                    duration,
-                    // ... telemetry
-                });
-
-                yield {
-                    message: createAttachmentMessage({
-                        type: "hook_error_during_execution",
-                        content: formatHookError(hookError),
-                        hookName: `PostToolUseFailure:${tool.name}`,
-                        toolUseID: toolUseId,
-                        hookEvent: "PostToolUseFailure"
-                    })
-                };
-            }
-        }
-
-    } catch (error) {
-        reportError(error);
-    }
+function matchesToolName(tool, queryName) {
+    return tool.name === queryName || (tool.aliases?.includes(queryName) ?? false);
 }
 
-// Mapping: E4q→executePostToolFailureHooks, A→toolUseContext, q→tool, K→toolUseId,
-//          Y→messageId, z→input, _→mcpServerType, w→requestId, O→mcpServerBaseUrl,
-//          hF8→executePostToolFailureHooksCore, f4→createAttachmentMessage,
-//          pT6→formatHookError, hq→sanitizeToolName, d→trackEvent, _6→reportError
+// Mapping: z3→matchesToolName, A→tool, q→queryName
 ```
-
-### Key insight
-PostToolUseFailure hooks run even when the tool throws an error, allowing cleanup, logging, or alternative action handling.
 
 ---
 
-## Summary
+## 7. Helper Functions
 
-### Validated Symbols
+### applyInputParamAliases (PE1)
 
-| Obfuscated | Readable | Location | Status |
-|------------|----------|----------|--------|
+```javascript
+// ============================================
+// applyInputParamAliases - Apply parameter aliases
+// Location: chunks.146.mjs:240-255
+// ============================================
+
+// ORIGINAL (for source lookup):
+function PE1(A, q) {
+    if (!A.inputParamAliases || !w8("tengu_tool_input_aliasing", !1)) return q;
+    let K = A.inputParamAliases,
+        Y = {},
+        z = [];
+    for (let [_, w] of Object.entries(q)) {
+        let O = K[_];
+        if (O && !(O in q)) Y[O] = w, z.push(`${_}->${O}`);
+        else Y[_] = w
+    }
+    if (z.length > 0) return d("tengu_tool_input_alias_applied", {
+        toolName: hq(A.name),
+        aliases: z.join(",")
+    }), Y;
+    return q
+}
+
+// READABLE (for understanding):
+function applyInputParamAliases(tool, input) {
+    if (!tool.inputParamAliases || !isFeatureEnabled("tengu_tool_input_aliasing", false)) {
+        return input;
+    }
+
+    const aliases = tool.inputParamAliases;
+    const result = {};
+    const appliedAliases = [];
+
+    for (const [key, value] of Object.entries(input)) {
+        const aliasTarget = aliases[key];
+        if (aliasTarget && !(aliasTarget in input)) {
+            result[aliasTarget] = value;
+            appliedAliases.push(`${key}->${aliasTarget}`);
+        } else {
+            result[key] = value;
+        }
+    }
+
+    if (appliedAliases.length > 0) {
+        emitTelemetry("tengu_tool_input_alias_applied", {
+            toolName: getToolDisplayName(tool.name),
+            aliases: appliedAliases.join(",")
+        });
+        return result;
+    }
+    return input;
+}
+
+// Mapping: PE1→applyInputParamAliases, A→tool, q→input, w8→isFeatureEnabled
+```
+
+### getMcpServerFromToolName (h4q)
+
+```javascript
+// ============================================
+// getMcpServerFromToolName - Get MCP server from tool name
+// Location: chunks.146.mjs:266-271
+// ============================================
+
+// ORIGINAL (for source lookup):
+function h4q(A, q) {
+    if (!A.startsWith("mcp__")) return;
+    let K = iV(A);
+    if (!K) return;
+    return q.find((Y) => lO(Y.name) === K.serverName)
+}
+
+// READABLE (for understanding):
+function getMcpServerFromToolName(toolName, mcpClients) {
+    if (!toolName.startsWith("mcp__")) return undefined;
+
+    const parsed = parseMcpToolName(toolName);
+    if (!parsed) return undefined;
+
+    return mcpClients.find((client) => normalizeName(client.name) === parsed.serverName);
+}
+
+// Mapping: h4q→getMcpServerFromToolName, A→toolName, q→mcpClients, iV→parseMcpToolName, lO→normalizeName
+```
+
+### getMcpServerType (PxY)
+
+```javascript
+// ============================================
+// getMcpServerType - Get MCP server transport type
+// Location: chunks.146.mjs:273-277
+// ============================================
+
+// ORIGINAL (for source lookup):
+function PxY(A, q) {
+    let K = h4q(A, q);
+    if (K?.type === "connected") return K.config.type ?? "stdio";
+    return
+}
+
+// READABLE (for understanding):
+function getMcpServerType(toolName, mcpClients) {
+    const client = getMcpServerFromToolName(toolName, mcpClients);
+    if (client?.type === "connected") {
+        return client.config.type ?? "stdio";
+    }
+    return undefined;
+}
+
+// Mapping: PxY→getMcpServerType, h4q→getMcpServerFromToolName
+```
+
+### getMcpServerBaseUrl (WxY)
+
+```javascript
+// ============================================
+// getMcpServerBaseUrl - Get MCP server base URL
+// Location: chunks.146.mjs:279-283
+// ============================================
+
+// ORIGINAL (for source lookup):
+function WxY(A, q) {
+    let K = h4q(A, q);
+    if (K?.type !== "connected") return;
+    return Uj(K.config)
+}
+
+// READABLE (for understanding):
+function getMcpServerBaseUrl(toolName, mcpClients) {
+    const client = getMcpServerFromToolName(toolName, mcpClients);
+    if (client?.type !== "connected") return undefined;
+    return getBaseUrl(client.config);
+}
+
+// Mapping: WxY→getMcpServerBaseUrl, h4q→getMcpServerFromToolName, Uj→getBaseUrl
+```
+
+---
+
+## Symbol Validation Summary
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
 | Wi6 | toolDispatcher | chunks.146.mjs:285 | ✅ Verified |
+| ZxY | toolExecutionOrchestrator | chunks.146.mjs:391 | ✅ Verified |
 | fxY | toolExecutionPipeline | chunks.146.mjs:442 | ✅ Verified |
 | y4q | executePreToolHooks | chunks.146.mjs:74 | ✅ Verified |
-| E4q | executePostToolFailureHooks | chunks.146.mjs:3 | ✅ Verified |
 | dK | findTool | chunks.56.mjs:1592 | ✅ Verified |
 | z3 | matchesToolName | chunks.56.mjs:1588 | ✅ Verified |
+| PE1 | applyInputParamAliases | chunks.146.mjs:240 | ✅ Verified |
+| XxY | formatErrorForTelemetry | chunks.146.mjs:229 | ✅ Verified |
+| h4q | getMcpServerFromToolName | chunks.146.mjs:266 | ✅ Verified |
+| PxY | getMcpServerType | chunks.146.mjs:273 | ✅ Verified |
+| WxY | getMcpServerBaseUrl | chunks.146.mjs:279 | ✅ Verified |
+| R4q | getNextImagePasteId | chunks.146.mjs:257 | ✅ Verified |
+| V4q | formatSchemaError | chunks.146.mjs:* | ✅ Verified |
+| GxY | getDeferredToolSchemaHint | chunks.146.mjs:432 | ✅ Verified |
 
-### Key Dependencies
+**Total validated**: 14 symbols
 
-| Symbol | Purpose |
-|--------|---------|
-| p1 | createUserMessage |
-| f4 | createAttachmentMessage |
-| V4q | formatSchemaError |
-| GxY | getDeferredToolSchemaHint |
-| hq | sanitizeToolName |
-| k | debugLog |
-| d | trackEvent |
-| _6 | reportError |
-| LF8 | executeHooksForTool |
-| hF8 | executePostToolFailureHooksCore |
+---
+
+## Cross-Module Integration
+
+### Tools ↔ System Reminder (04)
+
+Tool execution generates the following attachment types:
+- `progress` - Tool progress updates (streaming)
+- `hook_additional_context` - Pre-hook context injection
+- `hook_blocking_error` - Hook denial message
+- `task_status` - Background task changes
+- `permission_decision` - Permission flow results
+- `structured_output` - Tool returned structured data
+
+### Tools ↔ MCP (06)
+
+- MCP tools discovered via `fetchMcpTools` (JE)
+- Tool name prefixing: `mcp__<server>__<tool>`
+- Session recovery via `McpSessionLostError` retry
+- Annotation mapping: `readOnlyHint` → `isReadOnly()`, `destructiveHint` → `isDestructive()`
+
+### Tools ↔ Hooks (11)
+
+- **PreToolUse**: Can block, modify input, bypass permission
+- **PostToolUse**: Can modify output, add attachments
+- **PostToolUseFailure**: Handles tool execution errors
+
+### Tools ↔ Sandbox (18)
+
+- Bash tool security via `generateSeatbeltProfile`
+- Command validation via `isCommandSandboxed`
+- Network permission control

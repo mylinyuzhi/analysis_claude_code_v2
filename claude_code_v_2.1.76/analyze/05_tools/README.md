@@ -109,7 +109,8 @@ Key functions in this module:
 
 | Document | Description |
 |----------|-------------|
-| [tools_complete_source_restoration_v2.md](tools_complete_source_restoration_v2.md) | **NEW v2** - Complete source restoration with ORIGINAL/READABLE code |
+| [tools_source_restoration_final.md](tools_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
+| [tools_complete_source_restoration_v2.md](tools_complete_source_restoration_v2.md) | **v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [tool_execution_pipeline_complete.md](tool_execution_pipeline_complete.md) | **NEW** - Complete 8-stage pipeline with ORIGINAL/READABLE code |
 | [tool_dispatcher_source_restoration.md](tool_dispatcher_source_restoration.md) | Complete source-level restoration with ORIGINAL/READABLE code |
 | [tool_dispatcher_complete.md](tool_dispatcher_complete.md) | Complete source-level analysis of dispatch flow |
@@ -137,6 +138,13 @@ Key functions in this module:
 | [ui_rendering.md](ui_rendering.md) | UI rendering infrastructure |
 | [tool_reminder_integration.md](tool_reminder_integration.md) | Tool-to-reminder connections |
 | [cross_system_integration.md](cross_system_integration.md) | Integration with slash commands, reminders, compaction |
+
+### Cross-Module Integration
+
+| Document | Description |
+|----------|-------------|
+| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | **NEW** - Complete cross-module integration for all 4 modules |
+| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | **NEW** - UI components for Tools, MCP, Plan Mode, Task System |
 
 ---
 
