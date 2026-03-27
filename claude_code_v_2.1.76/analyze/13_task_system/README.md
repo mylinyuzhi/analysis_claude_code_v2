@@ -8,6 +8,7 @@
 
 | Document | Description |
 |----------|-------------|
+| [task_system_complete_source_restoration_v3.md](./task_system_complete_source_restoration_v3.md) | **v3** - Complete source restoration with high watermark algorithm |
 | [task_system_source_restoration_final.md](./task_system_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
 | [task_system_complete_source_restoration_v2.md](./task_system_complete_source_restoration_v2.md) | **v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [task_core_functions_source_restoration.md](./task_core_functions_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
@@ -28,8 +29,9 @@
 
 | Document | Description |
 |----------|-------------|
-| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | **NEW** - Complete cross-module integration for all 4 modules |
-| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | **NEW** - UI components for Tools, MCP, Plan Mode, Task System |
+| [cross_module_integration_complete.md](cross_module_integration_complete.md) | **COMPLETE** - Full cross-module integration with source restoration |
+| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | Complete cross-module integration for all 4 modules |
+| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | UI components for Tools, MCP, Plan Mode, Task System |
 
 ## Architecture Overview
 

@@ -212,6 +212,8 @@
 | I3z | getRemoteServerBatchSize | chunks.169.mjs:1861 | function (batch size for HTTP/SSE) |
 | ei8 | getConnectionCacheKey | chunks.169.mjs:1873 | function (memoization key) |
 | DGq | isConfigEqual | chunks.169.mjs:1893 | function (config comparison) |
+| Rl | fetchMcpResources | chunks.170.mjs:679 | function (discovers resources from MCP server via resources/list) |
+| K_6 | fetchMcpPrompts | chunks.170.mjs:694 | function (discovers prompts from MCP server via prompts/list) |
 
 ### MCP Transport Layer
 
