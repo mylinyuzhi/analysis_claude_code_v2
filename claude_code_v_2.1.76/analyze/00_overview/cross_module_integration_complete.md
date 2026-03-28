@@ -1,530 +1,728 @@
-# Cross-Module Integration Analysis (Claude Code 2.1.76)
+# Cross-Module Integration: Tools, MCP, Plan Mode, Task System ↔ System Reminder
 
-> Complete analysis of how Tools, MCP, Plan Mode, and Task System integrate with System Reminder and each other.
+> **Version**: Claude Code v2.1.76
+> **Last Updated**: 2026-03-27
+> **Status**: ✅ Complete cross-module analysis
 
 ---
 
 ## Overview
 
-This document analyzes the integration points between:
-- **04_system_reminder** - The central notification/attachment system
-- **05_tools** - Tool execution and permission flows
-- **06_mcp** - MCP tool discovery and elicitation
-- **12_plan_mode** - Planning workflow and mode transitions
-- **13_task_system** - Task lifecycle and dependencies
+This document provides a comprehensive analysis of how the four key modules integrate with the System Reminder (04) system and with each other. System reminders are the mechanism by which context is injected into the LLM conversation.
 
 ---
 
-## 1. System Reminder Architecture
-
-### 1.1 Attachment Types
-
-Each module generates specific attachment types that become system reminders:
-
-| Module | Attachment Types | When Generated |
-|--------|------------------|----------------|
-| **05_tools** | `progress`, `hook_permission_decision`, `hook_additional_context`, `structured_output` | During/after tool execution |
-| **06_mcp** | `mcp_progress`, `elicitation`, `mcp_meta` | During MCP operations |
-| **12_plan_mode** | `plan_mode`, `plan_mode_exit` | Mode transitions |
-| **13_task_system** | `task_status`, `task_claimed`, `task_completed` | Task operations |
-
-### 1.2 Attachment Processing Flow
+## Integration Architecture
 
 ```
-Module Event
-     │
-     ▼
-createAttachmentMessage(type, data)
-     │
-     ▼
-normalizeAttachmentForAPI(attachment)
-     │
-     ▼
-wrapWithSystemReminderTags(content)
-     │
-     ▼
-Inject into next LLM context as:
-<system-reminder>
-{content}
-</system-reminder>
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SYSTEM REMINDER INTEGRATION                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐│
+│  │   05_tools  │     │   06_mcp    │     │ 12_plan_mode│     │13_task_sys││
+│  │             │     │             │     │             │     │           ││
+│  │ • progress  │     │ • elicitation│    │ • plan_mode │     │ • task_   ││
+│  │ • hook_ctx  │────▶│ • mcp_      │────▶│ • plan_exit │────▶│   status  ││
+│  │ • perm_dec  │     │   progress  │     │ • turn_count│     │ • claim   ││
+│  │ • task_stat │     │ • binary    │     │             │     │ • complete││
+│  └──────┬──────┘     └──────┬──────┘     └──────┬──────┘     └─────┬─────┘│
+│         │                   │                   │                   │      │
+│         └───────────────────┴───────────────────┴───────────────────┘      │
+│                                      │                                      │
+│                                      ▼                                      │
+│                    ┌─────────────────────────────────┐                      │
+│                    │     04_system_reminder          │                      │
+│                    │                                 │                      │
+│                    │  normalizeAttachmentForAPI()    │                      │
+│                    │  wrapWithSystemReminderTags()   │                      │
+│                    │  createUserMessage()            │                      │
+│                    │                                 │                      │
+│                    │  Attachment Types:              │                      │
+│                    │  • progress                     │                      │
+│                    │  • hook_additional_context      │                      │
+│                    │  • hook_blocking_error          │                      │
+│                    │  • plan_mode                    │                      │
+│                    │  • task_status                  │                      │
+│                    │  • elicitation                  │                      │
+│                    │  • mcp_progress                 │                      │
+│                    └─────────────────────────────────┘                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Tools ↔ System Reminder Integration
+## 1. Tools ↔ System Reminder Integration
 
-### 2.1 Tool Execution Attachments
+### Attachment Types Generated
+
+| Attachment Type | When Generated | Source Function |
+|-----------------|----------------|-----------------|
+| `progress` | Tool execution progress updates | `C4q` (createProgressMessage) |
+| `hook_additional_context` | Pre-tool hook context injection | `y4q` (executePreToolHooks) |
+| `hook_blocking_error` | Hook denied execution | `y4q` (executePreToolHooks) |
+| `hook_cancelled` | Hook execution cancelled | `E4q` (executePostToolFailureHooks) |
+| `hook_error_during_execution` | Hook threw error | `y4q`, `E4q` |
+| `hook_stopped_continuation` | Hook stopped execution | `k4q` (executePostToolHooks) |
+| `structured_output` | Tool returned structured data | `fxY` (toolExecutionPipeline) |
+| `permission_decision` | Permission flow result | `z` (canUseTool) |
+
+### Source Code: Progress Attachment
 
 ```javascript
-// During tool execution (fxY - toolExecutionPipeline)
+// ============================================
+// createProgressMessage - Create progress attachment
+// Location: chunks.172.mjs:2943
+// ============================================
 
-// Progress attachment
-function emitProgress(progressCallback, data) {
-    progressCallback({
-        toolUseID: data.toolUseID,
-        data: {
-            type: "progress",
-            status: data.status,
-            message: data.message
+// READABLE (for understanding):
+function createProgressMessage(toolUseId, progressData) {
+    return createAttachmentMessage({
+        type: "progress",
+        toolUseID: toolUseId,
+        status: progressData.status,      // "started" | "in_progress" | "completed"
+        message: progressData.message,
+        percentage: progressData.percentage,
+        serverName: progressData.serverName,  // For MCP tools
+        toolName: progressData.toolName
+    });
+}
+
+// Sent via progressCallback in toolExecutionPipeline
+```
+
+### Source Code: Hook Additional Context
+
+```javascript
+// ============================================
+// From executePreToolHooks (y4q)
+// Location: chunks.146.mjs:147-158
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (j.additionalContexts && j.additionalContexts.length > 0) {
+    yield {
+        type: "additionalContext",
+        message: {
+            message: f4({
+                type: "hook_additional_context",
+                content: j.additionalContexts,
+                hookName: `PreToolUse:${q.name}`,
+                toolUseID: Y,
+                hookEvent: "PreToolUse"
+            })
         }
-    });
-}
-
-// Hook permission decision attachment
-if (hookPermissionResult?.behavior !== "ask") {
-    messages.push({
-        message: createAttachmentMessage({
-            type: "hook_permission_decision",
-            decision: hookPermissionResult.behavior,
-            toolUseID,
-            hookEvent: "PreToolUse"
-        })
-    });
-}
-
-// Hook additional context attachment
-if (hookResult.type === "additionalContext") {
-    messages.push(hookResult.message);
-}
-```
-
-### 2.2 Permission Flow Integration
-
-```
-Tool execution requested
-        │
-        ▼
-┌───────────────────────┐
-│ executePreToolHooks   │
-│ (y4q)                 │
-└───────────┬───────────┘
-            │
-            ▼
-    ┌───────────────────┐
-    │ Hook provides     │
-    │ permission?       │
-    └───────┬───────────┘
-            │
-    ┌───────┴───────┐
-    │               │
-   Yes             No
-    │               │
-    ▼               ▼
-┌─────────┐   ┌──────────────┐
-│ Generate│   │ canUseTool   │
-│ hook_   │   │ (permission  │
-│ permission│  │ check)       │
-│ _decision│  └──────┬───────┘
-└────┬────┘          │
-     │               │
-     └───────┬───────┘
-             │
-             ▼
-    ┌────────────────────┐
-    │ Permission denied? │
-    └────────┬───────────┘
-             │
-        ┌────┴────┐
-        │         │
-       Yes       No
-        │         │
-        ▼         ▼
-┌──────────────┐ ┌──────────────┐
-│ Generate     │ │ Execute tool │
-│ error        │ │              │
-│ attachment   │ └──────┬───────┘
-└──────────────┘        │
-                        ▼
-                ┌──────────────┐
-                │ Generate     │
-                │ success      │
-                │ attachment   │
-                └──────────────┘
-```
-
----
-
-## 3. MCP ↔ System Reminder Integration
-
-### 3.1 MCP Progress Tracking
-
-```javascript
-// MCP tool execution progress
-const mcpProgressEvents = [
-    { type: "mcp_progress", status: "started" },
-    { type: "mcp_progress", status: "completed" },
-    { type: "mcp_progress", status: "failed" }
-];
-
-// Progress event structure
-{
-    type: "mcp_progress",
-    status: "started" | "completed" | "failed",
-    serverName: string,
-    toolName: string,
-    elapsedTimeMs?: number
-}
-```
-
-### 3.2 Elicitation Integration
-
-```javascript
-// Elicitation as attachment type
-const elicitationAttachment = {
-    type: "elicitation",
-    serverName: "oauth-server",
-    mode: "form" | "url",
-    requestedSchema: { /* JSON Schema */ },
-    uris: ["https://auth.example.com/oauth"],
-    requestId: "unique-id"
-};
-
-// Elicitation result becomes system reminder
-function handleElicitationResult(result) {
-    return createAttachmentMessage({
-        type: "elicitation_result",
-        requestId: result.requestId,
-        action: result.action,  // "accept" | "decline" | "cancel"
-        content: result.content  // User-provided data
-    });
-}
-```
-
----
-
-## 4. Plan Mode ↔ System Reminder Integration
-
-### 4.1 Plan Mode Entry Attachment
-
-```javascript
-// Generated when entering plan mode (EnterPlanMode)
-const planModeAttachment = {
-    type: "plan_mode",
-    planFilePath: "~/.claude_api/plans/session-slug.md",
-    isSubAgent: false,
-    reminderType: "full" | "sparse",
-    turnCount: 0,
-    iterativeMode: false
-};
-
-// Attachment variants
-function planModeReminderDispatcher(attachment) {
-    if (attachment.isSubAgent) {
-        return formatSubagentPlanReminder(attachment);  // Brief
-    }
-    if (attachment.reminderType === "sparse") {
-        return formatSparsePlanReminder(attachment);    // Short reminder
-    }
-    if (attachment.iterativeMode) {
-        return formatIterativePlanReminder(attachment); // Pair-planning
-    }
-    return formatFullPlanReminder(attachment);          // 5-phase workflow
-}
-```
-
-### 4.2 Plan Mode Exit Attachment
-
-```javascript
-// Generated when exiting plan mode (ExitPlanMode)
-const planExitAttachment = {
-    type: "plan_mode_exit",
-    planFilePath: "~/.claude_api/plans/session-slug.md",
-    planContent: "## Plan: ...",
-    isApproved: true,
-    restoreMode: "default"
-};
-
-// Turn counting for sparse reminders
-let turnCount = 0;
-function injectPlanModeReminder() {
-    if (turnCount < 3) {
-        // Full reminder for first 3 turns
-        return formatFullPlanReminder();
-    } else {
-        // Sparse reminder after 3 turns
-        return formatSparsePlanReminder();
-    }
-}
-```
-
----
-
-## 5. Task System ↔ System Reminder Integration
-
-### 5.1 Task Status Attachments
-
-```javascript
-// Task creation
-function onTaskCreated(task) {
-    return createAttachmentMessage({
-        type: "task_status",
-        action: "created",
-        taskId: task.id,
-        subject: task.subject,
-        status: task.status
-    });
-}
-
-// Task update
-function onTaskUpdated(task, changes) {
-    return createAttachmentMessage({
-        type: "task_status",
-        action: "updated",
-        taskId: task.id,
-        changes: {
-            status: changes.status,
-            owner: changes.owner
-        }
-    });
-}
-
-// Task completion (triggers hooks)
-function onTaskCompleted(task) {
-    return createAttachmentMessage({
-        type: "task_completed",
-        taskId: task.id,
-        completedBy: task.owner,
-        completedAt: new Date().toISOString()
-    });
-}
-```
-
-### 5.2 Task Claimed Attachment
-
-```javascript
-// When task is claimed
-function onTaskClaimed(task, agentId) {
-    return createAttachmentMessage({
-        type: "task_claimed",
-        taskId: task.id,
-        claimedBy: agentId,
-        previousOwner: task.owner
-    });
-}
-
-// Claim failure reasons
-const claimFailureReasons = {
-    "task_not_found": "Task does not exist",
-    "already_claimed": "Task already claimed by another agent",
-    "already_resolved": "Task is already completed",
-    "blocked": "Task has incomplete dependencies"
-};
-```
-
----
-
-## 6. Cross-Module Interaction Flows
-
-### 6.1 Plan Mode → Tools → Task System
-
-```
-User: /plan implement user authentication
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ EnterPlanMode tool called                                 │
-│   └─ Generate plan_mode attachment                        │
-│   └─ Set mode = "plan"                                    │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ Tool filtering active                                      │
-│   └─ Only read-only tools allowed                         │
-│   └─ Write/Edit restricted to plan file                   │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-[Agent explores codebase and writes plan]
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ ExitPlanMode tool called                                  │
-│   └─ Show approval dialog                                 │
-│   └─ User approves                                        │
-│   └─ Generate plan_mode_exit attachment                   │
-│   └─ Restore mode = "default"                             │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ TaskCreate tool called (optional)                         │
-│   └─ Create tasks from plan steps                         │
-│   └─ Generate task_status attachments                     │
-└───────────────────────────────────────────────────────────┘
-```
-
-### 6.2 MCP Tool → Elicitation → Permission Flow
-
-```
-User requests MCP tool execution
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ Tool discovery (fetchMcpTools)                            │
-│   └─ Check server connected                               │
-│   └─ Build tool objects with annotations                  │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ Permission check (canUseTool)                             │
-│   └─ Check readOnlyHint annotation                        │
-│   └─ Check permission rules                               │
-│   └─ Show dialog if needed                                │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ Tool execution (executeMcpToolCall)                       │
-│   └─ Emit mcp_progress (started)                          │
-│   └─ Call tools/call JSON-RPC                             │
-│   └─ If elicitation required:                             │
-│       └─ Show elicitation dialog                          │
-│       └─ Wait for user response                           │
-│       └─ Continue with elicitation result                 │
-│   └─ Emit mcp_progress (completed/failed)                 │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ Result processing                                          │
-│   └─ Handle binary content (PDF, images)                  │
-│   └─ Generate structured_output attachment                │
-│   └─ Generate mcp_meta attachment                         │
-└───────────────────────────────────────────────────────────┘
-```
-
-### 6.3 Swarm Plan Approval Flow
-
-```
-Teammate Agent                    Team Lead Agent
-      │                                  │
-      │ EnterPlanMode                    │
-      │ (plan mode active)               │
-      │                                  │
-      │ ExitPlanMode                     │
-      │                                  │
-      ├──── plan_approval_request ──────►│
-      │   {type, from, planContent,      │
-      │    planFilePath, requestId}      │
-      │                                  │
-      │                          ┌───────┴───────┐
-      │                          │ Show approval │
-      │                          │ dialog to     │
-      │                          │ user          │
-      │                          └───────┬───────┘
-      │                                  │
-      │◄──── plan_approval_response ────┤
-      │   {approved: true/false,         │
-      │    feedback: "..."}              │
-      │                                  │
-      │ If approved:                     │
-      │   └─ Restore mode                │
-      │   └─ Proceed with implementation │
-      │                                  │
-      │ If rejected:                     │
-      │   └─ Stay in plan mode           │
-      │   └─ Revise plan                 │
-      │                                  │
-```
-
----
-
-## 7. Attachment Normalization
-
-### 7.1 Core Functions
-
-```javascript
-// Main normalization entry point
-function normalizeAttachmentForAPI(attachment) {
-    return {
-        type: attachment.type,
-        content: serializeAttachmentContent(attachment),
-        metadata: extractAttachmentMetadata(attachment)
     };
 }
 
-// Wrap with system reminder tags
-function wrapWithSystemReminderTags(content) {
-    return `<system-reminder>\n${content}\n</system-reminder>`;
+// READABLE (for understanding):
+if (hookResult.additionalContexts && hookResult.additionalContexts.length > 0) {
+    yield {
+        type: "additionalContext",
+        message: {
+            message: createAttachmentMessage({
+                type: "hook_additional_context",
+                content: hookResult.additionalContexts,
+                hookName: `PreToolUse:${tool.name}`,
+                toolUseID: toolUseId,
+                hookEvent: "PreToolUse"
+            })
+        }
+    };
+}
+```
+
+### Data Flow
+
+```
+Tool Execution (fxY)
+    │
+    ├─→ Pre-tool Hook (y4q)
+    │       │
+    │       ├─→ hook_additional_context
+    │       │       └─→ System Reminder (p1)
+    │       │
+    │       ├─→ hookPermissionResult
+    │       │       └─→ Permission Decision (canUseTool)
+    │       │
+    │       └─→ hook_blocking_error
+    │               └─→ Tool denied, return error
+    │
+    ├─→ Permission Check (canUseTool)
+    │       │
+    │       └─→ permission_decision
+    │               └─→ User dialog result
+    │
+    ├─→ Tool Call (tool.call)
+    │       │
+    │       └─→ progress callbacks
+    │               └─→ Streaming progress updates
+    │
+    └─→ Post-tool Hook (k4q)
+            │
+            └─→ structured_output
+                    └─→ Tool result formatting
+```
+
+---
+
+## 2. MCP ↔ System Reminder Integration
+
+### Attachment Types Generated
+
+| Attachment Type | When Generated | Source Function |
+|-----------------|----------------|-----------------|
+| `elicitation` | MCP server requests user input | `WT7` (setupElicitationRequestHandler) |
+| `elicitation_result` | User responds to elicitation | `WT7` |
+| `mcp_progress` | MCP tool execution progress | `JE` (fetchMcpTools → tool.call) |
+| `mcp_resource` | MCP resource content | Resource reading |
+| `mcp_server_status` | Server connection status | `nl` (connectMcpServer) |
+
+### Elicitation Flow
+
+```
+MCP Server                              Claude Code
+    │                                        │
+    │  elicitation/create                    │
+    │  {message, requestedSchema/uris}       │
+    │───────────────────────────────────────▶│
+    │                                        │
+    │                                        ├─→ Queue elicitation
+    │                                        │
+    │                                        ├─→ UI: Form Dialog or URL redirect
+    │                                        │
+    │  ◀─────────────────────────────────────│
+    │  elicitation/result                    │
+    │  {action: "accept", content: {...}}    │
+    │                                        │
+```
+
+### Source Code: Elicitation Handler
+
+```javascript
+// ============================================
+// setupElicitationRequestHandler - Handle MCP server elicitation requests
+// Location: chunks.58.mjs:3
+// ============================================
+
+// READABLE (for understanding):
+function setupElicitationRequestHandler(mcpClient, sessionContext) {
+    mcpClient.setRequestHandler(ElicitationCreateSchema, async (request) => {
+        const { message, requestedSchema, uris } = request.params;
+
+        // Determine elicitation mode
+        const mode = uris && uris.length > 0 ? "url" : "form";
+
+        // Create elicitation attachment
+        const elicitationId = generateUUID();
+        const elicitationAttachment = {
+            type: "elicitation",
+            id: elicitationId,
+            serverName: mcpClient.name,
+            message,
+            mode,
+            requestedSchema,
+            uris,
+            timestamp: new Date().toISOString()
+        };
+
+        // Queue for UI processing
+        await queueElicitation(elicitationAttachment);
+
+        // Wait for user response
+        const response = await waitForElicitationResponse(elicitationId);
+
+        return {
+            action: response.action,
+            content: response.content
+        };
+    });
+}
+```
+
+### MCP Progress Tracking
+
+```javascript
+// ============================================
+// From fetchMcpTools (JE) tool.call
+// Location: chunks.170.mjs:589-629
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (j && J) j({
+    toolUseID: J,
+    data: {
+        type: "mcp_progress",
+        status: "started",
+        serverName: A.name,
+        toolName: z.name
+    }
+});
+// ... execution ...
+if (j && J) j({
+    toolUseID: J,
+    data: {
+        type: "mcp_progress",
+        status: "completed",
+        serverName: A.name,
+        toolName: z.name,
+        duration: Date.now() - D
+    }
+});
+
+// READABLE (for understanding):
+// Send progress start
+if (onProgress && toolUseId) {
+    onProgress({
+        toolUseID: toolUseId,
+        data: {
+            type: "mcp_progress",
+            status: "started",
+            serverName: connection.name,
+            toolName: tool.name
+        }
+    });
 }
 
-// Create user message with attachments
-function createUserMessage({ content, toolUseResult, mcpMeta, sourceToolAssistantUUID }) {
+// Execute tool...
+
+// Send progress complete
+if (onProgress && toolUseId) {
+    onProgress({
+        toolUseID: toolUseId,
+        data: {
+            type: "mcp_progress",
+            status: "completed",
+            serverName: connection.name,
+            toolName: tool.name,
+            duration: Date.now() - startTime
+        }
+    });
+}
+```
+
+---
+
+## 3. Plan Mode ↔ System Reminder Integration
+
+### Attachment Types Generated
+
+| Attachment Type | When Generated | Purpose |
+|-----------------|----------------|---------|
+| `plan_mode` | Each turn during plan mode | 5-phase workflow instructions |
+| `plan_mode_reentry` | Re-entering plan mode | Brief reminder |
+| `plan_mode_exit` | After exiting plan mode | Notification of mode change |
+| `plan_file_reference` | After compaction | Existing plan content |
+
+### Global State Flags
+
+```javascript
+// ============================================
+// Global state managed by Dp and JS
+// Location: chunks.1.mjs
+// ============================================
+
+// Global session state
+v1 = {
+    needsPlanModeExitAttachment: false,
+    hasExitedPlanMode: false,
+    // ... other state
+};
+
+// Entering plan mode: reset flag
+handlePlanModeTransition(fromMode, "plan") {
+    if (toMode === "plan" && fromMode !== "plan") {
+        globalSessionState.needsPlanModeExitAttachment = false;
+    }
+}
+
+// Exiting plan mode: set flag
+handlePlanModeTransition("plan", toMode) {
+    if (fromMode === "plan" && toMode !== "plan") {
+        globalSessionState.needsPlanModeExitAttachment = true;
+    }
+}
+```
+
+### Plan Mode Attachment Injection
+
+```javascript
+// ============================================
+// Plan mode reminder attachment generation
+// ============================================
+
+function getPlanModeAttachment(state) {
+    const { mode, hasExitedPlanMode, needsPlanModeExitAttachment, turnCount } = state;
+
+    // Not in plan mode, check for exit attachment
+    if (mode !== "plan" && needsPlanModeExitAttachment) {
+        return {
+            type: "plan_mode_exit",
+            message: "Exited plan mode. Ready to implement the plan."
+        };
+    }
+
+    // In plan mode
+    if (mode === "plan") {
+        // First turn or every N turns
+        if (turnCount % SPARSE_REMINDER_INTERVAL === 0) {
+            return getFullPlanModeReminder();
+        } else {
+            return getSparsePlanModeReminder();
+        }
+    }
+
+    return null;
+}
+
+function getFullPlanModeReminder() {
     return {
-        type: "message",
+        type: "plan_mode",
+        message: `You are in plan mode. Follow the 5-phase workflow:
+
+## Phase 1: Initial Understanding
+- Use Explore agents to understand the codebase
+- Identify existing patterns and utilities
+
+## Phase 2: Design
+- Launch Plan agents to design implementation
+- Consider multiple approaches and trade-offs
+
+## Phase 3: Review
+- Read critical files to deepen understanding
+- Ensure plan aligns with user's intent
+
+## Phase 4: Final Plan
+- Write plan to ~/.claude_api/plans/<slug>.md
+- Include Context, Implementation Plan, Files to Modify, Verification
+
+## Phase 5: ExitPlanMode
+- Call ExitPlanMode to request user approval
+- Do NOT proceed until approved`
+    };
+}
+```
+
+### Turn Counting for Sparse Reminders
+
+```javascript
+// Turn counting to control reminder frequency
+const SPARSE_REMINDER_INTERVAL = 5;  // Show full reminder every 5 turns
+
+// In agent loop
+turnCount++;
+if (mode === "plan" && turnCount % SPARSE_REMINDER_INTERVAL === 0) {
+    // Inject full plan_mode reminder
+} else if (mode === "plan") {
+    // Inject sparse reminder
+}
+```
+
+---
+
+## 4. Task System ↔ System Reminder Integration
+
+### Attachment Types Generated
+
+| Attachment Type | When Generated | Purpose |
+|-----------------|----------------|---------|
+| `task_status` | Task create/update/delete | State change notification |
+| `task_claimed` | Task claimed by agent | Assignment notification |
+| `task_completed` | Task marked complete | Dependency unblocking |
+| `task_progress` | Progress during task work | Status updates |
+
+### Task Status Attachment
+
+```javascript
+// ============================================
+// Task status attachment generation
+// ============================================
+
+function createTaskStatusAttachment(task, action) {
+    return {
+        type: "task_status",
+        action,  // "created" | "updated" | "deleted"
+        taskId: task.id,
+        subject: task.subject,
+        status: task.status,
+        owner: task.owner,
+        blockedBy: task.blockedBy,
+        blocks: task.blocks
+    };
+}
+
+// Generated in:
+// - aD1 (createTask) → action: "created"
+// - WI (updateTask) → action: "updated"
+// - sD1 (deleteTask) → action: "deleted"
+```
+
+### Task Claim Notification
+
+```javascript
+// ============================================
+// Task claim notification for team coordination
+// ============================================
+
+function createTaskClaimedAttachment(task, owner) {
+    return {
+        type: "task_claimed",
+        taskId: task.id,
+        subject: task.subject,
+        owner: owner,
+        previousOwner: task.owner,  // If re-assigned
+        timestamp: new Date().toISOString()
+    };
+}
+
+// In claimTask (OT8):
+async function claimTask(taskListId, taskId, owner) {
+    // ... validation and locking ...
+
+    const updatedTask = await updateTask(taskListId, taskId, { owner });
+
+    // Generate notification for teammates
+    if (isTeamMode()) {
+        await broadcastToTeam({
+            type: "task_claimed",
+            taskId,
+            owner
+        });
+    }
+
+    return { success: true, task: updatedTask };
+}
+```
+
+### Task Completed Hook Integration
+
+```javascript
+// ============================================
+// TaskCompleted hooks - Pre-completion validation
+// Location: chunks.175.mjs:2594
+// ============================================
+
+async function* executeTaskCompletedHooks(task) {
+    const hooks = getHooksForEvent("TaskCompleted");
+
+    for (const hook of hooks) {
+        try {
+            const result = await hook.execute({
+                task,
+                event: "TaskCompleted"
+            });
+
+            if (result.block) {
+                // Hook blocked completion
+                yield {
+                    blocked: true,
+                    reason: result.reason,
+                    hookName: hook.name
+                };
+                return;
+            }
+
+            yield { success: true, hookName: hook.name };
+
+        } catch (error) {
+            yield {
+                error: true,
+                message: error.message,
+                hookName: hook.name
+            };
+        }
+    }
+}
+```
+
+---
+
+## 5. Cross-Module Integration Matrix
+
+### Tools ↔ MCP
+
+| Integration Point | Description |
+|-------------------|-------------|
+| Tool Discovery | `fetchMcpTools` (JE) creates tool objects from MCP servers |
+| Tool Execution | MCP tools execute through `toolExecutionPipeline` (fxY) |
+| Permission Checks | `canUseTool` applies to MCP tools |
+| Deferred Loading | MCP tools can be deferred until needed |
+| Annotation Mapping | MCP annotations → tool interface methods |
+
+### Tools ↔ Plan Mode
+
+| Integration Point | Description |
+|-------------------|-------------|
+| Tool Filtering | `filterToolsForPlanMode` restricts tools in plan mode |
+| Path Restrictions | Write/Edit only allowed to plan file path |
+| Exit Mechanism | `ExitPlanMode` is the only programmatic exit |
+| AskUserQuestion | Allowed for clarification during planning |
+
+### Tools ↔ Task System
+
+| Integration Point | Description |
+|-------------------|-------------|
+| Task Tools | `TaskCreate`, `TaskGet`, `TaskList`, `TaskUpdate` |
+| TodoWrite Fallback | When `isTaskSystemEnabled()` is false |
+| File Locking | Task operations use proper locking |
+| Permission Checks | Task tools require permissions |
+
+### Plan Mode ↔ Task System
+
+| Integration Point | Description |
+|-------------------|-------------|
+| TodoWrite Preservation | Todos preserved during planning |
+| Plan File Management | Plan file stored in task directory |
+| Approval Workflow | ExitPlanMode can trigger task creation |
+| Swarm Coordination | Teammates send plan_approval_request |
+
+### MCP ↔ Plan Mode
+
+| Integration Point | Description |
+|-------------------|-------------|
+| MCP Tools in Plan | MCP tools filtered like other tools |
+| Elicitation During Plan | MCP servers can request input during planning |
+| Resource Access | MCP resources readable in plan mode |
+
+---
+
+## 6. Integration Message Flow
+
+### Complete Request Flow with All Modules
+
+```
+User Request
+    │
+    ▼
+Agent Loop (Yh)
+    │
+    ├─▶ Check Mode (Plan Mode?)
+    │       └─▶ Inject plan_mode attachment
+    │
+    ├─▶ Check Tasks
+    │       └─▶ Inject task_status attachment
+    │
+    ├─▶ LLM Response (tool_use)
+    │       │
+    │       ▼
+    │   Tool Dispatcher (Wi6)
+    │       │
+    │       ▼
+    │   Tool Execution Pipeline (fxY)
+    │       │
+    │       ├─▶ Pre-tool Hooks (y4q)
+    │       │       └─▶ hook_additional_context attachment
+    │       │
+    │       ├─▶ Permission Check (canUseTool)
+    │       │       └─▶ permission_decision attachment
+    │       │
+    │       ├─▶ Tool Execution
+    │       │       ├─▶ MCP Tool? → fetchMcpTools → executeMcpToolCall
+    │       │       │       └─▶ mcp_progress attachment
+    │       │       │       └─▶ elicitation attachment (if server requests)
+    │       │       │
+    │       │       ├─▶ Task Tool? → createTask/updateTask/claimTask
+    │       │       │       └─▶ task_status attachment
+    │       │       │
+    │       │       └─▶ Plan Tool? → EnterPlanMode/ExitPlanMode
+    │       │               └─▶ plan_mode attachment
+    │       │
+    │       └─▶ Post-tool Hooks (k4q)
+    │               └─▶ structured_output attachment
+    │
+    └─▶ Return to Agent Loop
+            └─▶ Continue or stop
+```
+
+---
+
+## 7. Key Integration Functions
+
+### normalizeAttachmentForAPI (Ui8)
+
+```javascript
+// ============================================
+// normalizeAttachmentForAPI - Convert attachment to API format
+// Location: chunks.174.mjs:3
+// ============================================
+
+// READABLE (for understanding):
+function normalizeAttachmentForAPI(attachment) {
+    // Ensure attachment has required fields
+    return {
+        type: attachment.type,
+        data: attachment.data || attachment,
+        isMeta: true  // Mark as non-conversational
+    };
+}
+
+// Called by createUserMessage (p1) when adding attachments
+```
+
+### wrapWithSystemReminderTags (b5)
+
+```javascript
+// ============================================
+// wrapWithSystemReminderTags - Wrap content in system reminder tags
+// Location: chunks.173.mjs:2496
+// ============================================
+
+// READABLE (for understanding):
+function wrapWithSystemReminderTags(content) {
+    return `<system-reminder>
+${content}
+</system-reminder>`;
+}
+```
+
+### createUserMessage (p1)
+
+```javascript
+// ============================================
+// createUserMessage - Create message with attachments
+// Location: chunks.173.mjs:1378
+// ============================================
+
+// READABLE (for understanding):
+function createUserMessage(options) {
+    const {
+        content,
+        toolUseResult,
+        sourceToolAssistantUUID,
+        preventContinuation,
+        isMeta = false
+    } = options;
+
+    return {
         role: "user",
         content: Array.isArray(content) ? content : [{ type: "text", text: content }],
         toolUseResult,
-        mcpMeta,
-        sourceToolAssistantUUID
+        sourceToolAssistantUUID,
+        preventContinuation,
+        isMeta
     };
 }
 ```
 
-### 7.2 Attachment Type Handlers
-
-```javascript
-const attachmentHandlers = {
-    progress: (data) => formatProgressAttachment(data),
-    hook_permission_decision: (data) => formatHookPermissionDecision(data),
-    hook_additional_context: (data) => formatHookContext(data),
-    structured_output: (data) => formatStructuredOutput(data),
-    mcp_progress: (data) => formatMcpProgress(data),
-    elicitation: (data) => formatElicitation(data),
-    plan_mode: (data) => formatPlanModeReminder(data),
-    plan_mode_exit: (data) => formatPlanExitReminder(data),
-    task_status: (data) => formatTaskStatus(data),
-    task_claimed: (data) => formatTaskClaimed(data),
-    task_completed: (data) => formatTaskCompleted(data)
-};
-```
-
 ---
 
-## 8. Configuration Integration
+## Summary
 
-### 8.1 Permission Rules
+### Key Integration Points
 
-```json
-{
-    "permissions": {
-        "allow": ["Read", "Glob", "Grep"],
-        "deny": ["Bash:rm -rf*"],
-        "rules": [
-            {
-                "toolName": "mcp__sqlite__query",
-                "ruleContent": "Allow read-only queries"
-            }
-        ]
-    }
-}
-```
+| Module | Primary Attachments | Integration Functions |
+|--------|--------------------|-----------------------|
+| 05_tools | progress, hook_additional_context, hook_blocking_error | `y4q`, `C4q`, `f4` |
+| 06_mcp | elicitation, mcp_progress | `WT7`, `JE` |
+| 12_plan_mode | plan_mode, plan_mode_exit | `Dp`, `JS` |
+| 13_task_system | task_status, task_claimed | `aD1`, `WI`, `OT8` |
 
-### 8.2 Mode Configuration
+### Shared Infrastructure
 
-```javascript
-const MODE_CONFIGURATION = {
-    plan: {
-        displayName: "Plan Mode",
-        statusText: "⏸ Plan Mode on (shift+tab)",
-        allowedTools: ["Read", "Glob", "Grep", "Write:planFile", "Edit:planFile", "ExitPlanMode", "AskUserQuestion"]
-    },
-    auto: {
-        displayName: "Auto Mode",
-        autoApprove: true,
-        requiresGate: true
-    }
-};
-```
-
----
-
-## Cross-Reference
-
-- [tool_reminder_integration.md](../05_tools/tool_reminder_integration.md) - Tools integration
-- [mcp_reminder_integration.md](../06_mcp/mcp_reminder_integration.md) - MCP integration
-- [reminder_system.md](../12_plan_mode/reminder_system.md) - Plan mode integration
-- [task_reminder_integration.md](../13_task_system/task_reminder_integration.md) - Task integration
-- [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Symbol mappings
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `p1` (createUserMessage) | chunks.173.mjs:1378 | Message factory with isMeta |
+| `f4` (createAttachmentMessage) | chunks.*.mjs | Attachment wrapper |
+| `Ui8` (normalizeAttachmentForAPI) | chunks.174.mjs:3 | API format conversion |
+| `b5` (wrapWithSystemReminderTags) | chunks.173.mjs:2496 | XML wrapper for reminders |

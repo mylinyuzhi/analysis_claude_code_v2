@@ -7,7 +7,7 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [cross_validation_unified_v2.md](./cross_validation_unified_v2.md) - Unified symbol verification
+> - [cross_validation_unified.md](./cross_validation_unified.md) - Unified symbol verification
 
 Key functions:
 - `x66` - triggerAbortSignal — `chunks.146.mjs:2012`
@@ -591,8 +591,8 @@ LLM API streaming response
 
 ## Related Documents
 
-- [key_algorithms_deep_dive_v7.md](./key_algorithms_deep_dive_v7.md) - Key algorithms
-- [kill_mechanism_complete_v2.md](../26_background_agents/kill_mechanism_complete_v2.md) - Kill mechanism
+- [key_algorithms_deep_dive.md](./key_algorithms_deep_dive.md) - Key algorithms
+- [kill_mechanism_complete.md](../26_background_agents/kill_mechanism_complete.md) - Kill mechanism
 - [abort_signal_propagation_source_restored.md](./abort_signal_propagation_source_restored.md) - Source restoration
 
 ---

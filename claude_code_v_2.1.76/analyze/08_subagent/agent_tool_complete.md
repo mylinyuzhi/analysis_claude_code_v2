@@ -157,80 +157,143 @@ AgentTool = {
 
 ---
 
-## Input Schema
+## Input Schemas
 
-### Schema Fields
+The AgentTool uses a three-layer schema architecture: a base schema for standard agents, an extended schema for teammates, and an effective schema that conditionally omits fields based on runtime context.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `prompt` | string | Yes | The task for the agent to accomplish |
-| `description` | string | Yes | Short 3-5 word description for UI display |
-| `subagent_type` | enum | No | Agent type: "general-purpose", "Explore", "Plan", "statusline-setup" |
-| `model` | enum | No | Model override: "sonnet", "opus", "haiku" |
-| `run_in_background` | boolean | No | Set true for asynchronous execution |
-| `resume` | string | No | Agent ID to resume from previous transcript |
-| `name` | string | No | Teammate agent name (for team mode) |
-| `team_name` | string | No | Team name (for teammate mode) |
-| `mode` | string | No | Execution mode: "plan" for plan-mode required |
-| `isolation` | enum | No | Isolation mode: "none", "worktree" |
-| `cwd` | string | No | Working directory override |
-
-### Schema Source
+### Base Agent Input Schema (aVY)
 
 ```javascript
 // ============================================
-// getAgentInputSchema (xx8) - Input schema definition
-// Location: chunks.136.mjs (inferred)
+// aVY - agentInputSchema - Base input schema for Agent tool
+// Location: chunks.136.mjs:1444-1450
 // ============================================
 
+// ORIGINAL (for source lookup):
+aVY = F6(() => C.object({
+    description: C.string().describe("A short (3-5 word) description of the task"),
+    prompt: C.string().describe("The task for the agent to perform"),
+    subagent_type: C.string().optional().describe("The type of specialized agent to use for this task"),
+    model: C.enum(["sonnet", "opus", "haiku"]).optional().describe("Optional model override..."),
+    resume: C.string().optional().describe("Optional agent ID to resume from..."),
+    run_in_background: C.boolean().optional().describe("Set to true to run this agent in the background...")
+}))
+
 // READABLE (for understanding):
-function getAgentInputSchema() {
-    return z.object({
-        // Core parameters
-        description: z.string()
-            .describe("A short (3-5 word) description of what the agent will do"),
+agentInputSchema = () => z.object({
+    description: z.string().describe("A short (3-5 word) description of the task"),
+    prompt: z.string().describe("The task for the agent to perform"),
+    subagent_type: z.string().optional().describe("The type of specialized agent to use for this task"),
+    model: z.enum(["sonnet", "opus", "haiku"]).optional()
+        .describe("Optional model override for this agent. Takes precedence over the agent definition's model frontmatter."),
+    resume: z.string().optional()
+        .describe("Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript."),
+    run_in_background: z.boolean().optional()
+        .describe("Set to true to run this agent in the background. You will be notified when it completes.")
+});
 
-        prompt: z.string()
-            .describe("The task for the agent to accomplish"),
-
-        subagent_type: z.enum([
-            "general-purpose",
-            "Explore",
-            "Plan",
-            "statusline-setup"
-        ]).optional().default("general-purpose")
-            .describe("Type of subagent to use"),
-
-        // Execution mode
-        run_in_background: z.boolean().optional()
-            .describe("Set to true to run in background. You will be notified when it completes."),
-
-        resume: z.string().optional()
-            .describe("Resume a previous agent by ID"),
-
-        // Model selection (v2.1.76)
-        model: z.enum(["sonnet", "opus", "haiku"]).optional()
-            .describe("Model to use for this agent"),
-
-        // Teammate mode
-        name: z.string().optional()
-            .describe("Teammate agent name"),
-
-        team_name: z.string().optional()
-            .describe("Team name for teammate mode"),
-
-        mode: z.string().optional()
-            .describe("Execution mode hint"),
-
-        // Worktree isolation (v2.1.76)
-        isolation: z.enum(["none", "worktree"]).optional()
-            .describe("Isolation mode for file operations"),
-
-        cwd: z.string().optional()
-            .describe("Working directory override")
-    });
-}
+// Mapping: aVY→agentInputSchema, C→z (zod), F6→schemaFactory
 ```
+
+### Teammate Input Schema (sVY)
+
+```javascript
+// ============================================
+// sVY - teammateInputSchema - Extended schema for teammate spawning
+// Location: chunks.136.mjs:1451-1460
+// ============================================
+
+// ORIGINAL (for source lookup):
+sVY = F6(() => {
+    let A = C.object({
+        name: C.string().optional().describe("Name for the spawned agent..."),
+        team_name: C.string().optional().describe("Team name for spawning..."),
+        mode: X57().optional().describe('Permission mode for spawned teammate...')
+    });
+    return aVY().merge(A).extend({
+        isolation: C.enum(["worktree"]).optional().describe('Isolation mode...'),
+        cwd: C.string().optional().describe('Absolute path to run the agent in...')
+    })
+})
+
+// READABLE (for understanding):
+teammateInputSchema = () => {
+    let teammateFields = z.object({
+        name: z.string().optional()
+            .describe("Name for the spawned agent. Makes it addressable via SendMessage({to: name}) while running."),
+        team_name: z.string().optional()
+            .describe("Team name for spawning. Uses current team context if omitted."),
+        mode: permissionModeSchema().optional()
+            .describe('Permission mode for spawned teammate (e.g., "plan" to require plan approval).')
+    });
+
+    return agentInputSchema().merge(teammateFields).extend({
+        isolation: z.enum(["worktree"]).optional()
+            .describe('Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.'),
+        cwd: z.string().optional()
+            .describe('Absolute path to run the agent in. Overrides the working directory for all filesystem and shell operations within this agent. Mutually exclusive with isolation: "worktree".')
+    });
+};
+
+// Mapping: sVY→teammateInputSchema, aVY→agentInputSchema, X57→permissionModeSchema
+```
+
+### Effective Input Schema (xx8)
+
+```javascript
+// ============================================
+// xx8 - getEffectiveInputSchema - Conditional schema based on context
+// Location: chunks.136.mjs:1461-1468
+// ============================================
+
+// ORIGINAL (for source lookup):
+xx8 = F6(() => {
+    let A = sVY().omit({ cwd: !0 });
+    return fV1 || sH() ? A.omit({ run_in_background: !0 }) : A
+})
+
+// READABLE (for understanding):
+getEffectiveInputSchema = () => {
+    // Start with teammate schema, omit cwd
+    let baseSchema = teammateInputSchema().omit({ cwd: true });
+
+    // If background tasks disabled or in fork mode, omit run_in_background
+    if (isBackgroundTasksDisabled() || isInForkMode()) {
+        return baseSchema.omit({ run_in_background: true });
+    }
+
+    return baseSchema;
+};
+
+// Mapping: xx8→getEffectiveInputSchema, sVY→teammateInputSchema, fV1→isBackgroundTasksDisabled, sH→isInForkMode
+```
+
+### Key Insight: Schema Omission Logic
+
+**What it does:** The `getEffectiveInputSchema` (xx8) function conditionally removes schema fields to prevent the LLM from attempting operations that are not supported in the current context.
+
+**How it works:**
+1. Start with the full teammate schema (which includes all base + teammate fields)
+2. Always omit `cwd` -- this field is only used internally, not exposed to the LLM
+3. If background tasks are disabled (`fV1`) or in fork mode (`sH()`), also omit `run_in_background`
+
+**Why this approach:** By removing fields from the schema itself rather than validating after the fact, the LLM never sees the option to use `run_in_background` in contexts where it would fail. This is a proactive prevention strategy rather than reactive error handling.
+
+### Schema Fields Summary
+
+| Field | Type | Required | Schema Layer |
+|-------|------|----------|-------------|
+| `prompt` | string | Yes | Base (aVY) |
+| `description` | string | Yes | Base (aVY) |
+| `subagent_type` | string | No | Base (aVY) |
+| `model` | enum | No | Base (aVY) |
+| `resume` | string | No | Base (aVY) |
+| `run_in_background` | boolean | No | Base (aVY) - conditionally omitted |
+| `name` | string | No | Teammate (sVY) |
+| `team_name` | string | No | Teammate (sVY) |
+| `mode` | string | No | Teammate (sVY) |
+| `isolation` | enum | No | Teammate (sVY) |
+| `cwd` | string | No | Teammate (sVY) - always omitted from effective |
 
 ---
 
@@ -240,29 +303,56 @@ function getAgentInputSchema() {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         AgentTool.call() Entry                               │
-└────────────────────────────┬────────────────────────────────────────────────┘
-                             │
-                             ▼
+│                         AGENTTOOL CALL FLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+LLM calls Agent tool with parameters
+        │
+        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    Determine Execution Mode                                  │
-│                                                                              │
-│  1. Check team_name + name → Teammate mode                                  │
-│  2. Check run_in_background → Background mode                               │
-│  3. Check resume → Resume previous agent                                    │
-│  4. Default → Synchronous subagent                                          │
-└────────────────────────────┬────────────────────────────────────────────────┘
-                             │
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-          ▼                  ▼                  ▼
-   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-   │ Teammate    │    │ Background  │    │ Sync Agent  │
-   │ Mode        │    │ Mode        │    │ (Default)   │
-   │             │    │             │    │             │
-   │ qn4()       │    │ Qn4()       │    │ qh()        │
-   │ spawnAgent  │    │ createTask  │    │ agentLoop   │
-   └─────────────┘    └─────────────┘    └─────────────┘
+│ 1. VALIDATION PHASE                                                          │
+│    • Check Agent Teams availability                                          │
+│    • Resolve team name from context                                          │
+│    • Validate teammate constraints                                           │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ Teammate?     │      │ Resume?         │      │ New Agent       │
+│ (name+team)   │      │ (resume param)  │      │                 │
+└───────┬───────┘      └────────┬────────┘      └────────┬────────┘
+        │                       │                        │
+        ▼                       ▼                        ▼
+┌───────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ spawnTeammate │      │ Load transcript │      │ Resolve agent   │
+│ Dispatcher    │      │ Get metadata    │      │ definition      │
+└───────────────┘      └────────┬────────┘      └────────┬────────┘
+                                │                        │
+                                └────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2. AGENT DEFINITION RESOLUTION                                               │
+│    • Look up agent type from definitions                                     │
+│    • Check permission rules                                                  │
+│    • Validate MCP server requirements                                        │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ Background?   │      │ Foreground      │      │ Resume Running? │
+│ run_in_bg=true│      │ (default)       │      │ queue prompt    │
+└───────┬───────┘      └────────┬────────┘      └────────┬────────┘
+        │                       │                        │
+        ▼                       ▼                        ▼
+┌───────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ Return async  │      │ Run agentLoop   │      │ Return queued   │
+│ status        │      │ Runner (qh)     │      │ status          │
+└───────────────┘      └─────────────────┘      └─────────────────┘
 ```
 
 ### Source Code - call() Method

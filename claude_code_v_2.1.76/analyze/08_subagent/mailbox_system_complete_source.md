@@ -793,6 +793,72 @@ function getMailboxPath(agentName, teamName) {
 
 ---
 
+## Lock Configuration
+
+### lockOptions (iv1)
+
+```javascript
+// ============================================
+// iv1 - lockOptions - Configuration for proper-lockfile
+// Location: chunks.132.mjs:463
+// ============================================
+
+// ORIGINAL (for source lookup):
+iv1 = {
+    retries: {
+        retries: 10,
+        minTimeout: 50,
+        maxTimeout: 200
+    },
+    stale: 5000
+}
+
+// READABLE (for understanding):
+LOCK_OPTIONS = {
+    retries: {
+        retries: 10,        // Try 10 times
+        minTimeout: 50,     // Min 50ms between retries
+        maxTimeout: 200     // Max 200ms between retries
+    },
+    stale: 5000             // Lock considered stale after 5 seconds
+};
+
+// Mapping: iv1→LOCK_OPTIONS
+```
+
+**How it works:**
+1. When acquiring a lock, the system retries up to 10 times with exponential backoff (50-200ms)
+2. If a lock file is older than 5 seconds, it is considered stale and can be overridden
+3. This prevents deadlocks from crashed agents that never released their locks
+
+---
+
+## Key Insights
+
+### Insight 1: Lock-Based Concurrency
+
+All write operations use `proper-lockfile` to ensure:
+1. **No lost updates** - Concurrent writes are serialized through file locks
+2. **No partial reads** - Reads blocked during writes
+3. **Deadlock prevention** - Stale lock timeout (5s) ensures recovery from crashed agents
+
+### Insight 2: Lazy Mailbox Creation
+
+Mailbox files are created on first write, not on agent spawn:
+- Uses `wx` flag (exclusive create) for atomic create-if-not-exists
+- Reduces file system clutter for agents that never receive messages
+- ENOENT on read simply returns empty array (no pre-creation needed)
+
+### Insight 3: Read Tracking
+
+The `read` flag on each message enables:
+- `readUnreadMessages` - Get only new messages efficiently
+- `markMessagesAsRead` - Batch mark all as consumed
+- `markMessageAsReadByIndex` - Granular per-message tracking
+- LLM can track what it has already processed without re-reading
+
+---
+
 ## Related Documents
 
 - [teammate_execution_complete_source.md](./teammate_execution_complete_source.md) - Teammate execution

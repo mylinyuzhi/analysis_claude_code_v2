@@ -601,7 +601,9 @@ The mailbox uses `proper-lockfile` for concurrent access protection:
 
 ## Algorithm 5: Progress Throttling
 
-### Function: countTurnsSinceLastProgress
+### Function: Progress Turn-Counting (inline in vIY, NOT TIY)
+
+> **CORRECTION:** `TIY` is `countUniqueUris` (counts unique URIs for LSP), NOT `countTurnsSinceLastProgress`. The progress throttling logic uses a different mechanism inlined within `getUnifiedTasksAttachment` (vIY). See `key_algorithms_deep_dive.md` Algorithm 10.
 
 ### What it does
 
@@ -649,11 +651,12 @@ Determines whether to show a progress update based on how many assistant turns h
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Throttle progress updates
-// Location: Derived from implementation analysis
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling.
+// Location: chunks.142.mjs:2703-2717 (inlined in vIY)
 // ============================================
 
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId → turn count
     let seenTasks = new Set();
     let turnCount = 0;

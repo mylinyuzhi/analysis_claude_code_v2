@@ -15,6 +15,8 @@ Key functions in this document:
 - `qh` - Agent loop runner — `chunks.133.mjs:1565`
 - `U4q` - Kill all local agents — `chunks.146.mjs:2029`
 - `d4q` - Mark task as killed — `chunks.146.mjs:2034`
+- `suY` - getUnifiedTasksAttachment — `chunks.147.mjs:1033`
+- `nl4` - updateTaskProgressWithTelemetry — `chunks.146.mjs:2059`
 
 ---
 
@@ -526,6 +528,73 @@ interface TaskNotification {
 | Completion | `Agent "{description}" completed` |
 | Failure | `Agent "{description}" failed: {error}` |
 
+### Notification Visual Mockups
+
+```
+Task Completed:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✓ Background agent "Search codebase" completed                              │
+│   tools: 5  tokens: 12.5k  duration: 45s                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Task Failed:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✗ Background agent "Run tests" failed                                       │
+│   Error: Test suite exited with code 1                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Task Killed:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ○ Background agent "Deploy" stopped by user                                 │
+│   Partial results available in output file                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Multiple Killed:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ○ 3 background agents were stopped by the user                              │
+│   "task-1", "task-2", "task-3"                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Notification Injection
+
+```javascript
+// ============================================
+// Notification injection into system reminder
+// Location: chunks.146.mjs (conceptual)
+// ============================================
+
+function createTaskNotification(task) {
+    let icon = getStatusIcon(task.status);
+    let color = getStatusColor(task.status);
+
+    return {
+        type: "notification",
+        subtype: "task_status",
+        taskId: task.id,
+        status: task.status,
+        description: task.description,
+        color: color,
+        icon: icon,
+        metrics: {
+            tools: task.progress?.toolUseCount ?? 0,
+            tokens: task.progress?.tokenCount ?? 0,
+            duration: task.endTime ? task.endTime - task.startTime : 0
+        }
+    };
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case "completed": return "✓";
+        case "failed": return "✗";
+        case "killed": return "○";
+        case "running": return "◐";
+        default: return "○";
+    }
+}
+```
+
 ---
 
 ## Integration with System Reminders
@@ -567,6 +636,53 @@ getUnifiedTasksAttachment (vIY)
                               • description, deltaSummary
 ```
 
+### getUnifiedTasksAttachment (suY)
+
+```javascript
+// ============================================
+// Task status attachment in system reminder
+// Location: chunks.147.mjs:1033
+// ============================================
+
+async function getUnifiedTasksAttachment(toolUseContext) {
+    let appState = toolUseContext.getAppState();
+
+    // Poll output files for delta content
+    let {
+        attachments,
+        updatedTaskOffsets,
+        evictedTaskIds
+    } = await pollTaskOutputs(appState);
+
+    // Update task state
+    updateTaskState(toolUseContext.setAppState, updatedTaskOffsets, evictedTaskIds);
+
+    // Build attachments for LLM
+    return attachments.map(attachment => ({
+        type: "task_status",
+        taskId: attachment.taskId,
+        taskType: attachment.taskType,
+        status: attachment.status,
+        description: attachment.description,
+        deltaSummary: attachment.deltaSummary
+    }));
+}
+```
+
+### Attachment Format for LLM
+
+The task status is injected into the system reminder as XML that the LLM can parse:
+
+```xml
+<task_status>
+  <task id="a7x9k2m3" type="local_agent" status="running">
+    <description>Search codebase for authentication patterns</description>
+    <progress tools="5" tokens="12543" />
+    <summary>Found 12 authentication patterns in auth/ directory...</summary>
+  </task>
+</task_status>
+```
+
 ---
 
 ## Design Rationale
@@ -588,6 +704,29 @@ getUnifiedTasksAttachment (vIY)
 1. **Visibility** - Background agents run silently, need visibility
 2. **Discoverability** - Hints at Ctrl+C action availability
 3. **Quick reference** - Running count at a glance
+
+### Why Task Status in System Reminders?
+
+1. **LLM awareness** - The LLM needs to know about running background tasks without blocking
+2. **Polling-based** - Output files are polled each turn, injected as task_status attachments
+3. **Delta summaries** - Only new progress since last poll is sent, keeping context efficient
+
+---
+
+## ANSI Color Codes Reference
+
+| Color | Foreground | Background |
+|-------|------------|------------|
+| Red | `\x1b[31m` | `\x1b[41m` |
+| Green | `\x1b[32m` | `\x1b[42m` |
+| Yellow | `\x1b[33m` | `\x1b[43m` |
+| Blue | `\x1b[34m` | `\x1b[44m` |
+| Magenta | `\x1b[35m` | `\x1b[45m` |
+| Cyan | `\x1b[36m` | `\x1b[46m` |
+| White | `\x1b[37m` | `\x1b[47m` |
+| Dim | `\x1b[2m` | - |
+| Bold | `\x1b[1m` | - |
+| Reset | `\x1b[0m` | - |
 
 ---
 

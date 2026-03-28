@@ -13,7 +13,7 @@
 Key functions in this document:
 - `nl4` - updateTaskProgressWithTelemetry — `chunks.146.mjs:2059`
 - `TV1` - updateTaskProgressPreservingSummary — `chunks.146.mjs:2045`
-- `TIY` - countTurnsSinceLastProgress — `chunks.144.mjs:832`
+- `TIY` - countUniqueUris — `chunks.144.mjs:832` (Corrected v6: was incorrectly mapped as countTurnsSinceLastProgress; source proof shows it counts unique URIs)
 - `suY` - getUnifiedTasksAttachment — `chunks.147.mjs:1033`
 
 ---
@@ -45,10 +45,10 @@ Key functions in this document:
                                      │ Parent session
                                      ▼
                     ┌─────────────────────────────────────┐
-                    │  countTurnsSinceLastProgress (TIY)  │
-                    │                                     │
-                    │  • Count turns since last progress  │
-                    │  • Determine if should include      │
+                    │  countUniqueUris (TIY)              │
+                    │  [Corrected: counts unique URIs,    │
+                    │   not turns since last progress]    │
+                    │  • Count unique URIs in items       │
                     └────────────────┬────────────────────┘
                                      │
                                      │ Throttling check
@@ -232,45 +232,28 @@ function updateTaskProgressPreservingSummary(taskId, newProgress, setAppState) {
 
 ## Progress Throttling
 
-### countTurnsSinceLastProgress (TIY)
+### countUniqueUris (TIY)
 
-**What it does:** Counts how many assistant turns since last progress attachment was sent.
+> **Correction (v6):** TIY was previously mapped as `countTurnsSinceLastProgress`. Source code proof: `function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }` — it counts unique URIs, not turns since last progress.
+
+**What it does:** Counts the number of unique URIs in an array of objects.
 
 ```javascript
 // ============================================
-// TIY - countTurnsSinceLastProgress - Count turns since last progress
-// Location: chunks.144.mjs:832-855
+// TIY - countUniqueUris - Count unique URIs in array
+// Location: chunks.144.mjs:832
 // ============================================
 
+// ORIGINAL (for source lookup):
+function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }
+
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
-    let turnCount = 0;
-
-    // Count backwards from most recent message
-    for (let i = messages.length - 1; i >= 0; i--) {
-        let message = messages[i];
-
-        // Count assistant messages as turns
-        if (message?.type === "user" && !message.isMeta) {
-            turnCount++;
-        }
-
-        // Stop if we find a progress attachment
-        if (message?.type === "attachment" && message.attachment.type === "task_progress") {
-            return turnCount;
-        }
-
-        // Also stop at plan mode exit (reset point)
-        if (message?.type === "attachment" && message.attachment.type === "plan_mode_exit") {
-            return turnCount;
-        }
-    }
-
-    // No progress found - return total count
-    return turnCount;
+function countUniqueUris(items) {
+    let uris = items.map((item) => item.uri).filter((uri) => uri);
+    return new Set(uris).size;
 }
 
-// Mapping: TIY→countTurnsSinceLastProgress
+// Mapping: TIY→countUniqueUris, A→items, K→item/uri, q→uris
 ```
 
 ### Throttling Logic
@@ -280,7 +263,9 @@ function countTurnsSinceLastProgress(messages) {
 // Location: chunks.147.mjs (inferred)
 
 function shouldIncludeProgress(messages, task) {
-    let turnsSinceProgress = countTurnsSinceLastProgress(messages);
+    // Note: The turn-counting throttle logic is separate from TIY (countUniqueUris).
+    // The actual throttle function counts turns since last progress attachment.
+    let turnsSinceProgress = countTurnsSinceLastProgressAttachment(messages);
 
     // Always include for new tasks (no progress yet)
     if (turnsSinceProgress === Infinity || !task.progressNotified) {
@@ -443,7 +428,9 @@ Background Agent Execution
                  │
                  ▼
 ┌─────────────────────────────────────┐
-│ Throttle Check (TIY):                │
+│ Throttle Check:                      │
+│ [Note: TIY is countUniqueUris, not │
+│  the throttle function itself]       │
 │                                     │
 │ turnsSinceProgress >= 3?            │
 │                                     │
@@ -560,7 +547,7 @@ Icon: ○ = killed/pending
 |--------|----------|----------|--------|
 | `nl4` | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | ✓ Verified |
 | `TV1` | updateTaskProgressPreservingSummary | chunks.146.mjs:2045 | ✓ Verified |
-| `TIY` | countTurnsSinceLastProgress | chunks.144.mjs:832 | ✓ Verified |
+| `TIY` | countUniqueUris | chunks.144.mjs:832 | ✓ Corrected (v6: was countTurnsSinceLastProgress, source proof shows URI counting) |
 | `suY` | getUnifiedTasksAttachment | chunks.147.mjs:1033 | ✓ Verified |
 | `wY4` | pollTaskOutputs | chunks.90.mjs:3058 | ✓ Verified |
 | `OY4` | updateTaskState | chunks.90.mjs:3087 | ✓ Verified |
@@ -570,6 +557,6 @@ Icon: ○ = killed/pending
 ## Related Documents
 
 - [README.md](./README.md) - Module overview
-- [task_lifecycle_complete_v3.md](./task_lifecycle_complete_v3.md) - Task lifecycle
-- [kill_mechanism_complete_v2.md](./kill_mechanism_complete_v2.md) - Kill handling
+- [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - Task lifecycle
+- [kill_mechanism_complete.md](./kill_mechanism_complete.md) - Kill handling
 - [../04_system_reminder/README.md](../04_system_reminder/README.md) - System reminders

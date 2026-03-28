@@ -922,5 +922,5 @@ See [mailbox_system_complete_source.md](./mailbox_system_complete_source.md) for
 ## Related Documents
 
 - [mailbox_system_complete_source.md](./mailbox_system_complete_source.md) - Mailbox system
-- [agent_loop_complete_source_v2.md](./agent_loop_complete_source_v2.md) - Agent loop runner
+- [agent_loop_complete_source.md](./agent_loop_complete_source.md) - Agent loop runner
 - [communication_and_coordination.md](./communication_and_coordination.md) - Communication overview

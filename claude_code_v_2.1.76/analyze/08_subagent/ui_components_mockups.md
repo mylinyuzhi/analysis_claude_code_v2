@@ -7,7 +7,7 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [cross_validation_unified_v2.md](./cross_validation_unified_v2.md) - Unified symbol verification
+> - [cross_validation_unified.md](./cross_validation_unified.md) - Unified symbol verification
 
 Key UI-related functions:
 - `U4q` - killAllLocalAgents — `chunks.146.mjs:2029`
@@ -591,7 +591,7 @@ Agent finishes execution
 
 ## Related Documents
 
-- [ui_interaction_complete_v5.md](./ui_interaction_complete_v5.md) - UI interaction details
+- [ui_interaction_complete.md](./ui_interaction_complete.md) - UI interaction details
 - [keyboard_shortcuts_complete.md](./keyboard_shortcuts_complete.md) - Keyboard shortcuts
 - [notification_system_complete.md](./notification_system_complete.md) - Notification system
 

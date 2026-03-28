@@ -1,171 +1,405 @@
-# System Reminder Integration - CLI/UI/LLM Complete Analysis (Claude Code v2.1.76)
+# CLI-UI-LLM System Reminder Deep Integration (Claude Code v2.1.76)
 
-> Complete integration analysis of System Reminders across CLI, UI, and LLM Core modules.
+> Complete analysis of attachment production, normalization, and cross-module integration.
 >
-> **Cross-validated**: All symbol mappings verified against source code on 2026-03-26.
-> **Source-Level**: Includes both original obfuscated and readable pseudocode.
+> **Cross-validated**: All symbols verified against source code on 2026-03-26.
+> **Source-Level**: Includes verified pseudocode with exact line references.
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#1-architecture-overview)
+2. [Attachment Producer Catalog](#2-attachment-producer-catalog)
+3. [Production Flow Analysis](#3-production-flow-analysis)
+4. [Turn-Based Attachment Logic](#4-turn-based-attachment-logic)
+5. [Cross-Module Integration](#5-cross-module-integration)
+6. [Key Algorithms](#6-key-algorithms)
 
 ---
 
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
-> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_core_execution.md](./symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](./symbol_index_core_features.md) - Core features
 
 Key functions in this document:
 - `assembleAllAttachments` (_uY) - Main orchestrator at chunks.147.mjs:3
-- `normalizeAttachmentForAPI` (Ui8) - Type converter at chunks.174.mjs:3
-- `timedAttachmentProducer` (Hz) - Telemetry wrapper at chunks.147.mjs:20
-- `wrapWithSystemReminderTags` (b5) - XML wrapper at chunks.173.mjs:2496
-- `createUserMessage` (p1) - Message factory at chunks.173.mjs:1378
+- `produceAttachment` (Hz) - Producer wrapper at chunks.147.mjs:20
+- `normalizeAttachmentForAPI` (Ui8) - Normalizer at chunks.174.mjs:3
 
 ---
 
 ## 1. Architecture Overview
 
-### 1.1 Three-Layer Pipeline
+### 1.1 System Reminder Purpose
+
+System reminders are meta-messages injected into the conversation to provide context to the LLM without explicit user action. They enable:
+
+1. **Context Injection**: File contents, IDE state, team context
+2. **State Tracking**: Token usage, budget, turn counts
+3. **Mode Signaling**: Plan mode, auto mode, team mode
+4. **Delta Updates**: Changed files, new tools, MCP instructions
+
+### 1.2 Three-Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    LAYER 1: ATTACHMENT PRODUCTION                            │
-│                    assembleAllAttachments (_uY)                              │
-│                    chunks.147.mjs:3-18                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
+│                         ATTACHMENT PRODUCTION LAYER                         │
 │                                                                              │
-│  Group 1: User-Message-Dependent (Sequential)                               │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │ at_mentioned_files (RuY)                                            │    │
-│  │ mcp_resources (SuY)                                                 │    │
-│  │ agent_mentions (huY)                                                │    │
+│  │                    assembleAllAttachments (_uY)                      │    │
+│  │                    Location: chunks.147.mjs:3                         │    │
+│  │                                                                        │    │
+│  │  Responsibilities:                                                    │    │
+│  │  • Orchestrate all attachment producers                               │    │
+│  │  • Manage timeout (1000ms abort)                                      │    │
+│  │  • Filter null/undefined results                                      │    │
+│  │  • Return flat array of attachments                                   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
-│         │                                                                    │
-│         ▼ (Await Group 1 completion)                                        │
-│                                                                              │
-│  Group 2 & 3: Always-Computed (Parallel)                                     │
-│  ┌────────────────────────────────────┐ ┌────────────────────────────────┐  │
-│  │ Group 2: Always                    │ │ Group 3: Main-Agent-Only       │  │
-│  │                                    │ │                                │  │
-│  │ • date_change                      │ │ • ide_selection                │  │
-│  │ • ultrathink_effort                │ │ • ide_opened_file              │  │
-│  │ • deferred_tools_delta             │ │ • output_style                 │  │
-│  │ • mcp_instructions_delta           │ │ • diagnostics                  │  │
-│  │ • changed_files                    │ │ • lsp_diagnostics              │  │
-│  │ • nested_memory                    │ │ • unified_tasks                │  │
-│  │ • dynamic_skill                    │ │ • async_hook_responses         │  │
-│  │ • skill_listing                    │ │ • token_usage                  │  │
-│  │ • ultra_claude_md                  │ │ • budget_usd                   │  │
-│  │ • plan_mode                        │ │ • output_token_usage           │  │
-│  │ • plan_mode_exit                   │ │ • verify_plan_reminder         │  │
-│  │ • auto_mode                        │ │ • queued_commands              │  │
-│  │ • auto_mode_exit                   │ │                                │  │
-│  │ • todo_reminders                   │ │ (Skipped if subagent)          │  │
-│  │ • teammate_mailbox (team mode)     │ └────────────────────────────────┘  │
-│  │ • team_context (team mode)         │                                     │
-│  │ • agent_pending_messages           │                                     │
-│  │ • critical_system_reminder         │                                     │
-│  └────────────────────────────────────┘                                     │
+│                                    │                                         │
+│                    ┌───────────────┴───────────────┐                        │
+│                    ▼                               ▼                         │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐          │
+│  │   User-Dependent Producers  │  │   Main-Thread Producers     │          │
+│  │   (only if has user message)│  │   (only if !agentId)        │          │
+│  │                             │  │                             │          │
+│  │  • at_mentioned_files       │  │  • ide_selection            │          │
+│  │  • mcp_resources            │  │  • ide_opened_file          │          │
+│  │  • agent_mentions           │  │  • diagnostics              │          │
+│  │                             │  │  • token_usage              │          │
+│  └─────────────────────────────┘  └─────────────────────────────┘          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼ (Array of typed attachment objects)
+                                    │
+                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    LAYER 2: ATTACHMENT NORMALIZATION                         │
-│                    normalizeAttachmentForAPI (Ui8)                           │
-│                    chunks.174.mjs:3-469                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
+│                      ALWAYS-RUN PRODUCERS LAYER                              │
 │                                                                              │
-│  57+ case switch statement                                                   │
-│                                                                              │
-│  Input: { type: "plan_mode", ...data }                                      │
-│  Output: [{ type: "user", content: [...], isMeta: true }]                   │
-│                                                                              │
-│  Each case:                                                                  │
-│  1. Extracts data from attachment                                           │
-│  2. Builds content blocks (text, tool_result, etc.)                         │
-│  3. Wraps with <system-reminder> tags (via b5)                              │
-│  4. Returns array of TenguMessage objects                                   │
+│  • date_change        • todo_reminders        • team_context                │
+│  • ultrathink_effort  • plan_mode             • auto_mode                   │
+│  • deferred_tools     • plan_mode_exit        • auto_mode_exit              │
+│  • changed_files      • critical_reminder     • agent_pending               │
+│  • nested_memory      • mcp_instructions      • queued_commands             │
+│  • skill_listing      • dynamic_skill         • teammate_mailbox            │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼ (Array of message objects with isMeta: true)
+                                    │
+                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    LAYER 3: MESSAGE STREAM INJECTION                         │
-│                    Integrated in mainAgentLoopCore (omY)                     │
-│                    chunks.148.mjs:900+                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
+│                       NORMALIZATION LAYER                                    │
 │                                                                              │
-│  Pre-turn attachment assembly:                                              │
-│                                                                              │
-│  const attachments = await assembleAllAttachments(                          │
-│      userMessage,         // Current user message (if any)                  │
-│      toolUseContext,      // Session context                                │
-│      ideSelection,        // IDE state                                      │
-│      pendingCommands,     // Queued commands                                │
-│      messages,            // Conversation history                           │
-│      sessionMemoryType    // "session_memory" or undefined                  │
-│  );                                                                          │
-│                                                                              │
-│  // Prepend attachments before user message                                 │
-│  messages = [...attachments, ...messages];                                  │
-│                                                                              │
-│  // Send to API (isMeta stripped by formatMessagesForAPI)                   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          LLM RECEIVES CONTEXT                                │
-│                                                                              │
-│  User sees: [User: "Fix the bug"] [Assistant: "..."]                        │
-│  LLM sees: [Meta: "<system-reminder>Plan mode active...</system-reminder>"] │
-│             [User: "Fix the bug"] [Assistant: "..."]                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                 normalizeAttachmentForAPI (Ui8)                      │    │
+│  │                 Location: chunks.174.mjs:3                            │    │
+│  │                                                                        │    │
+│  │  Transforms attachment objects to API format:                         │    │
+│  │  { type: "...", ... } → { content: "...", isMeta: true }             │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. CLI Integration
+## 2. Attachment Producer Catalog
 
-### 2.1 Mode-Based Attachment Selection
+### 2.1 Complete Producer List (25+ Types)
+
+The `assembleAllAttachments` function orchestrates three categories of producers:
+
+#### Category A: User-Dependent Producers
+Only run when there's a user message to process.
+
+| Producer | Function | Location | Purpose |
+|----------|----------|----------|---------|
+| `at_mentioned_files` | `RuY` | chunks.147.mjs:407 | Parse @file mentions, read file contents |
+| `mcp_resources` | `SuY` | chunks.147.mjs:464 | Fetch MCP server resources via @resource:uri |
+| `agent_mentions` | `huY` | chunks.147.mjs:450 | Handle @agent-type mentions |
+
+#### Category B: Always-Run Producers
+Run on every agent turn regardless of user input.
+
+| Producer | Function | Location | Purpose |
+|----------|----------|----------|---------|
+| `date_change` | `fuY` | chunks.147.mjs:237 | Detect date boundary crossing |
+| `ultrathink_effort` | `TuY` | chunks.147.mjs:248 | High effort mode detection |
+| `deferred_tools_delta` | `xE1` | chunks.147.mjs:256 | Dynamic tool availability changes |
+| `mcp_instructions_delta` | `uE1` | chunks.147.mjs:269 | MCP server instruction updates |
+| `changed_files` | `CuY` | chunks.147.mjs:497 | Files modified in current session |
+| `nested_memory` | `IuY` | chunks.147.mjs:541 | CLAUDE.md file chain loading |
+| `dynamic_skill` | `BuY` | chunks.147.mjs:650 | Dynamic skill loading |
+| `skill_listing` | `guY` | chunks.147.mjs:700 | Available skills list |
+| `ultra_claude_md` | `VuY` | chunks.147.mjs:302 | Ultra CLAUDE.md support (stub) |
+| `plan_mode` | `DuY` | chunks.147.mjs:136 | Plan mode state injection |
+| `plan_mode_exit` | `XuY` | chunks.147.mjs:170 | Plan mode exit notification |
+| `auto_mode` | `ZuY` | chunks.147.mjs:214 | Auto mode state injection |
+| `auto_mode_exit` | `GuY` | chunks.147.mjs:229 | Auto mode exit notification |
+| `todo_reminders` | `ruY`/`auY` | chunks.147.mjs:972/1013 | Todo list state |
+| `teammate_mailbox` | `euY` | chunks.147.mjs:1084 | Team mailbox messages |
+| `team_context` | `AmY` | chunks.147.mjs:1089 | Team collaboration context |
+| `agent_pending_messages` | `$uY` | chunks.147.mjs:70 | Pending agent messages |
+| `critical_system_reminder` | `vuY` | chunks.147.mjs:284 | Critical reminders |
+| `queued_commands` | `OuY` | chunks.147.mjs:48 | Queued slash commands |
+
+#### Category C: Main-Thread-Only Producers
+Only run when `!agentId` (main agent thread, not subagent).
+
+| Producer | Function | Location | Purpose |
+|----------|----------|----------|---------|
+| `ide_selection` | `kuY` | chunks.147.mjs:306 | IDE selected text/lines |
+| `ide_opened_file` | `LuY` | chunks.147.mjs:397 | IDE currently open file |
+| `output_style` | `NuY` | chunks.147.mjs:293 | Output style setting |
+| `diagnostics` | `cuY` | chunks.147.mjs:789 | IDE diagnostics |
+| `lsp_diagnostics` | `luY` | chunks.147.mjs:800 | LSP diagnostics |
+| `unified_tasks` | `suY` | chunks.147.mjs:1033 | Unified task list |
+| `async_hook_responses` | `tuY` | chunks.147.mjs:1050 | Async hook responses |
+| `token_usage` | `qmY` | chunks.147.mjs:1108 | Token usage tracking |
+| `budget_usd` | `YmY` | chunks.147.mjs:1117 | Budget tracking |
+| `output_token_usage` | `KmY` | chunks.147.mjs:1120 | Output token tracking |
+| `verify_plan_reminder` | `_mY` | chunks.147.mjs:1124 | Plan verification |
+
+### 2.2 Producer Execution Order
 
 ```javascript
 // ============================================
-// Permission Mode to Reminder Mapping
-// Location: chunks.197.mjs
+// assembleAllAttachments (_uY) - Producer orchestration
+// Location: chunks.147.mjs:3-18
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    let w = sK(),  // Create abort controller
+        O = setTimeout((W) => W.abort(), 1000, w),  // 1 second timeout
+        $ = {...q, abortController: w},
+        H = !q.agentId,  // Is main thread?
+        // User-dependent producers
+        j = A ? [Hz("at_mentioned_files", () => RuY(A, $)),
+                 Hz("mcp_resources", () => SuY(A, $)),
+                 Hz("agent_mentions", () => Promise.resolve(huY(A, q.options.agentDefinitions.activeAgents)))] : [],
+        J = await Promise.all(j),
+        // Always-run producers
+        M = [Hz("date_change", () => Promise.resolve(fuY())),
+             Hz("ultrathink_effort", () => Promise.resolve(TuY(A))),
+             // ... more producers ...
+            ],
+        // Main-thread-only producers
+        D = H ? [Hz("ide_selection", async () => kuY(K, q)),
+                 Hz("token_usage", async () => Promise.resolve(qmY(z ?? [], q.options.mainLoopModel))),
+                 // ... more producers ...
+                ] : [],
+        [X, P] = await Promise.all([Promise.all(M), Promise.all(D)]);
+    return clearTimeout(O), [...J.flat(), ...X.flat(), ...P.flat()].filter((W) => W !== void 0 && W !== null)
+}
+
+// READABLE (for understanding):
+async function assembleAllAttachments(userMessage, sessionContext, ideState, queuedCommands, messages, sessionMemoryType) {
+    // Early exit conditions
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) ||
+        parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
+        return [];
+    }
+
+    // Create abort controller with 1 second timeout
+    let abortController = createAbortController();
+    let timeoutId = setTimeout((ac) => ac.abort(), 1000, abortController);
+    let contextWithAbort = {...sessionContext, abortController};
+
+    let isMainThread = !sessionContext.agentId;
+
+    // PHASE 1: User-dependent producers (only if user message exists)
+    let userDependentProducers = userMessage ? [
+        produceAttachment("at_mentioned_files", () => produceAtMentionedFiles(userMessage, contextWithAbort)),
+        produceAttachment("mcp_resources", () => produceMcpResources(userMessage, contextWithAbort)),
+        produceAttachment("agent_mentions", () => Promise.resolve(produceAgentMentions(userMessage, sessionContext.options.agentDefinitions.activeAgents)))
+    ] : [];
+    let userDependentResults = await Promise.all(userDependentProducers);
+
+    // PHASE 2: Always-run producers
+    let alwaysRunProducers = [
+        produceAttachment("date_change", () => Promise.resolve(produceDateChange())),
+        produceAttachment("ultrathink_effort", () => Promise.resolve(produceUltrathinkEffort(userMessage))),
+        produceAttachment("deferred_tools_delta", () => Promise.resolve(produceDeferredToolsDelta(sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+        produceAttachment("mcp_instructions_delta", () => Promise.resolve(produceMcpInstructionsDelta(sessionContext.options.mcpClients, sessionContext.options.tools, sessionContext.options.mainLoopModel, messages))),
+        produceAttachment("changed_files", () => produceChangedFiles(contextWithAbort)),
+        produceAttachment("nested_memory", () => produceNestedMemory(contextWithAbort)),
+        produceAttachment("dynamic_skill", () => produceDynamicSkill(contextWithAbort)),
+        produceAttachment("skill_listing", () => produceSkillListing(contextWithAbort)),
+        produceAttachment("ultra_claude_md", async () => produceUltraClaudeMd(messages)),
+        produceAttachment("plan_mode", () => producePlanMode(messages, sessionContext)),
+        produceAttachment("plan_mode_exit", () => producePlanModeExit(sessionContext)),
+        produceAttachment("auto_mode", () => produceAutoMode(messages, sessionContext)),
+        produceAttachment("auto_mode_exit", () => produceAutoModeExit(sessionContext)),
+        produceAttachment("todo_reminders", () => isTeamMode() ? produceTeamTodoReminders(messages, sessionContext) : produceTodoReminders(messages, sessionContext)),
+        // Team-mode conditional producers
+        ...(isTeamMode() ? [
+            ...(sessionMemoryType === "session_memory" ? [] : [produceAttachment("teammate_mailbox", async () => produceTeammateMailbox(sessionContext))]),
+            produceAttachment("team_context", async () => produceTeamContext(messages ?? []))
+        ] : []),
+        produceAttachment("agent_pending_messages", async () => produceAgentPendingMessages(sessionContext)),
+        produceAttachment("critical_system_reminder", () => Promise.resolve(produceCriticalReminder(sessionContext)))
+    ];
+
+    // PHASE 3: Main-thread-only producers
+    let mainThreadProducers = isMainThread ? [
+        produceAttachment("ide_selection", async () => produceIdeSelection(ideState, sessionContext)),
+        produceAttachment("ide_opened_file", async () => produceIdeOpenedFile(ideState, sessionContext)),
+        produceAttachment("output_style", async () => Promise.resolve(produceOutputStyle())),
+        produceAttachment("diagnostics", async () => produceDiagnostics(sessionContext)),
+        produceAttachment("lsp_diagnostics", async () => produceLspDiagnostics(sessionContext)),
+        produceAttachment("unified_tasks", async () => produceUnifiedTasks(sessionContext)),
+        produceAttachment("async_hook_responses", async () => produceAsyncHookResponses()),
+        produceAttachment("token_usage", async () => Promise.resolve(produceTokenUsage(messages ?? [], sessionContext.options.mainLoopModel))),
+        produceAttachment("budget_usd", async () => Promise.resolve(produceBudgetUsd(sessionContext.options.maxBudgetUsd))),
+        produceAttachment("output_token_usage", async () => Promise.resolve(produceOutputTokenUsage())),
+        produceAttachment("verify_plan_reminder", async () => produceVerifyPlanReminder(messages, sessionContext)),
+        produceAttachment("queued_commands", () => produceQueuedCommands(queuedCommands))
+    ] : [];
+
+    let [alwaysResults, mainThreadResults] = await Promise.all([
+        Promise.all(alwaysRunProducers),
+        Promise.all(mainThreadProducers)
+    ]);
+
+    // Clear timeout and return flattened results
+    clearTimeout(timeoutId);
+    return [...userDependentResults.flat(), ...alwaysResults.flat(), ...mainThreadResults.flat()]
+        .filter((result) => result !== void 0 && result !== null);
+}
+
+// Mapping: _uY→assembleAllAttachments, A→userMessage, q→sessionContext, K→ideState,
+//          Y→queuedCommands, z→messages, _→sessionMemoryType, w→abortController,
+//          O→timeoutId, H→isMainThread, j→userDependentProducers, M→alwaysRunProducers,
+//          D→mainThreadProducers, Hz→produceAttachment
+```
+
+---
+
+## 3. Production Flow Analysis
+
+### 3.1 ProduceAttachment Wrapper (Hz)
+
+```javascript
+// ============================================
+// produceAttachment (Hz) - Producer wrapper with telemetry
+// Location: chunks.147.mjs:20-46
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function Hz(A, q) {
+    let K = Date.now();
+    try {
+        let Y = await q(),
+            z = Date.now() - K;
+        if (Math.random() < 0.05) {
+            let _ = Y.filter((w) => w !== void 0 && w !== null).reduce((w, O) => {
+                return w + B6(O).length
+            }, 0);
+            d("tengu_attachment_compute_duration", {
+                label: A,
+                duration_ms: z,
+                attachment_size_bytes: _,
+                attachment_count: Y.length
+            })
+        }
+        return Y
+    } catch (Y) {
+        let z = Date.now() - K;
+        if (Math.random() < 0.05) d("tengu_attachment_compute_duration", {
+            label: A,
+            duration_ms: z,
+            error: !0
+        });
+        return _6(Y), jV(`Attachment error in ${A}`, Y), []
+    }
+}
+
+// READABLE (for understanding):
+async function produceAttachment(label, producerFn) {
+    let startTime = Date.now();
+
+    try {
+        let attachments = await producerFn();
+        let duration = Date.now() - startTime;
+
+        // Sample 5% of productions for telemetry
+        if (Math.random() < 0.05) {
+            let totalBytes = attachments
+                .filter((a) => a !== void 0 && a !== null)
+                .reduce((sum, attachment) => sum + JSON.stringify(attachment).length, 0);
+
+            trackEvent("tengu_attachment_compute_duration", {
+                label: label,
+                duration_ms: duration,
+                attachment_size_bytes: totalBytes,
+                attachment_count: attachments.length
+            });
+        }
+
+        return attachments;
+
+    } catch (error) {
+        let duration = Date.now() - startTime;
+
+        // Log error with 5% sampling
+        if (Math.random() < 0.05) {
+            trackEvent("tengu_attachment_compute_duration", {
+                label: label,
+                duration_ms: duration,
+                error: true
+            });
+        }
+
+        logError(error);
+        debugLog(`Attachment error in ${label}`, error);
+        return [];  // Return empty on error (graceful degradation)
+    }
+}
+
+// Mapping: Hz→produceAttachment, A→label, q→producerFn, K→startTime,
+//          Y→attachments, z→duration, d→trackEvent, _6→logError, jV→debugLog
+```
+
+**Why this approach**:
+- **Graceful degradation**: Errors return empty array, don't break the session
+- **Sampling**: 5% sampling for telemetry reduces overhead
+- **Timing**: Duration tracking helps identify slow producers
+
+### 3.2 Timeout Handling
+
+```javascript
+// ============================================
+// Timeout Pattern in assembleAllAttachments
+// Location: chunks.147.mjs:5-6
 // ============================================
 
 // READABLE (for understanding):
-function resolvePermissionMode(options) {
-    // Check for bypass mode flag
-    if (options.dangerouslySkipPermissions) {
-        return "bypassPermissions";
-    }
+let abortController = createAbortController();
+let timeoutId = setTimeout((ac) => ac.abort(), 1000, abortController);
 
-    // Check for plan mode
-    if (options.plan) {
-        return "plan";
-    }
+// ... producers run with abortController in context ...
 
-    // Default mode
-    return "default";
-}
-
-// Mode affects attachment production:
-// | Permission Mode | Trigger | Attachment Types |
-// |-----------------|---------|------------------|
-// | default         | Normal  | Standard reminders |
-// | plan            | --plan  | plan_mode, plan_mode_reentry |
-// | bypassPermissions | --dangerously-skip | No permission prompts |
+clearTimeout(timeoutId);
 ```
 
-### 2.2 Plan Mode Attachment Producer
+**Why 1000ms timeout**:
+- Prevents slow producers from blocking the session
+- Producers should check `abortController.signal.aborted`
+- If aborted, producers return early with partial results
+
+---
+
+## 4. Turn-Based Attachment Logic
+
+### 4.1 Plan Mode Turn Counting
+
+Plan mode attachments use turn counting to avoid spamming the context with the same information every turn.
 
 ```javascript
 // ============================================
-// producePlanModeAttachment (DuY) - Plan mode producer
+// producePlanMode (DuY) - Turn-based attachment
 // Location: chunks.147.mjs:136-168
 // ============================================
 
@@ -174,8 +408,8 @@ async function DuY(A, q) {
     let Y = q.getAppState().toolPermissionContext;
     if (Y.mode !== "plan") return [];
     if (A && A.length > 0) {
-        let { turnCount: H, foundPlanModeAttachment: j } = JuY(A);
-        if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return [];
+        let {turnCount: H, foundPlanModeAttachment: j} = JuY(A);
+        if (j && H < t4q.TURNS_BETWEEN_ATTACHMENTS) return []
     }
     let z = Fj(q.agentId),
         _ = sJ(q.agentId),
@@ -202,493 +436,334 @@ async function DuY(A, q) {
 }
 
 // READABLE (for understanding):
-async function producePlanModeAttachment(messageHistory, sessionContext) {
+async function producePlanMode(messages, sessionContext) {
     let permissionContext = sessionContext.getAppState().toolPermissionContext;
 
-    // Only produce if in plan mode
+    // Only run in plan mode
     if (permissionContext.mode !== "plan") {
         return [];
     }
 
-    // Throttling: Don't attach every turn
-    if (messageHistory && messageHistory.length > 0) {
-        let { turnCount, foundPlanModeAttachment } = analyzeRecentMessages(messageHistory);
+    // Check if we should skip (recent attachment exists)
+    if (messages && messages.length > 0) {
+        let {turnCount, foundPlanModeAttachment} = countTurnsSinceLastPlanAttachment(messages);
+
+        // Skip if attached recently and not enough turns passed
         if (foundPlanModeAttachment && turnCount < TURNS_BETWEEN_ATTACHMENTS) {
-            return [];  // Skip, recent attachment exists
+            return [];
         }
     }
 
     let planFilePath = getPlanFilePath(sessionContext.agentId);
-    let planExists = getExistingPlanContent(sessionContext.agentId) !== null;
+    let planExists = checkPlanExists(sessionContext.agentId);
     let attachments = [];
 
-    // Ultraplan variant
+    // Ultraplan mode - special handling
     if (permissionContext.prePlanMode === "ultraplan") {
         attachments.push({
             type: "plan_mode",
             reminderType: "ultraplan-complete",
             isSubAgent: !!sessionContext.agentId,
             planFilePath: planFilePath,
-            planExists: planExists
+            planExists: planExists !== null
         });
         return attachments;
     }
 
-    // Re-entry variant (returning to plan mode with existing plan)
+    // Re-entry handling
     if (isReEnteringPlanMode() && planExists !== null) {
         attachments.push({
             type: "plan_mode_reentry",
             planFilePath: planFilePath
         });
-        clearReEntryFlag();
+        clearReEntryFlag(false);
     }
 
-    // Full vs sparse variant rotation
-    let reminderType = (countRecentPlanAttachments(messageHistory ?? []) + 1) %
-                       FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
-                       ? "full" : "sparse";
+    // Determine reminder type: full or sparse
+    let attachmentCount = countPlanModeAttachments(messages ?? []);
+    let reminderType = (attachmentCount + 1) % FULL_REMINDER_EVERY_N_ATTACHMENTS === 1
+        ? "full"
+        : "sparse";
 
     attachments.push({
         type: "plan_mode",
         reminderType: reminderType,
         isSubAgent: !!sessionContext.agentId,
         planFilePath: planFilePath,
-        planExists: planExists
+        planExists: planExists !== null
     });
 
     return attachments;
 }
 
-// Mapping: DuY→producePlanModeAttachment, t4q→constants, JuY→analyzeRecentMessages,
-//          Fj→getPlanFilePath, sJ→getExistingPlanContent, MuY→countRecentPlanAttachments
+// Mapping: DuY→producePlanMode, A→messages, q→sessionContext, Y→permissionContext,
+//          H→turnCount, j→foundPlanModeAttachment, z→planFilePath, _→planExists
 ```
 
----
-
-## 3. UI Integration
-
-### 3.1 isMeta Flag - UI Visibility Control
-
-The `isMeta: true` flag on messages controls UI visibility:
+### 4.2 Turn Counting Helper
 
 ```javascript
 // ============================================
-// createUserMessage (p1) - Message factory with isMeta
-// Location: chunks.173.mjs:1378-1412
-// ============================================
-
-// ORIGINAL (for source lookup):
-function p1(A) {
-    return {
-        type: "user",
-        role: "user",
-        content: A.content,
-        uuid: A.uuid ?? crypto.randomUUID(),
-        isMeta: A.isMeta ?? !1,
-        ...A
-    }
-}
-
-// READABLE (for understanding):
-function createUserMessage(params) {
-    return {
-        type: "user",
-        role: "user",
-        content: params.content,
-        uuid: params.uuid ?? crypto.randomUUID(),
-        isMeta: params.isMeta ?? false,  // Controls UI visibility
-        ...params
-    };
-}
-
-// Mapping: p1→createUserMessage
-```
-
-### 3.2 Message Filtering in UI
-
-```javascript
-// ============================================
-// Message filtering - UI display logic
+// countTurnsSinceLastPlanAttachment (JuY) - Turn counter
+// Location: chunks.147.mjs:105-122
 // ============================================
 
 // READABLE (for understanding):
-function filterMessagesForDisplay(messages) {
-    return messages.filter(message => {
-        // Hide meta messages from user-visible chat
-        if (message.isMeta) {
-            return false;
+function countTurnsSinceLastPlanAttachment(messages) {
+    let turnCount = 0;
+    let foundPlanModeAttachment = false;
+
+    // Iterate backwards through messages
+    for (let i = messages.length - 1; i >= 0; i--) {
+        let message = messages[i];
+
+        // Count assistant turns (skip tool-use-only messages)
+        if (message?.type === "assistant") {
+            if (isToolUseOnlyMessage(message)) continue;
+            turnCount++;
         }
-        return true;
-    });
-}
-
-// UI shows: [User: "Fix the bug"] [Assistant: "..."]
-// LLM sees: [Meta: "<system-reminder>..."] [User: "Fix the bug"] [Assistant: "..."]
-```
-
----
-
-## 4. LLM Core Integration
-
-### 4.1 Attachment Assembly in Turn Loop
-
-```javascript
-// ============================================
-// Attachment assembly in mainAgentLoopCore
-// Location: chunks.148.mjs:900-920
-// ============================================
-
-// READABLE (for understanding):
-// In mainAgentLoopCore, before each LLM request:
-
-// Assemble system reminder attachments
-let attachments = await assembleAllAttachments(
-    userMessage,           // Current user message (if any)
-    turnState.toolUseContext,  // Session context
-    ideSelection,          // IDE selection state
-    pendingCommands,       // Queued commands from UI
-    turnState.messages,    // Conversation history
-    sessionMemoryType      // "session_memory" or undefined
-);
-
-// Prepend attachments to messages
-let requestMessages = [
-    ...attachments,        // System reminders first
-    ...turnState.messages  // Then conversation history
-];
-
-// Send to LLM API
-for await (let event of callModel({
-    messages: requestMessages,
-    systemPrompt: systemPrompt,
-    tools: tools,
-    model: model
-})) {
-    yield event;
-}
-```
-
-### 4.2 normalizeAttachmentForAPI (Ui8)
-
-```javascript
-// ============================================
-// normalizeAttachmentForAPI (Ui8) - Type converter
-// Location: chunks.174.mjs:3-100
-// ============================================
-
-// ORIGINAL (for source lookup):
-function Ui8(A) {
-    if (E7()) {
-        if (A.type === "teammate_mailbox") return [p1({
-            content: Kzz().formatTeammateMessages(A.messages),
-            isMeta: !0
-        })];
-        if (A.type === "team_context") return [p1({
-            content: `<system-reminder>
-# Team Coordination
-You are a teammate in team "${A.teamName}".
-...
-</system-reminder>`,
-            isMeta: !0
-        })]
-    }
-    switch (A.type) {
-        case "directory":
-            return b5([nr6(J4.name, {
-                command: `ls ${j4([A.path])}`,
-                description: `Lists files in ${A.path}`
-            }), ir6(J4, {
-                stdout: A.content,
-                stderr: "",
-                interrupted: !1
-            })]);
-        case "edited_text_file":
-            return b5([p1({
-                content: `Note: ${A.filename} was modified...
-${A.snippet}`,
-                isMeta: !0
-            })]);
-        case "file": {
-            // Handle file types: image, text, notebook, pdf
-        }
-        case "plan_mode": {
-            // Handle plan mode variants: full, sparse, ultraplan-complete
-        }
-        // ... 57+ more cases
-    }
-}
-
-// READABLE (for understanding):
-function normalizeAttachmentForAPI(attachment) {
-    // Team mode attachments (special handling)
-    if (isTeamMode()) {
-        if (attachment.type === "teammate_mailbox") {
-            return [createUserMessage({
-                content: formatTeammateMessages(attachment.messages),
-                isMeta: true
-            })];
-        }
-        if (attachment.type === "team_context") {
-            return [createUserMessage({
-                content: buildTeamContextContent(attachment),
-                isMeta: true
-            })];
-        }
-    }
-
-    // Main switch for all attachment types
-    switch (attachment.type) {
-        case "directory":
-            return wrapWithSystemReminderTags([
-                createToolCallMessage("Bash", {
-                    command: `ls ${escapeShellArg(attachment.path)}`,
-                    description: `Lists files in ${attachment.path}`
-                }),
-                createToolResultMessage("Bash", {
-                    stdout: attachment.content,
-                    stderr: "",
-                    interrupted: false
-                })
-            ]);
-
-        case "edited_text_file":
-            return wrapWithSystemReminderTags([
-                createUserMessage({
-                    content: `Note: ${attachment.filename} was modified, either by the user or by a linter. This change was intentional, so make sure to take it into account as you proceed (ie. don't revert it unless the user asks you to). Don't tell the user this, since they are already aware. Here are the relevant changes (shown with line numbers):
-${attachment.snippet}`,
-                    isMeta: true
-                })
-            ]);
-
-        case "file":
-            // Handle different file content types
-            switch (attachment.content.type) {
-                case "image":
-                    return wrapWithSystemReminderTags([
-                        createToolCallMessage("Read", { file_path: attachment.filename }),
-                        createToolResultMessage("Read", attachment.content)
-                    ]);
-                case "text":
-                    return wrapWithSystemReminderTags([
-                        createToolCallMessage("Read", { file_path: attachment.filename }),
-                        createToolResultMessage("Read", attachment.content),
-                        ...(attachment.truncated ? [
-                            createUserMessage({
-                                content: `Note: The file ${attachment.filename} was too large and has been truncated to the first 2000 lines. Don't tell the user about this truncation. Use Read to read more of the file if you need.`,
-                                isMeta: true
-                            })
-                        ] : [])
-                    ]);
-                // ... notebook, pdf cases
-            }
+        // Stop when we find a plan mode attachment
+        else if (message?.type === "attachment" &&
+                 (message.attachment.type === "plan_mode" ||
+                  message.attachment.type === "plan_mode_reentry")) {
+            foundPlanModeAttachment = true;
             break;
-
-        case "plan_mode":
-            return wrapWithSystemReminderTags([
-                createUserMessage({
-                    content: buildPlanModeContent(attachment),
-                    isMeta: true
-                })
-            ]);
-
-        case "token_usage":
-            return wrapWithSystemReminderTags([
-                createUserMessage({
-                    content: buildTokenUsageContent(attachment),
-                    isMeta: true
-                })
-            ]);
-
-        // ... 50+ more cases
+        }
     }
+
+    return {turnCount, foundPlanModeAttachment};
 }
 
-// Mapping: Ui8→normalizeAttachmentForAPI, E7→isTeamMode, p1→createUserMessage,
-//          b5→wrapWithSystemReminderTags, nr6→createToolCallMessage, ir6→createToolResultMessage
+// Mapping: JuY→countTurnsSinceLastPlanAttachment, q→turnCount, K→foundPlanModeAttachment
+```
+
+**Key insight**: The turn counting algorithm walks backwards from the latest message, counting assistant turns until it finds a relevant attachment. This prevents redundant context injection while ensuring the LLM has necessary mode information.
+
+---
+
+## 5. Cross-Module Integration
+
+### 5.1 CLI → System Reminder
+
+CLI flags affect attachment production:
+
+| CLI Flag | Effect | Producer Affected |
+|----------|--------|-------------------|
+| `--plan` | Activates plan mode | `plan_mode`, `plan_mode_exit` |
+| `--dangerously-skip-permissions` | Sets mode to "auto" | `auto_mode`, `auto_mode_exit` |
+| `--team-name` | Enables team mode | `team_context`, `teammate_mailbox` |
+| `--agent-id` | Subagent mode | Disables main-thread producers |
+
+### 5.2 UI → System Reminder
+
+UI state flows into attachments:
+
+| UI State | Producer | Data Flow |
+|----------|----------|-----------|
+| IDE selection | `ide_selection` | `ideState.lineStart`, `ideState.text` |
+| Open file | `ide_opened_file` | `ideState.filePath` |
+| Token display | `token_usage` | `messages` → token calculation |
+| Budget warning | `budget_usd` | `sessionContext.options.maxBudgetUsd` |
+
+### 5.3 LLM Core → System Reminder
+
+The agent loop triggers attachment production:
+
+```
+mainAgentLoop (turn start)
+        │
+        ▼
+assembleAllAttachments(sessionState)
+        │
+        ├── Produce all relevant attachments
+        │
+        ▼
+normalizeAttachmentForAPI(attachment)
+        │
+        ▼
+Inject as user message with isMeta: true
+        │
+        ▼
+Include in next LLM request
+```
+
+### 5.4 MCP → System Reminder
+
+MCP servers contribute to attachments:
+
+```
+MCP Client State
+        │
+        ├── mcp_resources producer
+        │   └── @resource:server:uri mentions
+        │
+        ├── mcp_instructions_delta producer
+        │   └── Server instruction updates
+        │
+        └── dynamic_skill producer
+            └── Dynamic tool discovery
 ```
 
 ---
 
-## 5. Attachment Type Categories
+## 6. Key Algorithms
 
-### 5.1 Complete Type Catalog
-
-| Category | Types | Trigger | Source Location |
-|----------|-------|---------|-----------------|
-| **User-Dependent** | at_mentioned_files, mcp_resources, agent_mentions | User message content | Group 1 |
-| **Mode Control** | plan_mode, plan_mode_exit, plan_mode_reentry, auto_mode, auto_mode_exit | Permission mode | Group 2 |
-| **Team Mode** | teammate_mailbox, team_context | Team mode enabled | Group 2 |
-| **IDE Integration** | ide_selection, ide_opened_file, diagnostics, lsp_diagnostics | IDE connection | Group 3 |
-| **Status/Budget** | token_usage, budget_usd, output_token_usage | Every turn | Group 3 |
-| **Memory** | nested_memory, dynamic_skill, skill_listing, relevant_memories | Memory enabled | Group 2 |
-| **Hooks** | async_hook_responses, critical_system_reminder, hook_blocking_error | Hook execution | Groups 2/3 |
-| **Task Management** | todo, todo_reminder, task_reminder, task_status, task_progress | Todo/task system | Group 2 |
-| **File Context** | directory, file, edited_text_file, compact_file_reference, pdf_reference | File operations | Group 1 |
-| **Silent** | already_read_file, command_permissions, edited_image_file, hook_cancelled | Internal state | All groups |
-
-### 5.2 Producer Execution Strategy
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      PRODUCER EXECUTION STRATEGY                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  GROUP 1: User-Message-Dependent                                            │
-│  ───────────────────────────────────                                        │
-│  Execution: SEQUENTIAL (await all before continuing)                        │
-│  Reason: Dependencies on parsed user message content                        │
-│  Timeout: 1 second total (shared with all groups)                           │
-│                                                                              │
-│  GROUP 2: Always-Computed                                                   │
-│  ───────────────────────────                                                │
-│  Execution: PARALLEL (Promise.all)                                          │
-│  Reason: No dependencies between producers                                  │
-│  Scope: All agents (main + subagents)                                       │
-│                                                                              │
-│  GROUP 3: Main-Agent-Only                                                   │
-│  ─────────────────────────                                                  │
-│  Execution: PARALLEL (Promise.all)                                          │
-│  Reason: No dependencies, but skipped for subagents                         │
-│  Scope: Main agent only (skipped if toolUseContext.agentId is set)          │
-│                                                                              │
-│  TIMEOUT HANDLING                                                           │
-│  ─────────────────                                                          │
-│  Total timeout: 1 second                                                    │
-│  On timeout: Return partial results (already completed)                     │
-│  Error handling: Each producer catches its own errors, returns []           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 6. wrapWithSystemReminderTags (b5)
-
-### 6.1 XML Wrapper Implementation
+### 6.1 At-Mentioned Files Processing
 
 ```javascript
 // ============================================
-// wrapWithSystemReminderTags (b5) - XML wrapper
-// Location: chunks.173.mjs:2496-2523
+// produceAtMentionedFiles (RuY) - File mention handler
+// Location: chunks.147.mjs:407-448
 // ============================================
 
-// ORIGINAL (for source lookup):
-function b5(A) {
-    return A.map(q => ({
-        ...q,
-        content: [{
-            type: "text",
-            text: `<system-reminder>
-${q.content.map(K => K.type === "text" ? K.text : "").join("\n")}
-</system-reminder>`
-        }, ...q.content.filter(K => K.type !== "text")],
-        isMeta: !0
-    }))
+// READABLE (for understanding):
+async function produceAtMentionedFiles(userMessage, sessionContext) {
+    let mentions = extractAtMentions(userMessage);
+
+    if (mentions.length === 0) {
+        return [];
+    }
+
+    let appState = sessionContext.getAppState();
+
+    return (await Promise.all(mentions.map(async (mention) => {
+        try {
+            let {filename, lineStart, lineEnd} = parseMention(mention);
+            let resolvedPath = resolvePath(filename);
+
+            // Check permission
+            if (isPathDenied(resolvedPath, appState.toolPermissionContext)) {
+                return null;
+            }
+
+            // Handle directory mentions
+            try {
+                if ((await stat(resolvedPath)).isDirectory()) {
+                    let entries = await readdir(resolvedPath, {withFileTypes: true});
+                    let maxEntries = 1000;
+                    let isTruncated = entries.length > maxEntries;
+
+                    let names = entries.slice(0, maxEntries).map((e) => e.name);
+                    if (isTruncated) {
+                        names.push(`… and ${entries.length - maxEntries} more entries`);
+                    }
+
+                    let content = names.join("\n");
+
+                    trackEvent("tengu_at_mention_extracting_directory_success", {});
+                    return {
+                        type: "directory",
+                        path: resolvedPath,
+                        content: content,
+                        displayPath: relativeToCwd(resolvedPath)
+                    };
+                }
+            } catch {
+                // Not a directory, continue with file handling
+            }
+
+            // Handle file mentions
+            return await readFileForAttachment(
+                resolvedPath,
+                sessionContext,
+                "tengu_at_mention_extracting_filename_success",
+                "tengu_at_mention_extracting_filename_error",
+                "at-mention",
+                {offset: lineStart, limit: lineEnd && lineStart ? lineEnd - lineStart + 1 : undefined}
+            );
+
+        } catch {
+            trackEvent("tengu_at_mention_extracting_filename_error", {});
+        }
+    }))).filter(Boolean);
 }
+
+// Mapping: RuY→produceAtMentionedFiles, K→mentions, Y→appState
+```
+
+### 6.2 Changed Files Detection
+
+```javascript
+// ============================================
+// produceChangedFiles (CuY) - File modification tracker
+// Location: chunks.147.mjs:497-540
+// ============================================
 
 // READABLE (for understanding):
-function wrapWithSystemReminderTags(messages) {
-    return messages.map(message => ({
-        ...message,
-        content: [
-            // Wrap text content in XML tags
-            {
-                type: "text",
-                text: `<system-reminder>
-${message.content
-    .filter(block => block.type === "text")
-    .map(block => block.text)
-    .join("\n")}
-</system-reminder>`
-            },
-            // Preserve non-text content (images, tool results, etc.)
-            ...message.content.filter(block => block.type !== "text")
-        ],
-        isMeta: true  // Mark as meta for UI filtering
-    }));
+async function produceChangedFiles(sessionContext) {
+    let modifiedFiles = getModifiedFilesFromReadState(sessionContext.readFileState);
+
+    if (modifiedFiles.length === 0) {
+        return [];
+    }
+
+    // Filter files that have been read and modified
+    return modifiedFiles
+        .filter((file) => file.contentDiffersFromDisk)
+        .map((file) => ({
+            type: "changed_file",
+            path: file.path,
+            content: file.content,
+            displayPath: relativeToCwd(file.path)
+        }));
 }
 
-// Mapping: b5→wrapWithSystemReminderTags
+// Mapping: CuY→produceChangedFiles, q→sessionContext
 ```
 
-### 6.2 Why XML Tags?
+**Why this approach**:
+- Only includes files that differ from disk (actual modifications)
+- Uses `readFileState` maintained by Read tool
+- Provides LLM with current file state without re-reading
 
-**Rationale:**
-1. Clear delineation of system content vs user content
-2. LLM can easily parse and identify system instructions
-3. Consistent format across all reminder types
-4. Enables structured parsing if needed
+### 6.3 Token Usage Calculation
 
----
+```javascript
+// ============================================
+// produceTokenUsage (qmY) - Token tracker
+// Location: chunks.147.mjs:1108-1118
+// ============================================
 
-## 7. Integration Flow Diagram
+// READABLE (for understanding):
+function produceTokenUsage(messages, model) {
+    if (!messages || messages.length === 0) {
+        return [];
+    }
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COMPLETE INTEGRATION FLOW                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  CLI FLAGS                                                                   │
-│  ├─ --plan → permissionContext.mode = "plan"                                │
-│  ├─ --dangerously-skip-permissions → mode = "bypassPermissions"             │
-│  ├─ --agent → agentId set, affects Group 3 inclusion                        │
-│  └─ --team-name → team mode enabled                                         │
-│         │                                                                    │
-│         ▼                                                                    │
-│  SESSION STATE (toolUseContext)                                             │
-│  ├─ permissionContext                                                       │
-│  ├─ agentId                                                                 │
-│  ├─ options.mcpClients                                                      │
-│  └─ options.agentDefinitions                                                │
-│         │                                                                    │
-│         ▼                                                                    │
-│  UI STATE                                                                    │
-│  ├─ ideSelection (IDE context)                                              │
-│  ├─ pendingCommands (queued messages)                                       │
-│  └─ messages (conversation history)                                         │
-│         │                                                                    │
-│         ▼                                                                    │
-│  assembleAllAttachments (_uY)                                               │
-│  ├─ Group 1: Sequential user-dependent                                      │
-│  ├─ Group 2: Parallel always-computed                                       │
-│  └─ Group 3: Parallel main-agent-only                                       │
-│         │                                                                    │
-│         ▼                                                                    │
-│  normalizeAttachmentForAPI (Ui8)                                            │
-│  ├─ 57+ type handlers                                                       │
-│  ├─ Wrap with XML tags                                                      │
-│  └─ Set isMeta: true                                                        │
-│         │                                                                    │
-│         ▼                                                                    │
-│  mainAgentLoopCore (omY)                                                    │
-│  ├─ Prepend attachments to messages                                         │
-│  └─ Send to LLM API                                                         │
-│         │                                                                    │
-│         ▼                                                                    │
-│  UI RENDERING                                                               │
-│  ├─ Filter isMeta messages from display                                     │
-│  └─ Show user-visible messages only                                         │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+    let tokenCount = calculateTokenCount(messages, model);
+    let threshold = getTokenThreshold(model);
+
+    return [{
+        type: "token_usage",
+        currentTokens: tokenCount,
+        threshold: threshold,
+        percentageUsed: Math.round((tokenCount / threshold) * 100)
+    }];
+}
+
+// Mapping: qmY→produceTokenUsage, A→messages, q→model
 ```
 
 ---
 
-## Related Documents
+## Summary
 
-> System Reminder Module:
-> - [04_system_reminder/README.md](../04_system_reminder/README.md) - Module hub
-> - [attachment_producers.md](../04_system_reminder/attachment_producers.md) - Producer details
-> - [reminder_types.md](../04_system_reminder/reminder_types.md) - Type catalog
+The System Reminder module provides a sophisticated meta-messaging system that:
 
-> CLI Integration:
-> - [01_cli/system_reminder_integration.md](../01_cli/system_reminder_integration.md) - CLI integration
+1. **Orchestrates 25+ producers** across three categories (user-dependent, always-run, main-thread-only)
+2. **Implements graceful degradation** with error handling and timeouts
+3. **Uses turn-based logic** to avoid context spam
+4. **Integrates deeply** with CLI, UI, MCP, and LLM Core modules
+5. **Provides sampling-based telemetry** for performance monitoring
 
-> LLM Core Integration:
-> - [03_llm_core/system_reminder_flow.md](../03_llm_core/system_reminder_flow.md) - Flow analysis
+Key design decisions:
+- **1000ms timeout**: Prevents slow producers from blocking sessions
+- **5% telemetry sampling**: Balances observability with overhead
+- **Turn counting**: Ensures context efficiency without losing information
+- **Category-based execution**: Optimizes by running only relevant producers
 
-> Joint Analysis:
-> - [cli_ui_llm_joint_complete_v4.md](../00_overview/cli_ui_llm_joint_complete_v4.md) - Complete joint analysis
+---
 
-> Symbol Index:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
+**Last Updated**: 2026-03-26
+**Version**: Claude Code 2.1.76
+**Status**: Complete - All attachment producers documented with source verification

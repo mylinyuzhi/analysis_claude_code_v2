@@ -6,25 +6,21 @@
 > **Analysis Status**: ✅ COMPLETE - Deep algorithm analysis, cross-module integration, and source-level restoration done.
 > **Integration Status**: ✅ COMPLETE - Cross-module integration documented in [cli_ui_llm_integration.md](../00_overview/cli_ui_llm_integration.md), [cli_ui_llm_deep_integration.md](../00_overview/cli_ui_llm_deep_integration.md), and [ui_interaction_patterns.md](./ui_interaction_patterns.md).
 > **Joint Analysis**: ✅ COMPLETE - See [cli_ui_llm_complete_joint_analysis.md](../00_overview/cli_ui_llm_complete_joint_analysis.md) and [ui_interaction_state_machine_complete.md](./ui_interaction_state_machine_complete.md).
-> **Joint Analysis v2**: ✅ NEW - See [cli_ui_llm_joint_complete_v2.md](../00_overview/cli_ui_llm_joint_complete_v2.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete.md](../00_overview/cli_ui_llm_joint_complete.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 >
-> **NEW Joint Analysis Documents (2026-03-26)**:
-> - [cli_ui_llm_joint_complete_v8.md](../00_overview/cli_ui_llm_joint_complete_v8.md) - **LATEST v8**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
-> - [cli_ui_llm_joint_complete_v7.md](../00_overview/cli_ui_llm_joint_complete_v7.md) - v7: Complete joint analysis with source-level restoration, decision trees, and UI interaction patterns
-> - [cli_ui_llm_joint_complete_v5.md](../00_overview/cli_ui_llm_joint_complete_v5.md) - v5: Complete joint analysis with verified symbols, deep algorithms, and feature linkages
-> - [ui_interaction_state_machine_complete_v4.md](./ui_interaction_state_machine_complete_v4.md) - **NEW v4**: Complete UI state machine with source-level restoration and interaction patterns
-> - [ui_state_machine_complete_v3.md](./ui_state_machine_complete_v3.md) - v3: Complete UI state machine with source-level restoration
-> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - **NEW**: Complete cross-feature linkage documentation
+> **Joint Analysis Documents**:
+> - [cli_ui_llm_joint_complete.md](../00_overview/cli_ui_llm_joint_complete.md) - **LATEST**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
+> - [ui_interaction_state_machine_source_restoration.md](./ui_interaction_state_machine_source_restoration.md) - Complete UI state machine with source-level restoration and interaction patterns
+> - [ui_state_machine_complete.md](./ui_state_machine_complete.md) - Complete UI state machine with source-level restoration
+> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - Complete cross-feature linkage documentation
 > - [cli_ui_llm_joint_analysis_final.md](../00_overview/cli_ui_llm_joint_analysis_final.md) - Final comprehensive joint analysis with source-level restoration
-> - [cli_ui_llm_joint_complete_v3.md](../00_overview/cli_ui_llm_joint_complete_v3.md) - Comprehensive joint analysis v3 with source-level restoration
-> - [ui_state_machine_complete_v2.md](./ui_state_machine_complete_v2.md) - **NEW**: Complete UI state machine analysis v2
-> - [cli_ui_llm_ui_interaction_complete_v3.md](../00_overview/cli_ui_llm_ui_interaction_complete_v3.md) - Complete UI interaction analysis v3
+> - [cli_ui_llm_ui_interaction_complete.md](../00_overview/cli_ui_llm_ui_interaction_complete.md) - Complete UI interaction analysis
 > - [cli_ui_llm_algorithm_complete_restoration.md](../00_overview/cli_ui_llm_algorithm_complete_restoration.md) - Source-level algorithm restoration
 > - [cli_ui_llm_feature_interaction_matrix.md](../00_overview/cli_ui_llm_feature_interaction_matrix.md) - Cross-feature interactions
 >
 > **NEW Cross-Module Analysis Documents (2026-03-26)**:
 > - [cli_ui_llm_system_reminder_integration.md](../00_overview/cli_ui_llm_system_reminder_integration.md) - **NEW**: Complete System Reminder integration
-> - [cli_ui_llm_error_recovery_patterns_v2.md](../00_overview/cli_ui_llm_error_recovery_patterns_v2.md) - **NEW**: Cross-module error handling v2
+> - [cli_ui_llm_error_recovery_patterns.md](../00_overview/cli_ui_llm_error_recovery_patterns.md) - Cross-module error handling
 > - [cli_ui_llm_system_reminder_deep_integration.md](../00_overview/cli_ui_llm_system_reminder_deep_integration.md) - Complete attachment producer catalog
 >
 > **Symbol Correction (2026-03-22)**: `WJ` was incorrectly mapped to `normalizeMessages`. The correct symbol is `cM` at chunks.173.mjs:1999. `WJ` at chunks.5.mjs:945 is a Zod schema builder function, not related to message normalization.

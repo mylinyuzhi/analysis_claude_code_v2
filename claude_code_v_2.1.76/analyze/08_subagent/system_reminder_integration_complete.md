@@ -663,7 +663,7 @@ LLM receives task_status attachments in system reminder
 
 ## Related Documents
 
-- [ui_interaction_complete_v4.md](./ui_interaction_complete_v4.md) - UI interaction
-- [key_algorithms_deep_dive_v4.md](./key_algorithms_deep_dive_v4.md) - Algorithm analysis
-- [cross_feature_linkages_complete_v4.md](./cross_feature_linkages_complete_v4.md) - Feature integrations
+- [ui_interaction_complete.md](./ui_interaction_complete.md) - UI interaction
+- [key_algorithms_deep_dive.md](./key_algorithms_deep_dive.md) - Algorithm analysis
+- [cross_feature_linkages_complete.md](./cross_feature_linkages_complete.md) - Feature integrations
 - [../04_system_reminder/attachment_producers.md](../04_system_reminder/attachment_producers.md) - Attachment producers

@@ -1,4 +1,4 @@
-# Cross-Feature Linkages Complete V4 (Claude Code 2.1.76)
+# Cross-Feature Linkages Complete (Claude Code 2.1.76)
 
 > Comprehensive documentation of all integration points between the background agents module and other Claude Code modules, with source-level code restoration.
 
@@ -467,12 +467,12 @@ User presses Ctrl+C
   ├──────────────────────────────────────────────────────────┐
   │ User presses Ctrl+F                                      │ User does nothing
   ▼                                                          ▼
-┌───────────────────────────────┐    ┌───────────────────────────────────┐
-│ killAllLocalAgents (U4q)      │    │ Confirmation times out            │
-│   Iterate running local_agent │    │ No agents killed                  │
-│   Call triggerAbortSignal     │    │ Continue normal operation         │
-│   for each                    │    │                                   │
-└───────────────────────────────┘    └───────────────────────────────────┘
+┌───────────────────────────────────┐    ┌───────────────────────────────────┐
+│ killAllLocalAgents (U4q)          │    │ Confirmation times out            │
+│   Iterate running local_agent     │    │ No agents killed                  │
+│   Call triggerAbortSignal         │    │ Continue normal operation         │
+│   for each                        │    │                                   │
+└───────────────────────────────────┘    └───────────────────────────────────┘
   │
   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -627,8 +627,8 @@ function filterMessagesForCompact(messages) {
 
 ## Related Documents
 
-- [task_lifecycle_complete_v4.md](./task_lifecycle_complete_v4.md) - Task lifecycle analysis
-- [kill_mechanism_complete_v2.md](./kill_mechanism_complete_v2.md) - Kill mechanism
-- [progress_tracking_complete_v2.md](./progress_tracking_complete_v2.md) - Progress tracking
+- [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - Task lifecycle analysis
+- [kill_mechanism_complete.md](./kill_mechanism_complete.md) - Kill mechanism
+- [progress_tracking_complete.md](./progress_tracking_complete.md) - Progress tracking
 - [cross_validation_report.md](./cross_validation_report.md) - Symbol verification
-- [../08_subagent/cross_feature_linkages_complete_v5.md](../08_subagent/cross_feature_linkages_complete_v5.md) - Subagent linkages
+- [../08_subagent/cross_feature_linkages_complete.md](../08_subagent/cross_feature_linkages_complete.md) - Subagent linkages

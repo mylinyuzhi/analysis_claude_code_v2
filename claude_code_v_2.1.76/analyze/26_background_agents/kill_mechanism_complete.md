@@ -143,16 +143,17 @@ function triggerAbortSignal(taskId, setAppState) {
         };
     });
 
-    // Step 4: Create notification if task was running
+    // Step 4: Flush output buffer if task was running
+    // NOTE: $O is flushOutputBuffer, not createTaskNotification (verified at chunks.41.mjs:2320)
     if (wasRunning) {
-        createTaskNotification(taskId);
+        flushOutputBuffer(taskId);
     }
 
     return wasRunning;
 }
 
 // Mapping: x66→triggerAbortSignal, A→taskId, q→setAppState, K→wasRunning,
-//          i9→atomicUpdateTask, Y→task, $O→createTaskNotification
+//          i9→atomicUpdateTask, Y→task, $O→flushOutputBuffer
 ```
 
 **Key Insight:** The function is synchronous because abort() triggers async cancellation, but the state update is immediate. The actual agent loop will detect the abort on its next iteration.
@@ -569,44 +570,29 @@ class RemoteAgentTaskHandler {
 
 ---
 
-## Notification Integration
+## Output Buffer Flush on Kill
 
-### createTaskNotification ($O)
+### flushOutputBuffer ($O)
 
-**What it does:** Creates a notification for task status changes.
+> **CORRECTION:** `$O` was previously misidentified as `createTaskNotification`. Cross-validation at `chunks.41.mjs:2320` confirmed it is `flushOutputBuffer` -- it flushes any buffered output for the task to disk before the task record is finalized.
+
+**What it does:** Flushes any remaining buffered output for a task, ensuring partial results are persisted to the output file before the task transitions to a terminal state.
 
 ```javascript
 // ============================================
-// createTaskNotification - Create task notification
-// Location: chunks.89.mjs (inferred)
+// flushOutputBuffer - Flush buffered output for task
+// Location: chunks.41.mjs:2320 (verified via cross-validation)
 // ============================================
 
-// READABLE (for understanding):
-function createTaskNotification(taskId) {
-    // Add notification to command queue
-    enqueueCommand({
-        type: "task-notification",
-        taskId: taskId,
-        timestamp: Date.now()
-    });
-}
-
-// Mapping: $O→createTaskNotification
+// Mapping: $O→flushOutputBuffer
 ```
 
-**System Reminder Integration:**
+**Called from:**
+- `triggerAbortSignal` (x66) -- after marking task as killed
+- `markTaskCompleted` ($m8) -- after marking task as completed
+- `markTaskFailed` (Hm8) -- after marking task as failed
 
-The notification appears in the system reminder as a `task_status` attachment:
-
-```xml
-<system-reminder>
-A background task has finished:
-- Task ID: a3f9c2x7
-- Description: Search codebase for usages
-- Status: killed
-- Duration: 45.2 seconds
-</system-reminder>
-```
+This ensures the output file (`~/.claude/tasks/{taskId}.output`) contains all output up to the point of termination, which is critical for partial result preservation when a user kills a running agent.
 
 ---
 
@@ -625,10 +611,8 @@ async function killWithPartialResults(taskId, setAppState) {
     // Step 2: Trigger abort
     triggerAbortSignal(taskId, setAppState);
 
-    // Step 3: Include partial output in notification
-    createTaskNotification(taskId, {
-        partialOutput: partialOutput
-    });
+    // Step 3: Flush output buffer (ensures partial results are persisted)
+    flushOutputBuffer(taskId);
 }
 ```
 

@@ -576,7 +576,7 @@ function updateTaskProgressWithTelemetry(taskId, summary, setAppState) {
 - [../00_overview/symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Symbol mappings
 - [../04_system_reminder/README.md](../04_system_reminder/README.md) - System reminder overview
 - [cross_validation_final.md](./cross_validation_final.md) - Verified symbols
-- [../26_background_agents/system_reminder_integration_complete_v5.md](../26_background_agents/system_reminder_integration_complete_v5.md) - Background agents integration
+- [../26_background_agents/system_reminder_integration_complete_source.md](../26_background_agents/system_reminder_integration_complete_source.md) - Background agents integration
 
 ---
 

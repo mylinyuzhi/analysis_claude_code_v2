@@ -144,12 +144,14 @@ Background tasks surface their state to the conversation through the system remi
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Progress frequency calculator
+// countTurnsSinceLastProgressInline - Progress frequency calculator
 // Location: chunks.142.mjs:2703-2717
 // ============================================
 
+// > **CORRECTION:** `TIY` is actually `countUniqueUris` (counts unique URIs for LSP). The function below describes an INLINE progress throttling mechanism, NOT the TIY function. See `key_algorithms_deep_dive.md` Algorithm 10.
+
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;

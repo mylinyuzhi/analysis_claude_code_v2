@@ -249,11 +249,12 @@ function shouldSendProgressUpdate(task, turnsSinceProgress) {
 
 ```javascript
 // ============================================
-// TIY - Count turns since last progress
-// Location: chunks.144.mjs:832 (inferred)
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling.
+// Location: chunks.142.mjs:2703-2717 (inlined in getUnifiedTasksAttachment)
 // ============================================
 
-function countTurnsSinceLastProgress(appState, taskId) {
+function countTurnsSinceLastProgressInline(appState, taskId) {
     const task = appState.tasks?.[taskId];
     if (!task) return Infinity;
 
@@ -291,7 +292,7 @@ getUnifiedTasksAttachment()
         │
         ├── For each running task:
         │   │
-        │   ├── countTurnsSinceLastProgress()
+        │   ├── countTurnsSinceLastProgressInline() (in vIY, not TIY)
         │   │
         │   └── if (shouldSendProgressUpdate()):
         │       │

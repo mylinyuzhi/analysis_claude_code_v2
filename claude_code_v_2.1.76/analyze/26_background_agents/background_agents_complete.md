@@ -7,8 +7,8 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [../08_subagent/cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) - Unified symbol verification
-> - [../08_subagent/key_algorithms_deep_dive_v12.md](../08_subagent/key_algorithms_deep_dive_v12.md) - Algorithm analysis
+> - [../08_subagent/cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - Unified symbol verification
+> - [../08_subagent/key_algorithms_deep_dive.md](../08_subagent/key_algorithms_deep_dive.md) - Algorithm analysis
 
 Key functions in this document:
 - `Qn4` - createBackgroundAgentTask — `chunks.146.mjs:2133`
@@ -616,8 +616,8 @@ function markTaskFailed(taskId, error, setAppState) {
 
 ## Related Documents
 
-- [../08_subagent/key_algorithms_deep_dive_v12.md](../08_subagent/key_algorithms_deep_dive_v12.md) - Algorithm analysis
-- [../08_subagent/cross_feature_linkages_complete_v11.md](../08_subagent/cross_feature_linkages_complete_v11.md) - Cross-feature integration
+- [../08_subagent/key_algorithms_deep_dive.md](../08_subagent/key_algorithms_deep_dive.md) - Algorithm analysis
+- [../08_subagent/cross_feature_linkages_complete.md](../08_subagent/cross_feature_linkages_complete.md) - Cross-feature integration
 - [../04_system_reminder/types_task_management.md](../04_system_reminder/types_task_management.md) - Task management types
 
 ---

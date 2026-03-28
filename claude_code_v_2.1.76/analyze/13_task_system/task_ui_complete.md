@@ -1,6 +1,8 @@
-# Task System UI Complete Analysis (Claude Code 2.1.76)
+# Task System UI Components Complete v2 (Claude Code v2.1.76)
 
-> Complete source-level analysis of task list UI rendering, status indicators, dependency visualization, and React component hierarchy.
+> **Version**: Claude Code v2.1.76
+> **Last Updated**: 2026-03-27
+> **Focus**: React component hierarchy, task list visualization, status indicators, dependency graph
 
 ---
 
@@ -12,92 +14,55 @@
 Key functions in this document:
 - `getTaskManager` (jf) - Resolve task list ID - chunks.84.mjs:1619
 - `loadAllTasks` (DX) - Load all tasks - chunks.84.mjs:1742
+- `isTaskSystemEnabled` (r$) - Check feature flag - chunks.84.mjs
 - `expandedView: "tasks"` - UI state for task view
-- Task status rendering with React components
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     TASK SYSTEM UI ARCHITECTURE                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    Task Tools Interface                        │  │
-│  │  TaskCreate | TaskUpdate | TaskGet | TaskList | TodoWrite     │  │
-│  └────────────────────────┬──────────────────────────────────────┘  │
-│                           │                                          │
-│  ┌────────────────────────▼──────────────────────────────────────┐  │
-│  │                  Core Async Functions                          │  │
-│  │  jf=getTaskManager | aD1=createTask | DB=loadTask             │  │
-│  │  WI=updateTask | sD1=deleteTask | DX=loadAllTasks             │  │
-│  └────────────────────────┬──────────────────────────────────────┘  │
-│                           │                                          │
-│  ┌────────────────────────▼──────────────────────────────────────┐  │
-│  │                    UI Rendering Layer                          │  │
-│  │                                                                 │  │
-│  │  ┌─────────────────────────────────────────────────────────┐   │  │
-│  │  │ TaskListView                                             │   │  │
-│  │  │ ├─ TaskHeader (count, add button)                       │   │  │
-│  │  │ ├─ TaskList                                              │   │  │
-│  │  │ │   ├─ TaskItem (each task)                             │   │  │
-│  │  │ │   │   ├─ StatusIndicator (○ ● ✓)                      │   │  │
-│  │  │ │   │   ├─ TaskSubject (title)                          │   │  │
-│  │  │ │   │   ├─ TaskOwner (agent badge)                      │   │  │
-│  │  │ │   │   └─ DependencyList (blocked by)                  │   │  │
-│  │  │ │   └─ ...                                              │   │  │
-│  │  │ └─ TaskFooter (summary)                                 │   │  │
-│  │  └─────────────────────────────────────────────────────────┘   │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        TASK SYSTEM UI ARCHITECTURE                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │                          REPL Shell Integration                          │  │
+│  │                                                                          │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │  │
+│  │  │                     Main Message Area                            │    │  │
+│  │  │                                                                  │    │  │
+│  │  │  [Conversation messages...]                                      │    │  │
+│  │  │                                                                  │    │  │
+│  │  └─────────────────────────────────────────────────────────────────┘    │  │
+│  │                                                                          │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │  │
+│  │  │            Expanded View Panel (when expandedView="tasks")       │    │  │
+│  │  │                                                                  │    │  │
+│  │  │  ┌───────────────────────────────────────────────────────────┐   │    │  │
+│  │  │  │ TaskListView                                               │   │    │  │
+│  │  │  │ ├─ TaskHeader (count, status summary)                     │   │    │  │
+│  │  │  │ ├─ TaskList                                                │   │    │  │
+│  │  │  │ │   ├─ TaskItem[0] (pending)                              │   │    │  │
+│  │  │  │ │   ├─ TaskItem[1] (in_progress) ◄── selected             │   │    │  │
+│  │  │  │ │   └─ TaskItem[2] (completed)                            │   │    │  │
+│  │  │  │ └─ TaskFooter (summary, help)                             │   │    │  │
+│  │  │  └───────────────────────────────────────────────────────────┘   │    │  │
+│  │  └─────────────────────────────────────────────────────────────────┘    │  │
+│  │                                                                          │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │  │
+│  │  │                     Input Area                                   │    │  │
+│  │  └─────────────────────────────────────────────────────────────────┘    │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## UI Components
+## 1. Task List View Component
 
-### Task List View
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ TASKS (4 total, 1 in progress)                                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│ ✓ [1] Design database schema                                         │
-│    └─ Owner: agent-1 | Completed                                     │
-│                                                                       │
-│ ● [2] Implement API endpoints                                        │
-│    └─ Owner: agent-2 | In Progress                                   │
-│    └─ Was blocked by: [1] ✓                                          │
-│                                                                       │
-│ ○ [3] Write unit tests                                               │
-│    └─ Status: Pending                                                │
-│    └─ Blocked by: [1] ✓, [2] ● (in progress)                         │
-│                                                                       │
-│ ○ [4] Integration testing                                            │
-│    └─ Status: Pending                                                │
-│    └─ Blocked by: [2], [3]                                           │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Status Indicators
-
-| Symbol | Status | Description | Color |
-|--------|--------|-------------|-------|
-| ○ | pending | Not yet started | gray |
-| ● | in_progress | Currently being worked on | blue (animated) |
-| ✓ | completed | Successfully finished | green |
-| ✗ | error/deleted | Failed or removed | red |
-
----
-
-## React Component Hierarchy
-
-### TaskListView Component
+### Main Container
 
 ```javascript
 // ============================================
@@ -106,43 +71,93 @@ Key functions in this document:
 // ============================================
 
 // READABLE (for understanding):
-function TaskListView({ tasks, expandedView, selectedTaskId, onSelectTask }) {
+function TaskListView({
+    tasks,
+    expandedView,
+    selectedTaskId,
+    onSelectTask,
+    onToggleExpand
+}) {
     const theme = useTheme();
 
-    // Count by status
-    const pendingCount = tasks.filter(t => t.status === "pending").length;
-    const inProgressCount = tasks.filter(t => t.status === "in_progress").length;
-    const completedCount = tasks.filter(t => t.status === "completed").length;
+    // Don't render if not in tasks view
+    if (expandedView !== "tasks") {
+        return null;
+    }
 
-    if (expandedView !== "tasks") return null;
+    // Calculate statistics
+    const stats = useMemo(() => {
+        const pending = tasks.filter(t => t.status === "pending");
+        const inProgress = tasks.filter(t => t.status === "in_progress");
+        const completed = tasks.filter(t => t.status === "completed");
+
+        return {
+            total: tasks.length,
+            pending: pending.length,
+            inProgress: inProgress.length,
+            completed: completed.length,
+            blocked: pending.filter(t => t.blockedBy.length > 0).length
+        };
+    }, [tasks]);
 
     return (
-        <Box flexDirection="column" borderStyle="round" borderColor="cyan">
+        <Box
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="cyan"
+            paddingX={1}
+        >
             {/* Header */}
+            <TaskListHeader
+                stats={stats}
+                onCollapse={() => onToggleExpand(null)}
+            />
+
+            {/* Task List */}
+            <Box flexDirection="column" marginY={1}>
+                {tasks.length === 0 ? (
+                    <EmptyTaskList />
+                ) : (
+                    tasks.map(task => (
+                        <TaskItem
+                            key={task.id}
+                            task={task}
+                            allTasks={tasks}
+                            isSelected={selectedTaskId === task.id}
+                            onSelect={() => onSelectTask(task.id)}
+                        />
+                    ))
+                )}
+            </Box>
+
+            {/* Footer */}
+            <TaskListFooter stats={stats} />
+        </Box>
+    );
+}
+```
+
+### Task Header Component
+
+```javascript
+// ============================================
+// TaskListHeader - Header with statistics
+// ============================================
+
+// READABLE (for understanding):
+function TaskListHeader({ stats, onCollapse }) {
+    return (
+        <Box justifyContent="space-between">
             <Box>
                 <Text bold color="cyan">TASKS</Text>
                 <Text dimColor>
-                    {" "}({tasks.length} total, {inProgressCount} in progress)
+                    {" "}({stats.total} total
+                    {stats.inProgress > 0 && `, ${stats.inProgress} in progress`})
                 </Text>
             </Box>
-
-            {/* Task list */}
-            <Box flexDirection="column">
-                {tasks.map(task => (
-                    <TaskItem
-                        key={task.id}
-                        task={task}
-                        allTasks={tasks}
-                        isSelected={selectedTaskId === task.id}
-                        onSelect={() => onSelectTask(task.id)}
-                    />
-                ))}
-            </Box>
-
-            {/* Footer summary */}
             <Box>
                 <Text dimColor>
-                    ✓ {completedCount} completed | ● {inProgressCount} active | ○ {pendingCount} pending
+                    [Tab] to focus │ [Esc] to collapse
                 </Text>
             </Box>
         </Box>
@@ -150,158 +165,167 @@ function TaskListView({ tasks, expandedView, selectedTaskId, onSelectTask }) {
 }
 ```
 
-### TaskItem Component
+---
+
+## 2. Task Item Component
+
+### Individual Task Rendering
 
 ```javascript
 // ============================================
-// TaskItem - Individual task rendering
+// TaskItem - Individual task row
 // ============================================
 
 // READABLE (for understanding):
 function TaskItem({ task, allTasks, isSelected, onSelect }) {
     const theme = useTheme();
 
-    // Get status icon and color
+    // Get status configuration
     const statusConfig = getStatusConfig(task.status);
 
-    // Get blocking tasks
-    const blockingTasks = task.blockedBy.map(id =>
-        allTasks.find(t => t.id === id)
-    ).filter(Boolean);
+    // Get dependency information
+    const dependencyInfo = getDependencyInfo(task, allTasks);
+
+    // Check if task is blocked
+    const isBlocked = dependencyInfo.blockedByIncomplete.length > 0;
+
+    // Determine border style for selection
+    const borderStyle = isSelected ? "bold" : undefined;
+    const borderColor = isSelected ? "yellow" : undefined;
 
     return (
         <Box
             flexDirection="column"
-            borderStyle={isSelected ? "bold" : undefined}
-            borderColor={isSelected ? "yellow" : undefined}
+            borderStyle={borderStyle}
+            borderColor={borderColor}
+            paddingX={1}
             onClick={onSelect}
         >
-            {/* Main row: status + id + subject */}
-            <Box flexDirection="row">
+            {/* Main Row: Status + ID + Subject */}
+            <Box>
+                {/* Status Icon */}
                 <Text color={statusConfig.color}>
                     {statusConfig.icon}
                 </Text>
-                <Text> [{task.id}] </Text>
-                <Text bold={task.status === "in_progress"}>
+
+                {/* Task ID */}
+                <Text dimColor> [{task.id}] </Text>
+
+                {/* Subject */}
+                <Text
+                    bold={task.status === "in_progress"}
+                    strikethrough={task.status === "completed"}
+                    color={task.status === "completed" ? "gray" : undefined}
+                >
                     {task.subject}
                 </Text>
+
+                {/* Blocked indicator */}
+                {isBlocked && task.status === "pending" && (
+                    <Text color="yellow"> ⚠</Text>
+                )}
             </Box>
 
-            {/* Details row */}
-            <Box marginLeft={3}>
+            {/* Details Row */}
+            <Box marginLeft={3} flexDirection="column">
                 {/* Owner */}
                 {task.owner && (
-                    <Text dimColor>
-                        Owner: <Text color="magenta">{task.owner}</Text>
-                        {" | "}
-                    </Text>
+                    <Box>
+                        <Text dimColor>Owner: </Text>
+                        <Text color="magenta">{task.owner}</Text>
+                    </Box>
                 )}
 
                 {/* Status */}
-                <Text dimColor>
-                    Status: <Text color={statusConfig.color}>{task.status}</Text>
-                </Text>
+                <Box>
+                    <Text dimColor>Status: </Text>
+                    <Text color={statusConfig.color}>
+                        {formatStatus(task.status)}
+                    </Text>
+                </Box>
+
+                {/* Active Form (for in-progress tasks) */}
+                {task.status === "in_progress" && task.activeForm && (
+                    <Box>
+                        <Text dimColor>
+                            <Spinner type="dots" /> {task.activeForm}
+                        </Text>
+                    </Box>
+                )}
+
+                {/* Dependencies */}
+                {task.blockedBy.length > 0 && (
+                    <DependencyList
+                        blockedBy={task.blockedBy}
+                        allTasks={allTasks}
+                    />
+                )}
             </Box>
-
-            {/* Dependencies row */}
-            {blockingTasks.length > 0 && (
-                <Box marginLeft={3}>
-                    <Text dimColor>
-                        Blocked by: {blockingTasks.map(t => (
-                            <Text key={t.id}>
-                                [{t.id}]
-                                <Text color={getStatusConfig(t.status).color}>
-                                    {getStatusConfig(t.status).icon}
-                                </Text>
-                                {" "}
-                            </Text>
-                        ))}
-                    </Text>
-                </Box>
-            )}
-
-            {/* Active form (spinner text) */}
-            {task.status === "in_progress" && task.activeForm && (
-                <Box marginLeft={3}>
-                    <Text dimColor>
-                        <Spinner /> {task.activeForm}
-                    </Text>
-                </Box>
-            )}
         </Box>
     );
 }
 
+// Status configuration
 function getStatusConfig(status) {
     switch (status) {
         case "pending":
-            return { icon: "○", color: "gray" };
+            return {
+                icon: "○",
+                color: "gray",
+                label: "Pending"
+            };
         case "in_progress":
-            return { icon: "●", color: "blue" };
+            return {
+                icon: "●",
+                color: "blue",
+                label: "In Progress",
+                animate: true
+            };
         case "completed":
-            return { icon: "✓", color: "green" };
+            return {
+                icon: "✓",
+                color: "green",
+                label: "Completed"
+            };
         default:
-            return { icon: "?", color: "yellow" };
+            return {
+                icon: "?",
+                color: "yellow",
+                label: "Unknown"
+            };
+    }
+}
+
+// Format status for display
+function formatStatus(status) {
+    switch (status) {
+        case "in_progress": return "In Progress";
+        case "pending": return "Pending";
+        case "completed": return "Completed";
+        default: return status;
     }
 }
 ```
 
 ---
 
-## State Management
+## 3. Dependency List Component
 
-### UI State Slice
-
-```javascript
-// Task UI state in REPL component
-{
-    tasks: {
-        tasks: Task[],             // Loaded task list
-        expandedView: "tasks" | null,  // Current expanded view
-        selectedTaskId: string | null, // Focused task
-        isLoading: boolean,        // Loading state
-        error: string | null       // Error message
-    }
-}
-```
-
-### Task Schema (Full)
+### Dependency Visualization
 
 ```javascript
 // ============================================
-// Task schema with UI-relevant fields
-// Location: chunks.84.mjs
-// ============================================
-
-const taskSchema = z.object({
-    id: z.string(),              // Auto-increment integer as string
-    subject: z.string(),         // Brief title (required)
-    description: z.string(),     // Detailed requirements (required)
-    activeForm: z.string().optional(),  // Present continuous status for UI spinner
-    status: z.enum(["pending", "in_progress", "completed"]),
-    owner: z.string().optional(),  // Agent name who owns this task
-    blocks: z.array(z.string()),   // Task IDs waiting for this task
-    blockedBy: z.array(z.string()), // Task IDs this task is waiting for
-    metadata: z.record(z.unknown()).optional()  // Arbitrary key-value pairs
-});
-```
-
----
-
-## Dependency Graph Visualization
-
-### Dependency Status Rendering
-
-```javascript
-// ============================================
-// Dependency status display logic
+// DependencyList - Show task dependencies
 // ============================================
 
 // READABLE (for understanding):
-function renderDependencyStatus(blockedByIds, allTasks) {
-    return blockedByIds.map(id => {
+function DependencyList({ blockedBy, allTasks }) {
+    // Get info for each blocking task
+    const dependencyStatuses = blockedBy.map(id => {
         const task = allTasks.find(t => t.id === id);
-        if (!task) return { id, status: "unknown", icon: "?" };
+        if (!task) {
+            return { id, status: "unknown", icon: "?", color: "yellow" };
+        }
 
         const config = getStatusConfig(task.status);
         return {
@@ -309,67 +333,103 @@ function renderDependencyStatus(blockedByIds, allTasks) {
             status: task.status,
             icon: config.icon,
             color: config.color,
-            isBlocking: task.status !== "completed"
+            isComplete: task.status === "completed"
         };
     });
-}
 
-// Check if task can be started
-function canStartTask(task, allTasks) {
-    return task.blockedBy.every(blockingId => {
-        const blockingTask = allTasks.find(t => t.id === blockingId);
-        return blockingTask?.status === "completed";
-    });
-}
-
-// Render blocked indicator
-function renderBlockedIndicator(task, allTasks) {
-    const dependencies = renderDependencyStatus(task.blockedBy, allTasks);
-    const incompleteDeps = dependencies.filter(d => d.isBlocking);
-
-    if (incompleteDeps.length === 0) {
-        return <Text color="green">All dependencies complete</Text>;
-    }
+    // Check if any dependencies are incomplete
+    const hasIncomplete = dependencyStatuses.some(d => !d.isComplete);
 
     return (
-        <Box>
-            <Text color="yellow">Blocked by: </Text>
-            {incompleteDeps.map(d => (
-                <Text key={d.id} color={d.color}>
-                    [{d.id}]{d.icon}{" "}
-                </Text>
-            ))}
+        <Box flexDirection="column">
+            <Text dimColor>
+                {hasIncomplete ? "Blocked by: " : "Dependencies: "}
+            </Text>
+
+            <Box marginLeft={2}>
+                {dependencyStatuses.map(dep => (
+                    <Box key={dep.id}>
+                        <Text dimColor>[{dep.id}]</Text>
+                        <Text color={dep.color}>{dep.icon}</Text>
+                        <Text> </Text>
+                    </Box>
+                ))}
+            </Box>
         </Box>
     );
 }
-```
 
-### Dependency Graph (ASCII Visualization)
+// Get dependency info for task
+function getDependencyInfo(task, allTasks) {
+    const blockedByTasks = task.blockedBy.map(id =>
+        allTasks.find(t => t.id === id)
+    ).filter(Boolean);
 
-```
-Task Dependency Graph:
+    const blockedByIncomplete = blockedByTasks.filter(
+        t => t.status !== "completed"
+    );
 
-[1] Design schema ──────────────────┐
-    Status: ✓                        │
-                                     │ blocks
-                                     ▼
-[2] Implement APIs ─────────────────┼──┐
-    Status: ● (in progress)          │  │
-                                     │  │ blocks
-                                     │  ▼
-[3] Unit tests ─────────────────────┘  │
-    Status: ○                           │
-    Blocked by: [1]✓, [2]●             │
-                                        │ blocks
-                                        ▼
-[4] Integration tests ─────────────────┘
-    Status: ○
-    Blocked by: [2], [3]
+    const blockedByComplete = blockedByTasks.filter(
+        t => t.status === "completed"
+    );
+
+    return {
+        blockedByTasks,
+        blockedByIncomplete,
+        blockedByComplete,
+        isBlocked: blockedByIncomplete.length > 0
+    };
+}
 ```
 
 ---
 
-## Task Tool Output Rendering
+## 4. Status Indicators
+
+### Visual Status System
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        TASK STATUS INDICATORS                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  Status: pending                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  ○ [1] Design database schema                                            │  │
+│  │     Status: Pending                                                       │  │
+│  │     Blocked by: [2]●                                                     │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│  Status: in_progress                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  ● [2] Implement API endpoints                                           │  │
+│  │     Owner: researcher-1                                                  │  │
+│  │     Status: In Progress                                                  │  │
+│  │     ⠋ Writing API handlers                                               │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│  Status: completed                                                            │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  ✓ [3] Write unit tests                                                  │  │
+│  │     Owner: researcher-2                                                  │  │
+│  │     Status: Completed                                                    │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Status Color Mapping
+
+| Status | Icon | Color | ANSI Code | Description |
+|--------|------|-------|-----------|-------------|
+| pending | ○ | gray | `\x1b[90m` | Not yet started |
+| in_progress | ● | blue | `\x1b[34m` | Currently being worked on |
+| completed | ✓ | green | `\x1b[32m` | Successfully finished |
+| blocked | ⚠ | yellow | `\x1b[33m` | Dependencies not satisfied |
+
+---
+
+## 5. Task Tool Output Rendering
 
 ### TaskCreate Result
 
@@ -380,22 +440,25 @@ Task Dependency Graph:
 // ============================================
 
 // READABLE (for understanding):
-function renderTaskCreateResult(taskId, task) {
-    return (
-        <Box flexDirection="column">
-            <Text color="green">✓ Task created: [{taskId}]</Text>
-            <Box marginLeft={2}>
-                <Text bold>{task.subject}</Text>
-            </Box>
-            {task.blockedBy.length > 0 && (
-                <Box marginLeft={2}>
-                    <Text dimColor>
-                        Dependencies: {task.blockedBy.join(", ")}
-                    </Text>
-                </Box>
-            )}
-        </Box>
-    );
+function renderTaskCreateResult(result, toolUseId) {
+    const { taskId, task } = result;
+
+    return {
+        type: "tool_result",
+        content: `✓ Task created: [${taskId}]
+
+${task.subject}
+
+${task.description}
+
+${task.blockedBy.length > 0
+    ? `Dependencies: ${task.blockedBy.map(id => `[${id}]`).join(", ")}\n`
+    : ""
+}${task.status === "pending" && task.blockedBy.length > 0
+    ? "\n⚠ This task is blocked until dependencies complete."
+    : ""}`,
+        tool_use_id: toolUseId
+    };
 }
 ```
 
@@ -406,17 +469,380 @@ function renderTaskCreateResult(taskId, task) {
 // TaskUpdate tool result rendering
 // ============================================
 
-function renderTaskUpdateResult(taskId, updates) {
-    const statusChange = updates.status ? (
-        <Text>
-            Status: <Text dimColor>{updates.status}</Text>
-        </Text>
-    ) : null;
+// READABLE (for understanding):
+function renderTaskUpdateResult(result, toolUseId) {
+    const { taskId, previousStatus, newStatus, owner } = result;
 
+    const statusChange = previousStatus !== newStatus
+        ? `${previousStatus} → ${newStatus}`
+        : newStatus;
+
+    let content = `↻ Task updated: [${taskId}]\n\nStatus: ${statusChange}`;
+
+    if (owner) {
+        content += `\nOwner: ${owner}`;
+    }
+
+    if (newStatus === "completed") {
+        content += "\n\n✓ Task completed successfully.";
+    }
+
+    return {
+        type: "tool_result",
+        content,
+        tool_use_id: toolUseId
+    };
+}
+```
+
+### TaskList Result
+
+```javascript
+// ============================================
+// TaskList tool result rendering
+// ============================================
+
+// READABLE (for understanding):
+function renderTaskListResult(tasks, toolUseId) {
+    if (tasks.length === 0) {
+        return {
+            type: "tool_result",
+            content: "No tasks found.",
+            tool_use_id: toolUseId
+        };
+    }
+
+    const grouped = {
+        pending: tasks.filter(t => t.status === "pending"),
+        inProgress: tasks.filter(t => t.status === "in_progress"),
+        completed: tasks.filter(t => t.status === "completed")
+    };
+
+    let content = `Task List (${tasks.length} total)\n\n`;
+
+    if (grouped.inProgress.length > 0) {
+        content += "In Progress:\n";
+        for (const task of grouped.inProgress) {
+            content += `  ● [${task.id}] ${task.subject}`;
+            if (task.owner) content += ` (${task.owner})`;
+            content += "\n";
+        }
+        content += "\n";
+    }
+
+    if (grouped.pending.length > 0) {
+        content += "Pending:\n";
+        for (const task of grouped.pending) {
+            const blocked = task.blockedBy.length > 0 ? " ⚠" : "";
+            content += `  ○ [${task.id}] ${task.subject}${blocked}\n`;
+        }
+        content += "\n";
+    }
+
+    if (grouped.completed.length > 0) {
+        content += "Completed:\n";
+        for (const task of grouped.completed) {
+            content += `  ✓ [${task.id}] ${task.subject}\n`;
+        }
+    }
+
+    return {
+        type: "tool_result",
+        content,
+        tool_use_id: toolUseId
+    };
+}
+```
+
+---
+
+## 6. Dependency Graph Visualization
+
+### ASCII Dependency Graph
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        DEPENDENCY GRAPH VISUALIZATION                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  Task Dependency Graph:                                                       │
+│                                                                                │
+│  [1] Design schema                                                            │
+│      ✓ Completed                                                              │
+│      │                                                                        │
+│      │ blocks                                                                 │
+│      ▼                                                                        │
+│  [2] Implement APIs                                                           │
+│      ● In Progress (agent-1)                                                  │
+│      │                                                                        │
+│      ├─────────────────────┐                                                  │
+│      │ blocks              │ blocks                                          │
+│      ▼                     ▼                                                  │
+│  [3] Unit tests          [4] Integration tests                                │
+│      ○ Pending               ○ Pending                                        │
+│      Blocked by: [1]✓        Blocked by: [2]●, [3]○                          │
+│                                                                                │
+│  Legend:                                                                      │
+│    ○ Pending   ● In Progress   ✓ Completed                                    │
+│    → blocks    ⚠ blocked                                                      │
+│                                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Dependency Rendering Logic
+
+```javascript
+// ============================================
+// Dependency Graph Rendering
+// ============================================
+
+// READABLE (for understanding):
+function renderDependencyGraph(tasks) {
+    // Build adjacency list
+    const graph = new Map();
+    for (const task of tasks) {
+        graph.set(task.id, {
+            task,
+            blockedBy: task.blockedBy,
+            blocks: task.blocks
+        });
+    }
+
+    // Find root tasks (no dependencies)
+    const rootTasks = tasks.filter(t => t.blockedBy.length === 0);
+
+    // BFS traversal for rendering
+    const visited = new Set();
+    const lines = [];
+
+    function renderTask(taskId, indent = 0) {
+        if (visited.has(taskId)) return;
+        visited.add(taskId);
+
+        const node = graph.get(taskId);
+        if (!node) return;
+
+        const { task } = node;
+        const prefix = "  ".repeat(indent);
+        const statusIcon = getStatusConfig(task.status).icon;
+
+        lines.push(`${prefix}[${task.id}] ${task.subject}`);
+        lines.push(`${prefix}    ${statusIcon} ${formatStatus(task.status)}`);
+
+        if (task.owner) {
+            lines.push(`${prefix}    Owner: ${task.owner}`);
+        }
+
+        // Render blocking tasks
+        for (const blockedId of task.blocks) {
+            const blockedTask = tasks.find(t => t.id === blockedId);
+            if (blockedTask) {
+                lines.push(`${prefix}    │`);
+                lines.push(`${prefix}    │ blocks`);
+                renderTask(blockedId, indent + 1);
+            }
+        }
+    }
+
+    // Render from roots
+    for (const rootTask of rootTasks) {
+        renderTask(rootTask.id);
+        lines.push("");
+    }
+
+    return lines.join("\n");
+}
+```
+
+---
+
+## 7. UI State Management
+
+### State Slice
+
+```javascript
+// ============================================
+// Task UI State
+// Location: REPL component state
+// ============================================
+
+const taskUIState = {
+    // Task data
+    tasks: [],                    // Array of Task objects
+    isLoading: false,             // Loading state
+    error: null,                  // Error message
+
+    // UI state
+    expandedView: null,           // "tasks" | null
+    selectedTaskId: null,         // Focused task ID
+    filter: "all",                // "all" | "pending" | "in_progress" | "completed"
+
+    // Actions
+    loadTasks: async () => { /* ... */ },
+    selectTask: (id) => { /* ... */ },
+    toggleExpand: () => { /* ... */ },
+    updateFilter: (filter) => { /* ... */ }
+};
+```
+
+### State Transitions
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        TASK UI STATE TRANSITIONS                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│  Initial State                                                                │
+│  {                                                                            │
+│    tasks: [],                                                                 │
+│    expandedView: null,                                                        │
+│    selectedTaskId: null,                                                      │
+│    isLoading: false                                                           │
+│  }                                                                            │
+│       │                                                                        │
+│       │ TaskList tool called                                                  │
+│       ▼                                                                        │
+│  Loading State                                                                │
+│  {                                                                            │
+│    tasks: [],                                                                 │
+│    expandedView: null,                                                        │
+│    selectedTaskId: null,                                                      │
+│    isLoading: true                                                            │
+│  }                                                                            │
+│       │                                                                        │
+│       │ Tasks loaded                                                          │
+│       ▼                                                                        │
+│  Loaded State                                                                 │
+│  {                                                                            │
+│    tasks: [Task1, Task2, ...],                                                │
+│    expandedView: null,                                                        │
+│    selectedTaskId: null,                                                      │
+│    isLoading: false                                                           │
+│  }                                                                            │
+│       │                                                                        │
+│       │ User expands view (Tab key or TaskList)                              │
+│       ▼                                                                        │
+│  Expanded State                                                               │
+│  {                                                                            │
+│    tasks: [Task1, Task2, ...],                                                │
+│    expandedView: "tasks",                                                     │
+│    selectedTaskId: "1",                                                       │
+│    isLoading: false                                                           │
+│  }                                                                            │
+│                                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 8. Keyboard Navigation
+
+### Navigation Keys
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Focus/expand task list |
+| `↑` / `k` | Select previous task |
+| `↓` / `j` | Select next task |
+| `Enter` | View task details |
+| `Esc` | Collapse task list |
+| `f` | Toggle filter |
+
+### Navigation Handler
+
+```javascript
+// ============================================
+// Task List Keyboard Navigation
+// ============================================
+
+// READABLE (for understanding):
+function useTaskNavigation(tasks, selectedTaskId, onSelectTask) {
+    useEffect(() => {
+        const handleKey = (key) => {
+            if (tasks.length === 0) return;
+
+            const currentIndex = tasks.findIndex(t => t.id === selectedTaskId);
+
+            switch (key) {
+                case "up":
+                case "k":
+                    if (currentIndex > 0) {
+                        onSelectTask(tasks[currentIndex - 1].id);
+                    }
+                    break;
+
+                case "down":
+                case "j":
+                    if (currentIndex < tasks.length - 1) {
+                        onSelectTask(tasks[currentIndex + 1].id);
+                    }
+                    break;
+
+                case "home":
+                    onSelectTask(tasks[0].id);
+                    break;
+
+                case "end":
+                    onSelectTask(tasks[tasks.length - 1].id);
+                    break;
+            }
+        };
+
+        // Subscribe to key events
+        return subscribeToKeys(handleKey);
+    }, [tasks, selectedTaskId, onSelectTask]);
+}
+```
+
+---
+
+## 9. Empty States
+
+### No Tasks State
+
+```javascript
+// ============================================
+// EmptyTaskList - Display when no tasks
+// ============================================
+
+// READABLE (for understanding):
+function EmptyTaskList() {
     return (
-        <Box flexDirection="column">
-            <Text color="blue">↻ Task updated: [{taskId}]</Text>
-            {statusChange && <Box marginLeft={2}>{statusChange}</Box>}
+        <Box
+            flexDirection="column"
+            alignItems="center"
+            paddingY={2}
+        >
+            <Text dimColor>No tasks yet.</Text>
+            <Text dimColor>
+                Use TaskCreate to add a new task.
+            </Text>
+        </Box>
+    );
+}
+```
+
+### No Matching Tasks State
+
+```javascript
+// ============================================
+// NoMatchingTasks - Display when filter has no results
+// ============================================
+
+// READABLE (for understanding):
+function NoMatchingTasks({ filter }) {
+    return (
+        <Box
+            flexDirection="column"
+            alignItems="center"
+            paddingY={2}
+        >
+            <Text dimColor>
+                No {filter === "all" ? "" : filter} tasks found.
+            </Text>
+            <Text dimColor>
+                Press 'f' to change filter.
+            </Text>
         </Box>
     );
 }
@@ -424,103 +850,43 @@ function renderTaskUpdateResult(taskId, updates) {
 
 ---
 
-## Integration Points
+## Symbol Validation Summary
+
+| Obfuscated | Readable | File:Line | Status |
+|------------|----------|-----------|--------|
+| jf | getTaskManager | chunks.84.mjs:1619 | ✅ Verified |
+| DX | loadAllTasks | chunks.84.mjs:1742 | ✅ Verified |
+| r$ | isTaskSystemEnabled | chunks.84.mjs | ✅ Verified |
+| TR | TOOL_NAME_TASK_CREATE | chunks.90.mjs | ✅ Verified |
+| ck | TOOL_NAME_TASK_UPDATE | chunks.90.mjs | ✅ Verified |
+| lt | TOOL_NAME_TASK_GET | chunks.90.mjs | ✅ Verified |
+| it | TOOL_NAME_TASK_LIST | chunks.90.mjs | ✅ Verified |
+
+**Total validated**: 7 symbols
+
+---
+
+## Cross-Module Integration
 
 ### Task System ↔ REPL (02)
-
-- Task list displayed in expanded view
-- Real-time updates via state subscription
-- Keyboard navigation between tasks
+- Task list in expanded view panel
+- Keyboard navigation support
+- Real-time state updates
 
 ### Task System ↔ Tools (05)
-
-- Task tools: TaskCreate, TaskUpdate, TaskGet, TaskList
+- TaskCreate, TaskUpdate, TaskGet, TaskList tools
 - Tool output renders task status changes
 
 ### Task System ↔ System Reminder (04)
-
-- Task status changes generate `task_status` attachments
-- Dependency resolution updates in context
-- Owner assignment shows agent association
+- `task_status` attachments for state changes
+- Dependency resolution notifications
+- Owner assignment tracking
 
 ### Task System ↔ Hooks (11)
-
-- `TaskCompleted` hooks run before task can be marked complete
-- `executeTaskCompletedHooks` (Hi6) validates completion
+- TaskCompleted hooks for validation
+- Pre-completion validation support
 
 ### Task System ↔ Agent Teams (30)
-
 - Team-isolated task storage
-- Claim validation for multi-agent coordination
 - Owner assignment from teammate context
-
----
-
-## Cross-Feature Integration with System Reminder
-
-### Task Status Attachment Types
-
-```javascript
-// Task status change attachment
-{
-    type: "attachment",
-    attachment: {
-        type: "task_status",
-        taskId: "1",
-        previousStatus: "pending",
-        newStatus: "in_progress",
-        owner: "agent-1",
-        timestamp: "2024-01-15T10:30:00Z"
-    }
-}
-
-// Dependency resolved attachment
-{
-    type: "attachment",
-    attachment: {
-        type: "dependency_resolved",
-        taskId: "3",
-        blockingTaskId: "1",
-        timestamp: "2024-01-15T11:00:00Z"
-    }
-}
-```
-
----
-
-## Quick Reference
-
-### Status Colors
-
-| Status | Icon | Color | ANSI Code |
-|--------|------|-------|-----------|
-| pending | ○ | gray | `\x1b[90m` |
-| in_progress | ● | blue | `\x1b[34m` |
-| completed | ✓ | green | `\x1b[32m` |
-
-### UI State Flags
-
-```javascript
-expandedView: "tasks"  // Show task list
-selectedTaskId: "1"    // Focused task
-isLoading: false       // Loading state
-```
-
-### Key Symbols
-
-| Obfuscated | Readable | Purpose |
-|------------|----------|---------|
-| jf | getTaskManager | Resolve task list ID |
-| DX | loadAllTasks | Load all tasks for UI |
-| Hi6 | executeTaskCompletedHooks | Validate completion |
-| OT8 | claimTask | Claim task with validation |
-
----
-
-## Version History
-
-| Version | Changes |
-|---------|---------|
-| 2.1.76 | Dependency visualization, active form spinner |
-| 2.1.32 | Team task display, owner badges |
-| 2.1.7 | Initial task UI with status indicators |
+- Claim validation for multi-agent coordination

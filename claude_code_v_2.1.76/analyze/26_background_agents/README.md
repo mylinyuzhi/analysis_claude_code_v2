@@ -152,24 +152,24 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
 
 | File | Description |
 |------|-------------|
-| [task_lifecycle_complete_source_v7.md](./task_lifecycle_complete_source_v7.md) | **START HERE** - Complete task lifecycle source |
-| [../08_subagent/cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) | **LATEST** - All 73+ symbols verified |
-| [../08_subagent/key_algorithms_deep_dive_v11.md](../08_subagent/key_algorithms_deep_dive_v11.md) | **NEW** - Complete algorithm analysis |
-| [../08_subagent/agent_tool_complete_source_v4.md](../08_subagent/agent_tool_complete_source_v4.md) | Complete AgentTool source |
+| [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) | **START HERE** - Complete task lifecycle source |
+| [../08_subagent/cross_validation_unified.md](../08_subagent/cross_validation_unified.md) | **LATEST** - All 73+ symbols verified |
+| [../08_subagent/key_algorithms_deep_dive.md](../08_subagent/key_algorithms_deep_dive.md) | Complete algorithm analysis |
+| [../08_subagent/agent_tool_complete.md](../08_subagent/agent_tool_complete.md) | Complete AgentTool source |
 
 ### UI DOCUMENTATION
 
 | File | Description |
 |------|-------------|
-| [../08_subagent/ui_interaction_complete_v6.md](../08_subagent/ui_interaction_complete_v6.md) | **NEW** - Complete UI interactions with flow diagrams |
-| [ui_interaction_complete_v5.md](./ui_interaction_complete_v5.md) | UI interaction details |
+| [../08_subagent/ui_interaction_complete.md](../08_subagent/ui_interaction_complete.md) | Complete UI interactions with flow diagrams |
+| [ui_interaction_complete_source.md](./ui_interaction_complete_source.md) | UI interaction details |
 
 ### CROSS-FEATURE INTEGRATION
 
 | File | Description |
 |------|-------------|
-| [../08_subagent/cross_feature_linkages_complete_v10.md](../08_subagent/cross_feature_linkages_complete_v10.md) | **NEW** - Complete cross-feature integration |
-| [../08_subagent/system_reminder_integration_complete_v10.md](../08_subagent/system_reminder_integration_complete_v10.md) | System reminder integration |
+| [../08_subagent/cross_feature_linkages_complete.md](../08_subagent/cross_feature_linkages_complete.md) | Complete cross-feature integration |
+| [../08_subagent/system_reminder_integration_complete.md](../08_subagent/system_reminder_integration_complete.md) | System reminder integration |
 
 ---
 
@@ -256,8 +256,8 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
 ## Symbol Mappings
 
 > For complete symbol mappings, see:
-> - [cross_validation_unified_v4.md](../08_subagent/cross_validation_unified_v4.md) - **LATEST** - Unified symbol verification (84 symbols)
-> - [cross_validation_final_v2.md](./cross_validation_final_v2.md) - This module's verified symbols (36)
+> - [cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - **LATEST** - Unified symbol verification (84 symbols)
+> - [cross_validation_final.md](./cross_validation_final.md) - This module's verified symbols (36)
 > - [../00_overview/symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
 > - [../00_overview/symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features symbols
 
@@ -268,13 +268,13 @@ When a background agent is killed (either via Ctrl+F or TaskStop), any partial r
 For a comprehensive understanding of the background agents system:
 
 1. **Start with:** [background_agents_complete.md](./background_agents_complete.md) - **NEW** Complete background agents docs
-2. **Symbols:** [cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) - Verify symbols (84+ total)
-3. **Algorithms:** [key_algorithms_deep_dive_v12.md](../08_subagent/key_algorithms_deep_dive_v12.md) - **NEW** 8 key algorithms
-4. **Lifecycle:** [task_lifecycle_complete_source_v7.md](./task_lifecycle_complete_source_v7.md) - Task lifecycle
-5. **Kill:** [kill_mechanism_complete_v3.md](./kill_mechanism_complete_v3.md) - Kill mechanism
-6. **UI:** [ui_interaction_complete_v7.md](../08_subagent/ui_interaction_complete_v7.md) - **NEW** Complete UI
-7. **Integration:** [cross_feature_linkages_complete_v11.md](../08_subagent/cross_feature_linkages_complete_v11.md) - **NEW** 9 integrations
-8. **System Reminders:** [../04_system_reminder/system_reminder_integration_v11.md](../04_system_reminder/system_reminder_integration_v11.md) - **NEW** Reminder integration
+2. **Symbols:** [cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - Verify symbols (84+ total)
+3. **Algorithms:** [key_algorithms_deep_dive.md](../08_subagent/key_algorithms_deep_dive.md) - 8 key algorithms
+4. **Lifecycle:** [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - Task lifecycle
+5. **Kill:** [kill_mechanism_complete.md](./kill_mechanism_complete.md) - Kill mechanism
+6. **UI:** [../08_subagent/ui_interaction_complete.md](../08_subagent/ui_interaction_complete.md) - Complete UI
+7. **Integration:** [../08_subagent/cross_feature_linkages_complete.md](../08_subagent/cross_feature_linkages_complete.md) - 9 integrations
+8. **System Reminders:** [../04_system_reminder/system_reminder_background_agent_integration.md](../04_system_reminder/system_reminder_background_agent_integration.md) - Reminder integration
 
 ---
 

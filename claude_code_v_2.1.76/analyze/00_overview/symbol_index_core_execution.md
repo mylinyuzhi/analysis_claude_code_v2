@@ -4,7 +4,7 @@
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
 >
 > **Cross-validated**: All symbols verified against source code on 2026-03-26.
-> **Joint Analysis**: See [cli_ui_llm_joint_complete_v8.md](./cli_ui_llm_joint_complete_v8.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete.md](./cli_ui_llm_joint_complete.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 
 ---
 
@@ -635,7 +635,7 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | ww | getOutputFilePath | chunks.41.mjs:2248 | function |
 | eu1 | getTasksDir | chunks.89.mjs | function |
 | xZ | prefixAgentId | chunks.89.mjs | function |
-| oV | createTaskId | chunks.41.mjs:2410 | function |
+| oV | generateTaskId | chunks.41.mjs:2410 | function |
 | RG | createTaskRecord | chunks.41.mjs:2418 | function |
 | qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
 | pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |

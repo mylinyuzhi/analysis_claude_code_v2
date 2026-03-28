@@ -670,7 +670,7 @@ Team Context Attachment:
 ## Related Documents
 
 - [../04_system_reminder/types_task_management.md](../04_system_reminder/types_task_management.md) - Task reminder types
-- [../08_subagent/system_reminder_integration_v6.md](../08_subagent/system_reminder_integration_v6.md) - Subagent integration
-- [task_lifecycle_complete_v4.md](./task_lifecycle_complete_v4.md) - Task lifecycle
-- [progress_tracking_complete_v2.md](./progress_tracking_complete_v2.md) - Progress tracking
-- [cross_feature_linkages_complete_v3.md](./cross_feature_linkages_complete_v3.md) - Feature integrations
+- [../08_subagent/system_reminder_integration.md](../08_subagent/system_reminder_integration.md) - Subagent integration
+- [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - Task lifecycle
+- [progress_tracking_complete.md](./progress_tracking_complete.md) - Progress tracking
+- [cross_feature_linkages_complete.md](./cross_feature_linkages_complete.md) - Feature integrations

@@ -998,7 +998,7 @@ Hook execution in the pipeline:
 | PostToolUse | Stage 6 | Output |
 | PostToolUseFailure | Stage 7 | Error handling |
 
-See: [05_tools/cross_system_integration_v3.md](./cross_system_integration_v3.md)
+See: [05_tools/cross_system_integration_complete.md](./cross_system_integration_complete.md)
 
 ### Tools ↔ MCP (06)
 

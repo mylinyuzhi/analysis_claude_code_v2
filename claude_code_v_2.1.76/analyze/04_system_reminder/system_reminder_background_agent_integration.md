@@ -7,7 +7,7 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [../08_subagent/cross_validation_unified_v5.md](../08_subagent/cross_validation_unified_v5.md) - Unified symbol verification
+> - [../08_subagent/cross_validation_unified.md](../08_subagent/cross_validation_unified.md) - Unified symbol verification
 
 Key functions in this document:
 - `suY` - getUnifiedTasksAttachment — `chunks.147.mjs:1033`
@@ -699,8 +699,8 @@ ${attachment.deltaSummary ? `<delta>${escapeXML(attachment.deltaSummary)}</delta
 
 ## Related Documents
 
-- [../08_subagent/key_algorithms_deep_dive_v12.md](../08_subagent/key_algorithms_deep_dive_v12.md) - Algorithm analysis
-- [../26_background_agents/task_lifecycle_complete_source_v7.md](../26_background_agents/task_lifecycle_complete_source_v7.md) - Task lifecycle
+- [../08_subagent/key_algorithms_deep_dive.md](../08_subagent/key_algorithms_deep_dive.md) - Algorithm analysis
+- [../26_background_agents/task_lifecycle_complete_source.md](../26_background_agents/task_lifecycle_complete_source.md) - Task lifecycle
 - [types_task_management.md](./types_task_management.md) - Task management types
 
 ---

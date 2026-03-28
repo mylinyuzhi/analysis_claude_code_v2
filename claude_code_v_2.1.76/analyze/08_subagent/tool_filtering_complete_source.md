@@ -8,7 +8,7 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [cross_validation_unified_v3.md](./cross_validation_unified_v3.md) - Unified symbol verification
+> - [cross_validation_unified.md](./cross_validation_unified.md) - Unified symbol verification
 
 Key functions in this document:
 - `Xk8` - filterToolsForSubagent — `chunks.93.mjs:1568`

@@ -117,7 +117,8 @@ async function getUnifiedTasksAttachment(setAppState, appState, messages) {
     if (tasks.length === 0) return [];
 
     // Calculate turns since last progress for each task
-    let turnsSinceProgress = countTurnsSinceLastProgress(messages);
+    // NOTE: TIY is countUniqueUris (LSP), not this turn-counting logic
+    let turnsSinceProgress = countTurnsSinceLastProgressInline(messages);
     let attachments = [];
 
     for (let task of tasks) {
@@ -155,7 +156,8 @@ async function getUnifiedTasksAttachment(setAppState, appState, messages) {
 }
 
 // Mapping: vIY→getUnifiedTasksAttachment, A→setAppState, q→appState, K→messages,
-//          TIY→countTurnsSinceLastProgress, LJ6→isTerminalTaskStatus,
+//          NOTE: TIY is countUniqueUris (LSP), not progress throttling.
+//          The turn-counting logic is inlined in vIY. LJ6→isTerminalTaskStatus,
 //          wY4→pollTaskOutputs, i9→atomicUpdateTask
 ```
 
@@ -163,7 +165,8 @@ async function getUnifiedTasksAttachment(setAppState, appState, messages) {
 
 ```javascript
 // ============================================
-// TIY - countTurnsSinceLastProgress - Count turns since last progress
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling
 // Location: chunks.142.mjs:2703-2717
 // ============================================
 
@@ -184,7 +187,7 @@ function TIY(A) {
 }
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;
@@ -210,8 +213,8 @@ function countTurnsSinceLastProgress(messages) {
     return turnsSinceProgress;
 }
 
-// Mapping: TIY→countTurnsSinceLastProgress, A→messages, q→turnsSinceProgress,
-//          K→seenTasks, Y→turnCount, aY→isWhitespaceOnly
+// NOTE: TIY is countUniqueUris (LSP), NOT this function. This logic is inlined in vIY.
+// Mapping: A→messages, q→turnsSinceProgress, K→seenTasks, Y→turnCount, aY→isWhitespaceOnly
 ```
 
 #### 1.3 Task Output Polling
@@ -1335,7 +1338,7 @@ User: "Run tests in background"
 | Symbol | Readable | Location | Verification |
 |--------|----------|----------|--------------|
 | `vIY` | getUnifiedTasksAttachment | chunks.142.mjs:2719 | ✓ Verified |
-| `TIY` | countTurnsSinceLastProgress | chunks.142.mjs:2703 | ✓ Verified |
+| `TIY` | countUniqueUris (LSP) | chunks.144.mjs:832 | **CORRECTED** - was incorrectly mapped to countTurnsSinceLastProgress |
 | `wY4` | pollTaskOutputs | chunks.90.mjs:3058 | ✓ Verified |
 | `Qn4` | createBackgroundAgentTask | chunks.146.mjs:2133 | ✓ Verified |
 | `Un4` | createForegroundAgentTask | chunks.146.mjs:2165 | ✓ Verified |

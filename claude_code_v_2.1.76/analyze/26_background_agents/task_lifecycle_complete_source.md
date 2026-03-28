@@ -11,13 +11,20 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `createTaskId` (oV) - Generate unique task ID with type prefix — `chunks.41.mjs:2410`
+- `generateTaskId` (oV) - Generate unique task ID with type prefix — `chunks.41.mjs:2410`
+- `getTaskTypePrefix` (k$3) - Get single-char prefix for task type — `chunks.41.mjs:2406`
+- `isTerminalTaskStatus` (LJ6) - Check if status is terminal — `chunks.41.mjs:2402`
+- `TASK_TYPE_PREFIXES` (V$3) - Task type to prefix mapping constant — `chunks.41.mjs:2438`
+- `TASK_ID_CHARSET` (G97) - Character set for random ID generation — `chunks.41.mjs:2434`
 - `createTaskRecord` (RG) - Create task entry object — `chunks.41.mjs:2418`
 - `createBackgroundAgentTask` (Qn4) - Create background agent task — `chunks.146.mjs:2133`
 - `createForegroundAgentTask` (Un4) - Create foreground agent task — `chunks.146.mjs:2165`
 - `atomicUpdateTask` (i9) - Generic task state updater — `chunks.90.mjs:3003`
 - `registerTask` (Zf) - Register task in state — `chunks.90.mjs:3019`
 - `removeTask` (VR) - Remove completed task — `chunks.90.mjs:3037`
+- `getRunningTasks` (EV8) - Get all running tasks from state — `chunks.90.mjs:3053`
+- `pollTaskOutputs` (wY4) - Poll output files for all tasks — `chunks.90.mjs:3058`
+- `updateTaskState` (OY4) - Apply poll results to task state — `chunks.90.mjs:3087`
 - `triggerAbortSignal` (x66) - Trigger abort signal for task — `chunks.146.mjs:2012`
 - `killAllLocalAgents` (U4q) - Kill all running agents — `chunks.146.mjs:2029`
 - `markTaskKilled` (d4q) - Mark task as killed — `chunks.146.mjs:2034`
@@ -29,7 +36,7 @@ Key functions in this document:
 
 ## Task ID Generation
 
-### Algorithm: createTaskId (oV)
+### Algorithm: generateTaskId (oV)
 
 **What it does:** Creates unique, type-prefixed identifiers for all background tasks.
 
@@ -43,7 +50,7 @@ Key functions in this document:
 
 ```javascript
 // ============================================
-// createTaskId - Generates prefixed task identifier
+// generateTaskId - Generates prefixed task identifier
 // Location: chunks.41.mjs:2410-2415
 // ============================================
 
@@ -57,7 +64,7 @@ function oV(A) {
 }
 
 // READABLE (for understanding):
-function createTaskId(taskType) {
+function generateTaskId(taskType) {
     let prefix = getTypePrefix(taskType);  // "a", "b", "r", "t", "w"
     let randomBytes = generateRandomBytes(8);
     let taskId = prefix;
@@ -67,7 +74,7 @@ function createTaskId(taskType) {
     return taskId;  // e.g. "a3f9c2x7" for a local_agent
 }
 
-// Mapping: oV→createTaskId, k$3→getTypePrefix, N$3→generateRandomBytes, G97→CHARSET
+// Mapping: oV→generateTaskId, k$3→getTypePrefix, N$3→generateRandomBytes, G97→CHARSET
 ```
 
 ### Type Prefix Map
@@ -84,6 +91,106 @@ function createTaskId(taskType) {
 - **Visual identification:** Single-character prefix enables quick identification in logs and UI
 - **Collision resistance:** 36^8 = ~2.8 trillion combinations per prefix
 - **File-friendly:** Alphanumeric IDs work as filename components
+
+### Task Type Prefixes Constant (V$3)
+
+```javascript
+// ============================================
+// TASK_TYPE_PREFIXES - Task type to single-char prefix mapping
+// Location: chunks.41.mjs:2438-2444
+// ============================================
+
+// ORIGINAL (for source lookup):
+V$3 = {
+    local_bash: "b",
+    local_agent: "a",
+    remote_agent: "r",
+    in_process_teammate: "t",
+    local_workflow: "w"
+}
+
+// READABLE (for understanding):
+TASK_TYPE_PREFIXES = {
+    local_bash: "b",           // e.g., "b7x9k2m3"
+    local_agent: "a",          // e.g., "a7x9k2m3"
+    remote_agent: "r",         // e.g., "r7x9k2m3"
+    in_process_teammate: "t",  // e.g., "t7x9k2m3"
+    local_workflow: "w"        // e.g., "w7x9k2m3"
+};
+
+// Mapping: V$3→TASK_TYPE_PREFIXES
+```
+
+### Task ID Charset Constant (G97)
+
+```javascript
+// ============================================
+// TASK_ID_CHARSET - Character set for random ID generation
+// Location: chunks.41.mjs:2434
+// ============================================
+
+// ORIGINAL (for source lookup):
+G97 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+// READABLE (for understanding):
+TASK_ID_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+// 36 characters = 10 digits + 26 lowercase letters
+// 8 random chars = 36^8 = ~2.8 trillion combinations
+
+// Mapping: G97→TASK_ID_CHARSET
+```
+
+### getTaskTypePrefix (k$3)
+
+**What it does:** Looks up the single-character prefix for a given task type string.
+
+```javascript
+// ============================================
+// getTaskTypePrefix - Get type prefix from task type name
+// Location: chunks.41.mjs:2406-2408
+// ============================================
+
+// ORIGINAL (for source lookup):
+function k$3(A) {
+    return V$3[A] ?? "x"
+}
+
+// READABLE (for understanding):
+function getTaskTypePrefix(taskType) {
+    // Returns single-char prefix, or "x" for unknown types
+    return TASK_TYPE_PREFIXES[taskType] ?? "x";
+}
+
+// Mapping: k$3→getTaskTypePrefix, A→taskType, V$3→TASK_TYPE_PREFIXES
+```
+
+### isTerminalTaskStatus (LJ6)
+
+**What it does:** Checks whether a task status represents a terminal (final) state. Used by `removeTask` (VR) to guard against removing active tasks.
+
+```javascript
+// ============================================
+// isTerminalTaskStatus - Check if task status is terminal
+// Location: chunks.41.mjs:2402-2404
+// ============================================
+
+// ORIGINAL (for source lookup):
+function LJ6(A) {
+    return A === "completed" || A === "failed" || A === "killed"
+}
+
+// READABLE (for understanding):
+function isTerminalTaskStatus(status) {
+    return status === "completed" ||
+           status === "failed" ||
+           status === "killed";
+}
+
+// Mapping: LJ6→isTerminalTaskStatus, A→status
+```
+
+**Key insight:** The three terminal states ("completed", "failed", "killed") are the only states from which a task can be removed from state. The `removeTask` function additionally requires `notified: true` before eviction, ensuring the user has been informed of the outcome.
 
 ---
 
@@ -609,6 +716,213 @@ function removeTask(taskId, setAppState) {
 
 ---
 
+## Task Querying and Output Polling
+
+### getRunningTasks (EV8)
+
+**What it does:** Filters all tasks to return only those currently running. Used by the UI status line and task list modal.
+
+```javascript
+// ============================================
+// getRunningTasks - Get all tasks with status "running"
+// Location: chunks.90.mjs:3053-3056
+// ============================================
+
+// ORIGINAL (for source lookup):
+function EV8(A) {
+    let q = A.tasks ?? {};
+    return Object.values(q).filter((K) => K.status === "running")
+}
+
+// READABLE (for understanding):
+function getRunningTasks(appState) {
+    let tasks = appState.tasks ?? {};
+    return Object.values(tasks).filter(task => task.status === "running");
+}
+
+// Mapping: EV8→getRunningTasks, A→appState, q→tasks, K→task
+```
+
+### pollTaskOutputs (wY4)
+
+**What it does:** Iterates over all tasks and polls their output files for new content. Returns three things: new attachments, updated byte offsets, and IDs of tasks ready for eviction.
+
+**How it works:**
+1. For each task, check if it is already notified and in a terminal state -- if so, mark it for eviction
+2. For running tasks, read new bytes from the output file starting at the stored `outputOffset`
+3. If new content exists, record the new offset so the next poll starts from there
+4. Return the collected results for the caller to apply via `updateTaskState`
+
+**Why this approach:**
+- **Incremental reads:** Using `outputOffset` avoids re-reading the entire output file each poll cycle
+- **Eviction tracking:** Terminal + notified tasks are collected for batch removal, keeping state clean
+- **Separation of concerns:** This function only reads -- the actual state update is done by `updateTaskState` (OY4)
+
+```javascript
+// ============================================
+// pollTaskOutputs - Poll output files for all tasks
+// Location: chunks.90.mjs:3058-3085
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function wY4(A) {
+    let q = [],
+        K = {},
+        Y = [],
+        z = A.tasks ?? {};
+    for (let _ of Object.values(z)) {
+        if (_.notified) switch (_.status) {
+            case "completed":
+            case "failed":
+            case "killed":
+                Y.push(_.id);
+                continue;
+            case "pending":
+                continue;
+            case "running":
+                break
+        }
+        if (_.status === "running") {
+            let w = await Z97(_.id, _.outputOffset);
+            if (w.content) K[_.id] = w.newOffset
+        }
+    }
+    return {
+        attachments: q,
+        updatedTaskOffsets: K,
+        evictedTaskIds: Y
+    }
+}
+
+// READABLE (for understanding):
+async function pollTaskOutputs(appState) {
+    let attachments = [];
+    let updatedTaskOffsets = {};
+    let evictedTaskIds = [];
+    let tasks = appState.tasks ?? {};
+
+    for (let task of Object.values(tasks)) {
+        // Notified terminal tasks -> mark for eviction
+        if (task.notified) {
+            switch (task.status) {
+                case "completed":
+                case "failed":
+                case "killed":
+                    evictedTaskIds.push(task.id);
+                    continue;
+                case "pending":
+                    continue;
+                case "running":
+                    break;  // Still poll running tasks even if notified
+            }
+        }
+
+        // Poll running tasks for new output
+        if (task.status === "running") {
+            let result = await readOutputFileDelta(task.id, task.outputOffset);
+            if (result.content) {
+                updatedTaskOffsets[task.id] = result.newOffset;
+            }
+        }
+    }
+
+    return {
+        attachments,          // New attachments to send
+        updatedTaskOffsets,   // New byte positions per task
+        evictedTaskIds        // Tasks ready for removal from state
+    };
+}
+
+// Mapping: wY4→pollTaskOutputs, A→appState, q→attachments, K→updatedTaskOffsets,
+//          Y→evictedTaskIds, z→tasks, _→task, Z97→readOutputFileDelta, w→result
+```
+
+### updateTaskState (OY4)
+
+**What it does:** Applies the results from `pollTaskOutputs` to app state in a single atomic update. Updates output offsets for running tasks and removes evicted tasks.
+
+**How it works:**
+1. Early return if there are no offset updates and no evictions (common case optimization)
+2. Clone the tasks map
+3. For each offset update, update the task's `outputOffset` if it is still running
+4. For each evicted ID, delete the task from the cloned map
+5. Only return new state if at least one change was made
+
+**Key insight:** The `hasChanges` flag avoids creating new state objects when no mutations occurred, which prevents unnecessary React-style re-renders in the UI layer.
+
+```javascript
+// ============================================
+// updateTaskState - Apply poll results to task state
+// Location: chunks.90.mjs:3087-3109
+// ============================================
+
+// ORIGINAL (for source lookup):
+function OY4(A, q, K) {
+    let Y = Object.keys(q);
+    if (Y.length === 0 && K.length === 0) return;
+    A((z) => {
+        let _ = !1,
+            w = {
+                ...z.tasks
+            };
+        for (let O of Y) {
+            let $ = w[O];
+            if ($?.status === "running") w[O] = {
+                ...$,
+                outputOffset: q[O]
+            }, _ = !0
+        }
+        for (let O of K)
+            if (w[O]) delete w[O], _ = !0;
+        return _ ? {
+            ...z,
+            tasks: w
+        } : z
+    })
+}
+
+// READABLE (for understanding):
+function updateTaskState(setAppState, updatedOffsets, evictedIds) {
+    let offsetKeys = Object.keys(updatedOffsets);
+
+    // Early return if nothing to do
+    if (offsetKeys.length === 0 && evictedIds.length === 0) return;
+
+    setAppState((appState) => {
+        let hasChanges = false;
+        let newTasks = { ...appState.tasks };
+
+        // Update output offsets for running tasks
+        for (let taskId of offsetKeys) {
+            let task = newTasks[taskId];
+            if (task?.status === "running") {
+                newTasks[taskId] = {
+                    ...task,
+                    outputOffset: updatedOffsets[taskId]
+                };
+                hasChanges = true;
+            }
+        }
+
+        // Remove evicted tasks
+        for (let taskId of evictedIds) {
+            if (newTasks[taskId]) {
+                delete newTasks[taskId];
+                hasChanges = true;
+            }
+        }
+
+        // Only return new state if changes were made
+        return hasChanges ? { ...appState, tasks: newTasks } : appState;
+    });
+}
+
+// Mapping: OY4→updateTaskState, A→setAppState, q→updatedOffsets, K→evictedIds,
+//          Y→offsetKeys, z→appState, _→hasChanges, w→newTasks
+```
+
+---
+
 ## Abort Signal Triggering
 
 ### triggerAbortSignal (x66)
@@ -677,16 +991,17 @@ function triggerAbortSignal(taskId, setAppState) {
         };
     });
 
-    // Create notification if task was running
+    // Flush output buffer if task was running
+    // NOTE: $O is flushOutputBuffer, not createTaskNotification (verified at chunks.41.mjs:2320)
     if (wasRunning) {
-        createTaskNotification(taskId);
+        flushOutputBuffer(taskId);
     }
 
     return wasRunning;
 }
 
 // Mapping: x66→triggerAbortSignal, A→taskId, q→setAppState, K→wasRunning,
-//          i9→atomicUpdateTask, Y→task, $O→createTaskNotification
+//          i9→atomicUpdateTask, Y→task, $O→flushOutputBuffer
 ```
 
 ---
@@ -824,8 +1139,9 @@ function markTaskCompleted(result, setAppState) {
         };
     });
 
-    // Create notification
-    createTaskNotification(agentId);
+    // Flush output buffer
+    // NOTE: $O is flushOutputBuffer, not createTaskNotification (verified at chunks.41.mjs:2320)
+    flushOutputBuffer(agentId);
 }
 
 // Mapping: $m8→markTaskCompleted, A→result, q→setAppState, K→agentId, Y→task
@@ -882,8 +1198,9 @@ function markTaskFailed(taskId, error, setAppState) {
         };
     });
 
-    // Create notification
-    createTaskNotification(taskId);
+    // Flush output buffer
+    // NOTE: $O is flushOutputBuffer, not createTaskNotification (verified at chunks.41.mjs:2320)
+    flushOutputBuffer(taskId);
 }
 
 // Mapping: Hm8→markTaskFailed, A→taskId, q→error, K→setAppState, Y→task

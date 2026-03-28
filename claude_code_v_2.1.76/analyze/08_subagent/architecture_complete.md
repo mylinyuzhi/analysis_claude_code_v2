@@ -7,7 +7,7 @@
 ## Related Symbols
 
 > Symbol mappings:
-> - [cross_validation_unified_v3.md](./cross_validation_unified_v3.md) - Unified symbol verification
+> - [cross_validation_unified.md](./cross_validation_unified.md) - Unified symbol verification
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
 
 Key functions in this document:

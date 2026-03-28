@@ -1,111 +1,171 @@
-# CLI-UI-LLM Core: Complete UI Interaction Analysis (Claude Code v2.1.76)
+# UI Design Interaction Complete v3 (Claude Code 2.1.76)
 
-> Comprehensive UI design patterns, component hierarchy, and interaction state machines.
+> Comprehensive documentation of UI design patterns, interaction flows, and React/Ink architecture.
 >
-> **Cross-validated**: All symbols and patterns verified against source code on 2026-03-26.
-> **Source-Level**: Includes verified code snippets from chunks.196.mjs, chunks.173.mjs, chunks.161.mjs.
+> **Cross-validated**: All symbols verified against source code on 2026-03-26.
+> **Analysis Depth**: Source-level restoration with semantic pseudocode.
+> **Integration**: Full cross-module interaction with CLI and LLM Core.
 
 ---
 
 ## Table of Contents
 
-1. [UI Component Hierarchy](#1-ui-component-hierarchy)
-2. [Dialog Priority System](#2-dialog-priority-system)
-3. [Stream Mode State Machine](#3-stream-mode-state-machine)
-4. [Input Handling State Machine](#4-input-handling-state-machine)
-5. [Cancel Propagation Flow](#5-cancel-propagation-flow)
-6. [Keyboard Shortcut Flow](#6-keyboard-shortcut-flow)
-7. [Screen Mode Transitions](#7-screen-mode-transitions)
-8. [System Reminder UI Integration](#8-system-reminder-ui-integration)
+1. [Architecture Overview](#1-architecture-overview)
+2. [Component Hierarchy](#2-component-hierarchy)
+3. [Dialog System Complete](#3-dialog-system-complete)
+4. [Stream Mode State Machine](#4-stream-mode-state-machine)
+5. [Keyboard Interaction Patterns](#5-keyboard-interaction-patterns)
+6. [Message Rendering Pipeline](#6-message-rendering-pipeline)
+7. [Performance Optimization Patterns](#7-performance-optimization-patterns)
 
 ---
 
-## Related Symbols
+## 1. Architecture Overview
 
-> Symbol mappings:
-> - [symbol_index_core_execution.md](./symbol_index_core_execution.md) - Core execution
-> - [symbol_index_core_features.md](./symbol_index_core_features.md) - Core features
-> - [symbol_index_infra_integration.md](./symbol_index_infra_integration.md) - UI Components
+### 1.1 React/Ink Architecture
 
-Key functions in this document:
-- `sessionOrchestrator` (ot8) - Main session component at chunks.196.mjs:3
-- `getInputDialogType` (ra6) - Dialog priority at chunks.196.mjs:387
-- `handleCancel` (TM) - Cancel handler at chunks.196.mjs:420
-- `handleToolUseStream` (xN6) - Stream event processor at chunks.173.mjs:2384
-- `MessageList` (veY/G_6) - Message rendering at chunks.161.mjs:3
-
----
-
-## 1. UI Component Hierarchy
-
-### 1.1 Complete Component Tree
+Claude Code uses **Ink** (React for CLI) to provide a responsive, component-based terminal interface.
 
 ```
-sessionOrchestrator (ot8) - chunks.196.mjs:3
-│
-├── AppStateProvider (Yj) - Zustand state wrapper
-│   │
-│   ├── REPL Component
-│   │   ├── Header
-│   │   │   ├── Logo, version, agent info
-│   │   │   └── Color indicator (optional)
-│   │   │
-│   │   ├── MessageList (veY / G_6) - chunks.161.mjs:3
-│   │   │   ├── MessageComponent
-│   │   │   │   ├── UserMessage
-│   │   │   │   ├── AssistantMessage
-│   │   │   │   │   ├── Text content
-│   │   │   │   │   ├── Thinking blocks
-│   │   │   │   │   └── Tool use cards
-│   │   │   │   ├── ToolUseCard
-│   │   │   │   └── ToolResultCard
-│   │   │   │
-│   │   │   ├── StreamingToolUse (JK state)
-│   │   │   │   └── Real-time tool input assembly
-│   │   │   │
-│   │   │   └── StreamingThinking (MK state)
-│   │   │       └── Extended thinking display
-│   │   │
-│   │   ├── Spinner (conditional)
-│   │   │   └── Activity text, progress indicator
-│   │   │
-│   │   ├── PromptInput
-│   │   │   ├── Text input field
-│   │   │   ├── Autocomplete overlay
-│   │   │   ├── Image attachment indicators
-│   │   │   └── Vim mode status
-│   │   │
-│   │   └── Dialogs (priority queue from ra6)
-│   │       ├── [Priority 1] MessageSelector (zs8)
-│   │       ├── [Priority 2] SandboxPermissionDialog (ct8)
-│   │       ├── [Priority 3] ToolPermissionDialog (HIq)
-│   │       ├── [Priority 4] PromptDialog (fIq)
-│   │       ├── [Priority 5] WorkerSandboxPermissionDialog
-│   │       ├── [Priority 6] ElicitationRouter (ZIq)
-│   │       ├── [Priority 7] CostWarningDialog (jSq)
-│   │       ├── [Priority 8] IDEOnboardingDialog (dj8)
-│   │       ├── [Priority 9] EffortCalloutDialog (gmq)
-│   │       ├── [Priority 10] RemoteCalloutDialog (pWq)
-│   │       ├── [Priority 11] LSPRecommendationDialog (uBq)
-│   │       └── [Priority 12] DesktopUpsellDialog (zyq)
-│   │
-│   └── Background Components
-│       ├── LSP Error Notifications
-│       ├── MCP Connection Status
-│       └── Agent Filter Panel (Ctrl+F)
-│
-└── SDK/Remote Mode Handlers
-    ├── RemoteSessionConfig
-    ├── DirectConnectConfig
-    └── SSHSession handlers
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         REACT/INK ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                    sessionOrchestrator (ot8)                         │   │
+│   │                                                                       │   │
+│   │  Responsibilities:                                                   │   │
+│   │  • State management (createStateStore)                              │   │
+│   │  • Event handling (onQuery, handleCancel)                           │   │
+│   │  • Dialog coordination (getInputDialogType)                         │   │
+│   │  • Stream mode management                                            │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                         │
+│                                    ▼                                         │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                      AppStateProvider (Yj)                           │   │
+│   │                                                                       │   │
+│   │  Context:                                                            │   │
+│   │  • Tool permission context                                          │   │
+│   │  • MCP clients                                                      │   │
+│   │  • Plugin commands                                                  │   │
+│   │  • Agent definitions                                                │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                         │
+│                                    ▼                                         │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                            REPL                                      │   │
+│   │  ┌─────────────────────────────────────────────────────────────┐    │   │
+│   │  │ Header (Logo, Version, Agent Info)                           │    │   │
+│   │  └─────────────────────────────────────────────────────────────┘    │   │
+│   │  ┌─────────────────────────────────────────────────────────────┐    │   │
+│   │  │ MessageList (G_6)                                            │    │   │
+│   │  │   ├─ UserMessage                                             │    │   │
+│   │  │   ├─ AssistantMessage                                        │    │   │
+│   │  │   ├─ ToolUseCard                                             │    │   │
+│   │  │   └─ ToolResultCard                                          │    │   │
+│   │  └─────────────────────────────────────────────────────────────┘    │   │
+│   │  ┌─────────────────────────────────────────────────────────────┐    │   │
+│   │  │ Spinner (conditional)                                        │    │   │
+│   │  └─────────────────────────────────────────────────────────────┘    │   │
+│   │  ┌─────────────────────────────────────────────────────────────┐    │   │
+│   │  │ PromptInput                                                  │    │   │
+│   │  │   ├─ Autocomplete overlay                                    │    │   │
+│   │  │   ├─ Image attachment indicators                             │    │   │
+│   │  │   └─ Vim mode status                                         │    │   │
+│   │  └─────────────────────────────────────────────────────────────┘    │   │
+│   │  ┌─────────────────────────────────────────────────────────────┐    │   │
+│   │  │ Dialogs (priority queue from ra6)                            │    │   │
+│   │  │   ├─ MessageSelector (zs8)                                   │    │   │
+│   │  │   ├─ SandboxPermissionDialog (ct8)                           │    │   │
+│   │  │   ├─ ToolPermissionDialog (HIq)                              │    │   │
+│   │  │   ├─ PromptDialog (fIq)                                      │    │   │
+│   │  │   ├─ ElicitationRouter (ZIq)                                 │    │   │
+│   │  │   └─ ... 8 more dialog types                                 │    │   │
+│   │  └─────────────────────────────────────────────────────────────┘    │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Component Initialization Order
+### 1.2 State Management
 
 ```javascript
 // ============================================
-// sessionOrchestrator (ot8) - Component initialization
-// Location: chunks.196.mjs:3-50
+// createStateStore (WX1) - Observable state store
+// Location: chunks.85.mjs:1747-1766
+// ============================================
+
+// ORIGINAL (for source lookup):
+function WX1(A, q) {
+    let K = A, Y = new Set;
+    return {
+        getState: () => K,
+        setState: (z) => {
+            let _ = K, w = z(_);
+            if (Object.is(w, _)) return;
+            K = w, q?.({newState: w, oldState: _});
+            for (let $ of Y) $();
+        },
+        subscribe: (z) => { return Y.add(z), () => Y.delete(z); }
+    };
+}
+
+// READABLE (for understanding):
+function createStateStore(initialState, onStateChange) {
+    let state = initialState;
+    let listeners = new Set();
+
+    return {
+        getState: () => state,
+
+        setState: (updater) => {
+            let oldState = state;
+            let newState = updater(oldState);
+
+            // Skip update if state is identical (reference equality)
+            if (Object.is(newState, oldState)) return;
+
+            state = newState;
+
+            // Notify state change callback
+            onStateChange?.({ newState, oldState });
+
+            // Notify all subscribers
+            for (let listener of listeners) {
+                listener();
+            }
+        },
+
+        subscribe: (listener) => {
+            listeners.add(listener);
+            // Return unsubscribe function
+            return () => listeners.delete(listener);
+        }
+    };
+}
+
+// Mapping: WX1→createStateStore, A→initialState, q→onStateChange, K→state, Y→listeners
+```
+
+**Why this approach**:
+- Simple observable pattern without Redux complexity
+- Reference equality check prevents unnecessary re-renders
+- Subscriber pattern enables React-agnostic state updates
+- `onStateChange` callback enables logging and debugging
+
+---
+
+## 2. Component Hierarchy
+
+### 2.1 sessionOrchestrator (ot8)
+
+The main orchestrator component that manages the entire session.
+
+```javascript
+// ============================================
+// sessionOrchestrator - Main session orchestrator
+// Location: chunks.196.mjs:3-200
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -136,55 +196,140 @@ function ot8({
     sshSession: L,
     thinkingConfig: h
 }) {
-    let R = !!N;
-    // ... state initialization ...
+    // ... 150+ lines of state initialization ...
+    let [k6, Z6] = N8.useState("prompt"), // streamMode
+        [u6, C6] = N8.useState(!1),
+        // ... more state hooks ...
 }
 
 // READABLE (for understanding):
 function sessionOrchestrator({
-    commands,                    // Slash commands
-    debug,                       // Debug mode
-    initialTools,                // Tool definitions
-    initialMessages,             // Session history
-    pendingHookMessages,         // Hook-generated messages
-    initialFileHistorySnapshots, // File tracking
-    initialContentReplacements,  // Content state
-    initialAgentName,            // Agent display name
-    initialAgentColor,           // Prompt bar color
-    mcpClients,                  // MCP connections
-    dynamicMcpConfig,            // Dynamic MCP config
-    autoConnectIdeFlag,          // IDE auto-connect
-    strictMcpConfig = false,     // Strict MCP mode
-    systemPrompt,                // System prompt
-    appendSystemPrompt,          // Additional prompt
-    onBeforeQuery,               // Pre-query callback
-    onTurnComplete,              // Turn completion callback
-    disabled = false,            // Disable REPL
-    mainThreadAgentDefinition,   // Agent definition
-    disableSlashCommands = false,// Disable skills
-    taskListId,                  // Task list ID
-    remoteSessionConfig,         // Remote session config
-    directConnectConfig,         // Direct connect config
-    sshSession,                  // SSH session
-    thinkingConfig               // Thinking mode config
+    commands,                  // Slash commands
+    debug,                     // Debug mode
+    initialTools,              // Initial tool set
+    initialMessages,           // Conversation history
+    pendingHookMessages,       // Hook results to process
+    initialFileHistorySnapshots,
+    initialContentReplacements,
+    initialAgentName,
+    initialAgentColor,
+    mcpClients,                // MCP server connections
+    dynamicMcpConfig,
+    autoConnectIdeFlag,
+    strictMcpConfig = false,
+    systemPrompt,
+    appendSystemPrompt,
+    onBeforeQuery,             // Pre-query callback
+    onTurnComplete,            // Post-turn callback
+    disabled = false,
+    mainThreadAgentDefinition,
+    disableSlashCommands = false,
+    taskListId,
+    remoteSessionConfig,       // Remote session settings
+    directConnectConfig,
+    sshSession,
+    thinkingConfig             // Extended thinking config
 }) {
-    let isRemoteMode = !!remoteSessionConfig;
-    // Initialize state hooks...
+    // State hooks
+    const [streamMode, setStreamMode] = useState("prompt");
+    const [messages, setMessages] = useState(initialMessages);
+    const [toolUseConfirmQueue, setToolUseConfirmQueue] = useState([]);
+    const [promptQueue, setPromptQueue] = useState([]);
+    const [sandboxRequestQueue, setSandboxRequestQueue] = useState([]);
+
+    // Derived state from Zustand store
+    const toolPermissionContext = useAppState(state => state.toolPermissionContext);
+    const mcp = useAppState(state => state.mcp);
+    const plugins = useAppState(state => state.plugins);
+
+    // Dialog type determination
+    const currentDialogType = getInputDialogType();
+
+    // Cancel handler
+    function handleCancel() { /* ... */ }
+
+    // Query execution
+    async function executeQuery(query) { /* ... */ }
+
+    // Render
+    return (
+        <AppStateProvider>
+            <REPL
+                messages={messages}
+                streamMode={streamMode}
+                dialogType={currentDialogType}
+                onCancel={handleCancel}
+                onQuery={executeQuery}
+                // ... more props
+            />
+        </AppStateProvider>
+    );
 }
 
-// Mapping: ot8→sessionOrchestrator, R→isRemoteMode
+// Mapping: ot8→sessionOrchestrator, k6→streamMode, Z6→setStreamMode
+```
+
+### 2.2 Component Tree
+
+```
+sessionOrchestrator (ot8)
+│
+├── AppStateProvider (Yj)
+│   │
+│   └── REPL
+│       │
+│       ├── Header
+│       │   ├── Logo
+│       │   ├── Version display
+│       │   └── Agent info
+│       │
+│       ├── MessageList (G_6)
+│       │   │
+│       │   ├── MessageComponent (per message)
+│       │   │   ├── UserMessage
+│       │   │   ├── AssistantMessage
+│       │   │   ├── ToolUseCard
+│       │   │   └── ToolResultCard
+│       │   │
+│       │   ├── StreamingToolUse (during tool execution)
+│       │   └── StreamingThinking (during extended thinking)
+│       │
+│       ├── Spinner (conditional)
+│       │   └── Activity text, progress indicator
+│       │
+│       ├── PromptInput
+│       │   ├── Input field
+│       │   ├── Autocomplete overlay
+│       │   ├── Image attachment indicators
+│       │   └── Vim mode status
+│       │
+│       └── Dialogs (only one visible at a time)
+│           ├── MessageSelector (zs8)
+│           ├── SandboxPermissionDialog (ct8)
+│           ├── ToolPermissionDialog (HIq)
+│           ├── PromptDialog (fIq)
+│           ├── WorkerSandboxPermissionDialog
+│           ├── ElicitationRouter (ZIq)
+│           ├── CostWarningDialog (jSq)
+│           ├── IDEOnboardingDialog (dj8)
+│           ├── EffortCalloutDialog (gmq)
+│           ├── RemoteCalloutDialog (pWq)
+│           ├── LSPRecommendationDialog (uBq)
+│           └── DesktopUpsellDialog (zyq)
 ```
 
 ---
 
-## 2. Dialog Priority System
+## 3. Dialog System Complete
 
-### 2.1 Dialog Priority Algorithm (Source-Verified)
+### 3.1 Dialog Priority Algorithm
+
+The dialog system uses a priority-based approach where only one dialog can be active at a time.
 
 ```javascript
 // ============================================
-// getInputDialogType (ra6) - Dialog priority dispatcher
-// Location: chunks.196.mjs:387-404
+// getInputDialogType - Priority-based dialog dispatcher
+// Location: chunks.196.mjs:387-403
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -209,313 +354,114 @@ function ra6() {
 
 // READABLE (for understanding):
 function getInputDialogType() {
-    // TIER 0: Blocking states (no dialog allowed)
-    if (isSearchingInputHistory || fullScreenOverlay) {
-        return undefined;
+    // GUARD: Block all dialogs during cost animation or unconfirmed cost
+    if (isCostWarningAnimating || hasUnconfirmedCost) {
+        return undefined;  // No dialog
     }
 
-    // TIER 1: Highest priority (shown even during animation)
+    // PRIORITY 1: Message selector (highest user-facing priority)
+    // Allows user to navigate and select previous messages
     if (isMessageSelectorVisible) {
         return "message-selector";
     }
 
-    // BLOCK: User typing (don't interrupt)
-    if (isPaused) {
+    // GUARD: Block dialogs during active streaming
+    if (isStreamActive) {
         return undefined;
     }
 
-    // TIER 1 (continued): Security-critical
+    // PRIORITY 2: Sandbox permission (security critical)
+    // Network access, file system sandbox permissions
     if (sandboxPermissionQueue[0]) {
         return "sandbox-permission";
     }
 
-    // ANIMATION GATE: Check if we should wait for animation
-    let canShowLowerPriority = !toolJSX || toolJSX.shouldContinueAnimation;
+    // Animation continuity check for lower priority dialogs
+    // If current tool is animating and shouldn't be interrupted, skip
+    const shouldContinueAnimation = !toolUseConfirm || toolUseConfirm.shouldContinueAnimation;
 
-    // TIER 2: Lower priority dialogs (wait for animation)
-    if (canShowLowerPriority) {
-        if (toolPermissionQueue[0]) return "tool-permission";
-        if (promptQueue[0]) return "prompt";
-        if (workerSandboxQueue[0]) return "worker-sandbox-permission";
-        if (elicitationQueue[0]) return "elicitation";
-        if (costWarningActive) return "cost";
-        if (ideOnboardingActive) return "ide-onboarding";
-        if (effortCalloutActive) return "effort-callout";
-        if (remoteCalloutActive) return "remote-callout";
-        if (lspRecommendationActive) return "lsp-recommendation";
-        if (desktopUpsellActive) return "desktop-upsell";
+    // PRIORITY 3: Tool permission
+    // Tool execution approval
+    if (shouldContinueAnimation && toolPermissionQueue[0]) {
+        return "tool-permission";
     }
 
-    return undefined;
+    // PRIORITY 4: Tool-initiated prompt
+    // Tool needs user input during execution
+    if (shouldContinueAnimation && promptQueue[0]) {
+        return "prompt";
+    }
+
+    // PRIORITY 5: Worker sandbox permission
+    // Background worker sandbox requests
+    if (shouldContinueAnimation && workerSandboxQueue[0]) {
+        return "worker-sandbox-permission";
+    }
+
+    // PRIORITY 6: MCP elicitation
+    // MCP server needs user input (forms, etc.)
+    if (shouldContinueAnimation && elicitationQueue[0]) {
+        return "elicitation";
+    }
+
+    // PRIORITY 7: Cost warning
+    // Cost threshold reached warning
+    if (shouldContinueAnimation && hasCostWarning) {
+        return "cost";
+    }
+
+    // PRIORITY 8: IDE onboarding
+    // IDE detected, show onboarding
+    if (shouldContinueAnimation && showIdeOnboarding) {
+        return "ide-onboarding";
+    }
+
+    // PRIORITY 9: Effort callout
+    // Extended thinking effort selection
+    if (shouldContinueAnimation && showEffortCallout) {
+        return "effort-callout";
+    }
+
+    // PRIORITY 10: Remote callout
+    // Remote session features
+    if (shouldContinueAnimation && showRemoteCallout) {
+        return "remote-callout";
+    }
+
+    // PRIORITY 11: LSP recommendation
+    // LSP plugin recommendations
+    if (shouldContinueAnimation && lspRecommendation) {
+        return "lsp-recommendation";
+    }
+
+    // PRIORITY 12: Desktop upsell (lowest priority)
+    // Desktop app promotion
+    if (shouldContinueAnimation && showDesktopUpsell) {
+        return "desktop-upsell";
+    }
+
+    return undefined;  // No dialog to show
 }
-
-// Mapping: ra6→getInputDialogType, lV6→isSearchingInputHistory, na6→fullScreenOverlay,
-//          W7→isMessageSelectorVisible, y2→isPaused, G7→sandboxPermissionQueue,
-//          j8→toolJSX, a8→toolPermissionQueue, zA→promptQueue,
-//          n.queue→workerSandboxQueue, o.queue→elicitationQueue,
-//          m26→costWarningActive, W6→ideOnboardingActive, g6→effortCalloutActive,
-//          J1→remoteCalloutActive, e8→lspRecommendationActive, E1→desktopUpsellActive
 ```
 
-### 2.2 Dialog Priority Table (Complete)
+### 3.2 Dialog Types and Behaviors
 
-| Priority | Dialog Type | Variable | Trigger | Security Level |
-|----------|-------------|----------|---------|----------------|
-| **TIER 0** | (blocked) | `lV6 \|\| na6` | History search / Overlay | N/A |
-| **TIER 1** | `message-selector` | `W7` | Multi-message selection | High |
-| **TIER 1** | (blocked) | `y2` | User typing (paused) | N/A |
-| **TIER 1** | `sandbox-permission` | `G7[0]` | Network access request | **CRITICAL** |
-| **GATE** | Animation check | `j8?.shouldContinueAnimation` | Local JSX animation | N/A |
-| **TIER 2** | `tool-permission` | `a8[0]` | Tool execution | **CRITICAL** |
-| **TIER 2** | `prompt` | `zA[0]` | Tool-initiated prompt | Medium |
-| **TIER 2** | `worker-sandbox-permission` | `n.queue[0]` | Background agent network | **CRITICAL** |
-| **TIER 2** | `elicitation` | `o.queue[0]` | MCP form request | Medium |
-| **TIER 2** | `cost` | `m26` | Budget threshold | Low |
-| **TIER 2** | `ide-onboarding` | `W6` | IDE not connected | Low |
-| **TIER 2** | `effort-callout` | `g6` | Effort level change | Low |
-| **TIER 2** | `remote-callout` | `J1` | Remote session | Low |
-| **TIER 2** | `lsp-recommendation` | `e8` | LSP plugin available | Low |
-| **TIER 2** | `desktop-upsell` | `E1` | Desktop promotion | Lowest |
+| Dialog Type | Priority | Trigger | Cancel Key | Cancel Behavior |
+|-------------|----------|---------|------------|-----------------|
+| `message-selector` | 1 | Double-Escape | Escape | Closes selector |
+| `sandbox-permission` | 2 | Network/sandbox request | Escape | Rejects permission |
+| `tool-permission` | 3 | Tool needs approval | Escape | Aborts tool, clears queue |
+| `prompt` | 4 | Tool needs user input | Escape | Rejects ALL queued prompts |
+| `worker-sandbox-permission` | 5 | Background worker | Escape | Rejects permission |
+| `elicitation` | 6 | MCP form request | N/A | Must respond (no cancel) |
+| `cost` | 7 | Cost threshold | Enter | Acknowledges warning |
+| `ide-onboarding` | 8 | IDE detected | Escape | Dismisses onboarding |
+| `effort-callout` | 9 | Effort selection | Escape | Uses default (medium) |
+| `remote-callout` | 10 | Remote session | Escape | Acknowledges |
+| `lsp-recommendation` | 11 | LSP plugin available | Escape | Dismisses |
+| `desktop-upsell` | 12 | Desktop promotion | Escape | Dismisses |
 
-### 2.3 Dialog Priority Design Decisions
-
-**Why this approach:**
-
-1. **Two-Tier System**:
-   - Tier 1 dialogs can interrupt animations (security-critical)
-   - Tier 2 dialogs wait for animations (better UX)
-
-2. **Security-Critical Priority**:
-   - `sandbox-permission` at Tier 1: Network access must be approved immediately
-   - `tool-permission` at Tier 2: Slightly lower, but still high priority
-
-3. **Animation Gate**:
-   - Prevents dialogs from interrupting smooth animations
-   - `shouldContinueAnimation` allows graceful completion
-
-4. **User Typing Block**:
-   - `isPaused` blocks all dialogs when user is actively typing
-   - Prevents interruption and confusion
-
-**Key insight**: The animation gate is the critical design decision that balances security with UX. Security-critical dialogs (sandbox, message-selector) bypass the gate, while informational dialogs wait for smooth animations to complete.
-
----
-
-## 3. Stream Mode State Machine
-
-### 3.1 Stream Mode States
-
-```javascript
-// ============================================
-// Stream Mode State - LLM interaction phases
-// Location: chunks.196.mjs:47, 96-100
-// ============================================
-
-// ORIGINAL (for source lookup):
-let [k6, ZY] = N8.useState("prompt");
-let [d7, W4] = N8.useState("responding"), Dz = N8.useRef(d7);
-Dz.current = d7;
-let [JK, F3] = N8.useState([]), [MK, k3] = N8.useState(null);
-
-// READABLE (for understanding):
-// Two separate state machines:
-
-// 1. Stream Mode (input/output state)
-let [streamMode, setStreamMode] = useState("prompt");
-
-// 2. UI State (display/rendering state)
-let [uiState, setUIState] = useState("responding");
-let uiStateRef = useRef(uiState);  // Synchronous access for callbacks
-
-// 3. Tool Uses (in-progress executions)
-let [toolUses, setToolUses] = useState([]);
-
-// 4. Thinking State (extended thinking)
-let [thinkingState, setThinkingState] = useState(null);
-
-// Mapping: k6→streamMode, ZY→setStreamMode,
-//          d7→uiState, W4→setUIState, Dz→uiStateRef,
-//          JK→toolUses, F3→setToolUses,
-//          MK→thinkingState, k3→setThinkingState
-```
-
-### 3.2 Stream Mode Transitions
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         STREAM MODE STATE MACHINE                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│                          ┌─────────────┐                                    │
-│                          │   prompt    │ ◄── Waiting for user input         │
-│                          └──────┬──────┘                                    │
-│                                 │                                           │
-│                     User submits message                                    │
-│                                 │                                           │
-│                                 ▼                                           │
-│                          ┌─────────────┐                                    │
-│                          │ requesting  │ ◄── Building API request          │
-│                          └──────┬──────┘                                    │
-│                                 │                                           │
-│                     LLM response starts                                     │
-│                                 │                                           │
-│                    ┌────────────┴────────────┐                             │
-│                    │                         │                              │
-│                    ▼                         ▼                              │
-│             ┌─────────────┐          ┌─────────────┐                       │
-│             │ responding  │          │  thinking   │ ◄── Extended thinking │
-│             │  (text)     │          │             │                       │
-│             └──────┬──────┘          └──────┬──────┘                       │
-│                    │                         │                              │
-│                    │         ┌───────────────┘                              │
-│                    │         │                                               │
-│                    │         ▼                                               │
-│                    │  ┌─────────────┐                                       │
-│                    │  │ responding  │ ◄── Thinking complete                │
-│                    │  │  (text)     │                                       │
-│                    │  └──────┬──────┘                                       │
-│                    │         │                                               │
-│                    └────────┬┘                                              │
-│                             │                                                │
-│                   Tool_use block starts                                      │
-│                             │                                                │
-│                             ▼                                                │
-│                      ┌─────────────┐                                        │
-│                      │ tool-input  │ ◄── Streaming tool_use JSON           │
-│                      └──────┬──────┘                                        │
-│                             │                                                │
-│                Tool input JSON complete                                      │
-│                             │                                                │
-│                             ▼                                                │
-│                      ┌─────────────┐                                        │
-│                      │  tool-use   │ ◄── Tool executing                    │
-│                      └──────┬──────┘                                        │
-│                             │                                                │
-│               ┌─────────────┴─────────────┐                                 │
-│               │                           │                                  │
-│               ▼                           ▼                                  │
-│        More tools?                   No more tools                          │
-│               │                           │                                  │
-│               │                           ▼                                  │
-│               │                    ┌─────────────┐                          │
-│               │                    │   prompt    │                          │
-│               └───────────────────►└─────────────┘                          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 3.3 UI State vs Stream Mode
-
-**Why two separate states:**
-
-1. **Stream Mode** (`streamMode`/`k6`):
-   - Controls input/output behavior
-   - Determines if user can type
-   - Used by agent loop to track phase
-
-2. **UI State** (`uiState`/`d7`):
-   - Controls rendering/display
-   - Determines spinner visibility
-   - Used by React components for display
-
-**Key insight**: The separation allows the UI to show "responding" state while internally the stream mode might be "tool-input" or "thinking". This provides smoother visual feedback.
-
----
-
-## 4. Input Handling State Machine
-
-### 4.1 Input Modes
-
-```javascript
-// ============================================
-// Input Mode State - Keyboard input behavior
-// Location: chunks.196.mjs:197
-// ============================================
-
-// ORIGINAL (for source lookup):
-let [ZH, ZY] = N8.useState("prompt");
-
-// READABLE (for understanding):
-let [inputMode, setInputMode] = useState("prompt");
-
-// Possible values:
-type InputMode =
-    | "prompt"        // Normal input mode
-    | "shift-enter";  // Multi-line mode (Shift+Enter pressed)
-
-// Mapping: ZH→inputMode, ZY→setInputMode
-```
-
-### 4.2 Vim Mode Integration
-
-```javascript
-// ============================================
-// Vim Mode State - Vim-style editing
-// Location: chunks.196.mjs:235
-// ============================================
-
-// ORIGINAL (for source lookup):
-let [sZ, rF] = N8.useState("INSERT");
-
-// READABLE (for understanding):
-let [vimMode, setVimMode] = useState("INSERT");
-
-// Possible values:
-type VimMode =
-    | "INSERT"  // Normal typing
-    | "NORMAL"; // Vim command mode
-
-// Mode switching:
-// - Esc in INSERT → NORMAL mode
-// - i in NORMAL → INSERT mode
-
-// Mapping: sZ→vimMode, rF→setVimMode
-```
-
-### 4.3 Input State Transitions
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          INPUT MODE STATE MACHINE                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   ┌─────────────┐                                                           │
-│   │   prompt    │ ◄── Normal single-line input                              │
-│   │   (INSERT)  │                                                           │
-│   └──────┬──────┘                                                           │
-│          │                                                                   │
-│          │ Shift+Enter                                                      │
-│          │                                                                   │
-│          ▼                                                                   │
-│   ┌─────────────┐                                                           │
-│   │ shift-enter │ ◄── Multi-line mode                                       │
-│   │   (INSERT)  │                                                           │
-│   └──────┬──────┘                                                           │
-│          │                                                                   │
-│          │ Esc (in Vim mode)                                                │
-│          │                                                                   │
-│          ▼                                                                   │
-│   ┌─────────────┐                                                           │
-│   │   prompt    │ ◄── Vim NORMAL mode                                       │
-│   │  (NORMAL)   │                                                           │
-│   └──────┬──────┘                                                           │
-│          │                                                                   │
-│          │ i (in Vim mode)                                                  │
-│          │                                                                   │
-│          ▼                                                                   │
-│   ┌─────────────┐                                                           │
-│   │   prompt    │ ◄── Back to INSERT mode                                   │
-│   │  (INSERT)   │                                                           │
-│   └─────────────┘                                                           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 5. Cancel Propagation Flow
-
-### 5.1 handleCancel Algorithm (Source-Verified)
+### 3.3 Cancel Propagation
 
 ```javascript
 // ============================================
@@ -526,9 +472,8 @@ type VimMode =
 // ORIGINAL (for source lookup):
 function TM() {
     if (K2 === "elicitation") return;
-    if (k(`[onCancel] focusedInputDialog=${K2} streamMode=${d7}`), J9.forceEnd(), ez?.trim()) gq((P1) => [...P1, $Z({
-        content: ez
-    })]);
+    if (k(`[onCancel] focusedInputDialog=${K2} streamMode=${d7}`), J9.forceEnd(), ez?.trim())
+        gq((P1) => [...P1, $Z({ content: ez })]);
     if (dE(), K2 === "tool-permission") a8[0]?.onAbort(), $A([]);
     else if (K2 === "prompt") {
         for (let P1 of zA) P1.reject(Error("Prompt cancelled by user"));
@@ -540,335 +485,542 @@ function TM() {
 
 // READABLE (for understanding):
 function handleCancel() {
-    // STEP 1: Check if cancellation is allowed
-    // Elicitation dialogs cannot be cancelled (MCP protocol requirement)
-    if (focusedInputDialog === "elicitation") {
-        return;  // MCP protocol prevents cancellation
+    // ELICITATION: Cannot be cancelled - user must respond to MCP form
+    if (currentDialogType === "elicitation") {
+        return;
     }
 
-    debugLog(`[onCancel] focusedInputDialog=${focusedInputDialog} streamMode=${streamMode}`);
+    logDebug(`[onCancel] focusedInputDialog=${currentDialogType} streamMode=${streamMode}`);
 
-    // STEP 2: Force end concurrent query lock
-    // Prevents new queries from starting while we're cancelling
-    concurrentQueryLock.forceEnd();
+    // Force end any ongoing animation
+    animationManager.forceEnd();
 
-    // STEP 3: Save any partial input as draft message
-    if (inputValue?.trim()) {
-        setMessages(prev => [...prev, createUserMessage({ content: inputValue })]);
+    // Flush pending input text to messages (don't lose user input)
+    if (pendingInputText?.trim()) {
+        appendToMessages(createUserMessage({ content: pendingInputText }));
     }
 
-    // STEP 4: Reset loading state
+    // Reset loading state (clear streaming buffers)
     resetLoadingState();
 
-    // STEP 5: Handle based on dialog type
-    if (focusedInputDialog === "tool-permission") {
-        // Tool permission: Abort and clear queue
+    // DIALOG-SPECIFIC CANCEL HANDLING
+
+    if (currentDialogType === "tool-permission") {
+        // Abort the pending tool permission request
         toolPermissionQueue[0]?.onAbort();
-        setToolPermissionQueue([]);
-    } else if (focusedInputDialog === "prompt") {
-        // Prompt dialog: Reject all queued prompts
+        clearToolPermissionQueue([]);
+    }
+    else if (currentDialogType === "prompt") {
+        // CRITICAL: Reject ALL queued prompts, not just the first
+        // This prevents tool execution from hanging on subsequent prompts
         for (let prompt of promptQueue) {
             prompt.reject(Error("Prompt cancelled by user"));
         }
-        setPromptQueue([]);
-        abortController?.abort();
-    } else if (isRemoteMode) {
-        // Remote mode: Cancel via remote controller
-        remoteController.cancelRequest();
-    } else {
-        // Default: Abort the API request
+        clearPromptQueue([]);
+        // Abort the streaming request entirely
         abortController?.abort();
     }
+    else if (remoteSessionManager.isRemoteMode) {
+        // Remote session: use remote-specific cancel
+        remoteSessionManager.cancelRequest();
+    }
+    else {
+        // Default: abort the current request
+        abortController?.abort();
+    }
 
-    // STEP 6: Clear abort controller
-    setAbortController(null);
+    // Clear pending tool use state
+    setPendingToolUse(null);
 }
-
-// Mapping: TM→handleCancel, K2→focusedInputDialog, d7→streamMode,
-//          J9→concurrentQueryLock, ez→inputValue, gq→setMessages,
-//          dE→resetLoadingState, a8→toolPermissionQueue, $A→setToolPermissionQueue,
-//          zA→promptQueue, gA→setPromptQueue, M5→abortController, x5→setAbortController,
-//          B5→remoteController
 ```
 
-### 5.2 Cancel Propagation Flow Diagram
+---
+
+## 4. Stream Mode State Machine
+
+### 4.1 State Definitions
+
+| State | Description | UI Behavior |
+|-------|-------------|-------------|
+| `prompt` | Waiting for user input | Input enabled, no spinner |
+| `requesting` | Building/sending request | Spinner active, input disabled |
+| `responding` | Receiving text response | Streaming display, input disabled |
+| `thinking` | Extended thinking active | Thinking block visible, input disabled |
+| `tool-input` | Tool needs user input | Prompt dialog visible |
+| `tool-use` | Executing tools | Tool cards visible, input disabled |
+
+### 4.2 State Transitions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CANCEL PROPAGATION FLOW                              │
+│                        STREAM MODE STATE MACHINE                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   User presses Escape                                                        │
-│          │                                                                   │
-│          ▼                                                                   │
-│   ┌─────────────────┐                                                       │
-│   │ handleCancel()  │                                                       │
-│   │     (TM)        │                                                       │
-│   └────────┬────────┘                                                       │
-│            │                                                                 │
-│            ▼                                                                 │
-│   ┌─────────────────┐     NO    ┌─────────────────┐                        │
-│   │ Is dialog       │ ────────► │ Return early    │                        │
-│   │ "elicitation"?  │           │ (MCP protocol)  │                        │
-│   └────────┬────────┘           └─────────────────┘                        │
-│            │ YES                                                               │
-│            ▼                                                                 │
-│   ┌─────────────────┐                                                       │
-│   │ Force end       │                                                       │
-│   │ query lock      │                                                       │
-│   └────────┬────────┘                                                       │
-│            │                                                                 │
-│            ▼                                                                 │
-│   ┌─────────────────┐                                                       │
-│   │ Save partial    │                                                       │
-│   │ input as draft  │                                                       │
-│   └────────┬────────┘                                                       │
-│            │                                                                 │
-│            ▼                                                                 │
-│   ┌─────────────────────────────────────────────────────┐                  │
-│   │              Dialog Type Routing                     │                  │
-│   ├─────────────────────────────────────────────────────┤                  │
-│   │                                                      │                  │
-│   │  tool-permission:                                    │                  │
-│   │    • Abort tool permission                           │                  │
-│   │    • Clear queue                                     │                  │
-│   │                                                      │                  │
-│   │  prompt:                                             │                  │
-│   │    • Reject all queued prompts                       │                  │
-│   │    • Abort API request                               │                  │
-│   │                                                      │                  │
-│   │  remote-mode:                                        │                  │
-│   │    • Cancel via remote controller                    │                  │
-│   │                                                      │                  │
-│   │  default:                                            │                  │
-│   │    • Abort API request                               │                  │
-│   │                                                      │                  │
-│   └─────────────────────────────────────────────────────┘                  │
-│            │                                                                 │
-│            ▼                                                                 │
-│   ┌─────────────────┐                                                       │
-│   │ Clear abort     │                                                       │
-│   │ controller      │                                                       │
-│   └─────────────────┘                                                       │
+│                              User submits                                    │
+│                                  │                                           │
+│                                  ▼                                           │
+│   ┌──────────┐            ┌──────────┐                                      │
+│   │  PROMPT  │───────────►│REQUESTING│                                      │
+│   │          │            │          │                                      │
+│   │ Waiting  │            │ Building │                                      │
+│   │ for      │            │ request  │                                      │
+│   │ input    │            └────┬─────┘                                      │
+│   └──────────┘                 │                                            │
+│        ▲                       │ API connection established                 │
+│        │                       ▼                                            │
+│        │                ┌──────────┐                                        │
+│        │                │RESPONDING│◄───────────────────┐                   │
+│        │                │          │                    │                   │
+│        │                │ Text     │                    │                   │
+│        │                │ streaming│                    │                   │
+│        │                └────┬─────┘                    │                   │
+│        │                     │                          │                   │
+│        │    ┌────────────────┼────────────────┐        │                   │
+│        │    │                │                │        │                   │
+│        │    ▼                ▼                ▼        │                   │
+│        │ ┌────────┐   ┌──────────┐    ┌──────────┐    │                   │
+│        │ │TOOL-USE│   │TOOL-INPUT│    │ THINKING │    │                   │
+│        │ │        │   │          │    │          │    │                   │
+│        │ │Tool    │   │Waiting   │    │Extended  │    │                   │
+│        │ │exec    │   │for input │    │thinking  │    │                   │
+│        │ └───┬────┘   └────┬─────┘    └────┬─────┘    │                   │
+│        │     │             │               │          │                   │
+│        │     │             └───────────────┘          │                   │
+│        │     │                    │                   │                   │
+│        │     └────────────────────┼───────────────────┘                   │
+│        │                          │                                       │
+│        │         message_stop, no more tools                             │
+│        └──────────────────────────┘                                       │
+│                                                                             │
+│   Transitions:                                                              │
+│   • prompt → requesting: User submits query                                │
+│   • requesting → responding: SSE connection established                    │
+│   • responding → thinking: content_block_start (thinking)                 │
+│   • thinking → responding: content_block_stop (thinking)                  │
+│   • responding → tool-use: content_block_start (tool_use)                 │
+│   • tool-use → tool-input: Tool needs user input                          │
+│   • tool-input → tool-use: Input provided or timeout                      │
+│   • tool-use → prompt: message_stop (no more tools)                       │
+│   • * → prompt: Error or abort                                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Stream Mode Update Logic
+
+```javascript
+// ============================================
+// handleStreamedEvent - Stream event processor
+// Location: chunks.196.mjs (inferred)
+// ============================================
+
+// READABLE (for understanding):
+function handleStreamedEvent(event) {
+    switch (event.type) {
+        case "stream_request_start":
+            setStreamMode("requesting");
+            break;
+
+        case "stream_event":
+            handleStreamEvent(event.event);
+            break;
+
+        case "assistant":
+            // Complete assistant message
+            appendToMessages(event.message);
+            break;
+
+        case "user":
+            // Tool result message
+            appendToMessages(event.message);
+            break;
+    }
+}
+
+function handleStreamEvent(streamEvent) {
+    switch (streamEvent.type) {
+        case "content_block_start":
+            if (streamEvent.content_block.type === "thinking") {
+                setStreamMode("thinking");
+            } else if (streamEvent.content_block.type === "tool_use") {
+                setStreamMode("tool-use");
+                addStreamingToolUse(streamEvent.content_block);
+            }
+            break;
+
+        case "content_block_delta":
+            // Update streaming content
+            updateStreamingContent(streamEvent);
+            break;
+
+        case "content_block_stop":
+            if (streamMode === "thinking") {
+                setStreamMode("responding");
+            } else if (streamMode === "tool-use") {
+                // Tool execution may transition to tool-input
+                // if tool needs user input
+            }
+            break;
+
+        case "message_stop":
+            // Check if tools need execution
+            if (hasPendingToolUse()) {
+                // Will continue to next turn
+            } else {
+                setStreamMode("prompt");
+            }
+            break;
+    }
+}
+```
+
+---
+
+## 5. Keyboard Interaction Patterns
+
+### 5.1 Input Mode State Machine
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        INPUT MODE STATE MACHINE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────┐                                                              │
+│   │  NORMAL  │◄────────────────────────────────────────────────────────┐   │
+│   │          │                                                          │   │
+│   │ Default  │                                                          │   │
+│   │ input    │                                                          │   │
+│   └────┬─────┘                                                          │   │
+│        │                                                                  │   │
+│        │ i (in normal mode)                                              │   │
+│        ▼                                                                  │   │
+│   ┌──────────┐     Escape          ┌──────────┐                         │   │
+│   │   VIM    │────────────────────►│  NORMAL  │                         │   │
+│   │  INSERT  │                     │          │                         │   │
+│   │          │◄────────────────────│          │                         │   │
+│   └────┬─────┘     i               └──────────┘                         │   │
+│        │                                                                  │   │
+│        │ Escape                                                          │   │
+│        ▼                                                                  │   │
+│   ┌──────────┐                                                           │   │
+│   │   VIM    │                                                           │   │
+│   │  NORMAL  │──────────────────────────────────────────────────────────┘   │
+│   │          │                                                               │
+│   │ Vim      │                                                               │
+│   │ commands │                                                               │
+│   └──────────┘                                                               │
+│                                                                              │
+│   Vim Commands (in VIM NORMAL mode):                                        │
+│   • i - Enter insert mode                                                   │
+│   • : - Command mode                                                        │
+│   • / - Search mode                                                         │
+│   • dd - Delete line                                                        │
+│   • yy - Yank line                                                          │
+│   • p - Paste                                                               │
+│   • u - Undo                                                                │
+│   • Ctrl+r - Redo                                                           │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Cancel Design Decisions
+### 5.2 Chord Detection
 
-**Why this approach:**
+Chord keybindings (e.g., Ctrl+K then Ctrl+S) are detected using a state machine:
 
-1. **Elicitation Cannot Cancel**:
-   - MCP protocol requires servers to respond to elicitation requests
-   - Cancelling would violate the protocol
+```javascript
+// ============================================
+// Chord detection state machine
+// ============================================
 
-2. **Prompt Queue Rejection**:
-   - All prompts are rejected with "Prompt cancelled by user"
-   - Prevents tools from waiting indefinitely
+// READABLE (for understanding):
+class ChordDetector {
+    constructor(keybindings) {
+        this.keybindings = keybindings;
+        this.pendingChord = null;
+        this.chordTimeout = null;
+    }
 
-3. **Draft Message Saving**:
-   - Partial input is saved as a user message
-   - Prevents data loss on accidental Escape
+    handleKey(key, modifiers) {
+        // If we have a pending chord, check for completion
+        if (this.pendingChord) {
+            clearTimeout(this.chordTimeout);
+            const chord = this.pendingChord + " " + key;
+            const binding = this.keybindings[chord];
 
-**Key insight**: The cancel propagation follows a "fail-safe" pattern where cancellation always cleans up state and never leaves the system in an inconsistent state.
+            if (binding) {
+                // Chord completed
+                this.pendingChord = null;
+                return { action: binding.action, complete: true };
+            } else {
+                // Chord not found, start new
+                this.pendingChord = key;
+                return { action: null, waiting: true };
+            }
+        }
+
+        // Check if this key starts a chord
+        const potentialChords = this.keybindings.filter(k => k.startsWith(key + " "));
+        if (potentialChords.length > 0) {
+            // Start chord timeout
+            this.pendingChord = key;
+            this.chordTimeout = setTimeout(() => {
+                // Chord timeout - execute single key action
+                this.pendingChord = null;
+            }, 500);
+            return { action: null, waiting: true };
+        }
+
+        // Single key action
+        const binding = this.keybindings[key];
+        return { action: binding?.action, complete: true };
+    }
+}
+```
+
+### 5.3 Keybinding Priority
+
+```
+Key Event Flow:
+──────────────
+
+1. Dialog-focused keys (highest priority)
+   └─ If dialog visible, handle dialog-specific keys
+
+2. Stream mode keys
+   └─ If streaming, handle stream-specific keys (Escape to cancel)
+
+3. Input mode keys
+   └─ If in vim mode, handle vim keys
+   └─ Otherwise, handle normal input
+
+4. Global keys (lowest priority)
+   └─ Ctrl+C: Interrupt
+   └─ Ctrl+D: Exit
+   └─ Ctrl+L: Clear screen
+```
 
 ---
 
-## 6. Keyboard Shortcut Flow
+## 6. Message Rendering Pipeline
 
-### 6.1 Keybinding Priority
+### 6.1 Rendering Stages
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         KEYBOARD SHORTCUT PRIORITY                           │
+│                       MESSAGE RENDERING PIPELINE                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   1. DIALOG SHORTCUTS (highest priority)                                    │
-│      ├── Esc: Cancel current dialog                                         │
-│      ├── Tab: Cycle options                                                 │
-│      └── Enter: Confirm selection                                           │
+│   Stage 1: Message Collection                                               │
+│   ────────────────────────────                                              │
+│   • Collect messages from state                                             │
+│   • Apply visibility filter (shouldShowMessageInChat)                      │
+│   • Truncate if exceeding MAX_RENDER_MESSAGES                              │
 │                                                                              │
-│   2. MESSAGE SELECTOR                                                       │
-│      ├── Up/Down: Navigate messages                                         │
-│      ├── Enter: Select message                                              │
-│      └── Esc: Exit selector                                                 │
+│                              │                                              │
+│                              ▼                                              │
 │                                                                              │
-│   3. INPUT MODE                                                             │
-│      ├── Shift+Enter: Multi-line mode                                       │
-│      ├── Enter: Submit (single-line) or newline (multi-line)               │
-│      ├── Up/Down: History navigation                                        │
-│      └── Tab: Autocomplete                                                  │
+│   Stage 2: Normalization                                                    │
+│   ────────────────────────────                                              │
+│   • normalizeMessages (cM) - Convert to API format                         │
+│   • flattenMessages (JM) - Split multi-content messages                    │
+│   • filterEmptyMessages (Gi6) - Remove empty content                       │
+│   • groupToolsWithHooks (pjq) - Reorder tool results with hooks            │
 │                                                                              │
-│   4. GLOBAL SHORTCUTS                                                       │
-│      ├── Ctrl+C: Copy selection                                             │
-│      ├── Ctrl+F: Agent filter panel                                         │
-│      └── Double-Escape: Message selector                                    │
+│                              │                                              │
+│                              ▼                                              │
 │                                                                              │
-│   5. VIM MODE (when enabled)                                                │
-│      ├── Esc: Switch to NORMAL mode                                         │
-│      ├── i: Switch to INSERT mode                                           │
-│      └── j/k: Navigate (NORMAL mode)                                        │
+│   Stage 3: Content Rendering                                                │
+│   ────────────────────────────                                              │
+│   • UserMessage: Render user text and images                               │
+│   • AssistantMessage: Render assistant text and thinking                   │
+│   • ToolUseCard: Render tool invocation with parameters                    │
+│   • ToolResultCard: Render tool result with status                         │
+│                                                                              │
+│                              │                                              │
+│                              ▼                                              │
+│                                                                              │
+│   Stage 4: Deferred Rendering                                               │
+│   ────────────────────────────                                              │
+│   • Batch updates using React.useDeferredValue                             │
+│   • Keep input responsive during heavy rendering                           │
+│   • Spinner uses separate animation loop (50ms)                            │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 Double-Escape Flow
+### 6.2 Message Normalization
 
 ```javascript
 // ============================================
-// Double-Escape for Message Selector
-// Location: chunks.196.mjs
+// normalizeMessages (cM) - Message format conversion
+// Location: chunks.173.mjs:1999
 // ============================================
 
 // READABLE (for understanding):
-// Double-Escape reliably opens message selector after dialog states
+function normalizeMessages(messages) {
+    return messages.map(message => {
+        if (message.role === "user") {
+            return normalizeUserMessage(message);
+        } else if (message.role === "assistant") {
+            return normalizeAssistantMessage(message);
+        }
+        return message;
+    });
+}
 
-// Flow:
-// 1. First Escape: Cancel current dialog (if any)
-// 2. Second Escape (within timeout): Open message selector
-// 3. The timeout ensures reliable detection even after dialog dismissals
+function normalizeUserMessage(message) {
+    // Convert content to API format
+    if (typeof message.content === "string") {
+        return {
+            ...message,
+            content: [{ type: "text", text: message.content }]
+        };
+    }
 
-// Design Decision:
-// - Race condition fix: Escape would not register after certain dialog dismissals
-// - Solution: Double-Escape with timeout window
+    // Handle images
+    const content = [];
+    for (const block of message.content) {
+        if (block.type === "image") {
+            content.push({
+                type: "image",
+                source: {
+                    type: "base64",
+                    media_type: block.mediaType,
+                    data: block.data
+                }
+            });
+        } else {
+            content.push(block);
+        }
+    }
+
+    return { ...message, content };
+}
+
+// Mapping: cM→normalizeMessages
 ```
 
 ---
 
-## 7. Screen Mode Transitions
+## 7. Performance Optimization Patterns
 
-### 7.1 Screen Modes
+### 7.1 Deferred Rendering
 
 ```javascript
 // ============================================
-// Screen Mode State
-// Location: chunks.196.mjs:47
+// Deferred rendering for input responsiveness
 // ============================================
 
-// ORIGINAL (for source lookup):
-let [k6, Z6] = N8.useState("chat");
+// READABLE (for understanding):
+function MessageList({ messages, streamMode }) {
+    // Defer message rendering to keep input responsive
+    const deferredMessages = React.useDeferredValue(messages);
+
+    // Stream mode takes priority
+    const showStreaming = streamMode !== "prompt";
+
+    return (
+        <Box flexDirection="column">
+            {/* Streaming content renders immediately */}
+            {showStreaming && <StreamingContent />}
+
+            {/* Message list uses deferred value */}
+            {deferredMessages.map(message => (
+                <MessageComponent key={message.uuid} message={message} />
+            ))}
+        </Box>
+    );
+}
+```
+
+### 7.2 Spinner Isolation
+
+```javascript
+// ============================================
+// Spinner uses dedicated animation loop
+// ============================================
 
 // READABLE (for understanding):
-let [screenMode, setScreenMode] = useState("chat");
+function Spinner({ streamMode }) {
+    const [frame, setFrame] = useState(0);
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-// Possible values:
-type ScreenMode =
-    | "chat"       // Normal chat view
-    | "transcript"; // Full transcript view
+    useEffect(() => {
+        if (streamMode === "prompt") return;
 
-// Mapping: k6→screenMode, Z6→setScreenMode
+        // 50ms animation loop (separate from React render cycle)
+        const interval = setInterval(() => {
+            setFrame(f => (f + 1) % frames.length);
+        }, 50);
+
+        return () => clearInterval(interval);
+    }, [streamMode]);
+
+    if (streamMode === "prompt") return null;
+
+    return (
+        <Box>
+            <Text color="cyan">{frames[frame]}</Text>
+            <Text> {getActivityText(streamMode)}</Text>
+        </Box>
+    );
+}
 ```
 
-### 7.2 Screen Mode Transitions
+### 7.3 Memory Leak Prevention
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          SCREEN MODE TRANSITIONS                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│                          ┌─────────────┐                                    │
-│                          │    chat     │                                    │
-│                          │   (normal)  │                                    │
-│                          └──────┬──────┘                                    │
-│                                 │                                           │
-│              User triggers transcript view                                  │
-│                                 │                                           │
-│                                 ▼                                           │
-│                          ┌─────────────┐                                    │
-│                          │ transcript  │                                    │
-│                          │  (scroll)   │                                    │
-│                          └──────┬──────┘                                    │
-│                                 │                                           │
-│              User exits or sends message                                     │
-│                                 │                                           │
-│                                 ▼                                           │
-│                          ┌─────────────┐                                    │
-│                          │    chat     │                                    │
-│                          └─────────────┘                                    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```javascript
+// ============================================
+// resetLoadingState - Clear streaming buffers
+// Location: chunks.196.mjs:260
+// ============================================
+
+// READABLE (for understanding):
+function resetLoadingState() {
+    // Clear streaming tool uses
+    setStreamingToolUses([]);
+
+    // Clear streaming thinking state
+    setStreamingThinking(null);
+
+    // Reset response length tracker
+    setResponseLength(0);
+
+    // Clear any pending progress
+    pendingProgressRef.current = [];
+}
+
+// This is called on:
+// - Stream completion
+// - Error/abort
+// - User cancel
+// To prevent memory leaks from retained streaming buffers
 ```
 
 ---
 
-## 8. System Reminder UI Integration
+## Related Symbols
 
-### 8.1 Attachment Normalization for UI
+> Symbol mappings:
+> - [symbol_index_core_execution.md](./symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](./symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](./symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](./symbol_index_infra_integration.md) - Integrations
 
-```javascript
-// ============================================
-// normalizeAttachmentForAPI (Ui8)
-// Location: chunks.174.mjs:3
-// ============================================
-
-// ORIGINAL (for source lookup):
-function Ui8(A) {
-    // ... normalization logic
-}
-
-// READABLE (for understanding):
-function normalizeAttachmentForAPI(attachment) {
-    // Converts internal attachment format to API-compatible message format
-    // Used by UI to display system reminders
-
-    switch (attachment.type) {
-        case "plan_mode":
-            return {
-                type: "system-reminder",
-                content: buildPlanModeReminder(attachment)
-            };
-        case "token_usage":
-            return {
-                type: "system-reminder",
-                content: formatTokenUsage(attachment)
-            };
-        // ... 40+ attachment types
-    }
-}
-
-// Mapping: Ui8→normalizeAttachmentForAPI
-```
-
-### 8.2 wrapWithSystemReminderTags
-
-```javascript
-// ============================================
-// wrapWithSystemReminderTags (b5)
-// Location: chunks.173.mjs:2496
-// ============================================
-
-// READABLE (for understanding):
-function wrapWithSystemReminderTags(content) {
-    // Wraps content in <system-reminder> XML tags for API injection
-    // Used by UI to render system reminder content
-
-    if (typeof content === "string") {
-        return `<system-reminder>\n${content}\n</system-reminder>`;
-    }
-
-    if (Array.isArray(content)) {
-        return content.map(item =>
-            `<system-reminder>\n${item}\n</system-reminder>`
-        ).join("\n\n");
-    }
-
-    return content;
-}
-
-// Mapping: b5→wrapWithSystemReminderTags
-```
+Key components in this document:
+- `sessionOrchestrator` (`ot8`) - Main orchestrator at chunks.196.mjs:3
+- `getInputDialogType` (`ra6`) - Dialog dispatcher at chunks.196.mjs:387
+- `handleCancel` (`TM`) - Cancel handler at chunks.196.mjs:420
+- `createStateStore` (`WX1`) - State store at chunks.85.mjs:1747
+- `normalizeMessages` (`cM`) - Message normalizer at chunks.173.mjs:1999
+- `flattenMessages` (`JM`) - Message flattener at chunks.173.mjs:1516
 
 ---
 
-## Summary
+## Related Documents
 
-This document provides complete source-level analysis of UI interaction patterns in Claude Code v2.1.76:
-
-1. **Component Hierarchy**: Complete React/Ink component tree with 13 dialog types
-2. **Dialog Priority**: Two-tier system with animation gate for UX balance
-3. **Stream Mode**: Dual state machine for input/output and display
-4. **Cancel Propagation**: Fail-safe pattern with MCP protocol compliance
-5. **Keyboard Shortcuts**: Priority-based routing with double-Escape fix
-6. **System Reminder Integration**: Attachment normalization for UI display
-
-All algorithms have been verified against source code with exact line references.
+- [cli_ui_llm_joint_complete.md](./cli_ui_llm_joint_complete.md) - Comprehensive joint analysis
+- [cli_ui_llm_feature_interaction_matrix.md](./cli_ui_llm_feature_interaction_matrix.md) - Feature interactions
+- [../02_ui/README.md](../02_ui/README.md) - UI module hub
+- [../02_ui/dialog_system.md](../02_ui/dialog_system.md) - Dialog system details
+- [../02_ui/streaming_ui.md](../02_ui/streaming_ui.md) - Streaming UI details

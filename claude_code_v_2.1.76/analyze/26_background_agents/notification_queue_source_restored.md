@@ -456,8 +456,10 @@ function shouldShowProgress(task) {
 ### Turn Counting
 
 ```javascript
+// > **CORRECTION:** `TIY` is actually `countUniqueUris` (counts unique URIs for LSP). The function below describes an INLINE progress throttling mechanism, NOT the TIY function. See `key_algorithms_deep_dive.md` Algorithm 10.
+
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let count = 0;
 
     // Count backwards from most recent message

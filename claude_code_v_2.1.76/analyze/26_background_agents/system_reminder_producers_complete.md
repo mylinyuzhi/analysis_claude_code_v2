@@ -249,12 +249,13 @@ Progress attachments are throttled to prevent excessive noise:
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Backwards iteration
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling
 // Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;

@@ -125,9 +125,7 @@ function handlePlanModeTransition(fromMode, toMode) {
 
 | Document | Description |
 |----------|-------------|
-| [plan_mode_complete_source_restoration_v3.md](plan_mode_complete_source_restoration_v3.md) | **v3** - Complete source restoration with tool filtering |
 | [plan_mode_source_restoration_final.md](plan_mode_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
-| [plan_mode_complete_source_restoration_v2.md](plan_mode_complete_source_restoration_v2.md) | **v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [plan_mode_source_restoration.md](plan_mode_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
 | [plan_mode_state_machine_complete.md](plan_mode_state_machine_complete.md) | **NEW** - Complete state machine with swarm approval workflow |
 | [implementation.md](implementation.md) | Complete plan mode implementation |
@@ -152,7 +150,7 @@ function handlePlanModeTransition(fromMode, toMode) {
 
 | Document | Description |
 |----------|-------------|
-| [plan_mode_ui_complete_v2.md](plan_mode_ui_complete_v2.md) | **NEW** - Complete UI components, EnterPlanMode/ExitPlanMode tools |
+| [plan_mode_ui_complete.md](plan_mode_ui_complete.md) | Complete UI components, EnterPlanMode/ExitPlanMode tools |
 | [reminder_system.md](reminder_system.md) | Plan mode attachments and system reminder integration |
 | [compact_integration.md](compact_integration.md) | Plan preservation during compaction |
 | [hooks_integration.md](hooks_integration.md) | Hooks in plan mode |
@@ -164,8 +162,8 @@ function handlePlanModeTransition(fromMode, toMode) {
 | Document | Description |
 |----------|-------------|
 | [cross_module_integration_complete.md](cross_module_integration_complete.md) | **COMPLETE** - Full cross-module integration with source restoration |
-| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | Complete cross-module integration for all 4 modules |
-| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | UI components for Tools, MCP, Plan Mode, Task System |
+| [../00_overview/cross_module_integration_complete.md](../00_overview/cross_module_integration_complete.md) | Complete cross-module integration for all 4 modules |
+| [../00_overview/ui_interaction_final.md](../00_overview/ui_interaction_final.md) | UI components for Tools, MCP, Plan Mode, Task System |
 
 ---
 

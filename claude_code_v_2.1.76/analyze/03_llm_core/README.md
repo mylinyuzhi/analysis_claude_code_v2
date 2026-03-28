@@ -4,24 +4,21 @@
 >
 > **Symbol Validation Status**: ✅ COMPLETE - All symbols cross-validated against source code on 2026-03-26.
 > **Integration Status**: ✅ COMPLETE - Cross-module integration documented in [cli_ui_llm_integration.md](../00_overview/cli_ui_llm_integration.md), [cli_ui_llm_deep_integration.md](../00_overview/cli_ui_llm_deep_integration.md), and [cli_ui_llm_complete_joint_analysis.md](../00_overview/cli_ui_llm_complete_joint_analysis.md).
-> **Joint Analysis v2**: ✅ NEW - See [cli_ui_llm_joint_complete_v2.md](../00_overview/cli_ui_llm_joint_complete_v2.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete.md](../00_overview/cli_ui_llm_joint_complete.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 >
-> **NEW Joint Analysis Documents (2026-03-26)**:
-> - [cli_ui_llm_joint_complete_v8.md](../00_overview/cli_ui_llm_joint_complete_v8.md) - **LATEST v8**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
-> - [cli_ui_llm_joint_complete_v7.md](../00_overview/cli_ui_llm_joint_complete_v7.md) - v7: Complete joint analysis with source-level restoration, decision trees, and UI interaction patterns
-> - [cli_ui_llm_joint_complete_v5.md](../00_overview/cli_ui_llm_joint_complete_v5.md) - v5: Complete joint analysis with verified symbols, deep algorithms, and feature linkages
-> - [algorithms_deep_dive_complete_v2.md](./algorithms_deep_dive_complete_v2.md) - **NEW v2**: Complete algorithm deep dive with decision trees
-> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - **NEW**: Complete cross-feature linkage documentation
+> **Joint Analysis Documents**:
+> - [cli_ui_llm_joint_complete.md](../00_overview/cli_ui_llm_joint_complete.md) - **LATEST**: Complete joint analysis with source-level restoration, decision trees, UI interaction patterns, and verified symbols
+> - [algorithms_deep_dive_complete.md](./algorithms_deep_dive_complete.md) - Complete algorithm deep dive with decision trees
+> - [cross_feature_linkages_complete.md](../00_overview/cross_feature_linkages_complete.md) - Complete cross-feature linkage documentation
 > - [cli_ui_llm_joint_analysis_final.md](../00_overview/cli_ui_llm_joint_analysis_final.md) - Final comprehensive joint analysis with source-level restoration
-> - [cli_ui_llm_joint_complete_v3.md](../00_overview/cli_ui_llm_joint_complete_v3.md) - Comprehensive joint analysis v3 with source-level restoration
-> - [turn_management_complete.md](./turn_management_complete.md) - **NEW**: Complete turn management analysis
-> - [cli_ui_llm_ui_interaction_complete_v3.md](../00_overview/cli_ui_llm_ui_interaction_complete_v3.md) - Complete UI interaction analysis v3
+> - [turn_management_complete.md](./turn_management_complete.md) - Complete turn management analysis
+> - [cli_ui_llm_ui_interaction_complete.md](../00_overview/cli_ui_llm_ui_interaction_complete.md) - Complete UI interaction analysis
 > - [cli_ui_llm_algorithm_complete_restoration.md](../00_overview/cli_ui_llm_algorithm_complete_restoration.md) - Source-level algorithm restoration
 > - [cli_ui_llm_feature_interaction_matrix.md](../00_overview/cli_ui_llm_feature_interaction_matrix.md) - Cross-feature interactions
 >
 > **NEW Cross-Module Analysis Documents (2026-03-26)**:
 > - [cli_ui_llm_system_reminder_integration.md](../00_overview/cli_ui_llm_system_reminder_integration.md) - **NEW**: Complete System Reminder integration
-> - [cli_ui_llm_error_recovery_patterns_v2.md](../00_overview/cli_ui_llm_error_recovery_patterns_v2.md) - **NEW**: Cross-module error handling v2
+> - [cli_ui_llm_error_recovery_patterns.md](../00_overview/cli_ui_llm_error_recovery_patterns.md) - Cross-module error handling
 > - [cli_ui_llm_system_reminder_deep_integration.md](../00_overview/cli_ui_llm_system_reminder_deep_integration.md) - Complete attachment producer catalog
 
 ---

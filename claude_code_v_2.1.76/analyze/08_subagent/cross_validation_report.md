@@ -343,15 +343,15 @@ All 77 key symbols have been verified against source code with high confidence:
 | File | Description |
 |------|-------------|
 | `teammate_execution_complete.md` | Complete teammate execution source with DNY, XNY, mailbox functions |
-| `cross_feature_linkages_complete_v4.md` | All cross-feature integrations with 04, 05, 07, 17, 26, 30 |
-| `key_algorithms_deep_dive_v5.md` | Complete algorithms: Task ID, Tool Filtering, Abort, Mailbox, Output Buffer |
+| `cross_feature_linkages_complete.md` | All cross-feature integrations with 04, 05, 07, 17, 26, 30 |
+| `key_algorithms_deep_dive.md` | Complete algorithms: Task ID, Tool Filtering, Abort, Mailbox, Output Buffer |
 | `notification_system_complete.md` | Complete notification system with keyboard shortcuts and UI |
-| `system_reminder_integration_v6.md` | Complete attachment producer integration with source restoration |
+| `system_reminder_integration.md` | Complete attachment producer integration with source restoration |
 
 ### 26_background_agents
 
 | File | Description |
 |------|-------------|
-| `task_lifecycle_complete_v3.md` | Complete task lifecycle source with oV, RG, Qn4, Un4, state transitions |
-| `kill_mechanism_complete_v2.md` | Complete kill mechanism source with x66, U4q, d4q, handlers |
+| `task_lifecycle_complete_source.md` | Complete task lifecycle source with oV, RG, Qn4, Un4, state transitions |
+| `kill_mechanism_complete.md` | Complete kill mechanism source with x66, U4q, d4q, handlers |
 | `progress_tracking_complete.md` | Complete progress tracking source with nl4, TV1, TIY, suY |

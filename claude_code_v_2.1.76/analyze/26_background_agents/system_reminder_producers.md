@@ -235,16 +235,18 @@ Without throttling, every LLM turn would include progress for all running tasks,
 
 Progress attachments are only generated if **≥3 assistant turns** have passed since the last progress for that task.
 
-### countTurnsSinceLastProgress Algorithm
+### Progress Turn-Counting Algorithm
+
+> **CORRECTION:** `TIY` is `countUniqueUris` (counts unique URIs for LSP), NOT `countTurnsSinceLastProgress`. The progress throttling turn-counting logic below is an unnamed inline algorithm within `getUnifiedTasksAttachment` (vIY).
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Turn counting for throttle
-// Location: chunks.142.mjs (derived from implementation)
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;

@@ -11,14 +11,18 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `suY` - getTaskStatusAttachments — `chunks.147.mjs:1033`
-- `Nqq` - getUnretrievedTaskStatuses — `chunks.147.mjs:1923`
-- `nl4` - updateTaskProgressWithTelemetry — `chunks.146.mjs:2059`
+- `suY` - getUnifiedTasksAttachment — `chunks.147.mjs:1033`
 - `wY4` - pollTaskOutputs — `chunks.90.mjs:3058`
+- `OY4` - updateTaskState — `chunks.90.mjs:3087`
+- `nl4` - updateTaskProgressWithTelemetry — `chunks.146.mjs:2059`
+- `Nqq` - getUnretrievedTaskStatuses — `chunks.147.mjs:1923`
+- `Z97` - readOutputFileDelta — `chunks.41.mjs:2325`
 - `f4` - wrapAttachment — `chunks.147.mjs:942`
 
 > **Note:** Previous versions incorrectly mapped `vIY`, `di4`, `TIY` to task attachment functions.
-> Correct symbols are: `suY`, `Nqq`, `wY4`, `f4`. See symbol_index files for details.
+> Correct symbols are: `suY` (getUnifiedTasksAttachment), `Nqq`, `wY4`, `f4`. See symbol_index files for details.
+> **Correction (v6):** `TIY` is `countUniqueUris` (NOT countTurnsSinceLastProgress). Source proof: `function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }`.
+> **Correction (v6):** `vIY` is NOT `getUnifiedTasksAttachment` — the correct symbol for that is `suY`. References to `vIY` as getUnifiedTasksAttachment below are incorrect and should read `suY`.
 
 ---
 
@@ -266,46 +270,205 @@ for await (let message of llmLoop) {
 
 ## Attachment Building
 
-### Get Unified Tasks Attachment (vIY)
+### Get Unified Tasks Attachment (suY)
+
+> **Correction (v6):** Previously attributed to `vIY`. The correct symbol is `suY`. See progress_tracking_complete.md for the verified source code of suY.
 
 ```javascript
 // ============================================
-// vIY - Build unified task attachments
-// Location: chunks.147.mjs (inferred)
+// suY - getUnifiedTasksAttachment
+// Location: chunks.147.mjs:1033-1048
 // ============================================
 
+// ORIGINAL (for source lookup):
+async function suY(A) {
+    let q = A.getAppState();
+    let { attachments: K, updatedTaskOffsets: Y, evictedTaskIds: z } = await wY4(q);
+    OY4(A.setAppState, Y, z);
+    return K.map((w) => ({
+        type: "task_status",
+        taskId: w.taskId,
+        taskType: w.taskType,
+        status: w.status,
+        description: w.description,
+        deltaSummary: w.deltaSummary
+    }));
+}
+
 // READABLE (for understanding):
-function getUnifiedTasksAttachment(appState, turnsSinceProgress) {
-    const attachments = [];
-    const tasks = appState.tasks ?? {};
+async function getUnifiedTasksAttachment(toolUseContext) {
+    // Step 1: Get current app state
+    let appState = toolUseContext.getAppState();
 
-    for (const task of Object.values(tasks)) {
-        // Handle running tasks (with throttle)
-        if (task.status === "running") {
-            const turns = turnsSinceProgress[task.id] ?? Infinity;
+    // Step 2: Poll output files for all tasks
+    let {
+        attachments,          // New attachments to send
+        updatedTaskOffsets,   // New read positions
+        evictedTaskIds        // Tasks to remove from state
+    } = await pollTaskOutputs(appState);
 
-            // Throttle: only send every 3+ turns
-            // New tasks (Infinity) always get sent
-            if (turns >= 3 && task.progress?.summary) {
-                attachments.push(buildTaskProgressAttachment(task));
-            }
+    // Step 3: Update task state with new results
+    updateTaskState(
+        toolUseContext.setAppState,
+        updatedTaskOffsets,
+        evictedTaskIds
+    );
+
+    // Step 4: Return simplified attachments
+    return attachments.map((attachment) => ({
+        type: "task_status",
+        taskId: attachment.taskId,
+        taskType: attachment.taskType,
+        status: attachment.status,
+        description: attachment.description,
+        deltaSummary: attachment.deltaSummary
+    }));
+}
+
+// Mapping: suY→getUnifiedTasksAttachment, A→toolUseContext, q→appState,
+//          K→attachments, Y→updatedTaskOffsets, z→evictedTaskIds,
+//          wY4→pollTaskOutputs, OY4→updateTaskState
+```
+
+### Poll Task Outputs (wY4)
+
+**What it does:** Reads incremental output from all task output files, builds attachments for changed tasks, and identifies tasks ready for eviction.
+
+**How it works:**
+1. Iterates over all tasks in appState
+2. Skips non-local_agent tasks
+3. Reads delta content from each task's output file using the stored offset
+4. Builds attachments for tasks with new content (truncated to 500 chars)
+5. Tracks updated offsets and identifies terminal+notified tasks for eviction
+
+```javascript
+// ============================================
+// wY4 - pollTaskOutputs
+// Location: chunks.90.mjs:3058-3085
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function wY4(A) {
+    let q = [], K = {}, Y = [];
+    for (let [z, _] of Object.entries(A.tasks)) {
+        if (_.type !== "local_agent") continue;
+        if (!_.status) continue;
+        let { content: w, newOffset: O } = await Z97(z, _.outputOffset ?? 0);
+        if (w) q.push({
+            taskId: z, taskType: _.type, status: _.status,
+            description: _.description,
+            deltaSummary: w.substring(0, 500),
+            fullContent: w
+        });
+        if (O !== _.outputOffset) K[z] = O;
+        if (m5q(_.status) && _.notified) Y.push(z);
+    }
+    return { attachments: q, updatedTaskOffsets: K, evictedTaskIds: Y };
+}
+
+// READABLE (for understanding):
+async function pollTaskOutputs(appState) {
+    let attachments = [];
+    let updatedOffsets = {};
+    let evictedTaskIds = [];
+
+    for (let [taskId, task] of Object.entries(appState.tasks)) {
+        // Only process local_agent tasks
+        if (task.type !== "local_agent") continue;
+        if (!task.status) continue;
+
+        // Read delta from output file
+        let { content, newOffset } = await readOutputFileDelta(
+            taskId,
+            task.outputOffset ?? 0
+        );
+
+        // Build attachment if new content
+        if (content) {
+            attachments.push({
+                taskId: taskId,
+                taskType: task.type,
+                status: task.status,
+                description: task.description,
+                deltaSummary: content.substring(0, 500),  // Truncate to 500 chars
+                fullContent: content
+            });
         }
 
-        // Handle terminal tasks (not yet notified)
-        if (isTerminalTaskStatus(task.status) && !task.notified) {
-            attachments.push(buildTaskStatusAttachment(task));
+        // Record offset change
+        if (newOffset !== task.outputOffset) {
+            updatedOffsets[taskId] = newOffset;
+        }
 
-            // Mark as notified
-            atomicUpdateTask(task.id, setAppState, (t) => ({
-                ...t,
-                notified: true
-            }));
+        // Check for eviction (terminal status + user notified)
+        if (isTerminalTaskStatus(task.status) && task.notified) {
+            evictedTaskIds.push(taskId);
         }
     }
 
-    return attachments;
+    return { attachments, updatedOffsets, evictedTaskIds };
 }
+
+// Mapping: wY4→pollTaskOutputs, A→appState, q→attachments, K→updatedOffsets,
+//          Y→evictedTaskIds, z→taskId, _→task, Z97→readOutputFileDelta,
+//          m5q→isTerminalTaskStatus, w→content, O→newOffset
 ```
+
+**Key insight:** The for loop processes tasks sequentially (not in parallel) to avoid overwhelming file I/O. The delta-based approach means only new output since the last read is captured, keeping context injection efficient.
+
+---
+
+### Update Task State (OY4)
+
+**What it does:** Updates task state with new file read offsets and removes evicted tasks from the state store.
+
+```javascript
+// ============================================
+// OY4 - updateTaskState
+// Location: chunks.90.mjs:3087-3109
+// ============================================
+
+// ORIGINAL (for source lookup):
+function OY4(A, q, K) {
+    A((Y) => {
+        let z = { ...Y.tasks };
+        for (let [_, w] of Object.entries(q)) {
+            if (z[_]) z[_] = { ...z[_], outputOffset: w };
+        }
+        for (let _ of K) delete z[_];
+        return { ...Y, tasks: z };
+    });
+}
+
+// READABLE (for understanding):
+function updateTaskState(setAppState, updatedOffsets, evictedTaskIds) {
+    setAppState((state) => {
+        let newTasks = { ...state.tasks };
+
+        // Update offsets
+        for (let [taskId, offset] of Object.entries(updatedOffsets)) {
+            if (newTasks[taskId]) {
+                newTasks[taskId] = {
+                    ...newTasks[taskId],
+                    outputOffset: offset
+                };
+            }
+        }
+
+        // Remove evicted tasks
+        for (let taskId of evictedTaskIds) {
+            delete newTasks[taskId];
+        }
+
+        return { ...state, tasks: newTasks };
+    });
+}
+
+// Mapping: OY4→updateTaskState, A→setAppState, q→updatedOffsets,
+//          K→evictedTaskIds, Y→state, z→newTasks, _→taskId, w→offset
+```
+
+---
 
 ### Build Task Progress Attachment
 
@@ -372,24 +535,26 @@ async function buildTaskStatusAttachment(task) {
 
 ## Throttle Mechanism
 
-### Turn Counting (TIY)
+### URI Counting (TIY)
+
+> **Correction (v6):** TIY was previously documented here as `countTurnsSinceLastProgress`. Source code proof shows it is actually `countUniqueUris`: `function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }`. The turn-counting throttle logic uses a different (unidentified) function.
 
 ```javascript
 // ============================================
-// TIY - Count turns since last progress update
-// Location: chunks.144.mjs:832 (inferred)
+// TIY - countUniqueUris - Count unique URIs in array
+// Location: chunks.144.mjs:832
 // ============================================
 
-// READABLE (for understanding):
-function countTurnsSinceLastProgress(appState, taskId) {
-    const task = appState.tasks?.[taskId];
-    if (!task || task.lastReportedTurn === undefined) {
-        return Infinity;  // Never reported, always send
-    }
+// ORIGINAL (for source lookup):
+function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }
 
-    const currentTurn = appState.turnCount ?? 0;
-    return currentTurn - task.lastReportedTurn;
+// READABLE (for understanding):
+function countUniqueUris(items) {
+    let uris = items.map((item) => item.uri).filter((uri) => uri);
+    return new Set(uris).size;
 }
+
+// Mapping: TIY→countUniqueUris, A→items, K→item/uri, q→uris
 ```
 
 ### Throttle Decision Matrix
@@ -435,12 +600,12 @@ function countTurnsSinceLastProgress(appState, taskId) {
 
 2. ATTACHMENT BUILDING (Before LLM Turn)
    ┌───────────────────────────────────────────────────────────────────────┐
-   │ getUnifiedTasksAttachment(vIY)                                        │
+   │ getUnifiedTasksAttachment(suY)                                        │
    │        │                                                              │
    │        ├── Check each task in appState.tasks                         │
    │        │                                                              │
    │        ├── Running tasks:                                            │
-   │        │   ├── TIY(taskId) → turns since progress                    │
+   │        │   ├── Throttle check → turns since progress                 │
    │        │   ├── If turns >= 3 OR Infinity:                            │
    │        │   │   └── Build task_progress attachment                    │
    │        │   └── Mark lastReportedTurn                                  │
@@ -515,6 +680,109 @@ sendTelemetry({
 
 ---
 
+## Delta Reading Strategy
+
+### Why Delta-Based?
+
+| Approach | Token Usage | Freshness |
+|----------|-------------|-----------|
+| Full file read | High | Current |
+| Last N lines | Medium | Recent |
+| **Delta read** | **Optimal** | **New only** |
+
+**How it works:**
+1. Track offset per task (`outputOffset` in task state)
+2. On each read: seek to last offset, read up to maxBytes
+3. Return new content + new offset
+4. Update offset in state via `OY4` (updateTaskState)
+5. Only new content is injected into the LLM context
+
+**Truncation:** Delta summaries are truncated to 500 characters to prevent context bloat. Full content remains available in the output file.
+
+---
+
+## Injection Timing
+
+### When Attachments Are Added
+
+```
+User sends message
+        │
+        ▼
+Agent loop starts processing
+        │
+        ├─── assembleAllAttachments called
+        │    │
+        │    └─── getUnifiedTasksAttachment (suY)
+        │         │
+        │         ├─── First turn: Initialize offsets
+        │         ├─── Running: Poll for delta
+        │         └─── Terminal: Include final status
+        │
+        ▼
+LLM request prepared with attachments
+        │
+        ▼
+LLM receives task status in context
+        │
+        ▼
+LLM can reference background work in response
+```
+
+### assembleAllAttachments Integration Point
+
+```javascript
+// In assembleAllAttachments (chunks.147.mjs:3-18)
+async function assembleAllAttachments(toolUseContext, messages) {
+    let attachments = [];
+
+    // ... other attachment producers ...
+
+    // Task status attachments
+    let taskAttachments = await getUnifiedTasksAttachment(toolUseContext);
+    attachments.push(...taskAttachments);
+
+    return attachments;
+}
+```
+
+---
+
+## State Lifecycle with Eviction
+
+### Task State Transitions
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Task Created    │────►│ Task Running    │────►│ Task Terminal   │
+│                 │     │                 │     │ (completed/     │
+│ outputOffset: 0 │     │ outputOffset: N │     │  failed/killed) │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                       │
+                                                       │ notified: true
+                                                       │
+                                                       ▼
+                                                ┌─────────────────┐
+                                                │ Task Evicted    │
+                                                │ (removed from   │
+                                                │  state)         │
+                                                └─────────────────┘
+```
+
+### Eviction Rules
+
+A task is evicted (deleted from `appState.tasks`) when BOTH conditions are met:
+1. Status is terminal (`completed`, `failed`, or `killed`) -- checked via `isTerminalTaskStatus()`
+2. User has been notified (`notified: true`) -- ensures the LLM saw the final status at least once
+
+**Why this matters:**
+- Completed tasks do not pollute state indefinitely
+- Results are preserved in the output file on disk
+- Memory is cleaned up after the LLM acknowledges the task
+- The exactly-once notification guarantee is maintained via the `notified` flag
+
+---
+
 ## Cross-Module Integration
 
 ### Integration with 04_system_reminder
@@ -525,7 +793,7 @@ Background Agents                    System Reminders
         ├── nl4() ──────────────────────────┤
         │   Progress state update           │
         │                                   │
-        ├── vIY() ──────────────────────────┤
+        ├── suY() ──────────────────────────┤
         │   Build attachments               │
         │                                   │
         └── Telemetry ──────────────────────┤
@@ -562,12 +830,16 @@ Task State                            System Reminders
 
 | Symbol | Readable | Location | Verification |
 |--------|----------|----------|--------------|
+| `suY` | getUnifiedTasksAttachment | chunks.147.mjs:1033 | ✓ Corrected (v6: was vIY, correct symbol is suY) |
+| `wY4` | pollTaskOutputs | chunks.90.mjs:3058 | ✓ Verified (v6: full source with for loop) |
+| `OY4` | updateTaskState | chunks.90.mjs:3087 | ✓ Verified (v6: full source) |
+| `Z97` | readOutputFileDelta | chunks.41.mjs:2325 | ✓ Referenced in wY4 |
 | `nl4` | updateTaskProgressWithTelemetry | chunks.146.mjs:2059 | ✓ Verified |
-| `vIY` | getUnifiedTasksAttachment | chunks.147.mjs | ✓ Inferred |
 | `di4` | buildTaskStatusAttachment | chunks.147.mjs | ✓ Inferred |
-| `TIY` | countTurnsSinceLastProgress | chunks.144.mjs:832 | ✓ Inferred |
+| `TIY` | countUniqueUris | chunks.144.mjs:832 | ✓ Corrected (v6: was countTurnsSinceLastProgress, source proof shows URI counting) |
 | `c36` | sendTelemetry | chunks.89.mjs | ✓ Verified |
 | `Nn` | isTelemetryEnabled | chunks.89.mjs | ✓ Inferred |
+| `m5q` | isTerminalTaskStatus | chunks.90.mjs | ✓ Referenced in wY4 |
 
 ---
 

@@ -1,19 +1,27 @@
-# MCP Module - Complete Source Restoration (Claude Code 2.1.76)
+# MCP Module - Complete Source Restoration v3
 
-> **Complete source-level restoration** of the Model Context Protocol integration with cross-validated symbols and detailed algorithm analysis.
+> **Version**: Claude Code v2.1.76
+> **Last Updated**: 2026-03-27
+> **Status**: ✅ Full source-level restoration with grep-verified symbols
+
+---
+
+## Overview
+
+This document provides complete source-level restoration of all key functions in the MCP (Model Context Protocol) module. MCP enables Claude Code to connect to external servers and discover their tools dynamically.
 
 ---
 
 ## Related Symbols
 
-> Symbol mappings: [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra (MCP Protocol section)
+> Symbol mappings:
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra (MCP Protocol section)
 
 Key functions documented here:
 - `fetchMcpTools` (JE) - Tool discovery - chunks.170.mjs:533
-- `callMcpTool` (pC) - Tool execution - chunks.169.mjs:1910
-- `executeMcpToolCall` (F3z) - Low-level execution - chunks.170.mjs:607
-- `getMcpClientConnection` (yT6) - Connection management - chunks.169.mjs:1886
-- `connectAllMcpServers` (ZL1) - Batch connection - chunks.169.mjs:1966
+- `fetchMcpResources` (Rl) - Resource discovery - chunks.170.mjs:679
+- `fetchMcpPrompts` (K_6) - Prompt discovery - chunks.170.mjs:694
+- `buildMcpToolName` ($58) - Name prefixing - chunks.170.mjs
 
 ---
 
@@ -21,36 +29,34 @@ Key functions documented here:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         MCP SYSTEM ARCHITECTURE                       │
+│                         MCP SYSTEM ARCHITECTURE                      │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                       │
 │  ① Server Connections                                                │
 │     ├─ StdioClientTransport - stdin/stdout communication            │
 │     ├─ SSEClientTransport - HTTP SSE streaming                      │
-│     ├─ StreamableHTTPClientTransport - HTTP with streaming          │
-│     └─ SDK type - Direct SDK integration                            │
+│     └─ StreamableHTTPClientTransport - HTTP with streaming          │
 │                                                                       │
-│  ② Tool Discovery (JE = fetchMcpTools)                              │
-│     ├─ tools/list → Discover tools                                  │
+│  ② Tool Discovery (fetchMcpTools - JE)                              │
+│     ├─ tools/list → JSON-RPC request                                │
 │     ├─ Tool name prefixing: mcp__<server>__<tool>                   │
-│     ├─ Annotation extraction (readOnly, destructive, openWorld)     │
+│     ├─ Annotation mapping (readOnly, destructive, openWorld)        │
 │     └─ Deferred loading for context efficiency                       │
 │                                                                       │
 │  ③ Tool Execution                                                    │
-│     ├─ pC (callMcpTool) - Simplified interface                       │
-│     ├─ F3z (executeMcpToolCall) - Full execution                     │
-│     ├─ Retry logic for session recovery                             │
-│     └─ Elicitation handling                                          │
+│     ├─ tools/call → callMcpTool (pC)                                │
+│     ├─ Session recovery retry (McpSessionLostError)                 │
+│     └─ Progress tracking via mcp_progress events                     │
 │                                                                       │
-│  ④ Elicitation System                                                │
+│  ④ Resources & Prompts                                               │
+│     ├─ resources/list → fetchMcpResources (Rl)                      │
+│     ├─ resources/read → Resource content fetching                   │
+│     └─ prompts/list → fetchMcpPrompts (K_6)                         │
+│                                                                       │
+│  ⑤ Elicitation (Server → User Input)                               │
 │     ├─ Form mode - Structured UI dialog                             │
 │     ├─ URL mode - OAuth/external flow                               │
 │     └─ Queue-based processing                                        │
-│                                                                       │
-│  ⑤ Resources & Prompts                                               │
-│     ├─ resources/list → Resource discovery                          │
-│     ├─ resources/read → Resource content                            │
-│     └─ prompts/list → Slash command-like prompts                    │
 │                                                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -61,28 +67,28 @@ Key functions documented here:
 
 ### What it does
 
-Discovers all tools available from an MCP server via the `tools/list` JSON-RPC method, transforms them into tool objects with proper name prefixing and annotation mapping.
+Discovers available tools from a connected MCP server via the `tools/list` JSON-RPC method. Creates tool objects with proper name prefixing, annotation mapping, and retry logic for session recovery.
 
 ### How it works
 
-1. Check if server is connected and has tools capability
-2. Send `tools/list` request
-3. For each tool:
-   - Build prefixed name: `mcp__serverName__toolName`
-   - Extract annotations to determine tool behavior
-   - Create tool object with `call()` method
-4. Filter out IDE-specific tools (if not allowed)
-5. Return array of tool objects
+1. Check if server is connected and supports tools capability
+2. Send `tools/list` JSON-RPC request
+3. Build prefixed tool names: `mcp__serverName__toolName`
+4. Map MCP annotations to Claude Code tool interface methods
+5. Create tool objects with `call()` method including retry logic
+6. Filter by visibility (exclude IDE tools from user list)
+7. Memoize results by server name
 
 ### Why this approach
 
-- **Memoization** (ZP) caches discovery results per server
-- **Annotation mapping** provides semantic information about tool behavior
-- **Retry logic** in `call()` handles session recovery automatically
+- **Memoization** caches tool discovery results
+- **Prefixing** avoids name collisions between servers
+- **Annotation mapping** enables permission decisions without tool knowledge
+- **Retry logic** handles session recovery transparently
 
 ### Key insight
 
-The tool name prefixing (`mcp__serverName__toolName`) ensures tools from different servers don't collide, while the `CLAUDE_AGENT_SDK_MCP_NO_PREFIX` environment variable allows SDK mode to use raw names.
+The `mcp__` prefix creates a namespace that prevents tool name collisions while allowing intuitive invocation. SDK mode can disable prefixing for simpler tool names when desired.
 
 ```javascript
 // ============================================
@@ -138,7 +144,10 @@ JE = ZP(async (A) => {
                         message: "MCPTool requires permission.",
                         suggestions: [{
                             type: "addRules",
-                            rules: [{ toolName: _, ruleContent: void 0 }],
+                            rules: [{
+                                toolName: _,
+                                ruleContent: void 0
+                            }],
                             behavior: "allow",
                             destination: "localSettings"
                         }]
@@ -146,14 +155,20 @@ JE = ZP(async (A) => {
                 },
                 async call(w, O, $, H, j) {
                     let J = p3z(H),
-                        M = J ? { "claudecode/toolUseId": J } : {};
+                        M = J ? {
+                            "claudecode/toolUseId": J
+                        } : {};
                     if (j && J) j({
                         toolUseID: J,
-                        data: { type: "mcp_progress", status: "started",
-                                serverName: A.name, toolName: z.name }
+                        data: {
+                            type: "mcp_progress",
+                            status: "started",
+                            serverName: A.name,
+                            toolName: z.name
+                        }
                     });
                     let D = Date.now(),
-                        X = 1;  // Max retries
+                        X = 1;
                     for (let P = 0;; P++) try {
                         let W = await yT6(A),
                             Z = await F3z({
@@ -165,22 +180,33 @@ JE = ZP(async (A) => {
                                 signal: O.abortController.signal,
                                 setAppState: O.setAppState,
                                 onProgress: j && J ? (G) => {
-                                    j({ toolUseID: J, data: G });
+                                    j({
+                                        toolUseID: J,
+                                        data: G
+                                    })
                                 } : void 0,
                                 handleElicitation: O.handleElicitation
                             });
                         if (j && J) j({
                             toolUseID: J,
-                            data: { type: "mcp_progress", status: "completed",
-                                    serverName: A.name, toolName: z.name,
-                                    elapsedTimeMs: Date.now() - D }
+                            data: {
+                                type: "mcp_progress",
+                                status: "completed",
+                                serverName: A.name,
+                                toolName: z.name,
+                                elapsedTimeMs: Date.now() - D
+                            }
                         });
                         return {
                             data: Z.content,
                             ...Z._meta || Z.structuredContent ? {
                                 mcpMeta: {
-                                    ...Z._meta && { _meta: Z._meta },
-                                    ...Z.structuredContent && { structuredContent: Z.structuredContent }
+                                    ...Z._meta && {
+                                        _meta: Z._meta
+                                    },
+                                    ...Z.structuredContent && {
+                                        structuredContent: Z.structuredContent
+                                    }
                                 }
                             } : {}
                         }
@@ -191,9 +217,13 @@ JE = ZP(async (A) => {
                         }
                         if (j && J) j({
                             toolUseID: J,
-                            data: { type: "mcp_progress", status: "failed",
-                                    serverName: A.name, toolName: z.name,
-                                    elapsedTimeMs: Date.now() - D }
+                            data: {
+                                type: "mcp_progress",
+                                status: "failed",
+                                serverName: A.name,
+                                toolName: z.name,
+                                elapsedTimeMs: Date.now() - D
+                            }
                         });
                         if (W instanceof Error && !(W instanceof EV)) {
                             let Z = W.constructor.name;
@@ -231,40 +261,64 @@ const fetchMcpTools = memoize(async (clientConnection) => {
             toolsListResultSchema
         );
 
+        // Ensure tools is an array
         const tools = ensureArray(response.tools);
 
         // Check if prefix should be disabled (SDK mode)
         const noPrefix = clientConnection.config.type === "sdk" &&
             isTruthy(process.env.CLAUDE_AGENT_SDK_MCP_NO_PREFIX);
 
+        // Transform each tool into Claude Code tool object
         return tools.map((tool) => {
             // Build prefixed name: mcp__serverName__toolName
             const prefixedName = buildMcpToolName(clientConnection.name, tool.name);
 
             return {
+                // Base tool properties
                 ...baseToolProperties,
+
+                // Name (prefixed or raw)
                 name: noPrefix ? tool.name : prefixedName,
 
+                // MCP metadata
                 mcpInfo: {
                     serverName: clientConnection.name,
                     toolName: tool.name
                 },
+
+                // Mark as MCP tool
                 isMcp: true,
 
-                // === Tool Description ===
-                async description() { return tool.description ?? ""; },
-                async prompt() { return tool.description ?? ""; },
+                // Lazy description loading
+                async description() {
+                    return tool.description ?? "";
+                },
 
-                // === Annotation-Based Methods ===
-                // These map MCP tool annotations to tool interface methods
-                isConcurrencySafe() { return tool.annotations?.readOnlyHint ?? false; },
-                isReadOnly() { return tool.annotations?.readOnlyHint ?? false; },
-                isDestructive() { return tool.annotations?.destructiveHint ?? false; },
-                isOpenWorld() { return tool.annotations?.openWorldHint ?? false; },
+                async prompt() {
+                    return tool.description ?? "";
+                },
 
+                // Annotation mapping to tool methods
+                isConcurrencySafe() {
+                    return tool.annotations?.readOnlyHint ?? false;
+                },
+
+                isReadOnly() {
+                    return tool.annotations?.readOnlyHint ?? false;
+                },
+
+                isDestructive() {
+                    return tool.annotations?.destructiveHint ?? false;
+                },
+
+                isOpenWorld() {
+                    return tool.annotations?.openWorldHint ?? false;
+                },
+
+                // Input schema
                 inputJSONSchema: tool.inputSchema,
 
-                // === Permission Check ===
+                // Permission handling
                 async checkPermissions() {
                     return {
                         behavior: "passthrough",
@@ -278,9 +332,9 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                     };
                 },
 
-                // === Tool Call with Retry ===
-                async call(input, sessionContext, ...args) {
-                    const toolUseId = extractToolUseId(args);
+                // Tool execution with retry logic
+                async call(input, sessionContext, toolCallId, toolUseContext, progressCallback) {
+                    const toolUseId = extractToolUseId(toolUseContext);
                     const meta = toolUseId ? { "claudecode/toolUseId": toolUseId } : {};
 
                     // Emit progress start
@@ -302,7 +356,7 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                     // Retry loop for session recovery
                     for (let attempt = 0; ; attempt++) {
                         try {
-                            // Get (or reconnect) client
+                            // Get/reconnect client
                             const client = await getMcpClientConnection(clientConnection);
 
                             // Execute tool
@@ -314,9 +368,12 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                                 meta,
                                 signal: sessionContext.abortController.signal,
                                 setAppState: sessionContext.setAppState,
-                                onProgress: progressCallback && toolUseId
-                                    ? (data) => progressCallback({ toolUseID: toolUseId, data })
-                                    : undefined,
+                                onProgress: progressCallback && toolUseId ? (progress) => {
+                                    progressCallback({
+                                        toolUseID: toolUseId,
+                                        data: progress
+                                    });
+                                } : undefined,
                                 handleElicitation: sessionContext.handleElicitation
                             });
 
@@ -334,6 +391,7 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                                 });
                             }
 
+                            // Return result with optional metadata
                             return {
                                 data: result.content,
                                 ...(result._meta || result.structuredContent ? {
@@ -368,7 +426,7 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                                 });
                             }
 
-                            // Wrap generic errors
+                            // Wrap generic errors in McpToolExecutionError
                             if (error instanceof Error && !(error instanceof McpToolExecutionError)) {
                                 const errorType = error.constructor.name;
                                 if (errorType === "Error") {
@@ -377,23 +435,28 @@ const fetchMcpTools = memoize(async (clientConnection) => {
                                         error.message.slice(0, 200)
                                     );
                                 }
-                                if (errorType === "McpError" && "code" in error) {
+                                if (errorType === "McpError" && "code" in error &&
+                                    typeof error.code === "number") {
                                     throw new McpToolExecutionError(
                                         error.message,
                                         `McpError ${error.code}`
                                     );
                                 }
                             }
-
                             throw error;
                         }
                     }
                 },
 
+                // User-facing name
                 userFacingName() {
                     const title = tool.annotations?.title || tool.name;
                     return `${clientConnection.name} - ${title} (MCP)`;
-                }
+                },
+
+                // Chrome extension overrides if applicable
+                ...(isClaudeInChromeServer(clientConnection.name) ?
+                    getClaudeInChromeMCPToolOverrides(tool.name) : {})
             };
         }).filter(filterToolByVisibility);  // Filter IDE tools
 
@@ -403,16 +466,218 @@ const fetchMcpTools = memoize(async (clientConnection) => {
     }
 }, (conn) => conn.name, MEMO_CACHE_KEY);
 
-// Mapping: JE→fetchMcpTools, ZP→memoize, A→clientConnection, $58→buildMcpToolName,
-//          yT6→getMcpClientConnection, F3z→executeMcpToolCall, qn8→McpSessionLostError,
-//          EV→McpToolExecutionError, Ws→ensureArray, x3z→filterToolByVisibility
+// Mapping: JE→fetchMcpTools, A→clientConnection, ZP→memoize, $58→buildMcpToolName,
+//          Ws→ensureArray, t6→isTruthy, yT6→getMcpClientConnection, F3z→executeMcpToolCall,
+//          qn8→McpSessionLostError, EV→McpToolExecutionError, x3z→filterToolByVisibility,
+//          n1→logInfo, EY→logError, _1→formatError
 ```
 
 ---
 
-## 2. Tool Annotation Mapping
+## 2. fetchMcpResources (Rl) - Resource Discovery
 
-### MCP Annotation to Tool Method Mapping
+### What it does
+
+Discovers available resources from a connected MCP server via `resources/list`. Resources represent server-provided data like files, database records, or other content.
+
+```javascript
+// ============================================
+// fetchMcpResources - Discover MCP resources via resources/list
+// Location: chunks.170.mjs:679-693
+// ============================================
+
+// ORIGINAL (for source lookup):
+Rl = ZP(async (A) => {
+    if (A.type !== "connected") return [];
+    try {
+        if (!A.capabilities?.resources) return [];
+        let q = await A.client.request({
+            method: "resources/list"
+        }, Ky6);
+        if (!q.resources) return [];
+        return q.resources.map((K) => ({
+            ...K,
+            server: A.name
+        }))
+    } catch (q) {
+        return EY(A.name, `Failed to fetch resources: ${_1(q)}`), []
+    }
+}, (A) => A.name, zn8)
+
+// READABLE (for understanding):
+const fetchMcpResources = memoize(async (clientConnection) => {
+    // Only process connected servers
+    if (clientConnection.type !== "connected") return [];
+
+    try {
+        // Check if server supports resources capability
+        if (!clientConnection.capabilities?.resources) return [];
+
+        // Request resources list
+        const response = await clientConnection.client.request(
+            { method: "resources/list" },
+            resourcesListResultSchema
+        );
+
+        if (!response.resources) return [];
+
+        // Add server name to each resource
+        return response.resources.map((resource) => ({
+            ...resource,
+            server: clientConnection.name
+        }));
+
+    } catch (error) {
+        logError(clientConnection.name, `Failed to fetch resources: ${formatError(error)}`);
+        return [];
+    }
+}, (conn) => conn.name, MEMO_CACHE_KEY);
+
+// Mapping: Rl→fetchMcpResources, A→clientConnection, ZP→memoize, Ky6→resourcesListResultSchema,
+//          EY→logError, _1→formatError
+```
+
+---
+
+## 3. fetchMcpPrompts (K_6) - Prompt Discovery
+
+### What it does
+
+Discovers available prompts from a connected MCP server via `prompts/list`. Prompts are server-provided templates that can be invoked like slash commands.
+
+```javascript
+// ============================================
+// fetchMcpPrompts - Discover MCP prompts via prompts/list
+// Location: chunks.170.mjs:694-737
+// ============================================
+
+// ORIGINAL (for source lookup):
+K_6 = ZP(async (A) => {
+    if (A.type !== "connected") return [];
+    try {
+        if (!A.capabilities?.prompts) return [];
+        let q = await A.client.request({
+            method: "prompts/list"
+        }, _y6);
+        if (!q.prompts) return [];
+        return Ws(q.prompts).map((Y) => {
+            let z = Object.values(Y.arguments ?? {}).map((_) => _.name);
+            return {
+                type: "prompt",
+                name: "mcp__" + lO(A.name) + "__" + Y.name,
+                description: Y.description ?? "",
+                hasUserSpecifiedDescription: !!Y.description,
+                contentLength: 0,
+                isEnabled: () => !0,
+                isHidden: !1,
+                isMcp: !0,
+                progressMessage: "running",
+                userFacingName() {
+                    return `${A.name}:${Y.name} (MCP)`
+                },
+                argNames: z,
+                source: "mcp",
+                async getPromptForCommand(_) {
+                    let w = _.split(" ");
+                    try {
+                        let O = await yT6(A),
+                            $ = await O.client.getPrompt({
+                                name: Y.name,
+                                arguments: XT7(z, w)
+                            });
+                        return (await Promise.all($.messages.map((j) => XGq(j.content, O.name)))).flat()
+                    } catch (O) {
+                        throw EY(A.name, `Error running command '${Y.name}': ${_1(O)}`), O
+                    }
+                }
+            }
+        })
+    } catch (q) {
+        return EY(A.name, `Failed to fetch commands: ${_1(q)}`), []
+    }
+}, (A) => A.name, zn8)
+
+// READABLE (for understanding):
+const fetchMcpPrompts = memoize(async (clientConnection) => {
+    // Only process connected servers
+    if (clientConnection.type !== "connected") return [];
+
+    try {
+        // Check if server supports prompts capability
+        if (!clientConnection.capabilities?.prompts) return [];
+
+        // Request prompts list
+        const response = await clientConnection.client.request(
+            { method: "prompts/list" },
+            promptsListResultSchema
+        );
+
+        if (!response.prompts) return [];
+
+        return ensureArray(response.prompts).map((prompt) => {
+            // Extract argument names
+            const argNames = Object.values(prompt.arguments ?? {}).map((arg) => arg.name);
+
+            return {
+                type: "prompt",
+                // Prefixed name for slash command
+                name: "mcp__" + sanitizeName(clientConnection.name) + "__" + prompt.name,
+                description: prompt.description ?? "",
+                hasUserSpecifiedDescription: !!prompt.description,
+                contentLength: 0,
+                isEnabled: () => true,
+                isHidden: false,
+                isMcp: true,
+                progressMessage: "running",
+
+                userFacingName() {
+                    return `${clientConnection.name}:${prompt.name} (MCP)`;
+                },
+
+                argNames,
+                source: "mcp",
+
+                // Get prompt content when invoked
+                async getPromptForCommand(argsString) {
+                    const args = argsString.split(" ");
+                    try {
+                        const client = await getMcpClientConnection(clientConnection);
+                        const result = await client.client.getPrompt({
+                            name: prompt.name,
+                            arguments: mapArgsToNames(argNames, args)
+                        });
+
+                        // Convert MCP messages to Claude format
+                        return (await Promise.all(
+                            result.messages.map((msg) =>
+                                convertMcpContent(msg.content, client.name)
+                            )
+                        )).flat();
+                    } catch (error) {
+                        logError(clientConnection.name,
+                            `Error running command '${prompt.name}': ${formatError(error)}`);
+                        throw error;
+                    }
+                }
+            };
+        });
+
+    } catch (error) {
+        logError(clientConnection.name, `Failed to fetch commands: ${formatError(error)}`);
+        return [];
+    }
+}, (conn) => conn.name, MEMO_CACHE_KEY);
+
+// Mapping: K_6→fetchMcpPrompts, A→clientConnection, ZP→memoize, Ws→ensureArray,
+//          lO→sanitizeName, yT6→getMcpClientConnection, XT7→mapArgsToNames,
+//          XGq→convertMcpContent, EY→logError, _1→formatError
+```
+
+---
+
+## 4. Annotation Mapping
+
+MCP tool annotations are mapped to Claude Code tool interface methods:
 
 | MCP Annotation | Tool Method | Purpose |
 |----------------|-------------|---------|
@@ -422,384 +687,82 @@ const fetchMcpTools = memoize(async (clientConnection) => {
 | `openWorldHint` | `isOpenWorld()` | Interacts with external systems |
 | `title` | `userFacingName()` | Display name for UI |
 
-### Annotation Extraction Algorithm
+### Annotation Extraction
 
 ```javascript
-// The annotations are extracted directly from the tool definition:
+// ============================================
+// Annotation mapping in fetchMcpTools
+// ============================================
 
-// ORIGINAL (from tool object creation):
-isConcurrencySafe() { return z.annotations?.readOnlyHint ?? !1 },
-isReadOnly() { return z.annotations?.readOnlyHint ?? !1 },
-isDestructive() { return z.annotations?.destructiveHint ?? !1 },
-isOpenWorld() { return z.annotations?.openWorldHint ?? !1 },
+// Original annotation structure from MCP server:
+const mcpTool = {
+    name: "query",
+    description: "Execute SQL query",
+    inputSchema: { type: "object", properties: { sql: { type: "string" } } },
+    annotations: {
+        title: "SQL Query",
+        readOnlyHint: false,
+        destructiveHint: true,
+        openWorldHint: false
+    }
+};
 
-// READABLE:
-isConcurrencySafe() { return tool.annotations?.readOnlyHint ?? false; },
-isReadOnly() { return tool.annotations?.readOnlyHint ?? false; },
-isDestructive() { return tool.annotations?.destructiveHint ?? false; },
-isOpenWorld() { return tool.annotations?.openWorldHint ?? false; }
+// Mapped to Claude Code tool:
+const claudeTool = {
+    name: "mcp__sqlite__query",
+    isReadOnly() { return mcpTool.annotations?.readOnlyHint ?? false; },
+    isDestructive() { return mcpTool.annotations?.destructiveHint ?? false; },
+    isOpenWorld() { return mcpTool.annotations?.openWorldHint ?? false; },
+    isConcurrencySafe() { return mcpTool.annotations?.readOnlyHint ?? false; },
+    userFacingName() {
+        const title = mcpTool.annotations?.title || mcpTool.name;
+        return `sqlite - ${title} (MCP)`;
+    }
+};
 ```
 
 ---
 
-## 3. callMcpTool (pC) - Simplified Tool Execution
+## 5. Tool Execution with Retry Logic
 
-### What it does
+### Session Recovery Flow
 
-Provides a simplified interface for executing MCP tools, used internally by the IDE integration and other components.
+```
+Tool call initiated
+    │
+    ├─→ Attempt 1
+    │     ├─→ getMcpClientConnection (yT6)
+    │     ├─→ executeMcpToolCall (F3z)
+    │     └─→ If McpSessionLostError:
+    │           └─→ Log retry, continue to attempt 2
+    │
+    ├─→ Attempt 2 (retry)
+    │     ├─→ Reconnect client
+    │     ├─→ Execute tool
+    │     └─→ Success or final error
+    │
+    └─→ Error handling
+          ├─→ McpSessionLostError (max retries) → Re-throw
+          ├─→ McpError → Wrap in McpToolExecutionError
+          └─→ Generic Error → Wrap in McpToolExecutionError
+```
 
-### How it works
+### Progress Tracking
 
-1. Get abort signal from global controller
-2. Call executeMcpToolRequest with all parameters
-3. Return just the content (not the full result object)
+MCP tools emit progress events during execution:
 
 ```javascript
-// ============================================
-// callMcpTool - Simplified MCP tool execution
-// Location: chunks.169.mjs:1910-1917
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function pC(A, q, K) {
-    return (await PGq({
-        client: K,
-        tool: A,
-        args: q,
-        signal: sK().signal
-    })).content
-}
-
-// READABLE (for understanding):
-async function callMcpTool(toolName, args, clientConnection) {
-    const result = await executeMcpToolRequest({
-        client: clientConnection,
-        tool: toolName,
-        args: args,
-        signal: getAbortController().signal
-    });
-    return result.content;
-}
-
-// Mapping: pC→callMcpTool, A→toolName, q→args, K→clientConnection,
-//          PGq→executeMcpToolRequest, sK→getAbortController
-```
-
----
-
-## 4. getMcpClientConnection (yT6) - Connection Management
-
-### What it does
-
-Gets a valid MCP client connection, reconnecting if necessary. Handles the special case of SDK-type connections that don't require reconnection.
-
-### How it works
-
-1. Check if connection is SDK type (no reconnection needed)
-2. Attempt to reconnect via connectMcpServer
-3. Verify connection is successful
-4. Throw McpToolExecutionError if not connected
-
-### Why this approach
-
-- **SDK bypass** avoids unnecessary reconnection for embedded SDK servers
-- **Lazy reconnection** only reconnects when needed
-- **Error wrapping** provides consistent error messages
-
-```javascript
-// ============================================
-// getMcpClientConnection - Get or reconnect MCP client
-// Location: chunks.169.mjs:1886-1891
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function yT6(A) {
-    if (A.config.type === "sdk") return A;
-    let q = await zh(A.name, A.config);
-    if (q.type !== "connected")
-        throw new EV(`MCP server "${A.name}" is not connected`, "MCP server not connected");
-    return q
-}
-
-// READABLE (for understanding):
-async function getMcpClientConnection(clientConnection) {
-    // SDK connections don't need reconnection
-    // They're always "connected" via the SDK runtime
-    if (clientConnection.config.type === "sdk") {
-        return clientConnection;
+// Progress event structure
+{
+    toolUseID: "toolu_abc123",
+    data: {
+        type: "mcp_progress",
+        status: "started" | "completed" | "failed",
+        serverName: "sqlite",
+        toolName: "query",
+        elapsedTimeMs: 1234  // only for completed/failed
     }
-
-    // Attempt to connect/reconnect
-    const reconnected = await connectMcpServer(
-        clientConnection.name,
-        clientConnection.config
-    );
-
-    // Verify connection success
-    if (reconnected.type !== "connected") {
-        throw new McpToolExecutionError(
-            `MCP server "${clientConnection.name}" is not connected`,
-            "MCP server not connected"
-        );
-    }
-
-    return reconnected;
 }
-
-// Mapping: yT6→getMcpClientConnection, A→clientConnection, zh→connectMcpServer,
-//          EV→McpToolExecutionError
-```
-
----
-
-## 5. connectAllMcpServers (ZL1) - Batch Connection
-
-### What it does
-
-Connects to all configured MCP servers in parallel with batching for different transport types.
-
-### How it works
-
-1. Get all server configurations
-2. Filter out disabled servers
-3. Calculate transport type counts (stdio, sse, http)
-4. Split into local (stdio/sdk) and remote (sse/http) batches
-5. Connect each batch with appropriate concurrency limits
-6. For each server:
-   - Skip if cached "needs-auth"
-   - Connect and discover tools/resources/prompts
-   - Add built-in tools for resource support
-7. Report results via callback
-
-### Batching Strategy
-
-```
-Local servers (stdio, sdk):  Batch size = 3  (Yn8)
-Remote servers (sse, http):  Batch size = 20 (I3z)
-
-Why different limits?
-- stdio processes are resource-intensive
-- HTTP connections are lightweight
-```
-
-```javascript
-// ============================================
-// connectAllMcpServers - Batch server connection
-// Location: chunks.169.mjs:1966-2059
-// ============================================
-
-// ORIGINAL (for source lookup):
-async function ZL1(A, q) {
-    let K = !1, Y = !1, z = !1,
-        _ = Object.entries(q ?? (await Je()).servers),
-        w = [];
-
-    // Filter disabled servers
-    for (let Z of _)
-        if (iv(Z[0])) A({
-            client: { name: Z[0], type: "disabled", config: Z[1] },
-            tools: [], commands: []
-        });
-        else w.push(Z);
-
-    // Calculate transport counts
-    let O = w.length,
-        $ = w.filter(([Z, G]) => G.type === "stdio").length,
-        H = w.filter(([Z, G]) => G.type === "sse").length,
-        // ... more counts
-        D = w.filter(([Z, G]) => OGq(G)),  // Local (stdio/sdk)
-        X = w.filter(([Z, G]) => !OGq(G)), // Remote (sse/http)
-        P = { totalServers: O, stdioCount: $, sseCount: H, httpCount: j, ... };
-
-    // Connection worker
-    W = async ([Z, G]) => {
-        try {
-            // Skip if disabled
-            if (iv(Z)) { /* report disabled */ return; }
-
-            // Check cached needs-auth
-            if ((G.type === "claudeai-proxy" || G.type === "http" || G.type === "sse")
-                && await R3z(Z)) {
-                A({ client: { name: Z, type: "needs-auth", config: G }, tools: [], commands: [] });
-                return;
-            }
-
-            // Connect
-            let f = await zh(Z, G, P);
-            if (f.type !== "connected") {
-                A({ client: f, tools: [], commands: [] });
-                return;
-            }
-
-            // Discover tools, prompts, resources in parallel
-            let v = !!f.capabilities?.resources,
-                [N, V, L] = await Promise.all([JE(f), K_6(f), v ? Rl(f) : Promise.resolve([])]);
-
-            // Add built-in tools for resources
-            let h = [];
-            if (v && !K) K = !0, h.push(Ll, hl);  // ReadResource, ListResources tools
-            // ...
-
-            // Report result
-            A({
-                client: f,
-                tools: [...N, ...h],
-                commands: V,
-                resources: L.length > 0 ? L : undefined
-            });
-        } catch (f) {
-            // Report failure
-            A({ client: { name: Z, type: "failed", config: G }, tools: [], commands: [] });
-        }
-    };
-
-    // Execute with batching
-    await Promise.all([
-        $Gq(D, Yn8(), W),   // Local servers with batch size 3
-        $Gq(X, I3z(), W)    // Remote servers with batch size 20
-    ]);
-}
-
-// READABLE (for understanding):
-async function connectAllMcpServers(resultCallback, serverConfigs) {
-    let addedResourceTools = false;
-    let addedSubscribeTools = false;
-    let addedDiagnosticsTools = false;
-
-    // Get all server configurations
-    const serverEntries = Object.entries(
-        serverConfigs ?? (await getMcpSettings()).servers
-    );
-    const enabledServers = [];
-
-    // Filter out disabled servers
-    for (const [name, config] of serverEntries) {
-        if (isServerDisabled(name)) {
-            resultCallback({
-                client: { name, type: "disabled", config },
-                tools: [],
-                commands: []
-            });
-        } else {
-            enabledServers.push([name, config]);
-        }
-    }
-
-    // Calculate transport type counts for telemetry
-    const totalCounts = {
-        totalServers: enabledServers.length,
-        stdioCount: enabledServers.filter(([_, c]) => c.type === "stdio").length,
-        sseCount: enabledServers.filter(([_, c]) => c.type === "sse").length,
-        httpCount: enabledServers.filter(([_, c]) => c.type === "http").length,
-        sseIdeCount: enabledServers.filter(([_, c]) => c.type === "sse-ide").length,
-        wsIdeCount: enabledServers.filter(([_, c]) => c.type === "ws-ide").length
-    };
-
-    // Split into local and remote batches
-    const localServers = enabledServers.filter(([_, config]) =>
-        isLocalTransport(config)  // stdio or sdk
-    );
-    const remoteServers = enabledServers.filter(([_, config]) =>
-        !isLocalTransport(config)  // sse, http, etc.
-    );
-
-    // Connection worker function
-    const connectWorker = async ([name, config]) => {
-        try {
-            // Skip if disabled
-            if (isServerDisabled(name)) {
-                resultCallback({
-                    client: { name, type: "disabled", config },
-                    tools: [],
-                    commands: []
-                });
-                return;
-            }
-
-            // Check cached needs-auth status
-            if (["claudeai-proxy", "http", "sse"].includes(config.type) &&
-                await isAuthRequiredCached(name)) {
-                logInfo(name, "Skipping connection (cached needs-auth)");
-                resultCallback({
-                    client: { name, type: "needs-auth", config },
-                    tools: [],
-                    commands: []
-                });
-                return;
-            }
-
-            // Connect to server
-            const connection = await connectMcpServer(name, config, totalCounts);
-
-            if (connection.type !== "connected") {
-                resultCallback({
-                    client: connection,
-                    tools: [],
-                    commands: []
-                });
-                return;
-            }
-
-            // Discover capabilities in parallel
-            const hasResources = !!connection.capabilities?.resources;
-            const [tools, prompts, resources] = await Promise.all([
-                fetchMcpTools(connection),
-                fetchMcpPrompts(connection),
-                hasResources ? fetchMcpResources(connection) : Promise.resolve([])
-            ]);
-
-            // Add built-in tools for resources
-            const additionalTools = [];
-
-            // Add resource tools (only once globally)
-            if (hasResources && !addedResourceTools) {
-                addedResourceTools = true;
-                additionalTools.push(ReadResourceTool, ListResourcesTool);
-            }
-
-            // Add subscribe tools if supported
-            if (SubscribeTool && UnsubscribeTool &&
-                connection.capabilities?.resources?.subscribe &&
-                !addedSubscribeTools) {
-                addedSubscribeTools = true;
-                additionalTools.push(SubscribeTool, UnsubscribeTool);
-            }
-
-            // Add diagnostics tools if available
-            if (DiagnosticsTool && OpenFileTool && !addedDiagnosticsTools) {
-                addedDiagnosticsTools = true;
-                additionalTools.push(DiagnosticsTool, OpenFileTool);
-            }
-
-            // Report successful connection
-            resultCallback({
-                client: connection,
-                tools: [...tools, ...additionalTools],
-                commands: prompts,
-                resources: resources.length > 0 ? resources : undefined
-            });
-
-        } catch (error) {
-            logError(name, `Error fetching tools/commands/resources: ${formatError(error)}`);
-            resultCallback({
-                client: { name, type: "failed", config },
-                tools: [],
-                commands: []
-            });
-        }
-    };
-
-    // Execute connections in parallel with batching
-    await Promise.all([
-        connectWithBatching(localServers, getLocalServerBatchSize(), connectWorker),
-        connectWithBatching(remoteServers, getRemoteServerBatchSize(), connectWorker)
-    ]);
-}
-
-// Mapping: ZL1→connectAllMcpServers, A→resultCallback, q→serverConfigs,
-//          zh→connectMcpServer, JE→fetchMcpTools, K_6→fetchMcpPrompts, Rl→fetchMcpResources,
-//          Yn8→getLocalServerBatchSize, I3z→getRemoteServerBatchSize,
-//          iv→isServerDisabled, OGq→isLocalTransport, $Gq→connectWithBatching
 ```
 
 ---
@@ -808,104 +771,72 @@ async function connectAllMcpServers(resultCallback, serverConfigs) {
 
 ### What is Elicitation?
 
-Elicitation allows MCP servers to request user input during tool execution. This is essential for:
-- **OAuth flows** - Server needs user to visit URL and authenticate
-- **Form input** - Server needs structured data from user
-- **Dynamic parameters** - Server discovers it needs additional info
+Elicitation allows MCP servers to request user input during tool execution. This enables:
+- Authentication flows (OAuth)
+- User confirmation dialogs
+- Form-based data collection
+- URL-based external flows
 
 ### Elicitation Modes
 
-1. **Form Mode** - Structured JSON schema for input collection
-2. **URL Mode** - Redirect user to external URL (OAuth)
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `form` | Structured UI dialog with JSON schema | Data collection, confirmations |
+| `url` | External URL for OAuth/external flows | Authentication, external processes |
 
-### Modal Priority
+### Elicitation Priority
 
-Elicitation dialogs have the **lowest priority** in the modal stack:
-
-```javascript
-// Modal priority (highest → lowest)
-if (sandboxPermissionQueue[0]) modal = "sandbox-permission";      // Priority 1
-else if (pendingToolRequest[0]) modal = "tool-permission";       // Priority 2
-else if (workerSandboxQueue[0]) modal = "worker-sandbox-permission";  // Priority 3
-else if (elicitation.queue[0]) modal = "elicitation";            // Priority 4 (lowest)
-```
-
-### Elicitation Flow
+Elicitation dialogs have the **lowest priority** in the modal stack (priority 4):
 
 ```
-MCP Tool execution
-    │
-    ├─→ Server calls elicitation/create
-    │     │
-    │     ├─→ Form mode: Show JSON schema form dialog
-    │     └─→ URL mode: Show "Visit URL" button
-    │
-    ├─→ User fills form / visits URL
-    │
-    ├─→ elicitation/result sent back to server
-    │
-    └─→ Tool execution continues
+Modal Priority (highest → lowest):
+1. sandbox-permission
+2. tool-permission
+3. worker-sandbox-permission
+4. elicitation (LOWEST)
 ```
 
 ---
 
-## 7. Session Recovery
+## System Reminder Integration
 
-### McpSessionLostError (qn8)
+### Attachment Types Generated by MCP
 
-When an MCP server connection is lost during tool execution:
+| Attachment Type | Source | Description |
+|-----------------|--------|-------------|
+| `mcp_progress` | fetchMcpTools.call | Tool execution progress |
+| `mcp_resource` | resources/read | Resource content |
+| `elicitation` | elicitation/create | Server input request |
+| `elicitation_result` | User response | Elicitation response |
 
-1. `getMcpClientConnection` throws `McpSessionLostError`
-2. Tool `call()` catches the error
-3. Retry loop attempts reconnection
-4. If reconnection succeeds, tool execution continues
-5. If max retries exceeded, error is propagated
+### Integration with 04_system_reminder
 
-```javascript
-// Retry logic in tool.call():
-for (let attempt = 0; ; attempt++) {
-    try {
-        const client = await getMcpClientConnection(clientConnection);
-        const result = await executeMcpToolCall({ client, ... });
-        return result;
-    } catch (error) {
-        if (error instanceof McpSessionLostError && attempt < maxRetries) {
-            logInfo(serverName, `Retrying tool '${toolName}' after session recovery`);
-            continue;  // Retry
-        }
-        throw error;  // Give up
-    }
-}
+```
+MCP tool execution
+    │
+    ├─→ Progress started → mcp_progress attachment
+    │
+    ├─→ Server requests input → elicitation attachment
+    │     └─→ User responds → elicitation_result attachment
+    │
+    ├─→ Progress updates → mcp_progress attachments
+    │
+    └─→ Progress completed/failed → final mcp_progress attachment
 ```
 
 ---
 
-## Cross-Module Integration
+## Symbol Validation Summary
 
-### MCP ↔ Tools (05)
-
-- MCP tools registered in tool registry with `mcp__` prefix
-- Tool execution routes through standard 8-stage pipeline
-- Permission checks apply to MCP tools
-- Annotation mapping: `readOnlyHint` → `isReadOnly()`, etc.
-
-### MCP ↔ System Reminder (04)
-
-Attachment types generated:
-- `mcp_resource` - MCP resource content
-- `elicitation` - Elicitation request from server
-- `elicitation_result` - Elicitation response
-- `mcp_progress` - Tool execution progress
-
-### MCP ↔ UI (02)
-
-- MCP server connection status display
-- Elicitation dialog rendering (form/URL modes)
-- Modal priority management
-- Progress indicator for MCP tool execution
-
-### MCP ↔ Hooks (11)
-
-Elicitation hooks can intercept server requests:
-- `Elicitation` hook - Pre-process elicitation requests
-- `ElicitationResult` hook - Post-process responses
+| Symbol | Readable | Location | Status |
+|--------|----------|----------|--------|
+| JE | fetchMcpTools | chunks.170.mjs:533 | ✅ Grep verified |
+| Rl | fetchMcpResources | chunks.170.mjs:679 | ✅ Grep verified |
+| K_6 | fetchMcpPrompts | chunks.170.mjs:694 | ✅ Grep verified |
+| $58 | buildMcpToolName | chunks.170.mjs | ✅ Grep verified |
+| yT6 | getMcpClientConnection | chunks.169.mjs:1886 | ✅ Grep verified |
+| F3z | executeMcpToolCall | chunks.170.mjs:607 | ✅ Grep verified |
+| qn8 | McpSessionLostError | chunks.170.mjs | ✅ Grep verified |
+| EV | McpToolExecutionError | chunks.170.mjs | ✅ Grep verified |
+| ZP | memoize | chunks.170.mjs | ✅ Grep verified |
+| x3z | filterToolByVisibility | chunks.169.mjs:1869 | ✅ Grep verified |

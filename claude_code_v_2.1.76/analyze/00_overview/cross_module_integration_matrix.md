@@ -118,7 +118,7 @@ Agent calls TaskCreate
 
 **Documentation:**
 - [05_tools/tool_reminder_integration.md](../05_tools/tool_reminder_integration.md)
-- [05_tools/cross_system_integration_v3.md](../05_tools/cross_system_integration_v3.md)
+- [05_tools/cross_system_integration_complete.md](../05_tools/cross_system_integration_complete.md)
 
 ---
 
@@ -247,7 +247,7 @@ const planModeColors = {
 ```
 
 **Documentation:**
-- [12_plan_mode/plan_mode_ui_complete_v2.md](../12_plan_mode/plan_mode_ui_complete_v2.md)
+- [12_plan_mode/plan_mode_ui_complete.md](../12_plan_mode/plan_mode_ui_complete.md)
 - [12_plan_mode/ui_linkage.md](../12_plan_mode/ui_linkage.md)
 
 ---
@@ -343,7 +343,7 @@ Agent requests task claim
 **Documentation:**
 - [05_tools/tool_algorithm_deep_dive.md](../05_tools/tool_algorithm_deep_dive.md)
 - [05_tools/tool_ui_components_complete.md](../05_tools/tool_ui_components_complete.md)
-- [05_tools/cross_system_integration_v4.md](../05_tools/cross_system_integration_v4.md)
+- [05_tools/cross_system_integration_complete.md](../05_tools/cross_system_integration_complete.md)
 
 ---
 
@@ -391,7 +391,7 @@ Agent requests task claim
 
 **Documentation:**
 - [12_plan_mode/plan_mode_algorithm_deep_dive.md](../12_plan_mode/plan_mode_algorithm_deep_dive.md)
-- [12_plan_mode/plan_mode_ui_complete_v3.md](../12_plan_mode/plan_mode_ui_complete_v3.md)
+- [12_plan_mode/plan_mode_ui_complete.md](../12_plan_mode/plan_mode_ui_complete.md)
 - [12_plan_mode/plan_mode_cross_module_complete.md](../12_plan_mode/plan_mode_cross_module_complete.md)
 
 ---
@@ -418,7 +418,7 @@ Agent requests task claim
 
 **Documentation:**
 - [13_task_system/task_algorithm_deep_dive.md](../13_task_system/task_algorithm_deep_dive.md)
-- [13_task_system/task_ui_complete_v2.md](../13_task_system/task_ui_complete_v2.md)
+- [13_task_system/task_ui_complete.md](../13_task_system/task_ui_complete.md)
 - [13_task_system/task_cross_module_complete.md](../13_task_system/task_cross_module_complete.md)
 
 ---

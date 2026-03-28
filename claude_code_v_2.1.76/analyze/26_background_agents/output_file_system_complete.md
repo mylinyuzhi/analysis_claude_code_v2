@@ -11,10 +11,12 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `g2` - Get output file path for task — `chunks.41.mjs:2248`
-- `Z97` - Read output file delta — `chunks.89.mjs` (inferred)
-- `W97` - Append to output file — `chunks.89.mjs` (inferred)
-- `$O` - Notification trigger — `chunks.146.mjs` (inferred)
+- `g2` - getOutputFilePath — `chunks.41.mjs:2248`
+- `Y91` - OutputBuffer class — `chunks.41.mjs:2252-2308`
+- `v$3` - getOrCreateOutputBuffer — `chunks.41.mjs:2310-2314`
+- `W97` - appendToOutputBuffer — `chunks.41.mjs:2316-2318`
+- `$O` - flushOutputBuffer — `chunks.41.mjs:2320-2323`
+- `Z97` - readOutputFileDelta — `chunks.41.mjs:2325-2346`
 
 ---
 
@@ -66,127 +68,301 @@ function getOutputFilePath(taskId) {
 
 ---
 
+## OutputBuffer Class (Y91)
+
+### What it does
+
+Provides buffered, asynchronous file writing for output content. Buffers multiple writes in memory and flushes them to disk efficiently.
+
+### Source Code
+
+```javascript
+// ============================================
+// Y91 - OutputBuffer - Buffered async file writer for task output
+// Location: chunks.41.mjs:2252-2308
+// ============================================
+
+class OutputBuffer {
+    // Private fields
+    #filePath;           // Output file path
+    #fileHandle = null;  // File handle (when open)
+    #buffer = [];        // Pending content to write
+    #flushPromise = null; // Current flush operation
+    #resolveFlush = null; // Resolve function for flush promise
+
+    constructor(taskId) {
+        this.#filePath = getOutputFilePath(taskId);
+    }
+
+    // Add content to buffer
+    append(content) {
+        this.#buffer.push(content);
+
+        // Start flush if not already running
+        if (!this.#flushPromise) {
+            this.#flushPromise = new Promise((resolve) => {
+                this.#resolveFlush = resolve;
+            });
+            this.#startFlushLoop();
+        }
+    }
+
+    // Wait for all pending writes
+    flush() {
+        return this.#flushPromise ?? Promise.resolve();
+    }
+
+    // Cancel pending writes
+    cancel() {
+        this.#buffer.length = 0;
+    }
+
+    // Main flush loop
+    async #runFlushLoop() {
+        while (true) {
+            try {
+                // Ensure directory exists and file is open
+                if (!this.#fileHandle) {
+                    await ensureTasksDirectory();
+                    this.#fileHandle = await fs.open(
+                        this.#filePath,
+                        process.platform === "win32"
+                            ? "a"
+                            : O_WRONLY | O_APPEND | O_CREAT | O_EXCL
+                    );
+                }
+
+                // Write all buffered content
+                while (true) {
+                    await this.#writeBufferedContent();
+                    if (this.#buffer.length === 0) break;
+                }
+
+            } finally {
+                // Close file handle
+                if (this.#fileHandle) {
+                    let handle = this.#fileHandle;
+                    this.#fileHandle = null;
+                    await handle.close();
+                }
+            }
+
+            // Check if more content arrived
+            if (this.#buffer.length) continue;
+            break;
+        }
+    }
+
+    // Write buffered content to file
+    async #writeBufferedContent() {
+        return this.#fileHandle.appendFile(this.#buildBufferContent());
+    }
+
+    // Build buffer content as single string
+    #buildBufferContent() {
+        let chunks = this.#buffer.splice(0, this.#buffer.length);
+        let totalSize = 0;
+
+        for (let chunk of chunks) {
+            totalSize += Buffer.byteLength(chunk, "utf8");
+        }
+
+        let buffer = Buffer.allocUnsafe(totalSize);
+        let offset = 0;
+
+        for (let chunk of chunks) {
+            offset += buffer.write(chunk, offset, "utf8");
+        }
+
+        return buffer;
+    }
+
+    // Start flush loop with error handling
+    async #startFlushLoop() {
+        try {
+            await this.#runFlushLoop();
+        } finally {
+            let resolve = this.#resolveFlush;
+            this.#flushPromise = null;
+            this.#resolveFlush = null;
+            resolve();
+        }
+    }
+}
+```
+
+### Key Design Decisions
+
+| Design Choice | Rationale |
+|---------------|-----------|
+| Buffered writes | Reduce I/O operations by batching |
+| Async flush | Non-blocking writes don't stall agent execution |
+| Auto-start flush | No explicit flush call needed on append |
+| Promise-based | Easy to wait for completion |
+| Buffer pooling | Efficient memory usage via `Buffer.allocUnsafe` |
+
+---
+
+## Buffer Cache Management
+
+### Global Cache
+
+```javascript
+// Buffer cache: Map<taskId, OutputBuffer>
+const K91 = new Map();  // outputBufferCache
+```
+
+### getOrCreateOutputBuffer (v$3)
+
+```javascript
+// ============================================
+// v$3 - getOrCreateOutputBuffer - Get or create buffer for task
+// Location: chunks.41.mjs:2310-2314
+// ============================================
+
+function getOrCreateOutputBuffer(taskId) {
+    let buffer = outputBufferCache.get(taskId);
+
+    if (!buffer) {
+        buffer = new OutputBuffer(taskId);
+        outputBufferCache.set(taskId, buffer);
+    }
+
+    return buffer;
+}
+```
+
+### appendToOutputBuffer (W97)
+
+```javascript
+// ============================================
+// W97 - appendToOutputBuffer - Append content via buffer
+// Location: chunks.41.mjs:2316-2318
+// ============================================
+
+function appendToOutputBuffer(taskId, content) {
+    getOrCreateOutputBuffer(taskId).append(content);
+}
+```
+
+### flushOutputBuffer ($O)
+
+```javascript
+// ============================================
+// $O - flushOutputBuffer - Flush and remove buffer for task
+// Location: chunks.41.mjs:2320-2323
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function $O(A) {
+    let q = K91.get(A);
+    if (q) await q.flush(), K91.delete(A)
+}
+
+// READABLE (for understanding):
+async function flushOutputBuffer(taskId) {
+    let buffer = outputBufferCache.get(taskId);
+
+    if (buffer) {
+        await buffer.flush();
+        outputBufferCache.delete(taskId);
+    }
+}
+
+// Mapping: $O→flushOutputBuffer, A→taskId, q→buffer, K91→outputBufferCache
+```
+
+---
+
 ## Output File Operations
 
-### Initialize Output File
+### Read Output File Delta (Z97)
+
+**What it does:** Reads new content from an output file since the last read position, enabling incremental updates without re-reading the entire file.
 
 ```javascript
 // ============================================
-// initOutputFile - Create empty output file
-// Location: chunks.89.mjs:310 (inferred)
+// Z97 - readOutputFileDelta - Read new bytes from output file
+// Location: chunks.41.mjs:2325-2346
 // ============================================
 
-// READABLE (for understanding):
-async function initOutputFile(taskId) {
-    const filePath = getOutputFilePath(taskId);
-
-    // Ensure tasks directory exists
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-
-    // Create empty file
-    await fs.writeFile(filePath, "", "utf-8");
-
-    return filePath;
-}
-```
-
-### Append to Output File
-
-```javascript
-// ============================================
-// appendToOutputFile - Append content to output file
-// Location: chunks.89.mjs:253 (inferred)
-// ============================================
-
-// READABLE (for understanding):
-async function appendToOutputFile(taskId, content) {
-    const filePath = getOutputFilePath(taskId);
-
-    // Append content to file
-    await fs.appendFile(filePath, content, "utf-8");
-}
-```
-
-### Read Output File Delta
-
-```javascript
-// ============================================
-// readOutputFileDelta - Read new bytes from output file
-// Location: chunks.89.mjs:276 (inferred)
-// ============================================
-
-// READABLE (for understanding):
-async function readOutputFileDelta(taskId, currentOffset) {
-    const filePath = getOutputFilePath(taskId);
-
+// ORIGINAL (for source lookup):
+async function Z97(A, q, K = P97) {
     try {
-        // Get file stats to determine size
-        const stats = await fs.stat(filePath);
-        const fileSize = stats.size;
+        let Y = await dt6(g2(A), q, K);
+        if (!Y) return {
+            content: "",
+            newOffset: q
+        };
+        return {
+            content: Y.content,
+            newOffset: q + Y.bytesRead
+        }
+    } catch (Y) {
+        if (Y.code === "ENOENT") return {
+            content: "",
+            newOffset: q
+        };
+        throw Y
+    }
+}
 
-        // No new content if file hasn't grown
-        if (fileSize <= currentOffset) {
+// READABLE (for understanding):
+async function readOutputFileDelta(taskId, currentOffset, maxBytes = DEFAULT_MAX_BYTES) {
+    try {
+        let result = await readFileFromOffset(
+            getOutputFilePath(taskId),
+            currentOffset,
+            maxBytes
+        );
+
+        if (!result) {
             return {
-                content: null,
-                newOffset: currentOffset,
-                eof: true
+                content: "",
+                newOffset: currentOffset
             };
         }
 
-        // Read only the new bytes
-        const fileHandle = await fs.open(filePath, "r");
-        const buffer = Buffer.alloc(fileSize - currentOffset);
-
-        await fileHandle.read(buffer, 0, buffer.length, currentOffset);
-        await fileHandle.close();
-
         return {
-            content: buffer.toString("utf-8"),
-            newOffset: fileSize,
-            eof: false
+            content: result.content,
+            newOffset: currentOffset + result.bytesRead
         };
+
     } catch (error) {
         if (error.code === "ENOENT") {
             // File doesn't exist yet
             return {
-                content: null,
-                newOffset: 0,
-                eof: true
+                content: "",
+                newOffset: currentOffset
             };
         }
         throw error;
     }
 }
+
+// Mapping: Z97→readOutputFileDelta, A→taskId, q→currentOffset, K→maxBytes,
+//          P97→DEFAULT_MAX_BYTES, dt6→readFileFromOffset, g2→getOutputFilePath
 ```
 
-### Read Full Output
+### Delta Reading Algorithm
 
-```javascript
-// ============================================
-// readFullOutput - Read complete output file
-// Location: chunks.89.mjs:300 (inferred)
-// ============================================
+```
+File: a7x9k2m3.output
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 0    100    200    300    400    500    600    700    800    900    1000   │
+│ │.....│......│......│......│......│......│......│......│......│......│     │
+│ │ Old │ Old  │ Old  │ Old  │ NEW  │ NEW  │ NEW  │ NEW  │ NEW  │ NEW  │     │
+│ └─────┴──────┴──────┴──────┘      │      │      │      │      │      │     │
+│        Already read (offset=400)  │      │      │      │      │      │     │
+│                                   └──────┴──────┴──────┴──────┴──────┘     │
+│                                   Delta to read (400-1000)                  │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-// READABLE (for understanding):
-async function readFullOutput(taskId) {
-    const filePath = getOutputFilePath(taskId);
-
-    try {
-        const content = await fs.readFile(filePath, "utf-8");
-        return {
-            content: content,
-            size: Buffer.byteLength(content, "utf-8")
-        };
-    } catch (error) {
-        if (error.code === "ENOENT") {
-            return {
-                content: "",
-                size: 0
-            };
-        }
-        throw error;
-    }
-}
+Read call with offset=400:
+1. Open file
+2. Seek to offset 400
+3. Read up to maxBytes
+4. Return { content: "NEW...", newOffset: 1000 }
 ```
 
 ---
@@ -505,10 +681,12 @@ await fs.readFile(filePath, "utf-8");
 | Function | Description | Location | Verification |
 |----------|-------------|----------|--------------|
 | `g2` | getOutputFilePath | chunks.41.mjs:2248 | ✓ Verified |
-| `Z97` | readOutputFileDelta | chunks.89.mjs | ✓ Verified |
-| `W97` | appendToOutputFile | chunks.89.mjs | ✓ Verified |
-| `initOutputFile` | Initialize output file | chunks.89.mjs:310 | ✓ Inferred |
-| `readFullOutput` | Read complete output | chunks.89.mjs:300 | ✓ Inferred |
+| `Y91` | OutputBuffer class | chunks.41.mjs:2252-2308 | ✓ Source restored |
+| `v$3` | getOrCreateOutputBuffer | chunks.41.mjs:2310-2314 | ✓ Source restored |
+| `W97` | appendToOutputBuffer | chunks.41.mjs:2316-2318 | ✓ Source restored |
+| `$O` | flushOutputBuffer | chunks.41.mjs:2320-2323 | ✓ Source restored |
+| `Z97` | readOutputFileDelta | chunks.41.mjs:2325-2346 | ✓ Source restored |
+| `K91` | outputBufferCache (Map) | chunks.41.mjs | ✓ Source restored |
 
 ---
 

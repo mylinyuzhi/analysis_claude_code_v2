@@ -292,11 +292,12 @@ TEAM_DELEGATE_TOOLS = new Set([
 
 ```javascript
 // ============================================
-// Progress throttle - Only show progress every 3 turns
-// Location: chunks.142.mjs:2703
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling.
+// Location: chunks.142.mjs:2703-2717
 // ============================================
 
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();
     let seenTasks = new Set();
     let turnCount = 0;

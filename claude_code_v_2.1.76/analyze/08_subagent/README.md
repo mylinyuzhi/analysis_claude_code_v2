@@ -220,7 +220,7 @@ ASYNC_AGENT_ALLOWED_TOOLS = new Set([
 ## Symbol Mappings
 
 > For complete symbol mappings, see:
-> - [cross_validation_unified_v4.md](./cross_validation_unified_v4.md) - This module's verified symbols (84 total)
+> - [cross_validation_unified.md](./cross_validation_unified.md) - This module's verified symbols (84 total)
 > - [../00_overview/symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
 > - [../00_overview/symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features symbols
 
@@ -230,15 +230,15 @@ ASYNC_AGENT_ALLOWED_TOOLS = new Set([
 
 For a comprehensive understanding of the subagent system:
 
-1. **Start with:** [cross_validation_unified_v5.md](./cross_validation_unified_v5.md) - Verify symbols (84+)
-2. **Algorithms:** [key_algorithms_deep_dive_v12.md](./key_algorithms_deep_dive_v12.md) - **NEW** 8 key algorithms
-3. **Entry point:** [agent_tool_complete_source_v4.md](./agent_tool_complete_source_v4.md) - AgentTool
-4. **Core loop:** [agent_loop_complete_source_v5.md](./agent_loop_complete_source_v5.md) - Agent loop
-5. **Lifecycle:** [task_lifecycle_complete_source_v7.md](../26_background_agents/task_lifecycle_complete_source_v7.md) - Task lifecycle
-6. **Communication:** [mailbox_system_complete_source_v4.md](./mailbox_system_complete_source_v4.md) - Mailbox
-7. **UI Design:** [ui_interaction_complete_v7.md](./ui_interaction_complete_v7.md) - **NEW** Complete UI
-8. **Integration:** [cross_feature_linkages_complete_v11.md](./cross_feature_linkages_complete_v11.md) - **NEW** 9 integrations
-9. **System Reminders:** [system_reminder_integration_complete_v10.md](./system_reminder_integration_complete_v10.md) - System reminders
+1. **Start with:** [cross_validation_unified.md](./cross_validation_unified.md) - Verify symbols (84+)
+2. **Algorithms:** [key_algorithms_deep_dive.md](./key_algorithms_deep_dive.md) - 8 key algorithms
+3. **Entry point:** [agent_tool_complete.md](./agent_tool_complete.md) - AgentTool
+4. **Core loop:** [agent_loop_complete_source.md](./agent_loop_complete_source.md) - Agent loop
+5. **Lifecycle:** [../26_background_agents/task_lifecycle_complete_source.md](../26_background_agents/task_lifecycle_complete_source.md) - Task lifecycle
+6. **Communication:** [mailbox_system_complete_source.md](./mailbox_system_complete_source.md) - Mailbox
+7. **UI Design:** [ui_interaction_complete.md](./ui_interaction_complete.md) - Complete UI
+8. **Integration:** [cross_feature_linkages_complete.md](./cross_feature_linkages_complete.md) - 9 integrations
+9. **System Reminders:** [system_reminder_integration_complete.md](./system_reminder_integration_complete.md) - System reminders
 
 ---
 

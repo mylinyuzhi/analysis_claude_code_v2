@@ -1,499 +1,373 @@
-# CLI-UI-LLM Core Joint Complete Analysis
+# CLI-UI-LLM Core Joint Analysis Complete v8 (Claude Code 2.1.76)
 
-> Claude Code v2.1.76 — Complete integration analysis of CLI, UI, and LLM Core modules
-
----
-
-## Related Symbols
-
-> Symbol mappings:
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Agent Loop, LLM API, Tools, State)
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Plan Mode, Compact, Hooks)
-> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra (Permissions, MCP)
-> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (UI Components, Slash Commands)
-
-Key symbols referenced throughout this document:
-
-- `sessionOrchestrator` (ot8) - Main REPL orchestration - chunks.196.mjs:3
-- `mainAgentLoop` (Yh) - Agent loop entry point - chunks.148.mjs:875
-- `mainAgentLoopCore` (omY) - Core iteration logic - chunks.148.mjs:882
-- `createStateStore` (WX1) - Observable store factory - chunks.85.mjs:1747
-- `StreamingToolExecutor` (ui6) - Parallel tool execution - chunks.148.mjs:3
-- `getInputDialogType` (ra6) - Dialog priority dispatcher - chunks.196.mjs:387
-- `handleCancel` (TM) - Cancel propagation handler - chunks.196.mjs:420
-- `assembleAllAttachments` (_uY) - Attachment orchestrator - chunks.147.mjs:3
-- `normalizeAttachmentForAPI` (Ui8) - Attachment normalizer - chunks.174.mjs:3
-- `normalizeMessages` (cM) - Message normalizer - chunks.173.mjs:1999
+> Comprehensive source-level joint analysis of CLI entry, React/Ink UI, and LLM agent loop.
+>
+> **Cross-validated**: All symbol mappings verified against source code on 2026-03-26.
+> **Analysis Depth**: Source-level restoration with semantic pseudocode.
+> **Integration**: Full feature interaction analysis including System Reminders and UI Design Patterns.
+> **Version**: v8 - Complete joint analysis with verified symbols, deep algorithms, decision trees, UI interaction patterns, and cross-feature linkages.
 
 ---
 
 ## Table of Contents
 
-- [1. Complete Startup Sequence](#1-complete-startup-sequence)
-- [2. State Synchronization Patterns](#2-state-synchronization-patterns)
-- [3. Error Handling Coordination](#3-error-handling-coordination)
-- [4. Cross-Feature Interaction Matrix](#4-cross-feature-interaction-matrix)
-- [5. Source Code Restoration](#5-source-code-restoration)
-- [6. Integration Test Scenarios](#6-integration-test-scenarios)
-- [7. Performance Characteristics](#7-performance-characteristics)
+1. [Symbol Verification Report](#1-symbol-verification-report)
+2. [Architecture Overview](#2-architecture-overview)
+3. [CLI Entry Flow Restoration](#3-cli-entry-flow-restoration)
+4. [UI State Machine Complete](#4-ui-state-machine-complete)
+5. [LLM Agent Loop Restoration](#5-llm-agent-loop-restoration)
+6. [Key Algorithms Deep Dive](#6-key-algorithms-deep-dive)
+7. [UI Design Interaction Patterns](#7-ui-design-interaction-patterns)
+8. [System Reminder Integration](#8-system-reminder-integration)
+9. [Feature Cross-Linkage](#9-feature-cross-linkage)
+10. [Performance Considerations](#10-performance-considerations)
 
 ---
 
-## 1. Complete Startup Sequence
+## 1. Symbol Verification Report
 
-### 1.1 Full Startup Flow with Timing
+### 1.1 Verified Symbol Mappings
+
+All key symbols cross-validated against source code with exact locations:
+
+| Symbol | Readable | Location | Signature | Status |
+|--------|----------|----------|-----------|--------|
+| `JVz` | cliEntry | chunks.198.mjs:1573 | `async function JVz()` | ✅ Verified |
+| `OVz` | run | chunks.198.mjs:3 | `async function OVz()` | ✅ Verified |
+| `WX1` | createStateStore | chunks.85.mjs:1747 | `function WX1(A, q)` | ✅ Verified |
+| `Yh` | mainAgentLoop | chunks.148.mjs:875 | `async function* Yh(A)` | ✅ Verified |
+| `omY` | mainAgentLoopCore | chunks.148.mjs:882 | `async function* omY(A, q)` | ✅ Verified |
+| `ui6` | StreamingToolExecutor | chunks.148.mjs:3 | `class ui6` | ✅ Verified |
+| `mGq` | streamingQueryCore | chunks.171.mjs:3 | `async function* mGq(A, q, K, Y, z, _)` | ✅ Verified |
+| `Wi6` | toolDispatcher | chunks.146.mjs:285 | `async function* Wi6(A, q, K, Y)` | ✅ Verified |
+| `_uY` | assembleAllAttachments | chunks.147.mjs:3 | `async function _uY(A, q, K, Y, z, _)` | ✅ Verified |
+| `Ui8` | normalizeAttachmentForAPI | chunks.174.mjs:3 | `function Ui8(A)` | ✅ Verified |
+| `ot8` | sessionOrchestrator | chunks.196.mjs:3 | `function ot8({...})` | ✅ Verified |
+| `ra6` | getInputDialogType | chunks.196.mjs:387 | `function ra6()` | ✅ Verified |
+
+### 1.2 UI State Symbols
+
+| Symbol | Readable | Location | Type | Status |
+|--------|----------|----------|------|--------|
+| `d7` | uiState | chunks.196.mjs:96 | React state variable | ✅ Verified |
+| `W4` | setUIState | chunks.196.mjs:96 | React state setter | ✅ Verified |
+| `Dz` | uiStateRef | chunks.196.mjs:97 | React ref | ✅ Verified |
+| `JK` | toolUses | chunks.196.mjs:99 | React state array | ✅ Verified |
+| `F3` | setToolUses | chunks.196.mjs:99 | React state setter | ✅ Verified |
+| `MK` | thinkingState | chunks.196.mjs:100 | React state object | ✅ Verified |
+| `k3` | setThinkingState | chunks.196.mjs:100 | React state setter | ✅ Verified |
+| `u7` | messages | chunks.196.mjs:173 | React state array | ✅ Verified |
+| `Xz` | setMessages | chunks.196.mjs:173 | React state setter | ✅ Verified |
+| `iY` | messagesRef | chunks.196.mjs:173 | React ref | ✅ Verified |
+| `gq` | updateMessages | chunks.196.mjs:174 | React callback | ✅ Verified |
+
+---
+
+## 2. Architecture Overview
+
+### 2.1 Three-Tier Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        COMPLETE STARTUP SEQUENCE                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  PHASE 1: CLI ENTRY (chunks.198.mjs)                                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  1. cliEntry() called                                                │   │
-│  │  2. Parse environment variables                                      │   │
-│  │  3. Handle update check (async, non-blocking)                       │   │
-│  │  4. mainEntry() → process lifecycle setup                            │   │
-│  │  5. commanderSetup() → register all CLI flags                       │   │
-│  │  6. Handle early exit flags (--version, --help)                     │   │
-│  │                                                                      │   │
-│  │  Timing: ~50-100ms                                                   │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  PHASE 2: ACTION HANDLER (chunks.197.mjs)                                   │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  1. Resolve model selection (--model, auto-detect)                  │   │
-│  │  2. Load session state if --resume                                   │   │
-│  │  3. Build toolPermissionContext from flags                          │   │
-│  │  4. Initialize MCP clients (parallel)                               │   │
-│  │  5. Run setup screens if needed (onboarding, trust, policy)         │   │
-│  │  6. Construct initialState object (~35 fields)                      │   │
-│  │                                                                      │   │
-│  │  Timing: ~200-500ms (varies by MCP config)                          │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  PHASE 3: STATE STORE INITIALIZATION (chunks.85.mjs)                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  1. createStateStore(initialState, onChangeAppStateHandler)         │   │
-│  │  2. Store holds single state object reference                       │   │
-│  │  3. Subscribe pattern for React integration                         │   │
-│  │                                                                      │   │
-│  │  Timing: ~1ms                                                        │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  PHASE 4: INK RENDER INITIALIZATION (chunks.189.mjs)                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  1. createRenderOptions(rGz) → FPS tracking setup                   │   │
-│  │  2. createRoot(renderOptions) → Ink instance                        │   │
-│  │  3. Prepare React element tree                                      │   │
-│  │                                                                      │   │
-│  │  Timing: ~10-20ms                                                    │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  PHASE 5: REACT TREE MOUNT (chunks.176.mjs, chunks.196.mjs)                 │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  1. renderAndWait(ink, <AppStateRoot>)                              │   │
-│  │  2. AppStateProvider creates store context                          │   │
-│  │  3. FpsMetricsWrapper provides performance context                  │   │
-│  │  4. sessionOrchestrator (REPL) mounts                               │   │
-│  │  5. Initial hooks run (useEffect, useMemo)                          │   │
-│  │  6. First render completes                                          │   │
-│  │                                                                      │   │
-│  │  Timing: ~50-100ms                                                   │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  PHASE 6: READY STATE                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  • REPL is interactive                                              │   │
-│  │  • Input box focused                                                │   │
-│  │  • System reminders loaded                                          │   │
-│  │  • MCP clients connected                                            │   │
-│  │  • Ready for user input                                             │   │
-│  │                                                                      │   │
-│  │  Total startup time: ~300-700ms (typical)                           │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
+│                              CLI LAYER (01_cli)                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  cliEntry (JVz) → mainEntry (_Vz) → run (OVz)                       │    │
+│  │  • Commander.js flag parsing                                         │    │
+│  │  • Permission context initialization                                 │    │
+│  │  • Session management (-r, -c, -n flags)                            │    │
+│  │  • Early dispatch for special modes (MCP CLI, Chrome, Bridge)       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              UI LAYER (02_ui)                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  sessionOrchestrator (ot8) → AppStateProvider (Yj) → REPL           │    │
+│  │  • React/Ink rendering                                               │    │
+│  │  • Message list management                                           │    │
+│  │  • Keyboard input handling                                           │    │
+│  │  • Streaming display updates                                         │    │
+│  │  • UI state machine: responding → thinking → tool-use → idle        │    │
+│  │  • Dialog priority system (getInputDialogType/ra6)                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           LLM CORE LAYER (03_llm_core)                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  mainAgentLoop (Yh) → mainAgentLoopCore (omY)                       │    │
+│  │  • Turn state management                                             │    │
+│  │  • Auto-compact triggers                                             │    │
+│  │  • System reminder assembly                                          │    │
+│  │  • streamingQueryCore (mGq) → SSE processing                        │    │
+│  │  • StreamingToolExecutor (ui6) → Parallel tool execution            │    │
+│  │  • toolDispatcher (Wi6) → Tool routing                              │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SYSTEM REMINDER LAYER (04_system_reminder)            │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  assembleAllAttachments (_uY)                                        │    │
+│  │  • Plan mode attachments                                             │    │
+│  │  • Auto mode attachments                                             │    │
+│  │  • Team context attachments                                          │    │
+│  │  • Token usage reminders                                             │    │
+│  │  • normalizeAttachmentForAPI (Ui8) → Format for API                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Startup Code Flow
+### 2.2 Complete Request Flow
 
-```javascript
-// ============================================
-// Simplified startup sequence
-// Location: chunks.198.mjs → chunks.197.mjs → chunks.196.mjs
-// ============================================
-
-// READABLE (for understanding):
-async function cliEntry() {
-    // Phase 1: Environment setup
-    setupEnvironment();
-    checkForUpdates();  // Non-blocking
-
-    // Phase 2: Main entry
-    await mainEntry();
-}
-
-async function mainEntry() {
-    // Phase 3: Commander setup
-    let program = commanderSetup();
-
-    // Phase 4: Parse and execute
-    await program.parseAsync(process.argv);
-}
-
-async function actionHandler(options) {
-    // Phase 5: Build initial state
-    let initialState = {
-        verbose: options.verbose,
-        model: resolveModel(options.model),
-        toolPermissionContext: buildPermissionContext(options),
-        messages: await loadSessionIfExists(options.resume),
-        // ... ~30 more fields
-    };
-
-    // Phase 6: Setup screens (if needed)
-    if (needsOnboarding) {
-        await showSetupScreens(inkInstance);
-    }
-
-    // Phase 7: Create state store
-    let store = createStateStore(initialState, onChangeAppStateHandler);
-
-    // Phase 8: Mount React tree
-    let inkRoot = createRoot(createRenderOptions());
-    await renderAndWait(inkRoot, <AppStateRoot store={store} />);
-}
+```
+User Input (UI)
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. INPUT PHASE                                                              │
+│    • Keyboard event captured in REPL component                              │
+│    • Message assembled with attachments                                     │
+│    • State transition: responding → thinking                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2. PRE-TURN PHASE (mainAgentLoopCore)                                       │
+│    • Micro-compact: Remove consecutive duplicate messages                  │
+│    • Auto-compact check: shouldTriggerAutoCompaction()                     │
+│    • Attachment assembly: assembleAllAttachments()                         │
+│    • System prompt building                                                 │
+│    • Tool schema construction (with deferred loading)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3. STREAMING PHASE (streamingQueryCore)                                     │
+│    • Build tool schemas (with deferred loading)                            │
+│    • Normalize messages for API                                            │
+│    • Send streaming request to Anthropic API                               │
+│    • Process SSE events in real-time                                       │
+│    • Yield events to UI as they arrive                                     │
+│    • Track token usage                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 4. TOOL EXECUTION PHASE (StreamingToolExecutor)                             │
+│    • Collect tool_use blocks from response                                 │
+│    • Execute concurrency-safe tools in parallel                            │
+│    • Sequential execution for non-safe tools                               │
+│    • Handle abort/rollback on sibling errors                               │
+│    • Yield tool results                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 5. TURN COMPLETION PHASE                                                    │
+│    • If tools were called: Continue to next turn                           │
+│    • If no tools: Return final result                                      │
+│    • Update session state                                                  │
+│    • State transition: tool-use → responding → idle                        │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. State Synchronization Patterns
+## 3. CLI Entry Flow Restoration
 
-### 2.1 State Flow Architecture
+### 3.1 createStateStore (WX1) - Redux-like State Store
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        STATE SYNCHRONIZATION                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  CLI FLAGS                                                                   │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  --verbose, --model, --plan, --resume, --dangerously-skip...     │       │
-│  └──────────────────────────┬───────────────────────────────────────┘       │
-│                              │                                               │
-│                              ▼                                               │
-│  INITIAL STATE OBJECT (~35 fields)                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  { verbose, model, messages, toolPermissionContext, ... }        │       │
-│  └──────────────────────────┬───────────────────────────────────────┘       │
-│                              │                                               │
-│                              ▼                                               │
-│  STATE STORE (createStateStore WX1)                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │       │
-│  │  │  getState   │  │  setState   │  │  subscribe  │              │       │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘              │       │
-│  │         │                │                │                       │       │
-│  │         │                ▼                │                       │       │
-│  │         │    ┌─────────────────────┐      │                       │       │
-│  │         │    │ onChangeCallback    │      │                       │       │
-│  │         │    │ (K11)               │      │                       │       │
-│  │         │    └──────────┬──────────┘      │                       │       │
-│  │         │               │                  │                       │       │
-│  │         │               ▼                  │                       │       │
-│  │         │    ┌─────────────────────┐      │                       │       │
-│  │         │    │ Notify subscribers  │──────┘                       │       │
-│  │         │    └─────────────────────┘                              │       │
-│  │         │                                                          │       │
-│  └─────────┼──────────────────────────────────────────────────────────┘       │
-│            │                                                                 │
-│            ▼                                                                 │
-│  REACT CONTEXT (AppStateProvider Yj)                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  useAppState(selector) → reads slice                              │       │
-│  │  useSetAppState() → returns setState                             │       │
-│  └──────────────────────────────────────────────────────────────────┘       │
-│            │                                                                 │
-│            ▼                                                                 │
-│  UI COMPONENTS                                                               │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  SessionLogRenderer, InputBox, StatusBar, Dialogs, etc.          │       │
-│  └──────────────────────────────────────────────────────────────────┘       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+**What it does:** Creates a minimal Redux-like state store with subscribe pattern.
 
-### 2.2 State Update Propagation
+**How it works:**
+1. Maintains internal state variable
+2. Provides getState() for synchronous access
+3. setState() accepts updater function and notifies listeners
+4. subscribe() returns unsubscribe function
+5. Reference equality check prevents unnecessary updates
 
 ```javascript
 // ============================================
-// State update flow with side effects
+// createStateStore (WX1) - Redux-like state store
 // Location: chunks.85.mjs:1747-1766
 // ============================================
 
-// READABLE (for understanding):
-function createStateStore(initialState, onChangeCallback) {
-    let currentState = initialState;
-    let subscribers = new Set();
-
+// ORIGINAL (for source lookup):
+function WX1(A, q) {
+    let K = A,
+        Y = new Set;
     return {
-        getState: () => currentState,
-
-        setState: (updater) => {
-            let prevState = currentState;
-            let nextState = updater(prevState);
-
-            // Bail-out if same reference
-            if (Object.is(nextState, prevState)) return;
-
-            currentState = nextState;
-
-            // 1. SIDE EFFECTS FIRST (disk, MCP, telemetry)
-            onChangeCallback?.({ newState: nextState, oldState: prevState });
-
-            // 2. THEN notify React subscribers
-            for (let notify of subscribers) notify();
+        getState: () => K,
+        setState: (z) => {
+            let _ = K,
+                w = z(_);
+            if (Object.is(w, _)) return;
+            K = w, q?.({newState: w, oldState: _});
+            for (let O of Y) O();
         },
-
-        subscribe: (notify) => {
-            subscribers.add(notify);
-            return () => subscribers.delete(notify);
+        subscribe: (z) => {
+            return Y.add(z), () => Y.delete(z);
         }
     };
 }
-```
-
-### 2.3 Cross-Module State Dependencies
-
-| State Field | CLI Source | UI Consumer | LLM Core Consumer |
-|-------------|------------|-------------|-------------------|
-| `messages` | --resume | SessionLogRenderer | Agent loop input |
-| `model` | --model | StatusBar | API request |
-| `verbose` | --verbose | MessageRenderer | Logging level |
-| `toolPermissionContext` | --allowed-tools | PermissionGate | Tool execution |
-| `streamMode` | - | StreamingIndicator | Event processor |
-| `isLoading` | - | InputBox | Query state |
-| `mcp` | MCP config | MCP status | Tool definitions |
-| `thinkingEnabled` | --thinking | ThinkingIndicator | API params |
-
----
-
-## 3. Error Handling Coordination
-
-### 3.1 Error Propagation Flow
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        ERROR HANDLING COORDINATION                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ERROR SOURCE                                                                │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  LLM API Error, Tool Error, Network Error, User Abort, etc.      │       │
-│  └──────────────────────────┬───────────────────────────────────────┘       │
-│                              │                                               │
-│                              ▼                                               │
-│  AGENT LOOP ERROR HANDLING                                                  │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  try {                                                            │       │
-│  │      for await (event of mainAgentLoopCore) { ... }              │       │
-│  │  } catch (error) {                                                │       │
-│  │      if (error instanceof OverloadedError && fallbackModel) {    │       │
-│  │          // Model fallback recovery                               │       │
-│  │          retry with fallbackModel                                 │       │
-│  │      }                                                            │       │
-│  │      if (error instanceof ImageError) {                           │       │
-│  │          yield userMessage with error explanation                 │       │
-│  │          return { reason: "image_error" }                         │       │
-│  │      }                                                            │       │
-│  │      // Generic error                                             │       │
-│  │      yield* addErrorMessage(assistantMessages, error.message)    │       │
-│  │      return { reason: "model_error", error }                      │       │
-│  │  }                                                                │       │
-│  └──────────────────────────┬───────────────────────────────────────┘       │
-│                              │                                               │
-│                              ▼                                               │
-│  UI ERROR DISPLAY                                                            │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │  1. Add error message to messages state                           │       │
-│  │  2. SessionLogRenderer displays error                             │       │
-│  │  3. setIsLoading(false)                                           │       │
-│  │  4. setStreamMode(null)                                           │       │
-│  │  5. Input becomes interactive again                               │       │
-│  └──────────────────────────────────────────────────────────────────┘       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 Error Recovery Patterns
-
-```javascript
-// ============================================
-// Model fallback recovery
-// Location: chunks.148.mjs:1116-1127
-// ============================================
 
 // READABLE (for understanding):
-} catch (error) {
-    if (error instanceof OverloadedError && fallbackModel) {
-        // Switch to fallback model
-        currentModel = fallbackModel;
-        shouldRetry = true;
+function createStateStore(initialState, onChange) {
+    let state = initialState;
+    let listeners = new Set();
 
-        // Notify user
-        yield createWarningMessage(`Switched to ${fallbackModel} due to high demand`);
+    return {
+        getState: () => state,
 
-        // Reset all buffers
-        assistantMessages.length = 0;
-        toolResults.length = 0;
+        setState: (updater) => {
+            let oldState = state;
+            let newState = updater(oldState);
 
-        // Recreate streaming tool executor
-        streamingToolExecutor = new StreamingToolExecutor(tools, canUseTool, context);
+            // Skip if unchanged (reference equality)
+            if (Object.is(newState, oldState)) return;
 
-        continue;  // Retry with fallback
-    }
-}
+            state = newState;
 
-// ============================================
-// Context overflow recovery (tombstone)
-// Location: chunks.148.mjs:1062-1071
-// ============================================
+            // Notify change callback
+            onChange?.({ newState, oldState });
 
-if (contextOverflowDetected) {
-    // Yield tombstone for each orphaned message
-    for (let msg of orphanedMessages) {
-        yield { type: "tombstone", message: msg };
-    }
+            // Notify all subscribers
+            for (let listener of listeners) listener();
+        },
 
-    // Clear all buffers
-    orphanedMessages.length = 0;
-    toolResults.length = 0;
-    toolUseBlocks.length = 0;
-
-    // Reset streaming tool executor
-    streamingToolExecutor.discard();
-    streamingToolExecutor = new StreamingToolExecutor(tools, canUseTool, context);
-}
-```
-
-### 3.3 Abort Handling
-
-```javascript
-// ============================================
-// User abort handling
-// Location: chunks.148.mjs:1152-1161
-// ============================================
-
-// READABLE (for understanding):
-if (abortController.signal.aborted) {
-    // Wait for remaining tool results
-    if (streamingToolExecutor) {
-        for await (let result of streamingToolExecutor.getRemainingResults()) {
-            if (result.message) yield result.message;
+        subscribe: (listener) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
         }
-    } else {
-        yield* addErrorMessage(assistantMessages, "Interrupted by user");
-    }
-
-    // Only show interruption message if not an "interrupt" (graceful)
-    if (abortController.signal.reason !== "interrupt") {
-        yield updateUserMessage({ toolUse: false });
-    }
-
-    return { reason: "aborted_streaming" };
+    };
 }
+
+// Mapping: WX1→createStateStore, A→initialState, q→onChange, K→state, Y→listeners
 ```
 
----
-
-## 4. Cross-Feature Interaction Matrix
-
-### 4.1 Feature Interaction Table
-
-| Feature A | Feature B | Interaction Point | Description |
-|-----------|-----------|-------------------|-------------|
-| Plan Mode | System Reminder | `producePlanModeAttachment` | Plan mode instructions injected as attachment |
-| Plan Mode | Tool Execution | Permission gate | Plan mode restricts write tools |
-| Compact | Message List | Tombstone events | Compact removes old messages via tombstone |
-| Hooks | Tool Execution | PreToolUse/PostToolUse | Hooks can block or modify tool execution |
-| Thinking | Streaming UI | `streamingThinking` state | Thinking blocks shown during streaming |
-| MCP | Tools | Tool definitions | MCP servers provide additional tools |
-| Background Tasks | UI | Task status display | Background tasks shown in status bar |
-| Todo | System Reminder | `produceTodoReminder` | Todo list injected as attachment |
-| Team Mode | System Reminder | `produceTeamContextAttachment` | Team context injected as attachment |
-| Streaming | Tool Execution | `StreamingToolExecutor` | Tools execute while LLM streams |
-
-### 4.2 Mode Transition Matrix
-
-| Current Mode | Trigger | Next Mode | UI Effect |
-|--------------|---------|-----------|-----------|
-| default | EnterPlanMode tool | plan | Plan instructions attached |
-| plan | ExitPlanMode tool | default | Plan exit attached |
-| default | Auto mode activation | auto | Auto instructions attached |
-| auto | Auto mode exit | default | Auto exit attached |
-| default | Team join | team | Team context attached |
-
-### 4.3 Event Flow Matrix
-
-| Event Type | Source | UI Handler | State Effect |
-|------------|--------|------------|--------------|
-| `stream_request_start` | Agent loop | `setStreamMode("requesting")` | Show waiting indicator |
-| `content_block_start` (text) | LLM API | `setStreamMode("responding")` | Show text streaming |
-| `content_block_start` (thinking) | LLM API | `setStreamMode("thinking")` | Show thinking animation |
-| `content_block_start` (tool_use) | LLM API | `setStreamMode("tool-input")` | Show tool input preview |
-| `content_block_delta` | LLM API | Update response length | Update token counter |
-| `message_stop` | LLM API | `setStreamMode("tool-use")` | Show tool execution |
-| `assistant` | Agent loop | `setMessages([...prev, event])` | Add message to transcript |
-| `user` (tool result) | Tool executor | `setMessages([...prev, event])` | Add tool result |
-| `tombstone` | Agent loop | `setMessages(prev => filter(...))` | Remove message |
-| `system` | Agent loop | Add notification | Show system message |
+**Why this approach:**
+- Minimal implementation avoids Redux dependency
+- Reference equality check (Object.is) prevents unnecessary re-renders
+- Set for listeners ensures no duplicate subscriptions
+- onChange callback enables logging/debugging
 
 ---
 
-## 5. Source Code Restoration
+## 4. UI State Machine Complete
 
-### 5.1 Main Agent Loop
+### 4.1 UI State Variables
+
+The REPL component manages multiple interconnected state variables:
 
 ```javascript
 // ============================================
-// mainAgentLoop (Yh) - Entry point for LLM queries
-// Location: chunks.148.mjs:875-879
+// UI State Variables - REPL component
+// Location: chunks.196.mjs:96-100
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function* Yh(A) {
-    let q = [],
-        K = yield* omY(A, q);
-    for (let Y of q) pb(Y, "completed");
-    return K
-}
+let [d7, W4] = N8.useState("responding"), Dz = N8.useRef(d7);
+Dz.current = d7;
+let [JK, F3] = N8.useState([]), [MK, k3] = N8.useState(null);
 
 // READABLE (for understanding):
-async function* mainAgentLoop(context) {
-    // Track completed tool uses for post-processing
-    let completedToolUses = [];
+let [uiState, setUIState] = useState("responding");
+let uiStateRef = useRef(uiState);
+uiStateRef.current = uiState;  // Sync ref for non-React callbacks
 
-    // Delegate to core loop
-    let result = yield* mainAgentLoopCore(context, completedToolUses);
+let [toolUses, setToolUses] = useState([]);  // Active tool executions
+let [thinkingState, setThinkingState] = useState(null);  // {thinking, isStreaming, streamingEndedAt}
 
-    // Mark all tool uses as completed
-    for (let toolUse of completedToolUses) {
-        markToolUseCompleted(toolUse, "completed");
-    }
-
-    return result;
-}
-
-// Mapping: Yh→mainAgentLoop, q→completedToolUses, omY→mainAgentLoopCore, pb→markToolUseCompleted
+// Mapping: d7→uiState, W4→setUIState, Dz→uiStateRef, JK→toolUses, F3→setToolUses, MK→thinkingState, k3→setThinkingState
 ```
 
-### 5.2 Dialog Priority Dispatcher
+### 4.2 UI State Machine Diagram
+
+```
+                              ┌─────────────────────────────────────────┐
+                              │              UI STATE MACHINE           │
+                              └─────────────────────────────────────────┘
+
+┌────────────┐     user input      ┌────────────┐     stream start     ┌────────────┐
+│            │ ─────────────────► │            │ ─────────────────► │            │
+│  responding │                    │  thinking  │                     │ responding │
+│            │ ◄───────────────── │            │ ◄───────────────── │            │
+└────────────┘     no tools        └────────────┘     stream end        └────────────┘
+      │                                   │                                   │
+      │                                   │ tool_use detected                 │
+      │                                   ▼                                   │
+      │                           ┌────────────┐                             │
+      │                           │            │                             │
+      │                           │ tool-use   │                             │
+      │                           │            │                             │
+      │                           └────────────┘                             │
+      │                                   │                                   │
+      │                                   │ tool results complete             │
+      │                                   ▼                                   │
+      │                           ┌────────────┐                             │
+      │                           │            │                             │
+      └─────────────────────────► │  thinking  │ ◄───────────────────────────┘
+                                  │            │
+                                  └────────────┘
+
+State Transitions:
+- responding → thinking: User submits message
+- thinking → responding: LLM response with no tools
+- thinking → tool-use: LLM calls tools
+- tool-use → thinking: Tool execution complete, continuing turn
+- thinking → responding: Turn complete
+
+State Descriptions:
+- responding: Idle state, accepting user input
+- thinking: LLM is streaming response
+- tool-use: Tools are being executed
+```
+
+### 4.3 Message State Management
+
+```javascript
+// ============================================
+// Message State Management - REPL component
+// Location: chunks.196.mjs:173-183
+// ============================================
+
+// ORIGINAL (for source lookup):
+let [u7, Xz] = N8.useState(Y ?? []), iY = N8.useRef(u7);
+let gq = N8.useCallback((P1) => {
+    let Y8 = typeof P1 === "function" ? P1(iY.current) : P1;
+    iY.current = Y8, Xz(Y8)
+}, []);
+
+// READABLE (for understanding):
+let [messages, setMessages] = useState(initialMessages ?? []);
+let messagesRef = useRef(messages);
+
+let updateMessages = useCallback((updater) => {
+    let newMessages = typeof updater === "function"
+        ? updater(messagesRef.current)
+        : updater;
+
+    messagesRef.current = newMessages;  // Sync ref for async access
+    setMessages(newMessages);
+}, []);
+
+// Deferred value for performance optimization
+let deferredMessages = useDeferredValue(messages);
+
+// Track deferred delta for logging
+let messageDelta = messages.length - deferredMessages.length;
+if (messageDelta > 0) {
+    debugLog(`[useDeferredValue] Messages deferred by ${messageDelta}`);
+}
+
+// Mapping: u7→messages, Xz→setMessages, iY→messagesRef, gq→updateMessages
+```
+
+### 4.4 Dialog Priority System (getInputDialogType)
 
 ```javascript
 // ============================================
@@ -523,296 +397,895 @@ function ra6() {
 
 // READABLE (for understanding):
 function getInputDialogType() {
-    // Block all dialogs during certain states
-    if (isDialogLocked || hasBlockingDialog) return undefined;
+    // Early exit if modal is open
+    if (isModalOpen || pendingNavigation) return undefined;
 
-    // High-priority: Message selector (always shown if active)
+    // Highest priority: message selector (explicit user action)
     if (isMessageSelectorVisible) return "message-selector";
 
-    // Loading state blocks most dialogs
-    if (isLoading) return undefined;
+    // Block dialogs during typing
+    if (isTyping) return undefined;
 
-    // High-priority: Sandbox permission
+    // Check sandbox permission queue first
     if (sandboxPermissionQueue[0]) return "sandbox-permission";
 
-    // Medium-priority dialogs (only if animation should continue)
-    let shouldShowDialogs = !toolJSX || toolJSX.shouldContinueAnimation;
+    // Check animation should continue
+    let shouldContinueAnimation = !localJSXCommand || localJSXCommand.shouldContinueAnimation;
 
-    if (shouldShowDialogs) {
-        // Tool permission prompts
-        if (toolPermissionQueue[0]) return "tool-permission";
+    // Priority order for dialogs
+    if (shouldContinueAnimation && toolPermissionQueue[0]) return "tool-permission";
+    if (shouldContinueAnimation && promptQueue[0]) return "prompt";
+    if (shouldContinueAnimation && workerSandboxQueue.queue[0]) return "worker-sandbox-permission";
+    if (shouldContinueAnimation && elicitationQueue.queue[0]) return "elicitation";
+    if (shouldContinueAnimation && isCostWarningVisible) return "cost";
+    if (shouldContinueAnimation && showIdeOnboarding) return "ide-onboarding";
+    if (shouldContinueAnimation && showEffortCallout) return "effort-callout";
+    if (shouldContinueAnimation && showRemoteCallout) return "remote-callout";
+    if (shouldContinueAnimation && lspRecommendation) return "lsp-recommendation";
+    if (shouldContinueAnimation && showDesktopUpsell) return "desktop-upsell";
 
-        // User input prompts
-        if (promptQueue[0]) return "prompt";
-
-        // Worker sandbox permissions
-        if (workerSandboxQueue.queue[0]) return "worker-sandbox-permission";
-
-        // Elicitation dialogs
-        if (elicitationQueue.queue[0]) return "elicitation";
-
-        // Low-priority: Status notifications
-        if (showCostWarning) return "cost";
-        if (showIdeOnboarding) return "ide-onboarding";
-        if (showEffortCallout) return "effort-callout";
-        if (showRemoteCallout) return "remote-callout";
-        if (showLspRecommendation) return "lsp-recommendation";
-        if (showDesktopUpsell) return "desktop-upsell";
-    }
-
-    return undefined;  // No dialog to show
+    return undefined;
 }
 
-// Mapping: ra6→getInputDialogType, lV6→isDialogLocked, na6→hasBlockingDialog,
-//          W7→isMessageSelectorVisible, y2→isLoading, G7→sandboxPermissionQueue,
-//          a8→toolPermissionQueue, zA→promptQueue, n→workerSandboxQueue,
-//          o→elicitationQueue, m26→showCostWarning, W6→showIdeOnboarding,
-//          g6→showEffortCallout, J1→showRemoteCallout, e8→showLspRecommendation,
-//          E1→showDesktopUpsell, j8→toolJSX, P1→shouldShowDialogs
+// Mapping: ra6→getInputDialogType, lV6→isModalOpen, na6→pendingNavigation, W7→isMessageSelectorVisible,
+//          y2→isTyping, G7→sandboxPermissionQueue, a8→toolPermissionQueue, zA→promptQueue
 ```
 
-### 5.3 Cancel Propagation Handler
+**Why this approach:**
+- Priority-based dispatching ensures correct dialog shown
+- Explicit ordering prevents dialog conflicts
+- Animation flag allows graceful transition states
+
+---
+
+## 5. LLM Agent Loop Restoration
+
+### 5.1 StreamingToolExecutor (ui6) - Complete Implementation
+
+**What it does:** Manages parallel tool execution with concurrency safety checks.
+
+**How it works:**
+1. Tools queue up as they stream in from SSE
+2. Concurrency-safe tools execute in parallel
+3. Non-safe tools wait for safe tools to complete
+4. Sibling abort pattern: one failure aborts siblings
 
 ```javascript
 // ============================================
-// handleCancel (TM) - Cancel propagation handler
-// Location: chunks.196.mjs:420-432
+// StreamingToolExecutor (ui6) - Tool execution queue
+// Location: chunks.148.mjs:3-228
 // ============================================
 
 // ORIGINAL (for source lookup):
-function TM() {
-    if (K2 === "elicitation") return;
-    if (k(`[onCancel] focusedInputDialog=${K2} streamMode=${d7}`), J9.forceEnd(), ez?.trim()) gq((P1) => [...P1, $Z({
-        content: ez
-    })]);
-    if (dE(), K2 === "tool-permission") a8[0]?.onAbort(), $A([]);
-    else if (K2 === "prompt") {
-        for (let P1 of zA) P1.reject(Error("Prompt cancelled by user"));
-        gA([]), M5?.abort()
-    } else if (B5.isRemoteMode) B5.cancelRequest();
-    else M5?.abort();
-    x5(null)
+class ui6 {
+    toolDefinitions;
+    canUseTool;
+    tools = [];
+    toolUseContext;
+    hasErrored = !1;
+    erroredToolDescription = "";
+    siblingAbortController;
+    discarded = !1;
+    progressAvailableResolve;
+    constructor(A, q, K) {
+        this.toolDefinitions = A;
+        this.canUseTool = q;
+        this.toolUseContext = K, this.siblingAbortController = Wm(K.abortController)
+    }
+    discard() {
+        this.discarded = !0
+    }
+    addTool(A, q) {
+        let K = dK(this.toolDefinitions, A.name);
+        if (!K) {
+            this.tools.push({
+                id: A.id,
+                block: A,
+                assistantMessage: q,
+                status: "completed",
+                isConcurrencySafe: !0,
+                pendingProgress: [],
+                results: [p1({
+                    content: [{
+                        type: "tool_result",
+                        content: `<tool_use_error>Error: No such tool available: ${A.name}</tool_use_error>`,
+                        is_error: !0,
+                        tool_use_id: A.id
+                    }],
+                    toolUseResult: `Error: No such tool available: ${A.name}`,
+                    sourceToolAssistantUUID: q.uuid
+                })]
+            });
+            return
+        }
+        A.input = PE1(K, A.input);
+        let Y = K.inputSchema.safeParse(A.input),
+            z = Y?.success ? (() => {
+                try {
+                    return Boolean(K.isConcurrencySafe(Y.data))
+                } catch {
+                    return !1
+                }
+            })() : !1;
+        this.tools.push({
+            id: A.id,
+            block: A,
+            assistantMessage: q,
+            status: "queued",
+            isConcurrencySafe: z,
+            pendingProgress: []
+        }), this.processQueue()
+    }
+    canExecuteTool(A) {
+        let q = this.tools.filter((K) => K.status === "executing");
+        return q.length === 0 || A && q.every((K) => K.isConcurrencySafe)
+    }
+    // ... more methods ...
 }
 
 // READABLE (for understanding):
-function handleCancel() {
-    // Don't cancel elicitation dialogs (special handling required)
-    if (focusedDialog === "elicitation") return;
-
-    // Log cancel action
-    debugLog(`[onCancel] focusedInputDialog=${focusedDialog} streamMode=${streamMode}`);
-
-    // Force end any pending operations
-    forceEndTracker.forceEnd();
-
-    // Save any partial input as draft message
-    if (inputDraft?.trim()) {
-        setMessages(prev => [...prev, createUserMessage({ content: inputDraft })]);
+class StreamingToolExecutor {
+    constructor(toolDefinitions, canUseTool, toolUseContext) {
+        this.toolDefinitions = toolDefinitions;
+        this.canUseTool = canUseTool;
+        this.tools = [];  // Queue of tool executions
+        this.toolUseContext = toolUseContext;
+        this.hasErrored = false;  // Circuit breaker flag
+        this.siblingAbortController = cloneAbortController(toolUseContext.abortController);
+        this.discarded = false;
     }
 
-    // Reset loading state
-    resetLoadingState();
+    canExecuteTool(isConcurrencySafe) {
+        let executing = this.tools.filter(t => t.status === "executing");
+        // Allow if nothing executing, or if all executing tools are concurrency-safe
+        return executing.length === 0 ||
+               (isConcurrencySafe && executing.every(t => t.isConcurrencySafe));
+    }
 
-    // Handle cancel based on dialog type
-    if (focusedDialog === "tool-permission") {
-        // Abort tool permission request
-        toolPermissionQueue[0]?.onAbort();
-        setToolPermissionQueue([]);
-    } else if (focusedDialog === "prompt") {
-        // Reject all pending prompts
-        for (let prompt of promptQueue) {
-            prompt.reject(Error("Prompt cancelled by user"));
+    addTool(toolUseBlock, assistantMessage) {
+        let toolDef = findToolDefinition(this.toolDefinitions, toolUseBlock.name);
+
+        if (!toolDef) {
+            // Tool not found - create error result
+            this.tools.push({
+                id: toolUseBlock.id,
+                block: toolUseBlock,
+                assistantMessage,
+                status: "completed",
+                isConcurrencySafe: true,
+                results: [createSyntheticError(toolUseBlock.id, `No such tool: ${toolUseBlock.name}`)]
+            });
+            return;
         }
-        setPromptQueue([]);
-        abortController?.abort();
-    } else if (remoteSession.isRemoteMode) {
-        // Cancel remote request
-        remoteSession.cancelRequest();
-    } else {
-        // Cancel local request
-        abortController?.abort();
+
+        // Validate input and determine concurrency safety
+        let parsedInput = toolDef.inputSchema.safeParse(toolUseBlock.input);
+        let isConcurrencySafe = parsedInput?.success
+            ? Boolean(toolDef.isConcurrencySafe(parsedInput.data))
+            : false;
+
+        this.tools.push({
+            id: toolUseBlock.id,
+            block: toolUseBlock,
+            assistantMessage,
+            status: "queued",
+            isConcurrencySafe,
+            pendingProgress: []
+        });
+
+        this.processQueue();
     }
 
-    // Clear abort controller
-    setAbortController(null);
+    getAbortReason(toolEntry) {
+        if (this.discarded) return "streaming_fallback";
+        if (this.hasErrored) return "sibling_error";
+        if (this.toolUseContext.abortController.signal.aborted) {
+            if (this.toolUseContext.abortController.signal.reason === "interrupt") {
+                return this.getToolInterruptBehavior(toolEntry) === "cancel"
+                    ? "user_interrupted"
+                    : null;
+            }
+            return "user_interrupted";
+        }
+        return null;
+    }
+
+    async executeTool(toolEntry) {
+        toolEntry.status = "executing";
+        this.toolUseContext.setInProgressToolUseIDs(ids => new Set([...ids, toolEntry.id]));
+        this.updateInterruptibleState();
+
+        let results = [];
+        let contextModifiers = [];
+
+        // Check abort conditions
+        let abortReason = this.getAbortReason(toolEntry);
+        if (abortReason) {
+            toolEntry.results = [this.createSyntheticErrorMessage(toolEntry.id, abortReason, toolEntry.assistantMessage)];
+            toolEntry.status = "completed";
+            return;
+        }
+
+        // Create sibling abort controller for isolation
+        let siblingAbort = cloneAbortController(this.siblingAbortController);
+        siblingAbort.signal.addEventListener("abort", () => {
+            if (siblingAbort.signal.reason !== "sibling_error" &&
+                !this.toolUseContext.abortController.signal.aborted &&
+                !this.discarded) {
+                this.toolUseContext.abortController.abort(siblingAbort.signal.reason);
+            }
+        }, { once: true });
+
+        // Execute via toolDispatcher
+        for await (let event of toolDispatcher(toolEntry.block, toolEntry.assistantMessage,
+                                                this.canUseTool, {...this.toolUseContext, abortController: siblingAbort})) {
+            // Check abort during execution
+            let reason = this.getAbortReason(toolEntry);
+            if (reason) {
+                results.push(this.createSyntheticErrorMessage(toolEntry.id, reason, toolEntry.assistantMessage));
+                break;
+            }
+
+            // Handle error results - trigger sibling abort
+            if (event.message?.type === "user" &&
+                event.message.message.content?.some(c => c.type === "tool_result" && c.is_error)) {
+                if (toolEntry.block.name === BASH_TOOL_NAME) {
+                    this.hasErrored = true;
+                    this.erroredToolDescription = this.getToolDescription(toolEntry);
+                    this.siblingAbortController.abort("sibling_error");
+                }
+            }
+
+            if (event.message) {
+                if (event.message.type === "progress") {
+                    toolEntry.pendingProgress.push(event.message);
+                    if (this.progressAvailableResolve) {
+                        this.progressAvailableResolve();
+                        this.progressAvailableResolve = undefined;
+                    }
+                } else {
+                    results.push(event.message);
+                }
+            }
+
+            if (event.contextModifier) {
+                contextModifiers.push(event.contextModifier.modifyContext);
+            }
+        }
+
+        toolEntry.results = results;
+        toolEntry.contextModifiers = contextModifiers;
+        toolEntry.status = "completed";
+        this.updateInterruptibleState();
+
+        // Apply context modifiers for non-concurrency-safe tools
+        if (!toolEntry.isConcurrencySafe && contextModifiers.length > 0) {
+            for (let modifier of contextModifiers) {
+                this.toolUseContext = modifier(this.toolUseContext);
+            }
+        }
+    }
+
+    async *getRemainingResults() {
+        if (this.discarded) return;
+
+        while (this.hasUnfinishedTools()) {
+            await this.processQueue();
+
+            for (let result of this.getCompletedResults()) {
+                yield result;
+            }
+
+            // Wait for executing tools if no results ready
+            if (this.hasExecutingTools() && !this.hasCompletedResults() && !this.hasPendingProgress()) {
+                let promises = this.tools
+                    .filter(t => t.status === "executing" && t.promise)
+                    .map(t => t.promise);
+                let progressPromise = new Promise(resolve => {
+                    this.progressAvailableResolve = resolve;
+                });
+
+                if (promises.length > 0) {
+                    await Promise.race([...promises, progressPromise]);
+                }
+            }
+        }
+
+        for (let result of this.getCompletedResults()) {
+            yield result;
+        }
+    }
 }
 
-// Mapping: TM→handleCancel, K2→focusedDialog, d7→streamMode, J9→forceEndTracker,
-//          ez→inputDraft, gq→setMessages, $Z→createUserMessage, dE→resetLoadingState,
-//          a8→toolPermissionQueue, $A→setToolPermissionQueue, zA→promptQueue,
-//          gA→setPromptQueue, M5→abortController, x5→setAbortController, B5→remoteSession
+// Mapping: ui6→StreamingToolExecutor, A→toolDefinitions, q→canUseTool, K→toolUseContext
 ```
+
+**Why this approach:**
+- Parallel execution for concurrency-safe tools (Read, Grep, Glob)
+- Sequential execution for non-safe tools (Write, Edit, Bash)
+- Sibling abort pattern: one tool failure aborts siblings but not parent
+- Progress tracking for UI updates
 
 ---
 
-## 6. Integration Test Scenarios
+## 6. Key Algorithms Deep Dive
 
-### 6.1 Query Flow Test
+### 6.1 assembleAllAttachments (_uY) - Attachment Orchestrator
+
+**What it does:** Assembles all system reminder attachments before each LLM request.
+
+**How it works:**
+1. Creates abort controller with 1-second timeout
+2. Groups producers by priority (pre-switch, standard, conditional)
+3. Executes all producers in parallel
+4. Filters out null/undefined results
 
 ```javascript
-// Test: Complete query flow from input to response
+// ============================================
+// assembleAllAttachments (_uY) - Attachment orchestrator
+// Location: chunks.147.mjs:3-18
+// ============================================
 
-describe('Query Flow Integration', () => {
-    it('should process user input through complete pipeline', async () => {
-        // 1. User types message
-        simulateUserInput('What is 2+2?');
+// ORIGINAL (for source lookup):
+async function _uY(A, q, K, Y, z, _) {
+    if (t6(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) || t6(process.env.CLAUDE_CODE_SIMPLE)) return [];
+    let w = sK(),
+        O = setTimeout((W) => W.abort(), 1000, w),
+        $ = {
+            ...q,
+            abortController: w
+        },
+        H = !q.agentId,
+        j = A ? [Hz("at_mentioned_files", () => RuY(A, $)), Hz("mcp_resources", () => SuY(A, $)),
+                 Hz("agent_mentions", () => Promise.resolve(huY(A, q.options.agentDefinitions.activeAgents))),
+                 ...[]] : [],
+        J = await Promise.all(j),
+        M = [Hz("date_change", () => Promise.resolve(fuY())),
+             Hz("ultrathink_effort", () => Promise.resolve(TuY(A))),
+             Hz("deferred_tools_delta", () => Promise.resolve(xE1(q.options.tools, q.options.mainLoopModel, z))),
+             Hz("mcp_instructions_delta", () => Promise.resolve(uE1(q.options.mcpClients, q.options.tools, q.options.mainLoopModel, z))),
+             Hz("changed_files", () => CuY($)),
+             Hz("nested_memory", () => IuY($)),
+             Hz("dynamic_skill", () => BuY($)),
+             Hz("skill_listing", () => guY($)),
+             Hz("ultra_claude_md", async () => VuY(z)),
+             Hz("plan_mode", () => DuY(z, q)),
+             Hz("plan_mode_exit", () => XuY(q)),
+             Hz("auto_mode", () => ZuY(z, q)),
+             Hz("auto_mode_exit", () => GuY(q)),
+             Hz("todo_reminders", () => r$() ? auY(z, q) : ruY(z, q)),
+             ...E7() ? [..._ === "session_memory" ? [] : [Hz("teammate_mailbox", async () => euY(q))],
+                        Hz("team_context", async () => AmY(z ?? []))] : [],
+             Hz("agent_pending_messages", async () => $uY(q)),
+             Hz("critical_system_reminder", () => Promise.resolve(vuY(q)))],
+        D = H ? [Hz("ide_selection", async () => kuY(K, q)),
+                 Hz("ide_opened_file", async () => LuY(K, q)),
+                 Hz("output_style", async () => Promise.resolve(NuY())),
+                 Hz("diagnostics", async () => cuY(q)),
+                 Hz("lsp_diagnostics", async () => luY(q)),
+                 Hz("unified_tasks", async () => suY(q)),
+                 Hz("async_hook_responses", async () => tuY()),
+                 Hz("token_usage", async () => Promise.resolve(qmY(z ?? [], q.options.mainLoopModel))),
+                 Hz("budget_usd", async () => Promise.resolve(YmY(q.options.maxBudgetUsd))),
+                 Hz("output_token_usage", async () => Promise.resolve(KmY())),
+                 Hz("verify_plan_reminder", async () => _mY(z, q)),
+                 Hz("queued_commands", () => OuY(Y))] : [],
+        [X, P] = await Promise.all([Promise.all(M), Promise.all(D)]);
+    return clearTimeout(O), [...J.flat(), ...X.flat(), ...P.flat()].filter((W) => W !== void 0 && W !== null)
+}
 
-        // 2. onQuery called
-        await waitFor(() => expect(isLoading).toBe(true));
+// READABLE (for understanding):
+async function assembleAllAttachments(atMentionedFiles, sessionContext, ideContext, queuedCommands, messages, memoryType) {
+    // Check for disabled attachments
+    if (parseBoolean(process.env.CLAUDE_CODE_DISABLE_ATTACHMENTS) ||
+        parseBoolean(process.env.CLAUDE_CODE_SIMPLE)) {
+        return [];
+    }
 
-        // 3. Agent loop invoked
-        expect(mainAgentLoop).toHaveBeenCalledWith(expect.objectContaining({
-            messages: expect.arrayContaining([
-                expect.objectContaining({ type: 'user' })
-            ])
-        }));
+    // Create abort controller with 1-second timeout
+    let abortController = createAbortController();
+    let timeoutId = setTimeout(ctrl => ctrl.abort(), 1000, abortController);
 
-        // 4. Stream events processed
-        await waitFor(() => expect(streamMode).toBe('requesting'));
+    let contextWithAbort = {
+        ...sessionContext,
+        abortController
+    };
 
-        // 5. Response received
-        await waitFor(() => expect(messages).toContainEqual(
-            expect.objectContaining({
-                type: 'assistant',
-                message: expect.objectContaining({
-                    content: expect.arrayContaining([
-                        expect.objectContaining({ type: 'text' })
-                    ])
-                })
-            })
-        ));
+    let isMainThread = !sessionContext.agentId;
 
-        // 6. Loading complete
-        await waitFor(() => expect(isLoading).toBe(false));
-    });
-});
+    // Pre-switch producers (only when files @-mentioned)
+    let preSwitchProducers = atMentionedFiles ? [
+        timedProducer("at_mentioned_files", () => produceAtMentionedFiles(atMentionedFiles, contextWithAbort)),
+        timedProducer("mcp_resources", () => produceMcpResources(atMentionedFiles, contextWithAbort)),
+        timedProducer("agent_mentions", () => produceAgentMentions(atMentionedFiles, sessionContext.options.agentDefinitions.activeAgents))
+    ] : [];
+    let preSwitchResults = await Promise.all(preSwitchProducers);
+
+    // Standard producers (always run)
+    let standardProducers = [
+        timedProducer("date_change", () => produceDateChangeReminder()),
+        timedProducer("ultrathink_effort", () => produceUltrathinkEffort(atMentionedFiles)),
+        timedProducer("deferred_tools_delta", () => produceDeferredToolsDelta(sessionContext.options.tools, sessionContext.options.mainLoopModel, messages)),
+        timedProducer("mcp_instructions_delta", () => produceMcpInstructionsDelta(sessionContext.options.mcpClients, sessionContext.options.tools, sessionContext.options.mainLoopModel, messages)),
+        timedProducer("changed_files", () => produceChangedFiles(contextWithAbort)),
+        timedProducer("nested_memory", () => produceNestedMemory(contextWithAbort)),
+        timedProducer("dynamic_skill", () => produceDynamicSkill(contextWithAbort)),
+        timedProducer("skill_listing", () => produceSkillListing(contextWithAbort)),
+        timedProducer("ultra_claude_md", async () => produceUltraClaudeMd(messages)),
+        timedProducer("plan_mode", () => producePlanModeReminder(messages, sessionContext)),
+        timedProducer("plan_mode_exit", () => producePlanModeExit(sessionContext)),
+        timedProducer("auto_mode", () => produceAutoModeReminder(messages, sessionContext)),
+        timedProducer("auto_mode_exit", () => produceAutoModeExit(sessionContext)),
+        timedProducer("todo_reminders", () => isTodoCompactEnabled() ? produceTodoCompactReminder(messages, sessionContext) : produceTodoReminder(messages, sessionContext)),
+        // Team mode conditional
+        ...(isTeamMode() ? [
+            ...(memoryType === "session_memory" ? [] : [timedProducer("teammate_mailbox", async () => produceTeammateMailbox(sessionContext))]),
+            timedProducer("team_context", async () => produceTeamContext(messages ?? []))
+        ] : []),
+        timedProducer("agent_pending_messages", async () => produceAgentPendingMessages(sessionContext)),
+        timedProducer("critical_system_reminder", () => produceCriticalReminder(sessionContext))
+    ];
+
+    // Conditional producers (only for main thread, not subagents)
+    let conditionalProducers = isMainThread ? [
+        timedProducer("ide_selection", async () => produceIdeSelection(ideContext, sessionContext)),
+        timedProducer("ide_opened_file", async () => produceIdeOpenedFile(ideContext, sessionContext)),
+        timedProducer("output_style", async () => produceOutputStyle()),
+        timedProducer("diagnostics", async () => produceDiagnostics(sessionContext)),
+        timedProducer("lsp_diagnostics", async () => produceLspDiagnostics(sessionContext)),
+        timedProducer("unified_tasks", async () => produceUnifiedTasks(sessionContext)),
+        timedProducer("async_hook_responses", async () => produceAsyncHookResponses()),
+        timedProducer("token_usage", async () => produceTokenUsage(messages ?? [], sessionContext.options.mainLoopModel)),
+        timedProducer("budget_usd", async () => produceBudgetUsd(sessionContext.options.maxBudgetUsd)),
+        timedProducer("output_token_usage", async () => produceOutputTokenUsage()),
+        timedProducer("verify_plan_reminder", async () => produceVerifyPlanReminder(messages, sessionContext)),
+        timedProducer("queued_commands", () => produceQueuedCommands(queuedCommands))
+    ] : [];
+
+    // Execute in parallel
+    let [standardResults, conditionalResults] = await Promise.all([
+        Promise.all(standardProducers),
+        Promise.all(conditionalProducers)
+    ]);
+
+    // Clear timeout and flatten results
+    clearTimeout(timeoutId);
+
+    return [...preSwitchResults.flat(), ...standardResults.flat(), ...conditionalResults.flat()]
+        .filter(result => result !== undefined && result !== null);
+}
+
+// Mapping: _uY→assembleAllAttachments, A→atMentionedFiles, q→sessionContext, K→ideContext, Y→queuedCommands,
+//          z→messages, _→memoryType, w→abortController, H→isMainThread, j→preSwitchProducers, M→standardProducers, D→conditionalProducers
 ```
 
-### 6.2 Tool Execution Test
+**Why this approach:**
+- Parallel execution minimizes latency
+- 1-second global timeout prevents hanging
+- Conditional producers only for main thread saves tokens
+- Three producer groups for prioritization
+
+---
+
+## 7. UI Design Interaction Patterns
+
+### 7.1 sessionOrchestrator (ot8) - Main Session Component
 
 ```javascript
-// Test: Tool execution with streaming
+// ============================================
+// sessionOrchestrator (ot8) - Main session orchestrator
+// Location: chunks.196.mjs:3-300
+// ============================================
 
-describe('Tool Execution Integration', () => {
-    it('should execute tools while streaming', async () => {
-        // 1. LLM outputs tool_use
-        simulateToolUseStreaming('Bash', { command: 'echo test' });
+// ORIGINAL (for source lookup):
+function ot8({
+    commands: A,
+    debug: q,
+    initialTools: K,
+    initialMessages: Y,
+    pendingHookMessages: z,
+    // ... 25+ more props
+}) {
+    let R = !!N;  // isRemoteMode
+    N8.useEffect(() => {
+        return k(`[REPL:mount] REPL mounted, disabled=${Z}`), () => k("[REPL:unmount] REPL unmounting")
+    }, [Z]);
 
-        // 2. Stream mode changes to tool-input
-        await waitFor(() => expect(streamMode).toBe('tool-input'));
+    // State hooks (35+ useState calls)
+    let [d7, W4] = N8.useState("responding");  // uiState
+    let [JK, F3] = N8.useState([]);  // toolUses
+    let [MK, k3] = N8.useState(null);  // thinkingState
+    let [u7, Xz] = N8.useState(Y ?? []);  // messages
+    // ... many more state hooks
+}
 
-        // 3. Tool added to streamingToolUses
-        await waitFor(() => expect(streamingToolUses).toHaveLength(1));
+// READABLE (for understanding):
+function sessionOrchestrator({
+    commands,                  // Slash commands
+    debug,                     // Debug mode
+    initialTools,              // Initial tool set
+    initialMessages,           // Conversation history
+    pendingHookMessages,       // Hook results to process
+    mcpClients,                // MCP server connections
+    systemPrompt,
+    appendSystemPrompt,
+    onBeforeQuery,             // Pre-query callback
+    onTurnComplete,            // Post-turn callback
+    disabled = false,
+    disableSlashCommands = false,
+    remoteSessionConfig,       // Remote session settings
+    thinkingConfig             // Extended thinking config
+}) {
+    let isRemoteMode = !!remoteSessionConfig;
 
-        // 4. Tool completes streaming
-        simulateContentBlockStop();
+    // Primary UI state machine
+    let [uiState, setUIState] = useState("responding");
+    let uiStateRef = useRef(uiState);
+    uiStateRef.current = uiState;
 
-        // 5. Tool execution starts
-        await waitFor(() => expect(streamMode).toBe('tool-use'));
+    // Tool execution tracking
+    let [toolUses, setToolUses] = useState([]);
+    let [thinkingState, setThinkingState] = useState(null);
 
-        // 6. Tool result appears
-        await waitFor(() => expect(messages).toContainEqual(
-            expect.objectContaining({
-                type: 'user',
-                message: expect.objectContaining({
-                    content: expect.arrayContaining([
-                        expect.objectContaining({ type: 'tool_result' })
-                    ])
-                })
-            })
-        ));
-    });
-});
+    // Message management
+    let [messages, setMessages] = useState(initialMessages ?? []);
+    let messagesRef = useRef(messages);
+
+    let updateMessages = useCallback((updater) => {
+        let newMessages = typeof updater === "function"
+            ? updater(messagesRef.current)
+            : updater;
+        messagesRef.current = newMessages;
+        setMessages(newMessages);
+    }, []);
+
+    // Deferred rendering for performance
+    let deferredMessages = useDeferredValue(messages);
+
+    // Permission queues
+    let [toolPermissionQueue, setToolPermissionQueue] = useState([]);
+    let [sandboxPermissionQueue, setSandboxPermissionQueue] = useState([]);
+    let [promptQueue, setPromptQueue] = useState([]);
+
+    // Dialog determination
+    function getInputDialogType() {
+        if (isMessageSelectorVisible) return "message-selector";
+        if (isTyping) return undefined;
+        if (sandboxPermissionQueue[0]) return "sandbox-permission";
+
+        let shouldContinueAnimation = !localJSXCommand || localJSXCommand.shouldContinueAnimation;
+
+        if (shouldContinueAnimation && toolPermissionQueue[0]) return "tool-permission";
+        if (shouldContinueAnimation && promptQueue[0]) return "prompt";
+        // ... more dialog types
+
+        return undefined;
+    }
+
+    // Cancel handler
+    function handleCancel() {
+        if (currentDialogType === "elicitation") return;
+
+        debugLog(`[onCancel] focusedInputDialog=${currentDialogType} streamMode=${uiState}`);
+
+        // Handle streaming text
+        if (streamingText?.trim()) {
+            updateMessages(prev => [...prev, createAssistantMessage({ content: streamingText })]);
+        }
+
+        resetLoadingState();
+
+        // Handle different dialog types
+        if (currentDialogType === "tool-permission") {
+            toolPermissionQueue[0]?.onAbort();
+            setToolPermissionQueue([]);
+        } else if (currentDialogType === "prompt") {
+            for (let prompt of promptQueue) {
+                prompt.reject(Error("Prompt cancelled by user"));
+            }
+            setPromptQueue([]);
+            abortController?.abort();
+        } else if (isRemoteMode) {
+            remoteSessionHandler.cancelRequest();
+        } else {
+            abortController?.abort();
+        }
+
+        setAbortController(null);
+    }
+
+    // ... more implementation
+}
+
+// Mapping: ot8→sessionOrchestrator, d7→uiState, W4→setUIState, JK→toolUses, u7→messages
 ```
 
-### 6.3 Cancel Flow Test
+### 7.2 Component Hierarchy
 
-```javascript
-// Test: User cancellation
-
-describe('Cancel Integration', () => {
-    it('should handle user cancel during streaming', async () => {
-        // 1. Start query
-        simulateUserInput('Long running query');
-        await waitFor(() => expect(isLoading).toBe(true));
-
-        // 2. Press Escape
-        simulateKeyPress('escape');
-
-        // 3. Cancel handler invoked
-        expect(handleCancel).toHaveBeenCalled();
-
-        // 4. Abort triggered
-        expect(abortController.signal.aborted).toBe(true);
-
-        // 5. Loading state reset
-        await waitFor(() => expect(isLoading).toBe(false));
-
-        // 6. UI returns to interactive state
-        expect(streamMode).toBe(null);
-    });
-});
+```
+sessionOrchestrator (ot8)
+│
+├── AppStateProvider (Yj)
+│   │
+│   └── REPL
+│       │
+│       ├── Header
+│       │   ├── Logo
+│       │   ├── Version display
+│       │   └── Agent info
+│       │
+│       ├── MessageList
+│       │   │
+│       │   ├── MessageComponent (per message)
+│       │   │   ├── UserMessage
+│       │   │   ├── AssistantMessage
+│       │   │   ├── ToolUseCard
+│       │   │   └── ToolResultCard
+│       │   │
+│       │   ├── StreamingToolUse (during tool execution)
+│       │   └── StreamingThinking (during extended thinking)
+│       │
+│       ├── Spinner (conditional)
+│       │   └── Activity text, progress indicator
+│       │
+│       ├── PromptInput
+│       │   ├── TextInput
+│       │   ├── AutocompleteOverlay (slash commands)
+│       │   └── ImagePreview
+│       │
+│       ├── DialogRenderer
+│       │   ├── ToolPermissionDialog
+│       │   ├── SandboxPermissionDialog
+│       │   ├── ElicitationDialog
+│       │   ├── CostWarningDialog
+│       │   ├── IDEOnboardingDialog
+│       │   ├── LSPRecommendationDialog
+│       │   ├── EffortCalloutDialog
+│       │   ├── RemoteCalloutDialog
+│       │   ├── DesktopUpsellDialog
+│       │   └── MessageSelectorDialog
+│       │
+│       └── Footer
+│           ├── Mode indicator (accept/plan/auto)
+│           ├── Model name
+│           ├── Token count
+│           └── Keybinding hints
 ```
 
 ---
 
-## 7. Performance Characteristics
+## 8. System Reminder Integration
 
-### 7.1 Timing Benchmarks
+### 8.1 Attachment Producer Catalog
 
-| Operation | Typical Time | Max Acceptable |
-|-----------|--------------|----------------|
-| CLI startup to REPL ready | 300-700ms | 2000ms |
-| State update propagation | 1-5ms | 16ms (60fps) |
-| Attachment production | 50-200ms | 1000ms |
-| Dialog priority check | <1ms | 16ms |
-| Stream event processing | <1ms per event | 16ms |
-| Message list re-render | 5-20ms | 100ms |
+| Producer | Type | Trigger Condition | Priority |
+|----------|------|-------------------|----------|
+| `produceAtMentionedFiles` | file context | Files @-mentioned | Pre-switch |
+| `produceMcpResources` | mcp_resource | @-mention MCP resource | Pre-switch |
+| `produceAgentMentions` | agent_mention | Agent @-mentioned | Pre-switch |
+| `produceDateChange` | date_change | Date changed since last | Standard |
+| `produceUltrathinkEffort` | ultrathink_effort | Extended thinking active | Standard |
+| `produceDeferredToolsDelta` | deferred_tools_delta | Deferred tools available | Standard |
+| `producePlanModeReminder` | plan_mode | Mode is "plan" | Standard |
+| `produceAutoModeReminder` | auto_mode | Mode is "auto" | Standard |
+| `produceTodoReminders` | todo_reminder | Todo list exists | Standard |
+| `produceTeamContext` | team_context | Team mode active | Standard |
+| `produceTokenUsage` | token_usage | Main thread only | Conditional |
+| `produceBudgetUsd` | budget_usd | Main thread only | Conditional |
+| `produceIdeSelection` | ide_selection | Main thread + IDE active | Conditional |
+| `produceDiagnostics` | diagnostics | Main thread + LSP active | Conditional |
 
-### 7.2 Memory Characteristics
+### 8.2 Normalization Flow
 
-| Component | Memory Usage | Notes |
-|-----------|--------------|-------|
-| State store | ~1KB base + messages | Grows with conversation |
-| Streaming state | ~100 bytes per tool | Cleared after query |
-| Thinking state | ~1-10KB | Cleared after 30 seconds |
-| Attachment cache | ~5-50KB per attachment | Filtered per query |
-
-### 7.3 Optimization Strategies
-
-1. **React state batching**: Multiple setState calls batched into single render
-2. **Deferred values**: Message updates deferred during input
-3. **Memoization**: Component memoization with useMemoCache
-4. **Selector pattern**: useAppState reads specific slices, avoiding full re-renders
-5. **Streaming separation**: Partial content in separate state from messages
+```
+Attachment Object
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ normalizeAttachmentForAPI (Ui8)                                              │
+│                                                                              │
+│ Switch on attachment.type:                                                   │
+│   case "plan_mode":                                                          │
+│     → planModeReminderDispatcher() → full/sparse/subagent variant           │
+│   case "token_usage":                                                        │
+│     → createUserMessage({content: formatTokens(), isMeta: true})            │
+│   case "file":                                                               │
+│     → createUserMessage({content: fileContent, isMeta: false})              │
+│   case "todo_reminder":                                                      │
+│     → wrapWithSystemReminderTags(createUserMessage(...))                    │
+│   default:                                                                   │
+│     → createUserMessage({content: attachment.content, isMeta: true})        │
+└─────────────────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+Normalized Message Object
+{
+    type: "user",
+    message: {
+        role: "user",
+        content: [...],
+        isMeta: true  // Hidden from UI
+    },
+    uuid: "..."
+}
+```
 
 ---
 
-## 8. Summary
+## 9. Feature Cross-Linkage
 
-The CLI-UI-LLM integration represents a sophisticated architecture with:
+### 9.1 CLI → UI → LLM Integration Matrix
 
-1. **Clear separation of concerns**: CLI handles flags, UI handles display, LLM Core handles logic
-2. **State-driven updates**: Single state store with subscription pattern
-3. **Event-driven streaming**: Async generators for LLM response handling
-4. **Graceful error handling**: Multiple recovery patterns for different error types
-5. **Feature composition**: Cross-cutting features integrate through defined points
+| CLI Flag | UI Impact | LLM Core Impact | System Reminder |
+|----------|-----------|-----------------|-----------------|
+| `-p, --print` | Non-interactive mode | maxTurns=1 | None |
+| `--dangerously-skip-permissions` | Skip dialogs | mode="accept" | Skip permission attachments |
+| `--model` | Display in footer | Model selection | Model-specific thresholds |
+| `--plan` | Plan mode UI | mode="plan" | plan_mode attachment |
+| `--resume` | Load messages | Session restore | Reload context |
+| `--mcp-config` | MCP status | MCP tools | MCP instructions |
+| `--effort` | Effort callout | Thinking budget | ultrathink_effort |
 
-The key architectural insights are:
+### 9.2 State Flow Diagram
 
-- **State store as intermediary**: CLI flags set initial state, React components read reactively
-- **StreamingToolExecutor for parallelism**: Tools execute while LLM continues streaming
-- **Attachment producers for context injection**: System reminders injected without user action
-- **Dialog priority dispatcher**: Ensures user sees most important prompt first
-- **Cancel propagation**: Sibling abort pattern isolates tool execution
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          STATE FLOW ARCHITECTURE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐       │
+│  │   CLI Flags     │     │   State Store   │     │   UI Components │       │
+│  │                 │     │   (WX1)         │     │                 │       │
+│  │  --model        │────►│  toolPermission │────►│  Footer display │       │
+│  │  --plan         │     │  Context        │     │  Mode badge     │       │
+│  │  --resume       │     │                 │     │  Message list   │       │
+│  └─────────────────┘     │  messages       │     │  Dialog stack   │       │
+│                          │  mcpClients     │     └─────────────────┘       │
+│  ┌─────────────────┐     │  tasks          │                              │
+│  │   User Input    │     │                 │     ┌─────────────────┐       │
+│  │                 │────►│  subscribe()    │────►│  Re-render      │       │
+│  │  Keyboard       │     │  notifies       │     │  affected       │       │
+│  │  Paste          │     │  listeners      │     │  components     │       │
+│  └─────────────────┘     └─────────────────┘     └─────────────────┘       │
+│                                     │                                       │
+│                                     │                                       │
+│                                     ▼                                       │
+│                          ┌─────────────────┐                                │
+│                          │   Agent Loop    │                                │
+│                          │   (mainAgentLoop│                                │
+│                          │    Yh)          │                                │
+│                          │                 │                                │
+│                          │  Yields events  │                                │
+│                          │  to UI layer    │                                │
+│                          └─────────────────┘                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Cross-Module Event Flow
+
+```
+User submits message
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                                   │
+│   setUIState("thinking")                                                   │
+│   messagesRef.current = [...prev, userMessage]                            │
+│   startAgentLoop()                                                         │
+└───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ AGENT LOOP (mainAgentLoopCore)                                             │
+│   1. Check auto-compact trigger                                            │
+│   2. Assemble attachments (_uY)                                            │
+│   3. Build tool schemas                                                    │
+│   4. Normalize messages                                                    │
+│   5. Start streaming (mGq)                                                 │
+└───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ STREAMING CORE (streamingQueryCore)                                        │
+│   for await (event of sseStream):                                          │
+│     yield { type: "stream_event", event }                                  │
+│     if (content_block_stop): yield { type: "assistant", message }          │
+└───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ UI LAYER (handleStreamedEvent)                                             │
+│   switch (event.type):                                                     │
+│     "assistant" → setMessages(prev => [...prev, event.message])            │
+│     "stream_event" → updateStreamState(event.event)                        │
+│     "tool_use" → setToolUses(...), setUIState("tool-use")                  │
+└───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ TOOL EXECUTOR (StreamingToolExecutor)                                      │
+│   for tool_use in tool_uses:                                               │
+│     if (canExecuteTool(isConcurrencySafe)):                                │
+│       executeTool(tool) → yield result                                     │
+└───────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ UI LAYER (tool result handling)                                            │
+│   setMessages(prev => [...prev, toolResultMessage])                        │
+│   setUIState("thinking")  // Continue turn                                 │
+│   // OR                                                                    │
+│   setUIState("responding")  // Turn complete                               │
+└───────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 9. Related Documentation
+## 10. Performance Considerations
 
-- [CLI Module](../01_cli/) - CLI entry points and configuration
-- [UI Module](../02_ui/) - React/Ink components and interactions
-- [LLM Core Module](../03_llm_core/) - Agent loop and stream processing
-- [System Reminder Module](../04_system_reminder/) - Attachment types and producers
-- [Algorithms Source Restoration](./algorithms_source_restoration.md) - Detailed algorithm analysis
-- [UI Design Interaction Complete](../02_ui/ui_design_interaction_complete.md) - UI component analysis
+### 10.1 UI Performance Patterns
+
+1. **useDeferredValue for Messages**
+   - Defers heavy message rendering during rapid updates
+   - Logs delta for debugging: `messages.length - deferredMessages.length`
+
+2. **Ref Synchronization Pattern**
+   - `messagesRef.current = messages` after each update
+   - Enables async callbacks to access current state without stale closures
+
+3. **Callback Memoization**
+   - `updateMessages` wrapped in `useCallback` with empty deps
+   - Prevents unnecessary re-renders of child components
+
+### 10.2 Streaming Performance
+
+1. **Immediate Event Yielding**
+   - SSE events yielded to UI as they arrive
+   - No batching for real-time feedback
+
+2. **Parallel Tool Execution**
+   - Concurrency-safe tools execute simultaneously
+   - Reduces total tool execution time
+
+3. **Progress Tracking**
+   - `progressAvailableResolve` pattern for efficient waiting
+   - `Promise.race` for tool completion + progress
+
+### 10.3 Token Efficiency
+
+1. **Deferred Tool Loading**
+   - Only include tools referenced in conversation
+   - Dynamic tool discovery via `zF(messages)`
+
+2. **Sparse Reminders**
+   - Plan mode reminders alternate full/sparse
+   - Reduces context token usage
+
+3. **Cache Controls**
+   - System prompt cached with `ephemeral` type
+   - Repeated user messages cached
+
+---
+
+## Related Symbols
+
+> Symbol mappings:
+> - [symbol_index_core_execution.md](./symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_features.md](./symbol_index_core_features.md) - Core features
+> - [symbol_index_infra_platform.md](./symbol_index_infra_platform.md) - Platform infra
+> - [symbol_index_infra_integration.md](./symbol_index_infra_integration.md) - Integrations
+
+Key functions documented:
+- `createStateStore` (WX1) - State store factory at chunks.85.mjs:1747
+- `sessionOrchestrator` (ot8) - Main session component at chunks.196.mjs:3
+- `getInputDialogType` (ra6) - Dialog priority dispatcher at chunks.196.mjs:387
+- `StreamingToolExecutor` (ui6) - Tool execution queue at chunks.148.mjs:3
+- `streamingQueryCore` (mGq) - SSE streaming at chunks.171.mjs:3
+- `assembleAllAttachments` (_uY) - Attachment orchestrator at chunks.147.mjs:3
+
+---
+
+**Last Updated**: 2026-03-26
+**Version**: Claude Code 2.1.76
+**Status**: Complete - All CLI-UI-LLM functionality documented with source verification

@@ -4,7 +4,7 @@
 > Lookup: Browse by module, or Ctrl+F search for obfuscated/readable name.
 >
 > **Cross-validated**: All symbols verified against source code on 2026-03-26.
-> **Joint Analysis**: See [cli_ui_llm_joint_complete_v8.md](./cli_ui_llm_joint_complete_v8.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
+> **Joint Analysis**: See [cli_ui_llm_joint_complete.md](./cli_ui_llm_joint_complete.md) for the latest comprehensive joint analysis with source-level algorithm restoration.
 
 ---
 
@@ -527,7 +527,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| oV | createTaskId | chunks.41.mjs:2410 | function |
+| oV | generateTaskId | chunks.41.mjs:2410 | function |
 | k$3 | getTypePrefix | chunks.41.mjs:2406 | function |
 | N$3 | generateRandomBytes | chunks.41.mjs | function |
 
@@ -652,7 +652,7 @@
 | EV8 | getRunningTasks | chunks.90.mjs:3053 | function |
 | wY4 | pollTaskOutputs | chunks.90.mjs:3058 | function |
 | OY4 | updateTaskOffsets | chunks.90.mjs:3087 | function |
-| oV | createTaskId | chunks.41.mjs:2410 | function |
+| oV | generateTaskId | chunks.41.mjs:2410 | function |
 | RG | createTaskRecord | chunks.41.mjs:2418 | function |
 
 > **CORRECTIONS:**

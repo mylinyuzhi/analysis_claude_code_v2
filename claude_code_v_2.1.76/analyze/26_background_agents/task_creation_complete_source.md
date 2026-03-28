@@ -709,6 +709,6 @@ Tasks integrate with the system reminder system via:
 
 ## Related Documents
 
-- [kill_mechanism_complete_v2.md](./kill_mechanism_complete_v2.md) - Kill mechanism
+- [kill_mechanism_complete.md](./kill_mechanism_complete.md) - Kill mechanism
 - [progress_tracking_complete.md](./progress_tracking_complete.md) - Progress tracking
-- [task_lifecycle_complete_v3.md](./task_lifecycle_complete_v3.md) - Task lifecycle
+- [task_lifecycle_complete_source.md](./task_lifecycle_complete_source.md) - Task lifecycle

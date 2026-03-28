@@ -561,10 +561,11 @@ Progress attachments are throttled to prevent flooding:
 
 ```javascript
 // From chunks.144.mjs:832 - turn counting
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     // Count assistant turns since last task_progress attachment
     // Only emit new progress if >= 3 turns since last one
 }
+// > **CORRECTION:** `TIY` is actually `countUniqueUris` (counts unique URIs for LSP). The function above describes an INLINE progress throttling mechanism, NOT the TIY function. See `key_algorithms_deep_dive.md` Algorithm 10.
 ```
 
 ---

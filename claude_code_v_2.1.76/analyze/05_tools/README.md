@@ -109,12 +109,10 @@ Key functions in this module:
 
 | Document | Description |
 |----------|-------------|
-| [tools_complete_source_restoration_v3.md](tools_complete_source_restoration_v3.md) | **v3** - Complete source restoration with 8-stage pipeline |
 | [tools_source_restoration_final.md](tools_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
-| [tools_complete_source_restoration_v2.md](tools_complete_source_restoration_v2.md) | **v2** - Complete source restoration with ORIGINAL/READABLE code |
 | [tool_execution_pipeline_complete.md](tool_execution_pipeline_complete.md) | **NEW** - Complete 8-stage pipeline with ORIGINAL/READABLE code |
 | [tool_dispatcher_source_restoration.md](tool_dispatcher_source_restoration.md) | Complete source-level restoration with ORIGINAL/READABLE code |
-| [tool_dispatcher_complete.md](tool_dispatcher_complete.md) | Complete source-level analysis of dispatch flow |
+| [tool_dispatcher_source_restoration.md](tool_dispatcher_source_restoration.md) | Complete source-level analysis of dispatch flow |
 | [permission_flow_complete.md](permission_flow_complete.md) | Permission decision algorithm with hook integration |
 | [permission_decision_algorithm.md](permission_decision_algorithm.md) | **NEW** - Deep dive into permission logic |
 | [tool_registry_complete.md](tool_registry_complete.md) | **NEW** - Master index with validation status |
@@ -135,7 +133,7 @@ Key functions in this module:
 | [tool_permission_ui_complete.md](tool_permission_ui_complete.md) | **NEW** - Permission dialog rendering, hook integration |
 | [tool_progress_tracking_complete.md](tool_progress_tracking_complete.md) | **NEW** - Progress callbacks, AsyncQueue, streaming updates |
 | [permission_flow_complete.md](permission_flow_complete.md) | Permission decision algorithm with hook integration |
-| [cross_system_integration_v3.md](cross_system_integration_v3.md) | Tools ↔ System Reminder integration with hook attachments |
+| [cross_system_integration_complete.md](cross_system_integration_complete.md) | Tools ↔ System Reminder integration with hook attachments |
 | [ui_rendering.md](ui_rendering.md) | UI rendering infrastructure |
 | [tool_reminder_integration.md](tool_reminder_integration.md) | Tool-to-reminder connections |
 | [cross_system_integration.md](cross_system_integration.md) | Integration with slash commands, reminders, compaction |
@@ -145,8 +143,8 @@ Key functions in this module:
 | Document | Description |
 |----------|-------------|
 | [cross_module_integration_complete.md](cross_module_integration_complete.md) | **COMPLETE** - Full cross-module integration with source restoration |
-| [../00_overview/cross_module_integration_complete_v3.md](../00_overview/cross_module_integration_complete_v3.md) | Complete cross-module integration for all 4 modules |
-| [../00_overview/ui_interaction_complete_v2.md](../00_overview/ui_interaction_complete_v2.md) | UI components for Tools, MCP, Plan Mode, Task System |
+| [../00_overview/cross_module_integration_complete.md](../00_overview/cross_module_integration_complete.md) | Complete cross-module integration for all 4 modules |
+| [../00_overview/ui_interaction_final.md](../00_overview/ui_interaction_final.md) | UI components for Tools, MCP, Plan Mode, Task System |
 
 ---
 

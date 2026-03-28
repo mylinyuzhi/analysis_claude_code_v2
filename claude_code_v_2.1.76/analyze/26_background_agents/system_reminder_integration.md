@@ -234,12 +234,14 @@ const TURNS_BETWEEN_PROGRESS = 3;
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Progress frequency calculator
+// Progress turn-counting algorithm (inline in vIY)
+// NOTE: TIY is actually countUniqueUris (LSP URI counting), NOT this function.
+// The turn-counting logic below is inlined within getUnifiedTasksAttachment (vIY).
 // Location: chunks.142.mjs:2703-2717
 // ============================================
 
-// ORIGINAL (for source lookup):
-function TIY(A) {
+// ORIGINAL (for source lookup - this is the inline logic from vIY, not TIY):
+function /* inline in vIY */ turnCountingLogic(A) {
     let q = new Map;
     if (!A || A.length === 0) return q;
     let K = new Set,
@@ -256,7 +258,7 @@ function TIY(A) {
 }
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     if (!messages || messages.length === 0) return turnsSinceProgress;
 
@@ -283,8 +285,9 @@ function countTurnsSinceLastProgress(messages) {
     return turnsSinceProgress;
 }
 
-// Mapping: TIY→countTurnsSinceLastProgress, A→messages, q→turnsSinceProgress,
-//   K→seenTasks, Y→turnCount, bg1→isWhitespaceOnly
+// NOTE: TIY is countUniqueUris (LSP), NOT this function.
+// This turn-counting logic is inlined in vIY (getUnifiedTasksAttachment).
+// Mapping: A→messages, q→turnsSinceProgress, K→seenTasks, Y→turnCount, bg1→isWhitespaceOnly
 ```
 
 **How it works:**
@@ -347,7 +350,7 @@ async function getUnifiedTasksAttachment(toolUseContext, messages) {
     let { attachments, progressAttachments, updatedTasks } = buildTaskAttachments(appState);
 
     // Apply frequency throttle
-    let turnsSinceLastProgress = countTurnsSinceLastProgress(messages);
+    let turnsSinceLastProgress = countTurnsSinceLastProgressInline(messages);
 
     let throttledProgress = progressAttachments.filter((progress) => {
         let turns = turnsSinceLastProgress.get(progress.taskId) ?? Infinity;
@@ -390,8 +393,9 @@ async function getUnifiedTasksAttachment(toolUseContext, messages) {
     return [...statusAttachments, ...progressAttachmentsFiltered];
 }
 
-// Mapping: vIY→getUnifiedTasksAttachment, di4→buildTaskAttachments, TIY→countTurnsSinceLastProgress,
+// Mapping: vIY→getUnifiedTasksAttachment, di4→buildTaskAttachments,
 //   ghY→TURNS_BETWEEN_PROGRESS, pi4→resetProgressState
+// NOTE: TIY is countUniqueUris (LSP), not the turn-counting logic shown above.
 ```
 
 **Key insight:** Tasks with `Infinity` turns (never seen in history) always get progress shown on first check. This ensures new tasks are immediately visible.

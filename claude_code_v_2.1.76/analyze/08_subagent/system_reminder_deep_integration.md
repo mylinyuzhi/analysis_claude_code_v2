@@ -216,7 +216,7 @@ async function buildAgentSystemPrompt(agentDefinition, toolUseContext, model, ad
 │              getUnifiedTasksAttachment (suY/Nqq)                            │
 │                                                                              │
 │  1. Get all tasks from appState.tasks                                       │
-│  2. For running tasks: check throttle (TIY - countTurnsSinceLastProgress)  │
+│  2. For running tasks: check throttle (turn-counting, inline in vIY)       │
 │  3. Build task_progress attachment if throttle satisfied                    │
 │  4. For completed/failed/killed: build task_status attachment               │
 └────────────────────────────┬────────────────────────────────────────────────┘
@@ -351,27 +351,21 @@ Without throttling, every parent LLM turn would include progress for all running
 - **Token waste** - Progress updates consuming budget
 - **UI clutter** - Repeated similar messages
 
-### Throttle Algorithm: countTurnsSinceLastProgress (TIY)
+### Throttle Algorithm: Progress Turn-Counting (inline in vIY)
 
-**Location:** chunks.144.mjs:832-835
+> **CORRECTION:** `TIY` is `countUniqueUris` (counts unique URIs for LSP), NOT `countTurnsSinceLastProgress`. The progress throttling logic uses a different mechanism inlined within `getUnifiedTasksAttachment` (vIY). See `key_algorithms_deep_dive.md` Algorithm 10.
+
+**Location:** chunks.142.mjs:2703-2717 (inlined in vIY)
 
 **What it does:**
-Counts how many assistant turns have passed since the last progress update for each task. Progress is only shown if ≥3 turns have passed.
+Counts how many assistant turns have passed since the last progress update for each task. Progress is only shown if >=3 turns have passed.
 
 ```javascript
 // ============================================
-// TIY - Count turns since last progress (throttle helper)
-// Location: chunks.144.mjs:832-835
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris: function TIY(A) { let q = A.map((K) => K.uri).filter((K) => K); return new Set(q).size }
+// Location: chunks.142.mjs:2703-2717
 // ============================================
-
-// ORIGINAL (for source lookup):
-function TIY(A) {
-    let q = A.map((K) => K.uri).filter((K) => K);
-    return new Set(q).size
-}
-
-// Note: This is a helper for file counting. The actual throttle logic is more complex
-// and involves counting assistant turns in the message history.
 
 // READABLE (for understanding):
 // The throttle mechanism works by:
@@ -380,7 +374,7 @@ function TIY(A) {
 // 3. Stopping when a task_progress attachment for the task is found
 // 4. Returning the turn count (or Infinity for new tasks)
 
-function countTurnsSinceLastProgress(messages, taskId) {
+function countTurnsSinceLastProgressInline(messages, taskId) {
     let turnsSinceProgress = new Map();
     let seenTasks = new Set();
     let turnCount = 0;
@@ -571,7 +565,8 @@ for (let [id, task] of Object.entries(tasks)) {
 
 ```javascript
 // Check if progress should show
-let turnsMap = countTurnsSinceLastProgress(messages);
+// NOTE: TIY is countUniqueUris (LSP). The turn-counting is inlined in vIY.
+let turnsMap = countTurnsSinceLastProgressInline(messages);
 for (let [taskId, turns] of turnsMap) {
     console.log(`Task ${taskId}: ${turns} turns since last progress`);
     if (turns >= 3 || turns === Infinity) {

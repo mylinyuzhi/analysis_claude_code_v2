@@ -6,7 +6,7 @@
 
 | # | Directory | Description |
 |---|-----------|-------------|
-| 00 | `00_overview` | Master index, symbol indices, file index, changelog. **Joint Analysis:** [cli_ui_llm_joint_complete_v7.md](./cli_ui_llm_joint_complete_v7.md) (LATEST v7), [ui_interaction_state_machine_complete_v4.md](../02_ui/ui_interaction_state_machine_complete_v4.md) (NEW v4), [feature_interaction_matrix.md](./feature_interaction_matrix.md) |
+| 00 | `00_overview` | Master index, symbol indices, file index, changelog. **Joint Analysis:** [cli_ui_llm_joint_complete.md](./cli_ui_llm_joint_complete.md) (LATEST), [ui_interaction_state_machine_source_restoration.md](../02_ui/ui_interaction_state_machine_source_restoration.md) (UI state machine), [feature_interaction_matrix.md](./feature_interaction_matrix.md) |
 | 01 | `01_cli` | CLI entry point, argument parsing, `-n`/`--name` flag, auth subcommands |
 | 02 | `02_ui` | Terminal UI, React Compiler, `/color` command, CJK layout fix, **[ui_interaction_patterns.md](../02_ui/ui_interaction_patterns.md)** (NEW: design patterns) |
 | 03 | `03_llm_core` | LLM API interaction, streaming, token counting, `modelOverrides` |

@@ -617,7 +617,7 @@ TaskListModal (on /tasks)
 
 ## Related Documents
 
-- [key_algorithms_deep_dive_v5.md](./key_algorithms_deep_dive_v5.md) - Key algorithms
-- [ui_interaction_complete_v4.md](./ui_interaction_complete_v4.md) - UI interaction
-- [system_reminder_integration_v6.md](./system_reminder_integration_v6.md) - System reminder integration
-- [kill_mechanism_complete_v2.md](../26_background_agents/kill_mechanism_complete_v2.md) - Kill mechanism
+- [key_algorithms_deep_dive.md](./key_algorithms_deep_dive.md) - Key algorithms
+- [ui_interaction_complete.md](./ui_interaction_complete.md) - UI interaction
+- [system_reminder_integration.md](./system_reminder_integration.md) - System reminder integration
+- [kill_mechanism_complete.md](../26_background_agents/kill_mechanism_complete.md) - Kill mechanism

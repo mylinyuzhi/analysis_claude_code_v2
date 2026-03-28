@@ -11,7 +11,8 @@
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features
 
 Key functions in this document:
-- `countTurnsSinceLastProgress` (TIY) — chunks.144.mjs:832
+- `countUniqueUris` (TIY) — chunks.144.mjs:832 (counts unique URIs for LSP, NOT progress throttling)
+- The progress throttling turn-counting logic is an unnamed inline algorithm in `getUnifiedTasksAttachment` (vIY) at chunks.142.mjs:2703-2717
 - `getUnifiedTasksAttachment` (vIY) — chunks.142.mjs:2719
 
 ---
@@ -62,9 +63,11 @@ Turn 7: <task_progress task_id="a1">Running step 7...</task_progress>  ← Shown
 
 ## Algorithm Implementation
 
-### countTurnsSinceLastProgress (TIY)
+### Progress Turn-Counting Algorithm
 
-**Location:** chunks.144.mjs:832-860
+> **CORRECTION:** `TIY` is `countUniqueUris` (counts unique URIs for LSP), NOT `countTurnsSinceLastProgress`. The progress throttling turn-counting logic shown below is an unnamed inline algorithm within `getUnifiedTasksAttachment` (vIY) at chunks.142.mjs:2703-2717.
+
+**Location:** chunks.142.mjs:2703-2717 (inline in vIY)
 
 **What it does:** Counts how many assistant turns have occurred since the last progress attachment for each task.
 
@@ -72,12 +75,12 @@ Turn 7: <task_progress task_id="a1">Running step 7...</task_progress>  ← Shown
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Progress frequency calculator
-// Location: chunks.144.mjs:832-860
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;
@@ -171,7 +174,7 @@ function getUnifiedTasksAttachment(messages, tasks, setAppState) {
     let attachments = [];
 
     // Step 1: Count turns since last progress for each task
-    let turnsSinceProgress = countTurnsSinceLastProgress(messages);
+    let turnsSinceProgress = countTurnsSinceLastProgressInline(messages);
 
     // Step 2: Process each task
     for (let [taskId, task] of Object.entries(tasks)) {
@@ -320,7 +323,7 @@ if (!seenTasks.has(taskId)) {
 
 ### Time Complexity
 
-**countTurnsSinceLastProgress:**
+**Progress turn-counting (inline in vIY):**
 - O(n) where n = number of messages
 - Single backward pass through message array
 - Early termination not possible (need to find all tasks' last progress)
@@ -349,7 +352,7 @@ Main Loop (before LLM call)
     ▼
 getUnifiedTasksAttachment()
     │
-    ├── countTurnsSinceLastProgress(messages)
+    ├── progress turn-counting (inline in vIY)
     │
     ├── For each running task:
     │   ├── if turns >= 3: add task_progress

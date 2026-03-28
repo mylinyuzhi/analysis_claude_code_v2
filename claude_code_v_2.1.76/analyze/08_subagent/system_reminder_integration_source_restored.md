@@ -111,14 +111,15 @@ Limits the frequency of progress notifications to avoid noise while keeping user
 
 ```javascript
 // ============================================
-// TIY - countTurnsSinceLastProgress - Progress frequency calculator
-// Location: chunks.144.mjs:832
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling.
+// Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
 const PROGRESS_THROTTLE_TURNS = 3;
 
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;
@@ -146,7 +147,7 @@ function countTurnsSinceLastProgress(messages) {
 }
 
 function shouldShowProgress(taskId, messages) {
-    let turnsMap = countTurnsSinceLastProgress(messages);
+    let turnsMap = countTurnsSinceLastProgressInline(messages);
     let turnsSinceProgress = turnsMap.get(taskId);
 
     // If never shown before (infinity), always show
@@ -425,7 +426,7 @@ for (let notification of pendingNotifications) {
 | Symbol | Readable | Location | Status |
 |--------|----------|----------|--------|
 | `c36` | emitSystemMessage | various | ✓ Verified |
-| `TIY` | countTurnsSinceLastProgress | chunks.144.mjs:832 | ✓ Verified |
+| `TIY` | countUniqueUris (LSP) | chunks.144.mjs:832 | **CORRECTED** - was incorrectly mapped to countTurnsSinceLastProgress |
 | `Zf` | registerTask | chunks.90.mjs:3019 | ✓ Verified |
 
 ---

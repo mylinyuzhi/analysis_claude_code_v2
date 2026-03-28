@@ -374,7 +374,7 @@ async function updateTaskProgressWithTelemetry(
 // ORIGINAL (for source lookup):
 async function suY(A, q, K) {
     let Y = Object.values(q.tasks),
-        z = countTurnsSinceLastProgress(K),
+        z = countTurnsSinceLastProgressInline(K),  // NOTE: Not TIY; TIY is countUniqueUris (LSP)
         _ = [];
     for (let w of Y) {
         if (w.status === "running") {
@@ -401,7 +401,7 @@ async function suY(A, q, K) {
 // READABLE (for understanding):
 async function getTaskStatusAttachments(setAppState, appState, messages) {
     let tasks = Object.values(appState.tasks);
-    let turnsSinceProgress = countTurnsSinceLastProgress(messages);
+    let turnsSinceProgress = countTurnsSinceLastProgressInline(messages);
     let attachments = [];
 
     for (let task of tasks) {
@@ -513,12 +513,13 @@ getTaskStatusAttachments (suY)
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Count assistant turns since last progress
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling
 // Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;
@@ -1584,7 +1585,7 @@ User: "Search the codebase and fix the bug"
 ## Related Documents
 
 - [feature_integration_matrix.md](./feature_integration_matrix.md) - Summary matrix
-- [key_algorithms_deep_dive_v2.md](./key_algorithms_deep_dive_v2.md) - Algorithm details
-- [system_reminder_deep_integration_v2.md](./system_reminder_deep_integration_v2.md) - Reminder system
+- [key_algorithms_deep_dive.md](./key_algorithms_deep_dive.md) - Algorithm details
+- [system_reminder_deep_integration.md](./system_reminder_deep_integration.md) - Reminder system
 - [mailbox_communication_source_restored.md](./mailbox_communication_source_restored.md) - Mailbox system
 - [../26_background_agents/feature_integration_complete.md](../26_background_agents/feature_integration_complete.md) - Background agents

@@ -14,7 +14,8 @@ Key functions in this document:
 - `updateTaskProgressWithTelemetry` (nl4) — chunks.146.mjs:2059 ✓
 - `updateTaskProgressPreservingSummary` (TV1) — chunks.146.mjs:2045 ✓
 - `atomicUpdateTask` (i9) — chunks.90.mjs:3003 ✓
-- `countTurnsSinceLastProgress` (TIY) — chunks.144.mjs:832
+- `countUniqueUris` (TIY) — chunks.144.mjs:832 (counts unique URIs for LSP, NOT progress throttling)
+- The progress throttling turn-counting logic is an unnamed inline algorithm in `getUnifiedTasksAttachment` (vIY) at chunks.142.mjs:2703-2717
 
 ---
 
@@ -280,7 +281,7 @@ function updateTaskProgressPreservingSummary(taskId, newProgress, setAppState) {
 │                                                                              │
 │  1. Get all tasks from appState.tasks                                       │
 │  2. For running tasks:                                                      │
-│     a. Check throttle (countTurnsSinceLastProgress)                        │
+│     a. Check throttle (progress turn-counting, inline in vIY)                        │
 │     b. If throttle satisfied, build task_progress attachment               │
 │  3. For completed/failed/killed:                                            │
 │     a. Build task_status attachment if not notified                         │
@@ -319,12 +320,13 @@ Without throttling, every LLM turn would include progress attachments for all ru
 
 ```javascript
 // ============================================
-// countTurnsSinceLastProgress - Progress frequency calculator
-// Location: chunks.144.mjs:832-860
+// Progress turn-counting algorithm (inline in vIY, NOT TIY)
+// TIY is countUniqueUris (LSP URI counting), not progress throttling
+// Location: chunks.142.mjs:2703-2717
 // ============================================
 
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let turnsSinceProgress = new Map();  // taskId -> turn count
     let seenTasks = new Set();
     let turnCount = 0;
@@ -357,7 +359,7 @@ function countTurnsSinceLastProgress(messages) {
 
 ```javascript
 // In getUnifiedTasksAttachment
-let turnsSinceProgress = countTurnsSinceLastProgress(messages);
+let turnsSinceProgress = countTurnsSinceLastProgressInline(messages);
 
 for (let task of runningTasks) {
     let turns = turnsSinceProgress.get(task.id) ?? Infinity;

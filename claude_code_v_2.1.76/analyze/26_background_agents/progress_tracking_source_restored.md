@@ -15,7 +15,7 @@ Key functions in this document:
 - `updateTaskProgressWithTelemetry` (nl4) — `chunks.146.mjs:2059`
 - `updateTaskProgressPreservingSummary` (TV1) — `chunks.146.mjs:2045`
 - `atomicUpdateTask` (i9) — `chunks.90.mjs:3003`
-- `countTurnsSinceLastProgress` — Progress throttling
+- `countTurnsSinceLastProgressInline` — Progress throttling (inline mechanism, not TIY)
 
 ---
 
@@ -295,7 +295,7 @@ function shouldShowProgress(task, messageHistory) {
     }
 
     // Count turns since last progress
-    let turnsSince = countTurnsSinceLastProgress(messageHistory);
+    let turnsSince = countTurnsSinceLastProgressInline(messageHistory);
 
     // Show if enough turns have passed
     return turnsSince >= PROGRESS_THROTTLE_TURNS;
@@ -304,9 +304,11 @@ function shouldShowProgress(task, messageHistory) {
 
 ### Turn Counting Algorithm
 
+> **CORRECTION:** `TIY` is actually `countUniqueUris` (counts unique URIs for LSP). The function below describes an INLINE progress throttling mechanism, NOT the TIY function. See `key_algorithms_deep_dive.md` Algorithm 10.
+
 ```javascript
 // READABLE (for understanding):
-function countTurnsSinceLastProgress(messages) {
+function countTurnsSinceLastProgressInline(messages) {
     let count = 0;
 
     // Iterate backwards through message history

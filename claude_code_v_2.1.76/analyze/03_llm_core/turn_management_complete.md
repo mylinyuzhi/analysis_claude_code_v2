@@ -613,7 +613,7 @@ return turnState;
 > - [tool_executor_queue.md](../03_llm_core/tool_executor_queue.md) - Tool executor
 
 > Joint Analysis:
-> - [cli_ui_llm_joint_complete_v4.md](../00_overview/cli_ui_llm_joint_complete_v4.md) - Complete joint analysis
+> - [cli_ui_llm_joint_complete.md](../00_overview/cli_ui_llm_joint_complete.md) - Complete joint analysis
 
 > Symbol Index:
 > - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution symbols
