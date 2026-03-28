@@ -39,12 +39,12 @@ Shift+Tab cycles through available permission modes. Plan mode is one of the mod
 │  │                                                            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                 │
-│  Team Leader Mode Sequence:                                     │
+│  Auto Mode Available (feature-gated):                           │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                                                            │ │
-│  │   default ──► acceptEdits ──► plan ──► delegate ──► ...   │ │
-│  │      ▲                                     │              │ │
-│  │      └─────────────── Shift+Tab ───────────┘              │ │
+│  │   default ──► acceptEdits ──► plan ──► auto ──► ...       │ │
+│  │      ▲                                   │                │ │
+│  │      └─────────────── Shift+Tab ─────────┘                │ │
 │  │                                                            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                 │
@@ -180,7 +180,7 @@ Mode display properties are defined in the `D57` configuration object at `chunks
 D57 = {
     plan: { title: "Plan Mode", symbol: "⏸", color: "planMode" },
     acceptEdits: { title: "Accept edits", symbol: "⏵⏵", color: "autoAccept" },
-    delegate: { title: "Delegate Mode", symbol: "⇢", color: "delegateMode" },
+    auto: { title: "Auto Mode", symbol: "⇢", color: "autoMode" },
     bypassPermissions: { title: "Bypass Permissions", symbol: "⏵⏵", color: "error" },
     default: { title: "Default", symbol: "", color: "text" }
 };
@@ -192,7 +192,7 @@ D57 = {
 |------|--------|-------|-----------|
 | `plan` | `⏸` | "Plan Mode" | `"planMode"` |
 | `acceptEdits` | `⏵⏵` | "Accept edits" | `"autoAccept"` |
-| `delegate` | `⇢` | "Delegate Mode" | `"delegateMode"` |
+| `auto` | `⇢` | "Auto Mode" | `"autoMode"` |
 | `bypassPermissions` | `⏵⏵` | "Bypass Permissions" | `"error"` |
 | `default` | `""` | "Default" | `"text"` |
 
@@ -201,7 +201,7 @@ D57 = {
 ```
 ⏸ plan mode on (shift+tab)
 ⏵⏵ accept edits on (shift+tab)
-⇢ delegate mode on (shift+tab)
+⇢ auto mode on (shift+tab)
 ⏵⏵ bypass permissions on (shift+tab)
 ```
 
@@ -217,21 +217,21 @@ D57 = {
 | `acceptEdits` | `plan` | Shows "⏸ plan mode on" |
 | `plan` | `default` | Mode indicator hides |
 
-### Team Leader
+### Auto Mode Available (feature-gated)
 
 | Current Mode | Next Mode | Status Bar Change |
 |--------------|-----------|-------------------|
 | `default` | `acceptEdits` | Shows "⏵⏵ accept edits on" |
 | `acceptEdits` | `plan` | Shows "⏸ plan mode on" |
-| `plan` | `delegate` | Shows "⇢ delegate mode on" |
-| `delegate` | `default` | Mode indicator hides |
+| `plan` | `auto` | Shows "⇢ auto mode on" |
+| `auto` | `default` | Mode indicator hides |
 
 ---
 
 ## 5. Key Points
 
 1. Plan mode is always the **third** mode in the standard cycle (default → acceptEdits → plan)
-2. Team leaders have an additional **delegate** mode after plan
+2. Users with auto mode feature gate have an additional **auto** mode after plan
 3. Enterprise users may have **bypassPermissions** mode
 4. Status bar only shows for **non-default** modes
 5. `lastPlanModeUse` timestamp is updated when entering plan mode

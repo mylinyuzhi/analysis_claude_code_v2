@@ -111,11 +111,11 @@ System: [Enters Plan Mode]
 │                                                                  │
 │  ① State Machine                                                │
 │     toolPermissionContext.mode ∈ {"default","plan","acceptEdits"│
-│                                   "delegate","bypassPermissions"}│
+│                                   "auto","bypassPermissions"}    │
 │     + prePlanMode (saves mode before entering plan)             │
 │                                                                  │
 │  ② Mode Cycle (Shift+Tab)                                       │
-│     default → acceptEdits → plan → (delegate) → default        │
+│     default → acceptEdits → plan → (auto|bypass) → default     │
 │                                                                  │
 │  ③ System Prompt Injection                                      │
 │     plan_mode attachment → azz() → full/sparse reminder        │
@@ -144,7 +144,7 @@ System: [Enters Plan Mode]
 Plan mode state lives in `toolPermissionContext.mode`. The full set of valid modes:
 
 ```
-"default" | "acceptEdits" | "bypassPermissions" | "plan" | "delegate" | "dontAsk"
+"default" | "acceptEdits" | "bypassPermissions" | "plan" | "auto" | "dontAsk"
 ```
 
 **Plan-specific state fields in `toolPermissionContext`:**
@@ -202,45 +202,47 @@ function handlePlanModeTransition(fromMode, toMode) {
 // Location: chunks.183.mjs:1778
 // ============================================
 
+// CORRECTED from actual source: chunks.191.mjs:3007-3024 (W26 function)
+// Previous version incorrectly showed "delegate" mode; actual source uses "auto".
+//
 // ORIGINAL (for source lookup):
-function hf1(A, q) {
-    let K = l8() && q && PM(q);
+function W26(A) {
     switch (A.mode) {
         case "default":     return "acceptEdits";
         case "acceptEdits": return "plan";
         case "plan":
-            if (K) return "delegate";
             if (A.isBypassPermissionsModeAvailable) return "bypassPermissions";
+            if (cbq(A)) return "auto";               // Auto mode (feature-gated)
             return "default";
-        case "delegate":
-            if (A.isBypassPermissionsModeAvailable) return "bypassPermissions";
+        case "bypassPermissions":
+            if (cbq(A)) return "auto";
             return "default";
-        case "bypassPermissions": return "default";
+        case "auto":        return "default";
         case "dontAsk":     return "default"
     }
 }
 
 // READABLE (for understanding):
-function getNextMode(permissionContext, teamContext) {
-    let isTeamLeader = isTeamsEnabled() && teamContext && isTeamLeader(teamContext);
+function getNextMode(permissionContext) {
     switch (permissionContext.mode) {
         case "default":       return "acceptEdits";
         case "acceptEdits":   return "plan";
         case "plan":
-            if (isTeamLeader) return "delegate";           // Team leaders can delegate
             if (permissionContext.isBypassPermissionsModeAvailable)
                 return "bypassPermissions";                // Enterprise/power users
+            if (isAutoModeAvailable(permissionContext))
+                return "auto";                             // Auto mode (feature-gated)
             return "default";                              // Normal users cycle back
-        case "delegate":
-            if (permissionContext.isBypassPermissionsModeAvailable)
-                return "bypassPermissions";
+        case "bypassPermissions":
+            if (isAutoModeAvailable(permissionContext))
+                return "auto";
             return "default";
-        case "bypassPermissions": return "default";
-        case "dontAsk":           return "default";
+        case "auto":          return "default";
+        case "dontAsk":       return "default";
     }
 }
 
-// Mapping: hf1→getNextMode, A→permissionContext, q→teamContext, K→isTeamLeader, l8→isTeamsEnabled, PM→isTeamLeader
+// Mapping: W26→getNextMode, cbq→isAutoModeAvailable
 ```
 
 **Cycle diagram:**
@@ -248,11 +250,14 @@ function getNextMode(permissionContext, teamContext) {
 For normal users:
 default → acceptEdits → plan → default → ...
 
-For team leaders:
-default → acceptEdits → plan → delegate → default → ...
+For users with auto mode available:
+default → acceptEdits → plan → auto → default → ...
 
-For enterprise users with bypass:
-... → plan → bypassPermissions → default → ...
+For enterprise users with bypass + auto:
+default → acceptEdits → plan → bypassPermissions → auto → default → ...
+
+For enterprise users with bypass only:
+default → acceptEdits → plan → bypassPermissions → default → ...
 ```
 
 When the user presses Shift+Tab (chunks.185.mjs:635):
@@ -3168,7 +3173,7 @@ The permission system enforces plan mode restrictions via `toolPermissionContext
 
 ```typescript
 interface ToolPermissionContext {
-    mode: "default" | "plan" | "acceptEdits" | "delegate" | "bypassPermissions" | "dontAsk";
+    mode: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions" | "dontAsk";
     prePlanMode?: string;  // Saved on entry, restored on exit
     // ...
 }

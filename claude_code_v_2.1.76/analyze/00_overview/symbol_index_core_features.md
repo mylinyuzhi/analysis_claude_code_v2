@@ -29,6 +29,9 @@
 - [System Reminder](#module-system-reminder)
 - [Status Line](#status-line)
 - [CLI — Agent SDK Entrypoint](#agent-sdk--entrypoint--mode-detection)
+- [Cleanup System](#module-cleanup-system-new) - **NEW** - Periodic cleanup orchestrator
+- [History & Paste-Cache](#module-history--paste-cache-new) - **NEW** - history.jsonl, paste-cache
+- [Session Environment](#module-session-environment-new) - **NEW** - session-env, shell-snapshots, MCP auth cache
 
 ---
 
@@ -2748,3 +2751,107 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 | - | messageSelector:top | chunks.89.mjs:2755 | action (jump to first message) |
 | - | messageSelector:bottom | chunks.89.mjs:2759 | action (jump to last message) |
 | - | messageSelector:select | chunks.89.mjs:2763 | action (select highlighted message) |
+
+---
+
+## Module: Cleanup System (NEW)
+
+> Full analysis: [15_state_management/cleanup_system.md](../15_state_management/cleanup_system.md)
+
+### Cleanup Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| bMz | cleanupDebugLogs | chunks.184.mjs:1297 | function |
+| CMz | cleanupFileHistory | chunks.184.mjs:1233 | function |
+| ERq | runCleanup | chunks.184.mjs:1322 | function (master orchestrator) |
+| Fu8 | cleanupWorktrees | chunks.184.mjs (inferred) | function |
+| I84 | cleanupOldPastes | chunks.85.mjs:1346 | function |
+| IMz | cleanupSessionEnv | chunks.184.mjs:1265 | function |
+| LMz | cleanupLogs | chunks.184.mjs (inferred) | function |
+| mi | removeEmptyDir | chunks.184.mjs:1129 | function |
+| O86 | getCleanupCutoffDate | chunks.184.mjs:1066 | function |
+| Qa8 | startPeriodicCleanup | chunks.184.mjs:1361 | function |
+| qT4 | cleanupTodoFiles | chunks.184.mjs (inferred) | function |
+| rC1 | deleteIfOlderThan | chunks.184.mjs:1124 | function |
+| RMz | cleanupSessions | chunks.184.mjs (inferred) | function |
+| SMz | cleanupPlans | chunks.184.mjs:1228 | function |
+
+### Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| kMz | DEFAULT_CLEANUP_DAYS | 30 | constant |
+| pa8 | CLEANUP_INTERVAL | 600000 (10 min) | constant |
+
+---
+
+## Module: History & Paste-Cache (NEW)
+
+> Full analysis: [15_state_management/history_management.md](../15_state_management/history_management.md)
+
+### History Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| B84 | iterateHistoryEntries | chunks.85.mjs:1392 | generator function |
+| C84 | retrievePaste | chunks.85.mjs:1332 | function |
+| CT8 | iterateHistoryDisplay | chunks.85.mjs:1407 | generator function |
+| F84 | debouncedFlush | chunks.85.mjs:1490 | function |
+| FN9 | resolveHistoryPastedContent | chunks.85.mjs:1429 | function |
+| g84 | flushHistoryToDisk | chunks.85.mjs:1462 | function |
+| h84 | getPasteFilePath | chunks.85.mjs:1312 | function |
+| LT8 | getPasteCacheDir | chunks.85.mjs:1304 | function |
+| M36 | addToHistory | chunks.85.mjs:1538 | function (public API) |
+| MX1 | iterateProjectHistory | chunks.85.mjs:1411 | generator function |
+| pN9 | recordHistoryEntry | chunks.85.mjs:1501 | function |
+| R84 | hashContent | chunks.85.mjs:1308 | function (SHA256, 16 hex chars) |
+| S84 | storePaste | chunks.85.mjs:1316 | function |
+| ST8 | resolveHistoryEntry | chunks.85.mjs (inferred) | function |
+
+### Constants
+
+| Obfuscated | Readable | Value | Type |
+|------------|----------|-------|------|
+| b84 | MAX_HISTORY_ENTRIES | 100 | constant |
+| BN9 | INLINE_PASTE_THRESHOLD | 1024 | constant (bytes) |
+
+---
+
+## Module: Session Environment (NEW)
+
+> Full analysis: [15_state_management/claude_home_directory.md](../15_state_management/claude_home_directory.md)
+
+### Session-Env Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| B97 | getHookScriptPath | chunks.42.mjs:603 | function |
+| bo | cachedSessionEnv | chunks.42.mjs:608 | variable |
+| F97 | loadSessionEnvironment | chunks.42.mjs:612 | function |
+| g97 | invalidateSessionEnvCache | chunks.42.mjs:608 | function |
+| m97 | getSessionEnvDir | chunks.42.mjs:596 | function |
+| RN8 | createShellSnapshot | chunks.89.mjs:1180 | function |
+
+### MCP Auth Cache
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| JGq | loadAuthCache | chunks.169.mjs:1756 | function |
+| Kn8 | getAuthCachePath | chunks.169.mjs:1752 | function |
+| L3z | AUTH_CACHE_TTL | 900000 (15 min) | constant |
+| Pw4 | clearAuthCache | chunks.169.mjs:1780 | function |
+| R3z | needsAuth | chunks.169.mjs:1761 | function |
+| si8 | markNeedsAuth | chunks.169.mjs:1767 | function |
+
+### Directory Management
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Dc8 | getChangelogCachePath | chunks.159.mjs:2858 | function |
+| eH | getPluginHome | chunks.177.mjs:1400 | function |
+| jo6 | getTelemetryDir | chunks.176.mjs:2570 | function |
+| t2 | getPlansDirectory | chunks.90.mjs:684 | memoized function |
+| wR | getTaskListDir | chunks.84.mjs:1630 | function |
+| Zo8 | getBackupDir | chunks.177.mjs:2189 | function |
+| zz6 | getFileHistoryPath | chunks.135.mjs:2242 | function |

@@ -27,7 +27,7 @@ Key functions in this module:
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                       │
 │  ① State Machine                                                     │
-│     mode ∈ {"default", "plan", "acceptEdits", "delegate",           │
+│     mode ∈ {"default", "plan", "acceptEdits", "auto",               │
 │              "bypassPermissions", "dontAsk"}                         │
 │     + prePlanMode (saves mode before entering plan)                  │
 │     + hasExitedPlanMode (exit flag)                                  │
@@ -76,7 +76,7 @@ Key functions in this module:
 | `default` | Normal operation |
 | `plan` | Planning mode (read-only + plan file) |
 | `acceptEdits` | Auto-accept edits mode |
-| `delegate` | Delegate mode for teammate agents |
+| `auto` | Autonomous execution mode (gated by feature flag) |
 | `bypassPermissions` | Skip permission prompts |
 | `dontAsk` | Minimize user prompts |
 

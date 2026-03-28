@@ -18,6 +18,7 @@
 - [Agents](#module-agents)
 - [Subagent Execution](#module-subagent-execution)
 - [Thinking Mode](#module-thinking-mode)
+- [Session Persistence](#session-persistence-new---v2176-deep-analysis) - **NEW** - Session JSONL, resume, orchestrator
 
 ---
 
@@ -1459,3 +1460,73 @@ See tools_filtering.md §7 and 16_file_system/overview.md §3.
 | Zw6 | initialAttributionState | chunks.151.mjs:412 | function |
 
 > **Note:** `yx1` is `randomUUID` imported from Node.js `crypto` module (not a custom function).
+
+### Session Persistence (NEW - v2.1.76 deep analysis)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _P | setSessionId | chunks.1.mjs:2350 | function |
+| aN | resumeSessionCallback | chunks.196.mjs:332 | callback |
+| avz | ConversationPicker | chunks.196.mjs:2627 | component |
+| c8 | getClaudeHome | chunks.2.mjs:42 | memoized getter |
+| Cz | getSessionTranscriptPath | chunks.174.mjs:1128 | function |
+| dgq | useTeleportResume | chunks.196.mjs:2223 | hook |
+| evz | WrongDirectoryDialog | chunks.197.mjs:3 | component |
+| GF | searchSessionsByName | chunks.174.mjs:2328 | function |
+| h66 | loadTranscript | chunks.135.mjs:2588 | function |
+| hb | hydrateLazyTranscript | chunks.174.mjs:2269 | function |
+| Hh | isLazyTranscript | chunks.174.mjs:2265 | function |
+| Hl6 | loadSessionById | chunks.174.mjs:2537 | function |
+| Ia8 | restoreSession | chunks.180.mjs:2390 | function |
+| ITq | SessionPersistence | chunks.174.mjs:1240 | class |
+| iu8 | getMostRecentSession | chunks.174.mjs:2785 | function |
+| Jz | getSessionPersistence | chunks.174.mjs:1201 | function (singleton) |
+| Kr8 | buildTranscriptObject | chunks.174.mjs:2051 | function |
+| L0 | getSubagentFilePath | chunks.174.mjs:1147 | function |
+| n_ | getSessionIdFromTranscript | chunks.174.mjs:2260 | function |
+| Nn4 | processResumedMessages | chunks.135.mjs:2478 | function |
+| ot8 | sessionOrchestrator | chunks.196.mjs:3 | component |
+| OVz | cliEntryPoint | chunks.198.mjs:3 | function |
+| Qgq | TeleportSessionPicker | chunks.196.mjs:1999 | component |
+| sb | getProjectsDir | chunks.174.mjs:1124 | function |
+| u_6 | parseTranscriptFile | chunks.174.mjs:2394 | function |
+| v1 | globalState | chunks.1.mjs:3182 | object |
+
+### Resume Detail Functions (NEW)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $r8 | reconnectSessionPersistence | chunks.174.mjs:1699 | function |
+| ai6 | clearSessionMetadata | chunks.174.mjs:2219 | function |
+| K26 | resolveAgentSetting | chunks.180.mjs:2365 | function |
+| KV1 | copyFileHistoryBackups | chunks.135.mjs:2337 | function |
+| LF | setSessionMetadata | chunks.174.mjs:2206 | function |
+| MVY | detectInterruptionState | chunks.135.mjs:2519 | function |
+| pz6 | insertContentReplacement | chunks.174.mjs:1691 | function |
+| Qo6 | renameRecordingForSession | cli.chunks.mjs:8299 | function |
+| qV1 | restoreFileHistorySnapshots | chunks.135.mjs:2315 | function |
+| thq | rewindFiles | chunks.187.mjs:1271 | function |
+| VQ8 | clearSessionCaches | chunks.150.mjs:1164 | function |
+| Zh | resetSessionFile | chunks.174.mjs:1695 | function |
+
+### Loop-Time Persistence (NEW)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _F | persistMainThreadMessages | chunks.174.mjs:1656 | function (UUID-deduplicated writer) |
+| _l6 | writeFileHistorySnapshot | chunks.196.mjs (inferred) | function |
+| ui6 | StreamingToolExecutor | chunks.149.mjs | class |
+
+### Session Orchestrator State (NEW)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| B5 | activeRemoteSession | chunks.196.mjs:222 | variable |
+| dV6 | updateReadFileState | chunks.196.mjs:375 | callback |
+| h2 | conversationId | chunks.196.mjs:235 | state |
+| J9 | queryGuard | chunks.196.mjs:112 | ref (non-reentrant lock) |
+| OW | buildToolUseContext | chunks.196.mjs:562 | callback |
+| Pj | contentReplacementState | chunks.196.mjs:235 | state |
+| sF | executeQuery | chunks.196.mjs:722 | callback |
+| tN | handleSubmit | chunks.196.mjs:874 | callback |
+| tZ | onQuery | chunks.196.mjs:777 | callback |

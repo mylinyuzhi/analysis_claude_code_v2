@@ -122,15 +122,27 @@ async function validatePlanFilePath(inputPath, planFilePath) {
 ### Tool Categories in Plan Mode
 
 ```
-ALLOWED:
-├── Read-only: Read, Grep, Glob, WebFetch, WebSearch
-├── Plan-specific: ExitPlanMode, EnterPlanMode, AskUserQuestion
-└── Restricted: Write, Edit (plan file only)
+ALWAYS VISIBLE (in tool list sent to LLM):
+├── MCP tools: All mcp__* tools bypass filtering entirely
+├── ExitPlanMode: Special-cased before CW6 blocking (only in plan mode)
+├── Read-only tools: Read, Grep, Glob, WebFetch, WebSearch (via isReadOnly())
+├── Bash: Available — dynamic isReadOnly() evaluates each command
+├── Write, Edit: Available — path restriction enforced at execution time
+├── Task tools: TaskCreate, TaskUpdate, TaskGet, TaskList (not in CW6)
+└── Default: All non-CW6 tools pass through
 
-BLOCKED:
-├── Execution: Bash, Agent
-├── Tasks: TaskCreate, TaskUpdate
-└── Other: All modification tools
+HIDDEN FROM TOOL LIST (in CW6 set, handled via special paths):
+├── EnterPlanMode: Already in plan mode, no need in tool list
+├── AskUserQuestion: Injected via separate interaction path
+├── Agent: Hidden, but Task tool provides agent/subagent functionality
+├── TaskOutput, TaskStop: Internal use only
+└── NOTE: These tools may still be callable; they are just not
+    advertised in the tool definitions sent to the LLM
+
+EXECUTION-TIME RESTRICTIONS:
+├── Write/Edit: Denied for non-plan files (plan file path check)
+├── Bash: Read-only commands allowed; write commands require permission
+└── Non-read-only tools: NeedsApproval → Denied in plan mode
 ```
 
 ---
@@ -148,64 +160,88 @@ BLOCKED:
 
 ### filterToolsByMode (Xk8) Complete Source
 
+> **CORRECTED**: Previous version of this document contained a fabricated Xk8 implementation.
+> Below is the actual source from chunks.93.mjs:1568-1588.
+
 ```javascript
 // ============================================
 // filterToolsByMode - Mode-aware tool filtering
-// Location: chunks.93.mjs:1568-1620
+// Location: chunks.93.mjs:1568-1588
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Xk8({ toolPermissionContext: A, tools: q, planFilePath: K }) {
-    let Y = A.mode;
-    if (Y === "plan") return q.filter((z) =>
-        z.isReadOnly?.() ||
-        z.name === "ExitPlanMode" ||
-        z.name === "EnterPlanMode" ||
-        z.name === "AskUserQuestion" ||
-        z.name === "Write" ||
-        z.name === "Edit"
-    );
-    if (Y === "delegate") return q.filter((z) =>
-        !EXCLUDED_TOOLS.has(z.name)
-    );
-    return q
+function Xk8({
+    tools: A,
+    isBuiltIn: q,
+    isAsync: K = !1,
+    permissionMode: Y
+}) {
+    return A.filter((z) => {
+        if (z.name.startsWith("mcp__")) return !0;           // MCP tools always visible
+        if (z3(z, aJ) && Y === "plan") return !0;            // ExitPlanMode visible only in plan mode
+        if (CW6.has(z.name)) return !1;                       // CW6 set: always hidden
+        if (!q && xV8.has(z.name)) return !1;                 // Non-built-in xV8: hidden
+        if (K && !eP1.has(z.name)) {                          // Async tool filter
+            if (E7() && eP()) {
+                if (z3(z, r4)) return !0;                      // Agent in special context
+                if (WY4.has(z.name)) return !0                 // Task/Cron tools in special context
+            }
+            return !1
+        }
+        return !0                                              // Default: visible
+    })
 }
 
 // READABLE (for understanding):
-function filterToolsByMode({ toolPermissionContext, tools, planFilePath }) {
-    const mode = toolPermissionContext.mode;
+function filterToolsByMode({ tools, isBuiltIn, isAsync = false, permissionMode }) {
+    return tools.filter((tool) => {
+        // 1. MCP tools bypass ALL filtering — always visible regardless of mode
+        if (tool.name.startsWith("mcp__")) return true;
 
-    // Plan mode: restrict to read-only + plan-specific tools
-    if (mode === "plan") {
-        return tools.filter((tool) => {
-            // Always allow read-only tools (Read, Grep, Glob, WebFetch, WebSearch)
-            if (tool.isReadOnly?.()) return true;
+        // 2. ExitPlanMode: special-cased before CW6 check — visible only in plan mode
+        //    aJ = "ExitPlanMode" (constant at chunks.90.mjs:507)
+        if (matchesToolName(tool, "ExitPlanMode") && permissionMode === "plan") return true;
 
-            // Always allow plan mode control tools
-            if (tool.name === "ExitPlanMode") return true;  // Required to exit
-            if (tool.name === "EnterPlanMode") return true;  // Re-entry allowed
-            if (tool.name === "AskUserQuestion") return true;  // For clarification
+        // 3. CW6 set: always hidden from tool definitions
+        //    CW6 = {TaskOutput, ExitPlanMode, EnterPlanMode, Agent, AskUserQuestion, TaskStop}
+        //    These are handled through separate paths (interaction, subagent Task tool, etc.)
+        if (CW6_ALWAYS_HIDDEN.has(tool.name)) return false;
 
-            // Allow Write/Edit - path restriction enforced at execution time
-            if (tool.name === "Write" || tool.name === "Edit") return true;
+        // 4. Non-built-in tools in xV8: hidden (same tools as CW6)
+        if (!isBuiltIn && xV8_NON_BUILTIN_HIDDEN.has(tool.name)) return false;
 
-            // Block all other tools
+        // 5. Async tool restrictions (for background/parallel execution)
+        if (isAsync && !ASYNC_SAFE_TOOLS.has(tool.name)) {
+            // Special context: team mode allows Agent and task/cron tools
+            if (isTeamMode() && isTeamLeader()) {
+                if (matchesToolName(tool, "Agent")) return true;
+                if (TASK_CRON_TOOLS.has(tool.name)) return true;
+            }
             return false;
-        });
-    }
+        }
 
-    // Delegate mode: exclude tools not allowed for teammates
-    if (mode === "delegate") {
-        return tools.filter((tool) => {
-            return !EXCLUDED_TOOLS.has(tool.name);
-        });
-    }
-
-    // Default mode: all tools available
-    return tools;
+        // 6. Default: tool is visible
+        return true;
+    });
 }
 
-// Mapping: Xk8→filterToolsByMode, A→toolPermissionContext, q→tools, K→planFilePath, Y→mode
+// KEY INSIGHT: This function controls tool VISIBILITY (what the LLM sees),
+// NOT execution permission. A visible tool can still be denied at execution
+// time by the permission system (e.g., Write denied for non-plan files).
+//
+// Constants:
+//   aJ = "ExitPlanMode" (single tool name, NOT a set)
+//   CW6 = {TaskOutput, ExitPlanMode, EnterPlanMode, Agent, AskUserQuestion, TaskStop}
+//   xV8 = same as CW6 (for non-built-in filtering)
+//   eP1 = async-safe tools: {Read, WebSearch, TodoWrite, Grep, WebFetch, Glob, Bash,
+//          Edit, Write, NotebookEdit, Skill, StructuredOutput, ToolSearch,
+//          EnterWorktree, ExitWorktree}
+//   WY4 = task/cron tools: {TaskCreate, TaskGet, TaskList, TaskUpdate,
+//          SendMessage, CronCreate, CronDelete, CronList}
+//
+// Mapping: Xk8→filterToolsByMode, z3→matchesToolName, CW6→CW6_ALWAYS_HIDDEN,
+//          xV8→xV8_NON_BUILTIN_HIDDEN, eP1→ASYNC_SAFE_TOOLS, WY4→TASK_CRON_TOOLS,
+//          r4→"Agent", E7→isTeamMode, eP→isTeamLeader
 ```
 
 ### Path Restriction in Write Tool
@@ -266,11 +302,16 @@ const ReadTool = {
     // ...
 };
 
-// Bash tool - never read-only (modifies system state)
+// Bash tool - DYNAMIC read-only check (evaluates each command)
+// Location: chunks.170.mjs:634-636
 const BashTool = {
     name: "Bash",
-    isReadOnly() { return false; },
-    // ...
+    isReadOnly(input) {
+        let containsGit = containsGitCommand(input.command);  // Pf6
+        return evaluateBashCommandReadiness(input, containsGit).behavior === "allow";  // Of6
+    },
+    // Read-only commands (ls, cat, git status, etc.) return true
+    // Write commands return false → blocked in plan mode
 };
 
 // Edit tool - not read-only (path restriction applies)
