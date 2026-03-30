@@ -87,64 +87,59 @@ async function spawnTeammateDispatcher(params, context) {
 
 // ORIGINAL (for source lookup):
 function Rb() {
-    return Y0(process.env.FORCE_IN_PROCESS) || !process.stdin.isTTY || !OI() && !j51()
+    if (q7()) return k("[BackendRegistry] isInProcessEnabled: true (non-interactive session)"), !0;
+    let A = LNY(),
+        q;
+    if (A === "in-process") q = !0;
+    else if (A === "tmux") q = !1;
+    else q = !uN1();
+    return k(`[BackendRegistry] isInProcessEnabled: ${q} (mode=${A}, insideTmux=${uN1()})`), q
 }
 
 // READABLE (for understanding):
 function isInProcessEnabled() {
-    // Condition 1: Explicit user override
-    if (parseBoolean(process.env.FORCE_IN_PROCESS)) {
-        return true;
-    }
+    // Non-interactive session (piped stdin etc.) → always in-process
+    if (isNonInteractiveSession()) return true;  // q7()
 
-    // Condition 2: Non-interactive session (no TTY)
-    // Examples: CI/CD pipeline, systemd service, cron job
-    if (!process.stdin.isTTY) {
-        return true;
-    }
+    let mode = getSpawnMode();  // LNY() → reads configured backend mode string
 
-    // Condition 3: No terminal multiplexer available
-    // Neither tmux nor iTerm2 detected
-    if (!isRunningInsideTmux() && !isRunningInIterm2()) {
-        return true;
-    }
+    // Explicitly configured mode overrides auto-detection
+    if (mode === "in-process") return true;
+    if (mode === "tmux") return false;
 
-    return false;  // Prefer pane-based modes when available
+    // Auto-detect: use in-process only when NOT inside tmux
+    // (splitting panes requires tmux; without it in-process is the fallback)
+    return !insideTmux();  // uN1()
 }
 
-// Mapping: Rb→isInProcessEnabled, Y0→parseBoolean, OI→isRunningInsideTmux, j51→isRunningInIterm2
+// Mapping: Rb→isInProcessEnabled, q7→isNonInteractiveSession, LNY→getSpawnMode,
+//          uN1→insideTmux, A→mode, q→result, k→log
 ```
 
-**Condition precedence** (evaluated in order):
+**Decision logic** (evaluated in order):
 
 ```
-Priority 1: FORCE_IN_PROCESS=1
-  └─→ User wants in-process mode regardless of environment
-      Use case: Debugging, performance testing
+Step 1: isNonInteractiveSession() [q7()]
+  └─→ true: Always in-process (piped stdin, CI, no terminal)
+  └─→ false: Continue to step 2
 
-Priority 2: !process.stdin.isTTY
-  └─→ No interactive terminal available
-      Examples:
-        • GitHub Actions runner
-        • Docker container without -t flag
-        • SSH session with command (ssh host "claude ...")
-        • systemd service
+Step 2: getSpawnMode() [LNY() → Al6() mode string]
+  └─→ "in-process": Force in-process
+  └─→ "tmux": Force tmux pane mode
+  └─→ null/other: Auto-detect (step 3)
 
-Priority 3: !tmux && !iTerm2
-  └─→ Fallback for unsupported terminals
-      Examples:
-        • Plain bash/zsh terminal (no multiplexer)
-        • VSCode integrated terminal (no tmux)
-        • Windows Terminal (not yet supported)
+Step 3: !insideTmux() [!uN1()]
+  └─→ true (not in tmux): Use in-process (no pane backend available)
+  └─→ false (inside tmux): Use tmux pane mode
 ```
 
-**Why this precedence**:
+**Why this design**:
 
-1. **User override first**: Respects explicit user intent (debugging, testing)
-2. **Environment constraint second**: Non-interactive sessions physically cannot spawn panes
-3. **Capability detection last**: Fall back gracefully when advanced features unavailable
+1. **Non-interactive check first**: CI/CD and piped sessions cannot spawn visible panes — in-process is the only viable option
+2. **Explicit config overrides detection**: User/team config for "in-process" or "tmux" takes priority over environment detection
+3. **tmux presence as auto-detect signal**: If no explicit config, being inside tmux means pane-based spawning will work; otherwise fall back to in-process
 
-**Trade-off**: Automatic detection can surprise users ("Why is my agent not showing in a pane?"). Mitigation: Log detection decision at DEBUG level.
+**Trade-off**: Automatic detection can surprise users ("Why is my agent not showing in a pane?"). Mitigation: Detection result and mode/insideTmux values are logged at each call.
 
 ### 2.3 Split-Pane vs Separate Window
 

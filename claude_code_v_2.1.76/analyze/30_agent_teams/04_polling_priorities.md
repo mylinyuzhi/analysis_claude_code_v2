@@ -100,21 +100,29 @@ Priority 5 (Lowest):   Auto-claim next available task (backfill work)
 
 ```javascript
 // Priority 1 check (first thing in poll loop)
-const state = await context.getAppState();
-const task = findTaskByAgentId(agentId, state.tasks);
-
-if (task?.pendingUserMessages.length > 0) {
-    // Dequeue first message atomically
-    const message = await context.updateAppState(s => {
-        const t = findTaskByAgentId(agentId, s.tasks);
-        return t.pendingUserMessages.shift();  // Remove from queue
+// Source: DNY (inProcessRunnerPollLoop), chunks.134.mjs:1487-1507
+let H = Y().tasks[K];  // Y = getAppState (sync), K = taskId
+if (H && H.type === "in_process_teammate" && H.pendingUserMessages.length > 0) {
+    let J = H.pendingUserMessages[0];
+    // Atomically dequeue first message via setAppState
+    z((M) => {
+        let D = M.tasks[K];
+        if (!D || D.type !== "in_process_teammate") return M;
+        return {
+            ...M,
+            tasks: {
+                ...M.tasks,
+                [K]: {
+                    ...D,
+                    pendingUserMessages: D.pendingUserMessages.slice(1)
+                }
+            }
+        }
     });
-
     return {
-        type: "user_message",
-        from: message.from,
-        content: message.content,
-        timestamp: new Date().toISOString()
+        type: "new_message",
+        message: J,
+        from: "user"
     };
 }
 ```
@@ -206,57 +214,56 @@ Latency: 500ms (unlucky timing)
 ```javascript
 // ============================================
 // Priority 2: Shutdown request scan (bypass queue)
-// Location: pollForNextMessage, chunks.134.mjs:1483-1570
+// Location: DNY (inProcessRunnerPollLoop), chunks.134.mjs:1514-1535
 // ============================================
 
-const mailbox = await readMailbox(agentName, teamName);
+// Source: exact from chunks.134.mjs:1515-1535
+let J = await wl(A.agentName, A.teamName);  // wl = readMailbox
+let M = -1, D = null;
 
-// Scan ALL messages (read + unread)
-for (let i = 0; i < mailbox.length; i++) {
-    const msg = mailbox[i];
-
-    if (!msg.read) {
-        const shutdownReq = parseShutdownRequest(msg.text);
-
-        if (shutdownReq) {
-            // CRITICAL PATH: Shutdown found, bypass remaining messages
-            await markMessageAsReadByIndex(agentName, teamName, i);
-
-            const skippedCount = mailbox.filter(m => !m.read).length - 1;
-            console.log(
-                `[Priority 2] Shutdown request prioritized over ` +
-                `${skippedCount} unread messages`
-            );
-
-            return {
-                type: "shutdown_request",
-                requestId: shutdownReq.requestId,
-                from: msg.from
-            };
+// Scan all UNREAD messages for shutdown request
+for (let P = 0; P < J.length; P++) {
+    let W = J[P];
+    if (W && !W.read) {
+        let Z = M66(W.text);  // M66 = parseShutdownMessage
+        if (Z) {
+            M = P; D = Z;
+            break;
         }
     }
 }
 
-// No shutdown found, continue to Priority 3
+if (M !== -1) {
+    let P = J[M];
+    let W = J.slice(0, M).filter((Z) => !Z.read).length;  // count skipped unread
+    k(`[inProcessRunner] ${A.agentName} received shutdown request from ${D?.from} (prioritized over ${W} unread messages)`);
+    await Vc6(A.agentName, A.teamName, M);  // markMessageAsReadByIndex
+
+    return {
+        type: "shutdown_request",
+        request: D,           // parsed shutdown object
+        originalMessage: P.text  // raw message text
+    };
+}
+
+// No shutdown found, continue to Priority 3/4
 ```
 
-**Key insight**: Shutdown detection is **O(N) scan** where N = total mailbox size. This is **intentionally expensive** to guarantee shutdown never starves.
+**Key insight**: Shutdown detection is **O(N) scan** where N = unread mailbox size. This is **intentionally prioritized** to guarantee shutdown never starves behind normal messages.
 
-### 4.2 Why Scan ALL Messages
+### 4.2 Scan Scope: Unread Messages Only
 
-**Alternative considered**: Only scan unread messages (skip read ones).
+**Implementation**: The scan uses `if (W && !W.read)` — it scans only **unread** messages, not already-read ones.
 
-**Problem with alternative**:
+**Why unread only**: A previously read shutdown message has already been processed. There's no need to re-scan it. The key behavior is scanning all **unread** messages before processing them in FIFO order — so a shutdown request at unread position 100 is found before processing unread positions 1–99.
+
 ```
-Scenario: Mailbox has 50 read messages, then 100 unread messages, then shutdown request.
-If scanning only unread: Start at message #51, find shutdown at #151 (scan 100 messages).
-Current approach: Scan all 151 messages (slightly more work, but guarantees find shutdown).
+Scenario: Mailbox has 50 read messages, then 99 unread messages, then 1 unread shutdown request.
+Without Priority 2: Process unread messages 1–99 sequentially (50+ min), shutdown at end.
+With Priority 2: Scan all 100 unread messages in O(N), find shutdown immediately.
 ```
 
-**Chosen approach scans ALL** because:
-1. **Simplicity**: Don't need to track "first unread index"
-2. **Correctness**: Never miss shutdown regardless of mailbox state
-3. **Performance**: O(N) scan is <1ms for typical mailboxes (<100 messages)
+**Note on "Scan ALL" in Section 4.1**: The scan iterates from index 0 to `mailbox.length - 1` but only processes entries where `!W.read`. Already-read entries are skipped.
 
 ### 4.3 Shutdown Request Format
 
@@ -319,21 +326,34 @@ With Priority 2 (shutdown) first: Shutdown bypasses all messages (<1 second).
 **Implementation**:
 
 ```javascript
-// Priority 3: Team lead messages
-const leadMessageIndex = mailbox.findIndex(
-    msg => !msg.read && msg.from === "team-lead"
-);
+// Priority 3 + 4: Team lead messages, then any unread (merged into one block)
+// Source: chunks.134.mjs:1537-1554
+let X = -1;
 
-if (leadMessageIndex !== -1) {
-    await markMessageAsReadByIndex(agentName, teamName, leadMessageIndex);
-    const msg = mailbox[leadMessageIndex];
+// Priority 3: Try team-lead first (BY = TEAM_LEAD_ID constant)
+for (let P = 0; P < J.length; P++) {
+    let W = J[P];
+    if (W && !W.read && W.from === BY) {  // BY = "team-lead" constant
+        X = P;
+        break;
+    }
+}
 
-    return {
-        type: "team_message",
-        from: msg.from,
-        content: msg.text,
-        timestamp: msg.timestamp
-    };
+// Priority 4: Fall back to any unread if no team-lead message
+if (X === -1) X = J.findIndex((P) => !P.read);
+
+if (X !== -1) {
+    let P = J[X];
+    if (P) {
+        await Vc6(A.agentName, A.teamName, X);  // markMessageAsReadByIndex
+        return {
+            type: "new_message",   // same return type for both P3 and P4
+            message: P.text,
+            from: P.from,
+            color: P.color,
+            summary: P.summary
+        };
+    }
 }
 ```
 
@@ -385,26 +405,30 @@ Mailbox:
 
 ### 6.1 FIFO Default Behavior
 
-**What it does**: If no higher-priority work, process oldest unread message.
+**What it does**: If no team-lead messages found, fall back to the oldest unread message from any sender.
 
-**Implementation**:
+**Implementation**: Priority 3 and 4 are merged in a single code block (see Section 5.1). Priority 4 is the `if (X === -1) X = J.findIndex(P => !P.read)` fallback. Both priorities return the same return type:
 
 ```javascript
-// Priority 4: Any unread message
-const anyMessageIndex = mailbox.findIndex(msg => !msg.read);
+// Priority 4 fallback (if P3 found nothing):
+if (X === -1) X = J.findIndex((P) => !P.read);
 
-if (anyMessageIndex !== -1) {
-    await markMessageAsReadByIndex(agentName, teamName, anyMessageIndex);
-    const msg = mailbox[anyMessageIndex];
-
-    return {
-        type: "peer_message",
-        from: msg.from,
-        content: msg.text,
-        timestamp: msg.timestamp
-    };
+if (X !== -1) {
+    let P = J[X];
+    if (P) {
+        await Vc6(A.agentName, A.teamName, X);
+        return {
+            type: "new_message",   // SAME type as P3 — no discriminator for lead vs peer
+            message: P.text,
+            from: P.from,         // from field identifies actual sender
+            color: P.color,
+            summary: P.summary
+        };
+    }
 }
 ```
+
+**Note**: The `from` field distinguishes lead vs peer messages at the caller. The `type` is always `"new_message"` for both Priority 3 and 4 — there is no `"team_message"` or `"peer_message"` discriminator in the return value.
 
 **Why FIFO**:
 
@@ -444,12 +468,14 @@ backend-dev receives:
 
 ```javascript
 // Priority 5: Auto-claim next available task
-const taskPrompt = await claimUnclaimedTask(agentName, teamName, context);
+// Source: chunks.134.mjs:1559-1564
+let j = await Ji4(_, A.agentName);  // Ji4 = claimUnclaimedTask, _ = teammateContext
 
-if (taskPrompt) {
+if (j) {
     return {
-        type: "task_assignment",
-        content: taskPrompt
+        type: "new_message",   // same return type as messages — task prompt delivered as message
+        message: j,
+        from: "task-list"      // from="task-list" identifies this as an auto-claimed task
     };
 }
 
@@ -610,14 +636,15 @@ Result: task-1 never claimed
 **Complete Poll Loop Algorithm:**
 
 ```
-function pollForNextMessage(config, abortSignal, context):
+function inProcessRunnerPollLoop(config, abortController, taskId, getAppState, setAppState, teammateCtx):
     iterationCount = 0
-    while (!abortSignal.aborted):
+    while (!abortController.signal.aborted):
         // Priority 1: AppState fast path (in-process only)
-        task = findTaskByAgentId(config.agentId, appState.tasks)
-        if (task.pendingUserMessages.length > 0):
-            message = atomicDequeue(task.pendingUserMessages)
-            return { type: "user_message", ...message }
+        task = getAppState().tasks[taskId]
+        if (task && task.type === "in_process_teammate" && task.pendingUserMessages.length > 0):
+            message = task.pendingUserMessages[0]
+            setAppState(s => remove first pendingUserMessage from s.tasks[taskId])
+            return { type: "new_message", message: message, from: "user" }
 
         // Sleep 500ms (skip on first iteration for immediate check)
         if (iterationCount > 0):
@@ -625,39 +652,43 @@ function pollForNextMessage(config, abortSignal, context):
         iterationCount++
 
         // Check abort
-        if (abortSignal.aborted):
+        if (abortController.signal.aborted):
             return { type: "aborted" }
 
         // Read mailbox from filesystem
         mailbox = readMailbox(config.agentName, config.teamName)
 
-        // Priority 2: Shutdown scan (bypass entire queue)
+        // Priority 2: Scan UNREAD messages for shutdown (bypass entire queue)
+        shutdownIdx = -1; shutdownObj = null
         for i = 0 to mailbox.length - 1:
-            if (!mailbox[i].read):
-                shutdownReq = parseShutdownRequest(mailbox[i].text)
-                if (shutdownReq):
-                    markMessageAsReadByIndex(i)
-                    return { type: "shutdown_request", ... }
+            if (mailbox[i] && !mailbox[i].read):
+                parsed = parseShutdownMessage(mailbox[i].text)  // M66
+                if (parsed):
+                    shutdownIdx = i; shutdownObj = parsed; break
+        if (shutdownIdx !== -1):
+            markMessageAsReadByIndex(shutdownIdx)
+            return { type: "shutdown_request", request: shutdownObj, originalMessage: mailbox[shutdownIdx].text }
 
-        // Priority 3: Team-lead messages
-        leadIdx = findIndex(mailbox, msg => !msg.read && msg.from === "team-lead")
-        if (leadIdx !== -1):
-            markMessageAsReadByIndex(leadIdx)
-            return { type: "team_message", ... }
-
-        // Priority 4: Any unread message
-        anyIdx = findIndex(mailbox, msg => !msg.read)
-        if (anyIdx !== -1):
-            markMessageAsReadByIndex(anyIdx)
-            return { type: "peer_message", ... }
+        // Priority 3: Team-lead messages; Priority 4: Any unread (merged block)
+        idx = findIndex(mailbox, msg => !msg.read && msg.from === "team-lead")
+        if (idx === -1): idx = findIndex(mailbox, msg => !msg.read)
+        if (idx !== -1):
+            msg = mailbox[idx]
+            markMessageAsReadByIndex(idx)
+            return { type: "new_message", message: msg.text, from: msg.from, color: msg.color, summary: msg.summary }
 
         // Priority 5: Task auto-claim
-        taskPrompt = claimUnclaimedTask(config.agentName, config.teamName, context)
+        taskPrompt = claimUnclaimedTask(teammateCtx, config.agentName)  // Ji4
         if (taskPrompt):
-            return { type: "task_assignment", content: taskPrompt }
+            return { type: "new_message", message: taskPrompt, from: "task-list" }
 
     return { type: "aborted" }
 ```
+
+**Return type summary**: The poll loop returns only 3 distinct `type` values:
+- `"new_message"` — used for ALL message sources: pendingUserMessages (from: "user"), mailbox messages (from: sender name), and auto-claimed tasks (from: "task-list")
+- `"shutdown_request"` — shutdown protocol only; carries `{request, originalMessage}` not `{requestId, from}`
+- `"aborted"` — abort signal fired
 
 **Complexity Analysis:**
 
@@ -696,7 +727,7 @@ Key functions in this document:
 - `pollForNextMessage` (DNY) - 5-level priority queue engine
 - `claimUnclaimedTask` (Ji4) - Task auto-claim with dependency resolution
 - `findNextAvailableTask` (JNY) - Dependency-aware task selection @ chunks.134.mjs:1445
-- `parseShutdownRequest` (ss) - Extract shutdown from message
+- `parseShutdownMessage` (M66) - Extract shutdown from message text @ chunks.132.mjs:312
 - `markMessageAsReadByIndex` (Vc6) - Update read flag
 - `readMailbox` (wl) - Read mailbox messages
 - `sleep` (jNY) - Promise-based delay for poll interval @ chunks.134.mjs:1441

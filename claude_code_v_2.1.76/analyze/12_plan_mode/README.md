@@ -1,8 +1,16 @@
 # Module: Plan Mode (12)
 
+> **Version**: Claude Code v2.1.76
+> **Last Updated**: 2026-03-29
+> **Status**: Complete source-level analysis with dual-version code
+
+---
+
 ## Overview
 
-Plan Mode is a specialized session state that restricts the agent to read-only exploration and enforces a structured approval workflow before implementation. It implements the "Plan → Approve → Implement" safety pattern, requiring explicit user approval via ExitPlanMode before any code changes can be made.
+Plan Mode is a specialized session state that restricts the agent to read-only exploration and enforces a structured approval workflow before implementation. It implements the "Plan -> Approve -> Implement" safety pattern, requiring explicit user approval via ExitPlanMode before any code changes can be made.
+
+The module spans multiple source files -- primarily chunks.173.mjs (state machine, system reminders), chunks.144.mjs (EnterPlanMode tool), chunks.143.mjs (ExitPlanMode tool), chunks.191.mjs (mode cycling), and chunks.90.mjs (plan file management).
 
 ---
 
@@ -10,64 +18,232 @@ Plan Mode is a specialized session state that restricts the agent to read-only e
 
 > Symbol mappings:
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Plan Mode section)
-> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution
+> - [symbol_index_core_execution.md](../00_overview/symbol_index_core_execution.md) - Core execution (Agent Loop, State)
+> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform (Permissions, Prompt)
+> - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations (UI)
 
 Key functions in this module:
-- `EnterPlanModeTool` (Ki6) - Enter plan mode - chunks.144.mjs:1579
-- `ExitPlanModeTool` (zD) - Exit with approval - chunks.143.mjs:2802
-- `handlePlanModeTransition` (Dp) - Mode state hooks - chunks.1.mjs:2946
+- `EnterPlanModeTool` (Ki6) - Enter plan mode tool object - chunks.144.mjs:1579
+- `ExitPlanModeTool` (zD) - Exit plan mode with approval - chunks.143.mjs:2798
+- `handlePlanModeTransition` (Dp) - Mode state transition hook - chunks.1.mjs:2946
+- `modeTransitionHandler` (ki) - Full mode transition dispatcher - chunks.173.mjs:409
+- `savePrePlanMode` (LT6) - Save mode before entering plan - chunks.173.mjs:702
+- `cycleMode` (W26) - Shift+Tab mode cycling - chunks.191.mjs:3007
+- `planModeReminderDispatcher` (Wzz) - System reminder dispatcher - chunks.173.mjs:2525
+- `getPlanFilePath` (Fj) - Plan file path resolver - chunks.90.mjs:533
+- `getPlanContent` (sJ) - Read plan file content - chunks.90.mjs:539
+- `isPlanModeInterviewPhase` (rO) - Feature flag for interview workflow - chunks.50.mjs:2520
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                       PLAN MODE ARCHITECTURE                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│  ① State Machine                                                     │
-│     mode ∈ {"default", "plan", "acceptEdits", "auto",               │
-│              "bypassPermissions", "dontAsk"}                         │
-│     + prePlanMode (saves mode before entering plan)                  │
-│     + hasExitedPlanMode (exit flag)                                  │
-│     + needsPlanModeExitAttachment (attachment pending)               │
-│                                                                       │
-│  ② Mode Entry (EnterPlanMode)                                        │
-│     ├─ Save current mode → prePlanMode                               │
-│     ├─ Set mode = "plan"                                             │
-│     ├─ Initialize plan file path                                     │
-│     └─ Generate plan_mode attachment                                 │
-│                                                                       │
-│  ③ Planning Workflow                                                  │
-│     ├─ Phase 1: Initial Understanding (Explore agents)               │
-│     ├─ Phase 2: Design (Plan agents)                                 │
-│     ├─ Phase 3: Review                                               │
-│     ├─ Phase 4: Final Plan (written to plan file)                    │
-│     └─ Phase 5: ExitPlanMode                                         │
-│                                                                       │
-│  ④ Tool Restrictions                                                 │
-│     ├─ Only read-only tools allowed                                  │
-│     ├─ Write/Edit allowed only to plan file path                     │
-│     └─ ExitPlanMode is the only programmatic exit                    │
-│                                                                       │
-│  ⑤ Mode Exit (ExitPlanMode)                                          │
-│     ├─ User approval dialog ("Ready to code?")                       │
-│     ├─ Restore mode from prePlanMode                                 │
-│     ├─ Generate plan_mode_exit attachment                            │
-│     └─ Clear conversation (optional for rejection)                   │
-│                                                                       │
-│  ⑥ Swarm Integration                                                 │
-│     ├─ Teammate sends plan_approval_request to team-lead             │
-│     ├─ Team-lead reviews and responds                                │
-│     └─ plan_approval_response → teammate inbox                       │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
+                         PLAN MODE ARCHITECTURE
+ ========================================================================
+
+   Source Files:
+   chunks.173.mjs  -- State machine (ki, LT6) + System reminders (Wzz, Nzz, ...)
+   chunks.144.mjs  -- EnterPlanMode tool (Ki6)
+   chunks.143.mjs  -- ExitPlanMode tool (zD) + Plan approval (ag8, k1q)
+   chunks.191.mjs  -- Mode cycling (W26, cbq, lbq)
+   chunks.90.mjs   -- Plan file management (Fj, sJ, bB)
+   chunks.1.mjs    -- Global state flags (HV, nk6, JS, Fu1, Dp)
+   chunks.50.mjs   -- Feature flags (rO)
+   chunks.147.mjs  -- Attachments (DuY, XuY)
+
+ ========================================================================
+
+ +--------------------------+     +----------------------------+
+ | User / Shift+Tab / Tool  |     |       Global AppState      |
+ +------------+-------------+     |  - mode: string            |
+              |                   |  - prePlanMode: string     |
+              v                   |  - hasExitedPlanMode: bool |
+ +------------+-------------+     |  - needsPlanModeExit-      |
+ |   Mode Transition Layer  |     |    Attachment: bool        |
+ |   ki() --> LT6()         |---->|  - awaitingPlanApproval    |
+ |   Dp() state flags       |     +----------------------------+
+ +------------+-------------+
+              |
+    +---------+---------+
+    |                   |
+    v                   v
+ +--+--------+   +------+--------+
+ | Enter Plan |   | Exit Plan     |
+ | Ki6 tool   |   | zD tool       |
+ | save mode  |   | restore mode  |
+ | set "plan" |   | teammate path |
+ +--+---------+   | main path     |
+    |             +------+--------+
+    v                    |
+ +--+---------+          v
+ | System     |   +------+--------+
+ | Reminders  |   | Plan Approval |
+ | Wzz()      |   | (teams only)  |
+ | dispatches:|   | ag8() set     |
+ |  Nzz full  |   | x3() mailbox  |
+ |  kzz iview |   +---------------+
+ |  Ezz sparse|
+ |  yzz subagt|
+ |  Zzz ultra |
+ +------------+
+
+ +--------------------------------------------------+
+ | Mode Cycling (Shift+Tab)                          |
+ | W26: default -> acceptEdits -> plan ->            |
+ |      [bypassPermissions ->] [auto ->] default     |
+ +--------------------------------------------------+
+
+ +--------------------------------------------------+
+ | Tool Filtering                                    |
+ | Plan mode read-only enforced via system prompt    |
+ | Plan subagent (x01) uses disallowedTools list     |
+ | Write/Edit allowed only to plan file path         |
+ +--------------------------------------------------+
 ```
 
 ---
 
-## State Management
+## Key Components
+
+### A. State Machine and Mode Transitions
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Mode transition handler | ki | chunks.173.mjs:409 | Dispatches all mode transitions, saves/restores prePlanMode |
+| Save pre-plan mode | LT6 | chunks.173.mjs:702 | Records mode before entering plan for later restoration |
+| Plan mode transition hook | Dp | chunks.1.mjs:2946 | Sets/clears needsPlanModeExitAttachment flag |
+| hasExitedPlanMode setter | HV | chunks.1.mjs:2934 | Marks that plan mode was exited (for attachment logic) |
+| hasExitedPlanMode getter | nk6 | chunks.1.mjs:2930 | Reads exit flag |
+| needsPlanModeExitAttachment setter | JS | chunks.1.mjs:2942 | Controls exit attachment injection |
+| needsPlanModeExitAttachment getter | Fu1 | chunks.1.mjs:2938 | Reads attachment flag |
+
+### B. Tools
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| EnterPlanMode tool | Ki6 | chunks.144.mjs:1579 | Enter plan mode, save state, set "plan" |
+| ExitPlanMode tool | zD | chunks.143.mjs:2798 | Exit plan mode, restore state, team approval path |
+| EnterPlanMode name | dt | chunks.90.mjs:3121 | Constant: "EnterPlanMode" |
+| ExitPlanMode name | aJ | chunks.90.mjs:505 | Constant: "ExitPlanMode" |
+| EnterPlanMode prompt | RIY | chunks.144.mjs:1416 | Dynamic prompt generator |
+| ExitPlanMode prompt | Z1q | chunks.143.mjs:2595 | Detailed usage instructions |
+
+### C. Plan File Management
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Plan file path | Fj | chunks.90.mjs:533 | Resolves plan file path from session slug |
+| Plan file reader | sJ | chunks.90.mjs:539 | Synchronous read, null on ENOENT |
+| Session slug generator | bB | chunks.90.mjs:~509 | Generates slug for plan file naming |
+
+### D. System Reminders
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Reminder dispatcher | Wzz | chunks.173.mjs:2525 | Routes to variant based on context |
+| Full reminder | Nzz | chunks.173.mjs:2555 | 5-phase workflow (~1500 tokens) |
+| Interview reminder | kzz | chunks.173.mjs:2644 | Iterative pair-planning variant |
+| Sparse reminder | Ezz | chunks.173.mjs:2692 | Condensed version (~150 tokens) |
+| Subagent reminder | yzz | chunks.173.mjs:2701 | Brief for nested agents (~400 tokens) |
+| Ultraplan-complete | Zzz | chunks.173.mjs:2532 | Calls ExitPlanMode immediately |
+
+### E. Mode Cycling
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Cycle order | W26 | chunks.191.mjs:3007 | Defines mode rotation sequence |
+| Auto mode check | cbq | chunks.191.mjs:3003 | Checks if auto mode is available |
+| Cycle wrapper | lbq | chunks.191.mjs:3027 | Calls W26 then applies ki() transition |
+
+### F. UI Components
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Enter result renderer | E8q | chunks.144.mjs:1526 | "Entered plan mode" |
+| Enter rejected renderer | y8q | chunks.144.mjs:1541 | "User declined to enter plan mode" |
+| Exit result renderer | T1q | chunks.143.mjs:2628 | Three-state: no plan / awaiting / approved |
+
+### G. Team Plan Approval
+
+| Component | Symbol | Location | Purpose |
+|-----------|--------|----------|---------|
+| Set awaiting approval | ag8 | chunks.143.mjs:2707 | Marks task as awaiting plan approval |
+| Clear awaiting approval | k1q | chunks.143.mjs:2713 | Clears approval flag |
+| Approve handler | _xY | chunks.145.mjs:2521 | Handle team-lead approve |
+| Reject handler | wxY | chunks.145.mjs:2569 | Handle team-lead reject |
+
+---
+
+## Analysis Documents
+
+### Comprehensive
+
+| Document | Description |
+|----------|-------------|
+| [plan_mode_complete_analysis.md](plan_mode_complete_analysis.md) | Complete source-level analysis of all subsystems with dual-version code |
+
+### Core Implementation
+
+| Document | Description |
+|----------|-------------|
+| [plan_mode_source_restoration_final.md](plan_mode_source_restoration_final.md) | Complete source restoration with all algorithms |
+| [plan_mode_state_machine_complete.md](plan_mode_state_machine_complete.md) | State machine with swarm approval workflow |
+| [implementation.md](implementation.md) | Plan mode implementation overview |
+| [state_management.md](state_management.md) | State variables and transitions |
+| [tools_filtering.md](tools_filtering.md) | Tool restrictions in plan mode |
+| [tool_filtering_complete.md](tool_filtering_complete.md) | Complete tool restrictions analysis |
+| [plan_file_format.md](plan_file_format.md) | Plan file structure and format |
+
+### User Interaction
+
+| Document | Description |
+|----------|-------------|
+| [ask_user_question_complete.md](ask_user_question_complete.md) | AskUserQuestion tool for multi-round interactions |
+| [ask_user_question.md](ask_user_question.md) | AskUserQuestion tool overview |
+| [interview_phase.md](interview_phase.md) | Iterative interview workflow |
+| [interview_phase_complete.md](interview_phase_complete.md) | Complete interview phase analysis |
+| [plan_approval_flow.md](plan_approval_flow.md) | Plan approval lifecycle |
+| [swarm_plan_approval_complete.md](swarm_plan_approval_complete.md) | Swarm teammate plan approval |
+| [mode_cycling.md](mode_cycling.md) | Shift+Tab mode cycling |
+
+### UI and Integration
+
+| Document | Description |
+|----------|-------------|
+| [plan_mode_ui_complete.md](plan_mode_ui_complete.md) | UI components for EnterPlanMode/ExitPlanMode |
+| [reminder_system.md](reminder_system.md) | Plan mode attachments and system reminders |
+| [compact_integration.md](compact_integration.md) | Plan preservation during compaction |
+| [hooks_integration.md](hooks_integration.md) | Hooks in plan mode |
+| [task_integration.md](task_integration.md) | Task system integration |
+| [ui_linkage.md](ui_linkage.md) | UI components and rendering |
+
+### Cross-Module
+
+| Document | Description |
+|----------|-------------|
+| [cross_module_integration_complete.md](cross_module_integration_complete.md) | Full cross-module integration |
+| [plan_mode_cross_module_complete.md](plan_mode_cross_module_complete.md) | Cross-module dependencies |
+
+---
+
+## Quick Reference
+
+### Symbol Lookup
+
+```
+Need plan mode symbols?
+  --> symbol_index_core_features.md (Module: Plan Mode section)
+
+Need agent loop / state symbols?
+  --> symbol_index_core_execution.md
+
+Need permission / prompt symbols?
+  --> symbol_index_infra_platform.md
+
+Need UI component symbols?
+  --> symbol_index_infra_integration.md
+```
 
 ### Mode Values
 
@@ -80,317 +256,20 @@ Key functions in this module:
 | `bypassPermissions` | Skip permission prompts |
 | `dontAsk` | Minimize user prompts |
 
-### Plan Mode State Fields
-
-```typescript
-interface PlanModeState {
-  mode: "plan";
-  prePlanMode: string;  // Mode to restore on exit
-
-  // Global flags
-  hasExitedPlanMode: boolean;
-  needsPlanModeExitAttachment: boolean;
-
-  // Plan file
-  planFilePath: string;  // ~/.claude_api/plans/<slug>.md
-  planFileSlug: string;  // Generated from task description
-}
-```
-
-### Mode Transition Hook
-
-```javascript
-// ============================================
-// Dp - handlePlanModeTransition
-// Location: chunks.1.mjs:2946-2950
-// ============================================
-
-function handlePlanModeTransition(fromMode, toMode) {
-  // Entering plan mode: reset exit attachment flag
-  if (toMode === "plan" && fromMode !== "plan") {
-    globalSessionState.needsPlanModeExitAttachment = false;
-  }
-  // Leaving plan mode: mark need for exit attachment
-  if (fromMode === "plan" && toMode !== "plan") {
-    globalSessionState.needsPlanModeExitAttachment = true;
-  }
-}
-```
-
----
-
-## Analysis Documents
-
-### Core Implementation
-
-| Document | Description |
-|----------|-------------|
-| [plan_mode_source_restoration_final.md](plan_mode_source_restoration_final.md) | **FINAL** - Complete source restoration with all algorithms |
-| [plan_mode_source_restoration.md](plan_mode_source_restoration.md) | **NEW** - Complete source restoration with ORIGINAL/READABLE code |
-| [plan_mode_state_machine_complete.md](plan_mode_state_machine_complete.md) | **NEW** - Complete state machine with swarm approval workflow |
-| [implementation.md](implementation.md) | Complete plan mode implementation |
-| [state_management.md](state_management.md) | State variables and transitions |
-| [tools_filtering.md](tools_filtering.md) | Tool restrictions in plan mode |
-| [tool_filtering_complete.md](tool_filtering_complete.md) | **NEW** - Complete tool restrictions analysis |
-| [plan_file_format.md](plan_file_format.md) | Plan file structure and format |
-
-### User Interaction
-
-| Document | Description |
-|----------|-------------|
-| [ask_user_question_complete.md](ask_user_question_complete.md) | **NEW** - AskUserQuestion tool for multi-round interactions |
-| [ask_user_question.md](ask_user_question.md) | AskUserQuestion tool overview |
-| [interview_phase.md](interview_phase.md) | Iterative interview workflow |
-| [interview_phase_complete.md](interview_phase_complete.md) | **UPDATED** - Complete interview phase analysis |
-| [plan_approval_flow.md](plan_approval_flow.md) | Plan approval lifecycle |
-| [swarm_plan_approval_complete.md](swarm_plan_approval_complete.md) | **NEW** - Swarm teammate plan approval |
-| [mode_cycling.md](mode_cycling.md) | Shift+Tab mode cycling |
-
-### UI & Integration
-
-| Document | Description |
-|----------|-------------|
-| [plan_mode_ui_complete.md](plan_mode_ui_complete.md) | Complete UI components, EnterPlanMode/ExitPlanMode tools |
-| [reminder_system.md](reminder_system.md) | Plan mode attachments and system reminder integration |
-| [compact_integration.md](compact_integration.md) | Plan preservation during compaction |
-| [hooks_integration.md](hooks_integration.md) | Hooks in plan mode |
-| [task_integration.md](task_integration.md) | Task system integration |
-| [ui_linkage.md](ui_linkage.md) | UI components and rendering |
-
-### Cross-Module Integration
-
-| Document | Description |
-|----------|-------------|
-| [cross_module_integration_complete.md](cross_module_integration_complete.md) | **COMPLETE** - Full cross-module integration with source restoration |
-| [../00_overview/cross_module_integration_complete.md](../00_overview/cross_module_integration_complete.md) | Complete cross-module integration for all 4 modules |
-| [../00_overview/ui_interaction_final.md](../00_overview/ui_interaction_final.md) | UI components for Tools, MCP, Plan Mode, Task System |
-
----
-
-## Key Algorithms
-
-### Tool Filtering Algorithm
-
-```javascript
-function filterToolsForPlanMode(tools, planFilePath) {
-  return tools.filter(tool => {
-    // Always allow read-only tools
-    if (tool.isReadOnly?.()) return true;
-
-    // Allow ExitPlanMode
-    if (tool.name === "ExitPlanMode") return true;
-
-    // Allow EnterPlanMode (for re-entry)
-    if (tool.name === "EnterPlanMode") return true;
-
-    // Allow AskUserQuestion
-    if (tool.name === "AskUserQuestion") return true;
-
-    // Allow Write/Edit only to plan file
-    if (tool.name === "Write" || tool.name === "Edit") {
-      // Checked at execution time against planFilePath
-      return true;
-    }
-
-    // Block all other tools
-    return false;
-  });
-}
-```
-
-### Plan Mode Attachment Variants
-
-```javascript
-function planModeReminderDispatcher(attachment) {
-  if (attachment.isSubAgent) {
-    return formatSubagentPlanReminder(attachment);  // Brief, no plan file editing
-  }
-  if (attachment.reminderType === "sparse") {
-    return formatSparsePlanReminder(attachment);    // Short reminder
-  }
-  if (attachment.iterativeMode) {
-    return formatIterativePlanReminder(attachment); // Pair-planning workflow
-  }
-  return formatFullPlanReminder(attachment);        // 5-phase workflow
-}
-```
-
-### Approval Flow
-
-```
-User triggers ExitPlanMode
-  │
-  ├─→ Show approval dialog
-  │     ├─ "Ready to code?" options
-  │     ├─ "Yes, let's implement"
-  │     ├─ "Let me refine the plan"
-  │     └─ "Cancel"
-  │
-  ├─→ If approved:
-  │     ├─ Restore mode from prePlanMode
-  │     ├─ Set hasExitedPlanMode = true
-  │     └─ Generate plan_mode_exit attachment
-  │
-  └─→ If rejected:
-        ├─ Stay in plan mode
-        └─ Show rejected plan viewer
-```
-
----
-
-## /plan Command
-
-### Syntax
-
-```
-/plan                    # Enter plan mode, describe task after
-/plan <description>      # Enter plan mode with initial task framing
-```
-
-### Examples
-
-```
-/plan fix the authentication bug in the login flow
-/plan implement dark mode support
-/plan refactor database schema to support multi-tenancy
-```
-
-### Flow
-
-```
-User: /plan optimize the API response time
-  │
-  ├─→ Parse command, extract description
-  ├─→ Enter plan mode (set mode = "plan")
-  ├─→ Inject description into context
-  └─→ Begin interview phase with task framing
-
-Agent: [In Plan Mode]
-       "I'll help you plan optimizing the API response time.
-        Let me start by asking some questions..."
-```
-
----
-
-## Plan File Format
-
-### Location
-
-```
-~/.claude_api/plans/<session-slug>.md
-```
-
-### Structure
-
-```markdown
-# Plan: <Task Description>
-
-## Context
-<Why this change is being made>
-
-## Implementation Plan
-1. <Step 1>
-2. <Step 2>
-...
-
-## Files to Modify
-- <path/to/file1>
-- <path/to/file2>
-
-## Verification
-<How to test the changes>
-```
-
----
-
-## Swarm Integration
-
-### Teammate Plan Approval
-
-When a teammate agent wants to exit plan mode:
-
-```
-Teammate                           Team Lead
-   │                                    │
-   ├─→ plan_approval_request ──────────►│
-   │     (plan content)                 │
-   │                                    ├─→ Review plan
-   │                                    ├─→ Show approval dialog
-   │                                    │
-   │◄──────── plan_approval_response ───┤
-   │     (approved/rejected)            │
-   │                                    │
-   ├─→ If approved: Exit plan mode      │
-   └─→ If rejected: Revise plan         │
-```
-
-### Message Format
-
-```javascript
-// plan_approval_request
-{
-  type: "plan_approval_request",
-  planContent: "...",
-  planFilePath: "~/.claude_api/plans/..."
-}
-
-// plan_approval_response
-{
-  type: "plan_approval_response",
-  approved: true/false,
-  feedback: "Optional revision feedback"
-}
-```
-
----
-
-## Cross-Module Integration
-
-### Plan Mode ↔ System Reminder (04)
-
-- `plan_mode` attachment injected each turn
-- `plan_mode_exit` attachment on exit
-- Turn counting for sparse reminder timing
-
-### Plan Mode ↔ Tools (05)
-
-- Tool filtering via `isReadOnly()` check
-- Write/Edit path restriction to plan file
-- ExitPlanMode as only programmatic exit
-
-### Plan Mode ↔ Hooks (11)
-
-- PreToolUse hooks can modify tool availability
-- PostToolUse hooks for plan file changes
-- PreCompact hooks for plan preservation
-
-### Plan Mode ↔ Compact (07)
-
-- Plan preserved as state-preservation attachment
-- Plan file not affected by compaction
-- TodoWrite state preserved
-
----
-
-## Quick Reference
-
 ### Tool Name Constants
 
-```javascript
-TOOL_NAME_ENTER_PLAN_MODE = "EnterPlanMode"  // dt
-TOOL_NAME_EXIT_PLAN_MODE = "ExitPlanMode"    // aJ
-TOOL_NAME_ASK_USER_QUESTION = "AskUserQuestion"  // Fw
+```
+TOOL_NAME_ENTER_PLAN_MODE  = "EnterPlanMode"     (dt, chunks.90.mjs:3121)
+TOOL_NAME_EXIT_PLAN_MODE   = "ExitPlanMode"       (aJ, chunks.90.mjs:505)
+TOOL_NAME_ASK_USER_QUESTION = "AskUserQuestion"   (TH, chunks.89.mjs:566)
 ```
 
-### Mode Configuration
+### Key Keybindings
 
-```javascript
-MODE_CONFIGURATION = {
-  plan: {
-    displayName: "Plan Mode",
-    statusText: "⏸ Plan Mode on (shift+tab)"
-  }
-}
+```
+Shift+Tab      --> cycle mode (W26 via lbq)
+Meta+M         --> cycle mode (fallback for older node versions)
+Keybinding ID  --> "chat:cycleMode"
 ```
 
 ---
@@ -399,7 +278,7 @@ MODE_CONFIGURATION = {
 
 | Version | Changes |
 |---------|---------|
-| 2.1.76 | Interview phase enhancements |
+| 2.1.76 | Interview phase enhancements, ultraplan-complete workflow |
 | 2.1.72 | /plan command with description argument |
 | 2.1.32 | Swarm teammate plan approval |
 | 2.1.18 | Shift+Tab mode cycling |
@@ -408,104 +287,7 @@ MODE_CONFIGURATION = {
 
 ## Symbol Validation Status
 
-**Last validated:** 2026-03-27
+**Last validated:** 2026-03-29
 
 All symbols in this module have been cross-validated against source code.
-
-### Validation Reports
-- [symbol_validation_report.md](symbol_validation_report.md) - Complete symbol validation
-- [plan_mode_source_restoration.md](plan_mode_source_restoration.md) - Full source restoration with algorithms
-
-### Key Validated Symbols
-
-| Symbol | Validated Location | Status |
-|--------|-------------------|--------|
-| Ki6 (EnterPlanModeTool) | chunks.144.mjs:1579 | ✅ Correct |
-| zD (ExitPlanModeTool) | chunks.143.mjs:2802 | ✅ Correct |
-| dt (TOOL_NAME_ENTER_PLAN_MODE) | chunks.90.mjs:3121 | ✅ Correct |
-| aJ (TOOL_NAME_EXIT_PLAN_MODE) | chunks.90.mjs:507 | ✅ Correct |
-| Dp (handlePlanModeTransition) | chunks.1.mjs:2946 | ✅ Correct |
-| AhY (handlePlanApproval) | chunks.145.mjs:2521 | ✅ Correct |
-| Vx4 (PlanApprovalRequestMessageSchema) | chunks.129.mjs:1546 | ✅ Correct |
-| Nx4 (PlanApprovalResponseMessageSchema) | chunks.129.mjs:1553 | ✅ Correct |
-
----
-
-## Cross-Module Integration
-
-### Plan Mode ↔ System Reminder (04)
-
-Plan mode generates the following attachment types:
-- `plan_mode` - Full 5-phase workflow instructions (injected each turn)
-- `plan_mode_reentry` - Re-entering plan mode (brief reminder)
-- `plan_mode_exit` - Exited plan mode notification
-- `plan_file_reference` - Existing plan file content (post-compact)
-
-**Attachment Variants:**
-- Full format - Complete 5-phase workflow
-- Sparse format - Minimal reminder for experienced users
-- Subagent format - Brief for nested agents (no plan file editing)
-
-### Plan Mode ↔ Tools (05)
-
-Tool filtering in plan mode:
-- `isReadOnly()` tools always allowed
-- `Write`/`Edit` allowed only to plan file path
-- `ExitPlanMode` is the only programmatic exit
-- `EnterPlanMode` allowed for re-entry
-- `AskUserQuestion` allowed for clarification
-
-**Tool Filtering Algorithm:**
-```javascript
-function filterToolsForPlanMode(tools, planFilePath) {
-    return tools.filter(tool => {
-        if (tool.isReadOnly?.()) return true;
-        if (tool.name === "ExitPlanMode") return true;
-        if (tool.name === "EnterPlanMode") return true;
-        if (tool.name === "AskUserQuestion") return true;
-        if (tool.name === "Write" || tool.name === "Edit") return true; // Path checked at execution
-        return false;
-    });
-}
-```
-
-### Plan Mode ↔ Hooks (11)
-
-- PreToolUse hooks can modify tool availability
-- PostToolUse hooks for plan file changes
-- PreCompact hooks for plan preservation
-- Elicitation hooks for plan approval workflows
-
-### Plan Mode ↔ Compact (07)
-
-- Plan preserved as state-preservation attachment
-- Plan file not affected by compaction
-- TodoWrite state preserved during compaction
-- `plan_file_reference` attachment injected post-compact
-
-### Plan Mode ↔ Agent Teams (30)
-
-Swarm teammate plan approval workflow:
-- Teammate sends `plan_approval_request` to team-lead
-- Team-lead reviews and responds with `plan_approval_response`
-- Approved plans allow exit from plan mode
-- Rejected plans require revision
-
-**Message Flow:**
-```
-Teammate (in plan mode)
-    │ ExitPlanMode called
-    ▼
-plan_approval_request → writeToMailbox
-    │
-    ▼
-Team-lead inbox (readMailbox)
-    │ Show approval dialog
-    ▼
-plan_approval_response → writeToMailbox
-    │
-    ▼
-Teammate receives response
-    ├─→ approved: Exit plan mode
-    └─→ rejected: Stay in plan mode
-```
+See [symbol_validation_report.md](symbol_validation_report.md) for full validation details.

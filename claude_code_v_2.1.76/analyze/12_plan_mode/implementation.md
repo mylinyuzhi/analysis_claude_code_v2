@@ -34,7 +34,7 @@ Key functions in this document:
 - `lbq` (chunks.191.mjs:3027) - Mode cycle with context function
 - `cbq` (chunks.191.mjs:3003) - isTeamLeaderWithTeam helper
 - `jZ1` (chunks.112.mjs:1142) - RejectedPlanViewer component
-- `Gc4` (chunks.132.mjs:2768) - EnterPlanMode result UI
+- `E8q` (chunks.144.mjs:1526) - EnterPlanMode result UI
 - `Kd4` (chunks.131.mjs:1153) - ExitPlanMode result UI
 - `Yd4` (chunks.131.mjs:1324) - ExitPlanMode rejection UI
 - `DuY` (chunks.147.mjs:136) - Plan mode attachment generator
@@ -44,13 +44,12 @@ Key functions in this document:
 - `Fu1` (chunks.1.mjs:2938) - `needsPlanModeExitAttachment` getter
 - `HV` (chunks.1.mjs:2934) - `setHasExitedPlanMode`
 - `JS` (chunks.1.mjs:2942) - `setNeedsPlanModeExitAttachment`
-- `GIA` (chunks.152.mjs:1438) - `clearConversation` (full 11-step session reset)
-- `PIA` (chunks.152.mjs:1421) - `clearSessionCaches`
-- `DL6` (chunks.1.mjs:2429) - `createNewSessionId` (with parent tracking)
+- `EQ8` (chunks.150.mjs:1202) - `clearConversation` (full session reset)
+- `VQ8` (chunks.150.mjs:1164) - `clearSessionCaches` (with excluded agent ID set)
+- `ix1` (chunks.1.mjs:2341) - `createNewSessionId` (with parent tracking)
 - `Rj1` (chunks.88.mjs:78) - `getPlanFileSlug`
 - `n0A` (chunks.88.mjs:94) - `registerPlanFileSlug`
 - `dU7` (chunks.88.mjs:98) - `clearPlanFileSlug`
-- `mcA` (chunks.1.mjs:2291) - `getContextUsagePercentage`
 
 ---
 
@@ -407,7 +406,7 @@ EnterPlanModeTool = {
 
     renderToolUseMessage: renderEnterPlanModeMessage,
     renderToolUseProgressMessage: renderEnterPlanModeProgress,
-    renderToolResultMessage: renderEnterPlanModeResult,  // Gc4
+    renderToolResultMessage: renderEnterPlanModeResult,  // E8q
     renderToolUseRejectedMessage: renderEnterPlanModeRejected,  // y8q
     renderToolUseErrorMessage: renderEnterPlanModeError,  // L8q
 
@@ -476,22 +475,28 @@ This contrasts with `ExitPlanMode` which returns `{ behavior: "ask", message: "E
 - Exiting plan mode grants implementation rights, so user must explicitly approve
 - This enforces the "Plan → Approve → Implement" safety guarantee
 
-### UI: Result Message (`Gc4`)
+### UI: Result Message (`E8q`)
 
 ```javascript
 // ============================================
-// Gc4 - EnterPlanMode result renderer
-// Location: chunks.132.mjs:2768
+// E8q - EnterPlanMode result renderer
+// Location: chunks.144.mjs:1526
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Gc4(A, q, K) {
-    return sD.createElement(I, { flexDirection: "column", marginTop: 1 },
-        sD.createElement(I, { flexDirection: "row" },
-            sD.createElement(V, { color: D57.plan.color }, gY),  // ✓ checkmark in planMode color
-            sD.createElement(V, null, " Entered plan mode")),
-        sD.createElement(I, { paddingLeft: 2 },
-            sD.createElement(V, { dimColor: !0 }, "Claude is now exploring and designing an implementation approach.")))
+function E8q(A, q, K) {
+    return _D.createElement(m, {
+        flexDirection: "column",
+        marginTop: 1
+    }, _D.createElement(m, {
+        flexDirection: "row"
+    }, _D.createElement(T, {
+        color: kG("plan")   // getModeColor("plan") — resolves to planMode theme color
+    }, I3), _D.createElement(T, null, " Entered plan mode")), _D.createElement(m, {
+        paddingLeft: 2
+    }, _D.createElement(T, {
+        dimColor: !0
+    }, "Claude is now exploring and designing an implementation approach.")))
 }
 ```
 
@@ -1694,31 +1699,31 @@ When a team leader spawns a teammate with `plan_mode_required: true`, the flag p
 
 ### Source: Three Ways to Set `plan_mode_required`
 
-**`isPlanModeRequired()` (`MC1`, chunks.48.mjs:301)**
+**`isPlanModeRequired()` (`NF6`, chunks.84.mjs:1478)**
 
 ```javascript
 // ============================================
-// isPlanModeRequired - Read plan_mode_required from three sources
-// Location: chunks.48.mjs:301
+// NF6 - isPlanModeRequired - Read plan_mode_required from three sources
+// Location: chunks.84.mjs:1478
 // ============================================
 
 // ORIGINAL (for source lookup):
-function MC1() {
-    let A = PL();
+function NF6() {
+    let A = iM();
     if (A) return A.planModeRequired;
-    if (zv !== null) return zv.planModeRequired;
-    return process.env.CLAUDE_CODE_PLAN_MODE_REQUIRED === "true"
+    if (Ik !== null) return Ik.planModeRequired;
+    return t6(process.env.CLAUDE_CODE_PLAN_MODE_REQUIRED)
 }
 
 // READABLE (for understanding):
 function isPlanModeRequired() {
-    let dynamicCtx = getDynamicTeammateContext();
+    let dynamicCtx = getDynamicTeammateContext();   // iM()
     if (dynamicCtx) return dynamicCtx.planModeRequired;          // (1) Active override
-    if (staticCtx !== null) return staticCtx.planModeRequired;  // (2) Static config
-    return process.env.CLAUDE_CODE_PLAN_MODE_REQUIRED === "true" // (3) Env var
+    if (staticCtx !== null) return staticCtx.planModeRequired;  // (2) Static config (Ik)
+    return parseBoolean(process.env.CLAUDE_CODE_PLAN_MODE_REQUIRED) // (3) Env var, t6→parseBoolean
 }
 
-// Mapping: MC1→isPlanModeRequired, A→dynamicCtx, zv→staticCtx
+// Mapping: NF6→isPlanModeRequired, iM→getDynamicTeammateContext, Ik→staticTeammateContext, t6→parseBoolean
 ```
 
 **Priority order for reading `planModeRequired`:**
@@ -1733,28 +1738,32 @@ function isPlanModeRequired() {
 
 ---
 
-### CLI Arg Building: `buildPermissionCliArgs()` (`Au4`, chunks.131.mjs:847)
+### CLI Arg Building: `buildPermissionCliArgs()` (`fi4`, chunks.134.mjs:2100)
 
 ```javascript
 // ============================================
-// buildPermissionCliArgs - Build permission-related CLI args for spawned process
-// Location: chunks.131.mjs:847
+// fi4 - buildPermissionCliArgs - Build permission-related CLI args for spawned process
+// Location: chunks.134.mjs:2100
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Au4(A) {
+function fi4(A) {
     let q = [], { planModeRequired: K, permissionMode: Y } = A || {};
     if (K);
-    else if (Y === "bypassPermissions" || HQ()) q.push("--dangerously-skip-permissions");
+    else if (Y === "bypassPermissions" || qA6()) q.push("--dangerously-skip-permissions");
     else if (Y === "acceptEdits") q.push("--permission-mode acceptEdits");
-    let z = HT();
-    if (z) q.push(`--model ${R7([z])}`);
-    let w = Il();
-    if (w) q.push(`--settings ${R7([w])}`);
-    let H = $61();
-    for (let O of H) q.push(`--plugin-dir ${R7([O])}`);
-    let $ = bQ1();
-    return q.push(`--teammate-mode ${$}`), q.join(" ")
+    let z = HS();
+    if (z) q.push(`--model ${j4([z])}`);
+    let _ = kn();
+    if (_) q.push(`--settings ${j4([_])}`);
+    let w = AA6();
+    for (let H of w) q.push(`--plugin-dir ${j4([H])}`);
+    let O = Al6();
+    q.push(`--teammate-mode ${O}`);
+    let $ = Qk6();
+    if ($ === !0) q.push("--chrome");
+    else if ($ === !1) q.push("--no-chrome");
+    return q.join(" ")
 }
 
 // READABLE (for understanding):
@@ -1766,44 +1775,49 @@ function buildPermissionCliArgs({ planModeRequired, permissionMode }) {
     // so that it starts in default mode, then plan_mode_required is handled separately.
     if (planModeRequired) {
         // No permission flags added
-    } else if (permissionMode === "bypassPermissions" || isBypassMode()) {
+    } else if (permissionMode === "bypassPermissions" || isBypassMode()) {   // qA6()
         args.push("--dangerously-skip-permissions");
     } else if (permissionMode === "acceptEdits") {
         args.push("--permission-mode acceptEdits");
     }
 
-    let model = getCurrentModel();
+    let model = getCurrentModel();   // HS()
     if (model) args.push(`--model ${shellEscape([model])}`);
-    let settingsFile = getSettingsFile();
+    let settingsFile = getSettingsFile();   // kn()
     if (settingsFile) args.push(`--settings ${shellEscape([settingsFile])}`);
-    let pluginDirs = getPluginDirs();
+    let pluginDirs = getPluginDirs();   // AA6()
     for (let dir of pluginDirs) args.push(`--plugin-dir ${shellEscape([dir])}`);
-    let teammateMode = getTeammateMode();
+    let teammateMode = getTeammateMode();   // Al6()
     args.push(`--teammate-mode ${teammateMode}`);
+    let chromeFlag = getChromeFlag();   // Qk6() — returns true/false/undefined
+    if (chromeFlag === true) args.push("--chrome");
+    else if (chromeFlag === false) args.push("--no-chrome");
     return args.join(" ");
 }
 
-// Mapping: Au4→buildPermissionCliArgs, K→planModeRequired, Y→permissionMode
+// Mapping: fi4→buildPermissionCliArgs, K→planModeRequired, Y→permissionMode
+// Mapping: qA6→isBypassMode, HS→getCurrentModel, kn→getSettingsFile, AA6→getPluginDirs
+// Mapping: Al6→getTeammateMode, Qk6→getChromeFlag, j4→shellEscape
 ```
 
 **Key insight**: When `planModeRequired=true`, the function deliberately omits all permission bypass flags. This ensures the spawned teammate process starts without elevated permissions, then the `--plan-mode-required` identity flag (added separately in the spawn command) puts it in plan mode.
 
 ---
 
-### Subprocess Spawn: `PaneBackendExecutor.spawn()` (`Ku4`, chunks.131.mjs:887)
+### Subprocess Spawn: `PaneBackendExecutor.spawn()` (`Ti4`, chunks.134.mjs:2156)
 
 ```javascript
 // ============================================
-// PaneBackendExecutor.spawn - Spawn a tmux pane subprocess for a teammate
-// Location: chunks.131.mjs:903
+// Ti4.spawn - Spawn a tmux pane subprocess for a teammate
+// Location: chunks.134.mjs:2172
 // ============================================
 
 // ORIGINAL (for source lookup):
-$ = [`--agent-id ${R7([q])}`, `--agent-name ${R7([A.name])}`, `--team-name ${R7([A.teamName])}`,
-    `--agent-color ${R7([K])}`, `--parent-session-id ${R7([A.parentSessionId||U6()])}`,
+O = [`--agent-id ${j4([q])}`, `--agent-name ${j4([A.name])}`, `--team-name ${j4([A.teamName])}`,
+    `--agent-color ${j4([K])}`, `--parent-session-id ${j4([A.parentSessionId||R1()])}`,
     A.planModeRequired ? "--plan-mode-required" : ""].filter(Boolean).join(" "),
-_ = Au4({ planModeRequired: A.planModeRequired, permissionMode: O.toolPermissionContext.mode });
-let M = `cd ${R7([X])} && ${j} ${R7([H])} ${$}${_}`;
+H = fi4({ planModeRequired: A.planModeRequired, permissionMode: $.toolPermissionContext.mode });
+let D = `cd ${j4([J])} && env ${M} ${j4([w])} ${O}${H}`;
 
 // READABLE (for understanding):
 let identityArgs = [
@@ -1811,18 +1825,18 @@ let identityArgs = [
     `--agent-name ${shellEscape([config.name])}`,
     `--team-name ${shellEscape([config.teamName])}`,
     `--agent-color ${shellEscape([color])}`,
-    `--parent-session-id ${shellEscape([config.parentSessionId || getSessionId()])}`,
+    `--parent-session-id ${shellEscape([config.parentSessionId || getSessionId()])}`,  // R1()
     config.planModeRequired ? "--plan-mode-required" : ""  // ← plan mode flag
 ].filter(Boolean).join(" ");
 
-let permissionArgs = buildPermissionCliArgs({
+let permissionArgs = buildPermissionCliArgs({    // fi4()
     planModeRequired: config.planModeRequired,
     permissionMode: appState.toolPermissionContext.mode
 });
 
-let spawnCommand = `cd ${shellEscape([cwd])} && CLAUDECODE=1 ${shellEscape([execPath])} ${identityArgs} ${permissionArgs}`;
+let spawnCommand = `cd ${shellEscape([cwd])} && env ${envVars} ${shellEscape([execPath])} ${identityArgs} ${permissionArgs}`;
 
-// Mapping: $→identityArgs, _→permissionArgs, M→spawnCommand
+// Mapping: O→identityArgs, H→permissionArgs, D→spawnCommand, j4→shellEscape, fi4→buildPermissionCliArgs, R1→getSessionId
 ```
 
 **Two separate arg groups:**
@@ -1831,61 +1845,72 @@ let spawnCommand = `cd ${shellEscape([cwd])} && CLAUDECODE=1 ${shellEscape([exec
 
 ---
 
-### In-Process Teammate: `initializeInProcessTeammate()` (`hu4`, chunks.131.mjs:2305)
+### In-Process Teammate: `spawnInProcessTeammate()` (`mZ6`, chunks.113.mjs:1188)
 
-For in-process teammates (running in the same Node.js process via threading), there are no CLI args. The `permissionMode` is set directly:
+For in-process teammates (running in the same Node.js process), there are no CLI args. The `permissionMode` is set directly in the task record:
 
 ```javascript
 // ============================================
-// initializeInProcessTeammate - Initialize in-process teammate state
-// Location: chunks.131.mjs:2305
+// mZ6 - spawnInProcessTeammate - Create in-process teammate task record
+// Location: chunks.113.mjs:1188
 // ============================================
 
 // ORIGINAL (for source lookup):
-function hu4(A, { teammateId: q, sanitizedName: K, teamName: Y, teammateColor: z,
-    prompt: w, plan_mode_required: H, paneId: $, insideTmux: O }) {
-    let _ = hp("in_process_teammate"), D = {
-        ...IZ(_, "in_process_teammate", J), type: "in_process_teammate", status: "running",
-        identity: { agentId: q, agentName: K, teamName: Y, color: z,
-            planModeRequired: H ?? !1, parentSessionId: U6() },
-        prompt: w, abortController: X, awaitingPlanApproval: !1,
-        permissionMode: H ? "plan" : "default",   // ← direct mode assignment
-        isIdle: !1, shutdownRequested: !1, ...
+async function mZ6(A, q) {
+    let { name: K, teamName: Y, prompt: z, color: _, planModeRequired: w, model: O } = A,
+        { setAppState: $ } = q,
+        H = ak(K, Y),
+        j = oV("in_process_teammate");
+    k(`[spawnInProcessTeammate] Spawning ${H} (taskId: ${j})`);
+    let J = sK(), M = R1(),
+        D = { agentId: H, agentName: K, teamName: Y, color: _, planModeRequired: w, parentSessionId: M },
+        X = dD1({ agentId: H, agentName: K, teamName: Y, color: _, planModeRequired: w, parentSessionId: M, abortController: J });
+    let Z = {
+        ...RG(j, "in_process_teammate", P, q.toolUseId),
+        type: "in_process_teammate",
+        status: "running",
+        identity: D,
+        prompt: z,
+        model: O,
+        abortController: J,
+        awaitingPlanApproval: !1,
+        permissionMode: w ? "plan" : "default",   // ← direct mode assignment
+        isIdle: !1,
+        shutdownRequested: !1,
+        lastReportedToolCount: 0,
+        lastReportedTokenCount: 0,
+        ...
     };
-    bZ(D, A)
+    // ... adds task and starts agent loop
 }
 
 // READABLE (for understanding):
-function initializeInProcessTeammate(setAppState, {
-    teammateId, sanitizedName, teamName, teammateColor,
-    prompt, plan_mode_required, paneId, insideTmux
-}) {
-    let taskId = generateTaskId("in_process_teammate");
+async function spawnInProcessTeammate({ name, teamName, prompt, color, planModeRequired, model }, toolContext) {
+    let agentId = hash(name, teamName);       // ak()
+    let taskId = generateTaskId("in_process_teammate");  // oV()
+    let abortController = new AbortController();   // sK()
+    let parentSessionId = getSessionId();          // R1()
+
     let taskRecord = {
-        ...createBaseTask(taskId, "in_process_teammate", description),
+        ...createBaseTaskRecord(taskId, "in_process_teammate", ...),  // RG()
         type: "in_process_teammate",
         status: "running",
-        identity: {
-            agentId: teammateId, agentName: sanitizedName, teamName, color: teammateColor,
-            planModeRequired: plan_mode_required ?? false,
-            parentSessionId: getSessionId()
-        },
-        prompt,
-        abortController: new AbortController(),
+        identity: { agentId, agentName: name, teamName, color, planModeRequired, parentSessionId },
+        prompt, model, abortController,
         awaitingPlanApproval: false,
-        permissionMode: plan_mode_required ? "plan" : "default",  // Direct assignment
+        permissionMode: planModeRequired ? "plan" : "default",  // Direct plan mode assignment
         isIdle: false,
         shutdownRequested: false,
-        lastReportedToolCount: 0, lastReportedTokenCount: 0,
-        pendingUserMessages: []
+        lastReportedToolCount: 0, lastReportedTokenCount: 0
     };
-    addTask(taskRecord, setAppState);
+    // ... (adds task to TaskManager and starts agent execution loop)
 }
 
-// Mapping: hu4→initializeInProcessTeammate, H→plan_mode_required
+// Mapping: mZ6→spawnInProcessTeammate, ak→hash, oV→generateTaskId, sK→newAbortController
+// Mapping: R1→getSessionId, RG→createBaseTaskRecord, w→planModeRequired
 ```
 
-**Key insight for in-process teammates**: There's no subprocess boot sequence. The task record is created directly with `permissionMode: plan_mode_required ? "plan" : "default"`. When the in-process teammate's agent loop starts, it reads `permissionMode` from the task record and uses `"plan"` as its initial mode.
+**Key insight for in-process teammates**: There's no subprocess boot sequence. The task record is created directly with `permissionMode: planModeRequired ? "plan" : "default"`. When the in-process teammate's agent loop starts, it reads `permissionMode` from the task record and uses `"plan"` as its initial mode.
 
 ---
 
@@ -1906,15 +1931,15 @@ Leader spawns teammate with plan_mode_required=true
     │   Child process boots → reads --plan-mode-required via CLI parser
     │   → sets CLAUDE_CODE_PLAN_MODE_REQUIRED or dynamic team context
     │   → isPlanModeRequired() returns true
-    │   → MC1() returns true in ExitPlanMode.checkPermissions()
+    │   → NF6() returns true in ExitPlanMode.checkPermissions()
     │   → ExitPlanMode uses swarm approval path (not user dialog)
     │
     └─ In-process spawn:
-        hu4(setAppState, {plan_mode_required: true})
+        mZ6({name, prompt, planModeRequired: true}, context)
         → taskRecord.permissionMode = "plan"
         → in-process agent loop starts in plan mode
         → awaitingPlanApproval = false initially
-        → ExitPlanMode() also checks MC1() → true → swarm approval path
+        → ExitPlanMode() also checks NF6() → true → swarm approval path
 ```
 
 ---
@@ -1948,7 +1973,7 @@ function isPlanModeInterviewPhase() {
     return featureFlag("tengu_plan_mode_interview_phase", false);
 }
 
-// Plan Mode Required for Teammates (chunks.48.mjs:301)
+// Plan Mode Required for Teammates (chunks.84.mjs:1478)
 // Force all teammate instances into plan_mode_required=true
 // CLAUDE_CODE_PLAN_MODE_REQUIRED=true
 // → isPlanModeRequired() reads this as third fallback
@@ -2460,132 +2485,169 @@ useEffect(() => {
 //          Rc1→buildPermissionContext, ff→submitToLLM, Y1→subscriptionTier
 ```
 
-### Phase 3: `clearConversation()` — Full 11-Step Implementation (`GIA`, chunks.152.mjs:1438)
+### Phase 3: `clearConversation()` — Full Implementation (`EQ8`, chunks.150.mjs:1202)
 
 This is the core of "clear context". It completely resets the session:
 
 ```javascript
 // ============================================
-// clearConversation - Complete session reset
-// Location: chunks.152.mjs:1438
+// EQ8 - clearConversation - Complete session reset
+// Location: chunks.150.mjs:1202
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function GIA({ setMessages: A, readFileState: q, getAppState: K, setAppState: Y, setConversationId: z }) {
-    await _yA("clear", { getAppState: K, setAppState: Y });  // [1] SessionEnd hooks
-    A(() => []);                                               // [2] Clear message history
-    if (z) z(miY());                                           // [3] New UUID
-    PIA();                                                     // [4] clearSessionCaches
-    lZ(y8());                                                  // [5] Reset session path
-    q.clear();                                                 // [6] Clear file read state
-    Y((H) => ({                                                // [7] Reset appState fields
-        ...H,
-        fileHistory: { snapshots: [], trackedFiles: new Set() },
-        mcp: { clients: [], tools: [], commands: [], resources: {} }
+async function EQ8({ setMessages: A, readFileState: q, getAppState: K, setAppState: Y, setConversationId: z }) {
+    let _ = LQ8();                                              // [1] Get clear timeout duration
+    await RQ8("clear", {                                        // [2] Run SessionEnd hooks
+        getAppState: K, setAppState: Y,
+        signal: AbortSignal.timeout(_), timeoutMs: _
+    });
+    let w = new Set, O = [],                                    // [3] Collect non-backgrounded agent IDs
+        $ = (j) => ("isBackgrounded" in j) && j.isBackgrounded === !1;
+    if (K) for (let j of Object.values(K().tasks)) {
+        if ($(j)) continue;
+        if (Sf(j)) w.add(j.agentId), O.push(j);
+        else if (M$(j)) w.add(j.identity.agentId)
+    }
+    if (A(() => []), z) z(YFY());                              // [4] Clear messages, new UUID
+    if (VQ8(w), VO(AA()), q.clear(), Y) Y((j) => ({           // [5]-[7] clearSessionCaches, resetPath, clearFileState, resetAppState
+        ...j,
+        tasks: J,                                               // Keep non-backgrounded tasks
+        fileHistory: { snapshots: [], trackedFiles: new Set, snapshotSequence: 0 },
+        mcp: { clients: [], tools: [], commands: [], resources: {}, pluginReconnectKey: j.mcp.pluginReconnectKey }
     }));
-    dU7();                                                     // [8] Delete OLD plan slug
-    DL6({ setCurrentAsParent: true });                         // [9] New session ID
-    await Hy();                                                // [10] Re-init session
-    let w = await PP("clear");                                 // [11] SessionStart hooks
-    if (w.length > 0) A(() => w)
+    e34(), ai6(), ix1({ setCurrentAsParent: !0 }), await Zh(); // [8]-[10] clearPlanSlug, ?, newSessionId, reinit
+    for (let j of O) {                                          // [11] Re-spawn non-backgrounded agents
+        if (j.status !== "running") continue;
+        Co(j.id, L0(X$(j.agentId)))
+    }
+    let H = await C0("clear");                                  // [12] Run SessionStart plugin hooks
+    if (H.length > 0) A(() => H)
 }
 
 // READABLE (for understanding):
 async function clearConversation({ setMessages, readFileState, getAppState, setAppState, setConversationId }) {
-    // [1] Run "clear" SessionEnd hooks (e.g., notify plugins the session is ending)
-    await runSessionHooks("clear", { getAppState, setAppState });
+    // [1] Get timeout + run SessionEnd hooks (with timeout guard)
+    let timeoutMs = getClearTimeoutMs();   // LQ8()
+    await runSessionHooks("clear", {       // RQ8()
+        getAppState, setAppState,
+        signal: AbortSignal.timeout(timeoutMs), timeoutMs
+    });
 
-    // [2] Clear all message history (conversation turns, tool results, etc.)
+    // [2] Collect non-backgrounded agent IDs to preserve/re-spawn
+    let agentIdsToExclude = new Set(), agentsToRespawn = [];
+    let isNonBackgrounded = (task) => ("isBackgrounded" in task) && task.isBackgrounded === false;
+    if (getAppState) {
+        for (let task of Object.values(getAppState().tasks)) {
+            if (isNonBackgrounded(task)) continue;
+            if (isTeammateTask(task)) { agentIdsToExclude.add(task.agentId); agentsToRespawn.push(task); }
+            else if (isInProcessTask(task)) agentIdsToExclude.add(task.identity.agentId);
+        }
+    }
+
+    // [3] Clear message history + generate new conversation UUID
     setMessages(() => []);
+    if (setConversationId) setConversationId(generateUUID());   // YFY()
 
-    // [3] Generate a new conversation UUID for the UI
-    if (setConversationId) setConversationId(generateUUID());
-
-    // [4] Clear all session-level caches:
-    //     - i$.cache (model response cache)
-    //     - l$.cache (file content cache)
-    //     - rMA.cache (tool use cache)
-    //     - I_.cache (misc cache)
-    //     - Code indexing, telemetry session data, etc.
-    clearSessionCaches();  // PIA()
+    // [4] Clear session-level caches (excluding active agent IDs)
+    clearSessionCaches(agentIdsToExclude);  // VQ8(w)
 
     // [5] Reset session working directory to project root
-    //     y8() = getProjectDirectory()
-    //     lZ() = setSessionPath()
-    setSessionPath(getProjectDirectory());
+    setSessionPath(getProjectDirectory());   // VO(AA())
 
     // [6] Clear the read file state (tracks which files have been opened)
     readFileState.clear();
 
     // [7] Reset file history and MCP client state in React appState
-    setAppState((state) => ({
+    //     (keeping non-backgrounded tasks alive)
+    if (setAppState) setAppState((state) => ({
         ...state,
-        fileHistory: { snapshots: [], trackedFiles: new Set() },
-        mcp: { clients: [], tools: [], commands: [], resources: {} }
+        tasks: filteredTasks,    // Non-backgrounded tasks removed; others kept
+        fileHistory: { snapshots: [], trackedFiles: new Set(), snapshotSequence: 0 },
+        mcp: { clients: [], tools: [], commands: [], resources: {}, pluginReconnectKey: state.mcp.pluginReconnectKey }
     }));
 
-    // [8] Delete the plan file slug for the OLD session
-    //     (IMPORTANT: done BEFORE DL6 creates new session ID)
-    clearPlanFileSlug();  // dU7()
+    // [8] Clear plan file slug for OLD session + other cleanup
+    clearPlanFileSlug();   // e34()
+    // ai6() — additional cleanup (unclear what this is)
 
     // [9] Create new session ID; save old session ID as parentSessionId
-    //     This establishes the parent-child relationship for session tracking
-    createNewSessionId({ setCurrentAsParent: true });  // DL6({setCurrentAsParent: true})
+    createNewSessionId({ setCurrentAsParent: true });   // ix1()
 
     // [10] Re-initialize session: reload settings, project config, CLAUDE.md
-    await reinitializeSession();  // Hy()
+    await reinitializeSession();   // Zh()
 
-    // [11] Run "clear" SessionStart plugin hooks
-    //      (e.g., greeting plugins, initial context injection)
-    let startHookMessages = await runPluginHooks("clear");  // PP("clear")
+    // [11] Re-spawn non-backgrounded agents in new session
+    for (let task of agentsToRespawn) {
+        if (task.status !== "running") continue;
+        respawnAgent(task.id, buildRespawnContext(task.agentId));  // Co(), L0(), X$()
+    }
+
+    // [12] Run "clear" SessionStart plugin hooks
+    let startHookMessages = await runPluginHooks("clear");   // C0("clear")
     if (startHookMessages.length > 0) setMessages(() => startHookMessages);
 }
 
-// Mapping: GIA→clearConversation, _yA→runSessionHooks, miY→generateUUID, PIA→clearSessionCaches
-//          lZ→setSessionPath, y8→getProjectDirectory, dU7→clearPlanFileSlug
-//          DL6→createNewSessionId, Hy→reinitializeSession, PP→runPluginHooks
+// Mapping: EQ8→clearConversation, LQ8→getClearTimeoutMs, RQ8→runSessionHooks
+// Mapping: YFY→generateUUID, VQ8→clearSessionCaches, VO→setSessionPath, AA→getProjectDirectory
+// Mapping: e34→clearPlanFileSlug, ix1→createNewSessionId, Zh→reinitializeSession, C0→runPluginHooks
+// Mapping: Sf→isTeammateTask, M$→isInProcessTask, Co→respawnAgent
 ```
 
 ### Step-by-Step Explanation
 
-**[1] SessionEnd hooks** (`_yA("clear", ...)`): Runs all registered `SessionEnd` hooks with event type `"clear"`. This lets plugins/hooks perform cleanup before the session state is wiped. The `"clear"` event type distinguishes this from a normal app exit.
+**[1] SessionEnd hooks** (`RQ8("clear", ...)`): Runs all registered `SessionEnd` hooks with event type `"clear"`, with a timeout guard. This lets plugins/hooks perform cleanup before the session state is wiped.
 
-**[2] Clear message history** (`setMessages(() => [])`): Immediately empties the React state for all conversation messages. The UI updates to show a blank conversation.
+**[2] Collect active agents**: Before clearing, collect IDs of non-backgrounded agents (those still in the current session) to exclude from cache clearing and potentially re-spawn.
 
-**[3] New conversation UUID** (`setConversationId(generateUUID())`): Generates a fresh UUID for the UI conversation ID. This is different from the session ID — it's used by the UI layer for React key tracking.
+**[3] Clear message history + new UUID** (`setMessages(() => [])`, `setConversationId(generateUUID())`): Immediately empties the React state for all conversation messages. Generates a fresh conversation UUID for the UI layer.
 
-**[4] `clearSessionCaches()` (`PIA`, chunks.152.mjs:1421)**: Clears all session-scoped caches:
+**[4] `clearSessionCaches(excludedIds)` (`VQ8`, chunks.150.mjs:1164)**: Clears all session-scoped caches, excluding agent IDs that should persist:
 
 ```javascript
 // ============================================
-// clearSessionCaches - Wipe all session-level caches
-// Location: chunks.152.mjs:1421
+// VQ8 - clearSessionCaches - Wipe all session-level caches
+// Location: chunks.150.mjs:1164
 // ============================================
 
 // ORIGINAL (for source lookup):
-function PIA() {
-    i$.cache.clear?.(), l$.cache.clear?.(), rMA.cache.clear?.(), I_.cache.clear?.(),
-    FAq(), bm(), rd(), uL7(), HR6(), fn7(null), bf6()
+function VQ8(A = new Set) {
+    let q = A.size > 0;
+    if (a2.cache.clear?.(), mw.cache.clear?.(), sf8.cache.clear?.(), M3q(), oB(), !q) R54();
+    if (t14(null), dw6(null), gl(), ef4(), Cn4(), !q) qi4();
+    if (v58(), f3q(), !q) a24();
+    iu1(A), l57(), E94(), Oa4(), Z3q(), c54(), ...
 }
 
 // READABLE (for understanding):
-function clearSessionCaches() {
-    // 4 explicit cache clears (using .clear() method):
-    cache_i$.clear?.();    // i$ — likely model/LLM response cache
-    cache_l$.clear?.();    // l$ — likely file content cache
-    cache_rMA.clear?.();   // rMA — likely tool result / permission cache
-    cache_I_.clear?.();    // I_ — likely miscellaneous cache
+function clearSessionCaches(excludedAgentIds = new Set()) {
+    let hasExcluded = excludedAgentIds.size > 0;
 
-    // 7 subsystem reset functions:
-    FAq();           // (e.g., code indexing session reset)
-    bm();            // (e.g., telemetry session counters reset)
-    rd();            // (e.g., LSP or language server state reset)
-    uL7();           // (e.g., shell parser / command history reset)
-    HR6();           // (e.g., file watching state reset)
-    fn7(null);       // (e.g., some context handle reset, passed null)
-    bf6();           // (e.g., background job/task state reset)
+    // Cache clears (optional-chaining .clear()):
+    a2.cache.clear?.();    // a2 — likely permission/approval cache
+    mw.cache.clear?.();    // mw — likely model/LLM response cache
+    sf8.cache.clear?.();   // sf8 — likely file content cache
+    M3q();                 // cache reset subsystem
+    oB();                  // another cache reset
+    if (!hasExcluded) R54();  // skip if active agents present
+
+    t14(null);             // reset some state to null
+    dw6(null);             // reset another state
+    gl();                  // global reset
+    ef4(); Cn4();          // more resets
+    if (!hasExcluded) qi4();
+
+    v58(); f3q();
+    if (!hasExcluded) a24();
+
+    iu1(excludedAgentIds); // reset with excluded agent IDs set
+    l57(); E94(); Oa4(); Z3q(); c54();
+    // ... more subsystem resets
 }
-// Note: The ?.() pattern means .clear() is called only if the method exists (optional chaining)
+
+// Mapping: VQ8→clearSessionCaches, A→excludedAgentIds
+// Note: The Set parameter (A) excludes certain agent IDs from being cleared
+// — this allows active background agents to survive the clear operation
 ```
 
 **[5] Reset session path**: Resets the working directory to the project root. During a long session, tools like `cd` or `Bash` may change the working directory. This ensures the new session starts from a clean cwd.
@@ -2606,18 +2668,18 @@ function clearPlanFileSlug(sessionId?) {
 }
 ```
 
-**[9] `createNewSessionId({ setCurrentAsParent: true })` (`DL6`, chunks.1.mjs:2429)**:
+**[9] `createNewSessionId({ setCurrentAsParent: true })` (`ix1`, chunks.1.mjs:2341)**:
 
 ```javascript
 // ============================================
-// createNewSessionId - Create new session UUID, optionally save old as parent
-// Location: chunks.1.mjs:2429
+// ix1 - createNewSessionId - Create new session UUID, optionally save old as parent
+// Location: chunks.1.mjs:2341
 // ============================================
 
 // ORIGINAL (for source lookup):
-function DL6(A = {}) {
-    if (A.setCurrentAsParent) o6.parentSessionId = o6.sessionId;
-    return o6.sessionId = pcA(), o6.resumedTranscriptPath = null, o6.sessionId
+function ix1(A = {}) {
+    if (A.setCurrentAsParent) v1.parentSessionId = v1.sessionId;
+    return v1.sessionId = yx1(), v1.sessionProjectDir = null, v1.sessionId
 }
 
 // READABLE (for understanding):
@@ -2625,12 +2687,12 @@ function createNewSessionId({ setCurrentAsParent } = {}) {
     if (setCurrentAsParent) {
         globalSessionState.parentSessionId = globalSessionState.sessionId;  // Save old as parent
     }
-    globalSessionState.sessionId = generateUUID();         // pcA() = uuid v4
-    globalSessionState.resumedTranscriptPath = null;       // ← also clears resumed transcript path
+    globalSessionState.sessionId = generateUUID();         // yx1() = uuid v4
+    globalSessionState.sessionProjectDir = null;           // ← also clears project dir
     return globalSessionState.sessionId;
 }
 
-// Mapping: DL6→createNewSessionId, o6→globalSessionState, pcA→generateUUID
+// Mapping: ix1→createNewSessionId, v1→globalSessionState, yx1→generateUUID
 ```
 
 **Why `setCurrentAsParent: true`?** The old session ID is preserved as `parentSessionId`. This establishes a parent→child session relationship that:
@@ -2672,7 +2734,7 @@ Before clear:
   Plan file: .claude/sessions/plan-2024-01-15-a7f3.md
 
 After clear (without preservation):
-  Session:  "xyz789"   (new ID from DL6)
+  Session:  "xyz789"   (new ID from ix1)
   Plan slug: "xyz789" → undefined   ← dU7() deleted "abc123"'s mapping, "xyz789" has none
   Plan file: NOT FOUND
 
@@ -2761,25 +2823,13 @@ User selects "Yes, clear context and auto-accept edits" (or Shift+Tab)
               → All file edits auto-accepted
 ```
 
-### Context Usage Percentage (`mcA`, chunks.1.mjs:2291)
+### Context Usage Percentage
+
+> **Note**: The obfuscated symbol `mcA` at `chunks.1.mjs:2291` previously documented here does NOT exist in the source (fabricated). The actual `getContextUsagePercentage` function could not be located by symbol name. The logic description below is correct but the obfuscated name needs verification.
 
 The "57% used" text the user sees in the status bar is computed by `getContextUsagePercentage`:
 
 ```javascript
-// ============================================
-// getContextUsagePercentage - Compute context window utilization
-// Location: chunks.1.mjs:2291
-// ============================================
-
-// ORIGINAL (for source lookup):
-function mcA(A, q) {
-    if (!A) return { used: null, remaining: null };
-    let K = A.input_tokens + A.cache_creation_input_tokens + A.cache_read_input_tokens,
-        Y = Math.round(K / q * 100),
-        z = Math.min(100, Math.max(0, Y));
-    return { used: z, remaining: 100 - z }
-}
-
 // READABLE (for understanding):
 function getContextUsagePercentage(usage, contextWindowSize) {
     if (!usage) return { used: null, remaining: null };
@@ -2800,9 +2850,6 @@ function getContextUsagePercentage(usage, contextWindowSize) {
         remaining: 100 - clampedPercentage
     };
 }
-
-// Mapping: mcA→getContextUsagePercentage, A→usage, q→contextWindowSize
-//          K→totalTokensUsed, Y→rawPercentage, z→clampedPercentage
 ```
 
 This value is assembled into the status line by `Zjz` (`chunks.183.mjs:2910`):

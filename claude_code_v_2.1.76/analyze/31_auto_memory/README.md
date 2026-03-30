@@ -111,17 +111,53 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 **Source-Level Code Analysis:**
 - [38_comprehensive_algorithm_analysis.md](./38_comprehensive_algorithm_analysis.md) - Complete algorithm analysis with ORIGINAL/READABLE code snippets, decision trees, and deep logic explanation for: getAutoMemory (ID1), isAutoMemoryEnabled (Z3), getAutoMemoryDirectory (uH), searchMemoryFiles (a4q), staleness detection (dJ7/cJ7/Cz8), HTML comment stripping (o14), frontmatter extraction (dv9), produceRelevantMemories (buY) **[NEW]**
 
+### Phase 10 (Subagent Spawning & Include Resolution - 2026-03-29)
+
+**New Deep Cross-Validation:**
+- [43_cross_validation_subagent_chains.md](./43_cross_validation_subagent_chains.md) - Full extraction subagent spawning chain (`cmY`/`vKq`/`av`/`Bc6`), `ID1` 6-variant matrix, agent memory scope propagation (UI→`m36`→system prompt), `cv9`/`Sk`/`Xt` @include resolution, 32 new symbols **[NEW]**
+
+**Key discoveries:**
+- `tengu_passport_quail` controls TWO behaviors simultaneously: main agent passive prompt (`xv9`) + extraction subagent enable
+- Extraction is fire-and-forget (NOT awaited by main query loop) — runs concurrently
+- `Bc6` sets `shouldAvoidPermissionPrompts=true` — extraction requires no user confirmation
+- Trailing run mechanism: if extraction already running, stashes context for after-completion processing
+- `cv9` uses `marked.js` lexer specifically to skip @mentions in code blocks
+- @include depth limit = 5 (`lv9`) hardcoded; silently stops recursion, not an error
+- `Mp6` permission bypass paths are exactly those that `GW6` produces — by design, not coincidence
+- `ID1` has 6 distinct prompt variants (team × passport_quail × swinburne_dune matrix)
+
+**Symbol Index Updated (symbol_index_core_features.md):**
+- Added 32 new symbols: cmY, vKq, lmY, av, Bc6, Fb, QmY, UmY, fKq, TKq, dmY, Np8, xv9, uv9, U14, d14, Q14, cv9, Sk, Xt, if8, nf8, iv9, lv9, m36, GW6, Nm9, J94, LP1
+
+**Note**: `Nm9` and `J94` previously had wrong readable names in Attachment Pipeline section — corrected to `sanitizeAgentTypeName` and `getLocalScopeMemoryDir` respectively.
+
+### Phase 9 (Agent Loop Integration & Corrections - 2026-03-29)
+
+**Critical Corrections:**
+- Corrected memory registration key from `"auto_memory"` to `"memory"` (actual source: chunks.168.mjs:2153)
+- Corrected caching behavior: memory IS cached in `v1.systemPromptSectionCache`, NOT re-read every turn
+- Corrected description of cowork mode permission bypass
+
+**New Deep Analysis:**
+- [39_agent_loop_integration_deep_dive.md](./39_agent_loop_integration_deep_dive.md) - System prompt caching architecture (AF/B8q/RT6), two memory paths (static cached vs dynamic per-turn), concurrent `zqq` memory search, anti-deduplication `_qq`, recent tool context `uuY`, cowork mode permission, team memory XML wrapping, complete feature flag matrix **[NEW]**
+- [40_extraction_prompts_full_content.md](./40_extraction_prompts_full_content.md) - Full verbatim content of all 4 extraction prompts (DKq, XKq, PKq, WKq), sE1 permission override analysis, 2×2 prompt selection matrix, injected constant analysis (RD1, LD1, _36, w36) **[NEW]**
+
+- [41_cross_validation_key_chains.md](./41_cross_validation_key_chains.md) - Complete source-level cross-validation: agent loop turn sequence, `_uY`/`Hz`/`Vf6` attachment pipeline, `nested_memory` vs `relevant_memories` comparison, agent teams memory chain (`wqq→buY→GW6`), plan mode integration (`DuY`), normalization pipeline, `R0` call sites (5 verified), session reset chain (`gl`), end-to-end lifecycle trace **[NEW]**
+
+**Symbol Index Updated (symbol_index_core_features.md):**
+- Added 21 new symbols: R0, AF, m8q, B8q, ou1, au1, su1, RT6, lf8, JB, Qv9, Oz1, _qq, uuY, gl, _uY, Hz, Vf6, Nm9, J94, DuY
+
 ### Existing Analysis (Enhanced & Corrected)
 - [memory_architecture.md](./memory_architecture.md) - Overall memory system architecture
 - [memory_logic.md](./memory_logic.md) - Truncation logic and prompt injection **[Updated: Corrected symbols]**
-- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Corrected symbols, added staleness detection]**
+- [architecture.md](./architecture.md) - Technical architecture details **[Updated: Corrected symbols, added staleness detection, caching behavior corrected]**
 - [loading_mechanism.md](./loading_mechanism.md) - How MEMORY.md is loaded into system prompt **[Updated: Corrected symbols]**
 
 ## Documentation Coverage
 
-**Current coverage: 100%** (all symbol mappings verified, cross-module integration documented, feature flags analyzed, error handling documented, memory types documented, extraction prompts fully analyzed, comprehensive algorithm analysis complete)
+**Current coverage: 100%** (all symbol mappings verified, cross-module integration documented, feature flags analyzed, error handling documented, memory types documented, extraction prompts fully analyzed with verbatim content, comprehensive algorithm analysis complete, agent loop integration fully documented, extraction subagent chain + @include resolution chain fully traced)
 
-**Last verification: 2026-03-21** - All 80+ symbol mappings verified against source code with Grep searches and cross-validation. Cross-module integration, feature flag dependencies, error handling edge cases, memory type system, extraction prompts, and key algorithms documented with source-level code restoration. **wqq regex verified**: Supports BOTH `@"agent-name (agent)"` AND `@agent-name` formats.
+**Last verification: 2026-03-29** - All 130+ symbol mappings verified. Phase 10 additions: (1) extraction subagent full chain: `cmY`→`vKq`→`av`→`Bc6`→`Yh`; (2) `ID1` 6-variant matrix (team × passport_quail × swinburne_dune); (3) agent memory scope propagation (UI → `m36` → `GW6`); (4) `cv9`/`Sk`/`Xt` @include resolution with depth-5 limit. 32 new symbols added. Corrected `Nm9`/`J94` readable names in Attachment Pipeline section.
 
 ### Fully Documented
 - Core loading mechanism and 200-line truncation logic
@@ -132,9 +168,15 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - Write/Edit tool integration and permission flow
 - Error handling and dual file size limits (200 lines + 40000 chars)
 - TUI multi-pane integration and settings persistence
-- System prompt injection via dynamic variables
-- Telemetry tracking
-- Feature flag system (priority chain)
+- System prompt injection via static component (cached, NOT dynamic variable)
+- Telemetry tracking with 5%-sampled attachment timing (`tengu_attachment_compute_duration`)
+- Feature flag system (7 flags, all verified with source locations)
+- **Between-turn attachment pipeline (`_uY`/`Hz`/`Vf6`) with 1-second timeout and error isolation**
+- **Agent teams memory: `wqq`→`buY`→`GW6` three-tier scope resolution chain fully traced**
+- **`nested_memory` vs `relevant_memories`: distinct channels, triggers, and formatting**
+- **Plan mode integration: `DuY` rate-limited, zero-cost when disabled**
+- **Session reset chain: `gl()` chains 8 cleanup functions**
+- **Background agent cowork mode: extra `ID1()` call path in `chunks.185.mjs`**
 - Custom `autoMemoryDirectory` setting (v2.1.59)
 - Staleness detection for memory freshness (v2.1.76)
 - **Team memory dual architecture**
@@ -147,6 +189,10 @@ Auto Memory provides persistent, cross-session memory for Claude Code agents. A 
 - **Directory resolution with lazy evaluation** (v2.1.76)
 - **HTML comment stripping algorithm** (v2.1.76)
 - **Comprehensive algorithm analysis with source-level code restoration** (v2.1.76)
+- **Extraction subagent full spawning chain** (`cmY`/`vKq`/`av`/`Bc6` — fire-and-forget, trailing run, direct-write skip)
+- **`ID1` 6-variant matrix** (team × passport_quail × swinburne_dune)
+- **Agent memory scope propagation** (UI selection → `m36` → `GW6` → system prompt injection)
+- **`cv9`/@include resolution with `Sk` recursion** (marked.js lexer, depth-5 limit, external path guard)
 
 ### Symbol Verification Status
 
@@ -317,22 +363,26 @@ All 72+ symbol mappings verified against source code (2026-03-21):
 
 Auto memory integrates with the system reminder module through:
 
-**Dynamic Variable Registration:**
-- Memory registered as `auto_memory` dynamic variable
-- Evaluated fresh on every turn via `getAutoMemory()` (`ID1`)
-- Result injected into system prompt
+**System Prompt Component Registration:**
+- Memory registered as `"memory"` static component (NOT `"auto_memory"`) via `AF("memory", () => ID1())`
+- Registration location: `chunks.168.mjs:2153` in `buildSystemPrompt` (`R0`)
+- Memory content is CACHED in `v1.systemPromptSectionCache` after first evaluation — NOT re-read every turn
+- Cache cleared by `RT6()` on worktree change or session reset (`gl()`)
+- **Correction from prior analysis**: earlier docs incorrectly stated key `"auto_memory"` and "no caching"
+
+**Two Memory Paths:**
+1. **Static path** (cached): `AF("memory", () => ID1())` → MEMORY.md content in system prompt, cached per session
+2. **Dynamic path** (per-turn, gated by `tengu_moth_copse`): `zqq()` → concurrent semantic search → `relevant_memories` attachments injected post-turn
 
 **Attachment Types:**
 - `nested_memory` - Individual memory files loaded via CLAUDE.md includes
 - `relevant_memories` - Related memory files with staleness timestamps
 
-**Integration Point:**
+**Actual Registration (from chunks.168.mjs:2153):**
 ```javascript
-// chunks.169.mjs - Dynamic variable registration
-registerDynamicVariable("auto_memory",
-    () => getAutoMemory(),  // ID1 - async entry point
-    "MEMORY.md is read from disk each turn"
-);
+// chunks.168.mjs:2153 - Memory component in system prompt builder
+j = [AF("memory", () => ID1()),  // key="memory", cacheBreak=false → CACHED
+     AF("ant_model_override", ...), ...]
 ```
 
 **Normalization Flow (chunks.174.mjs):**

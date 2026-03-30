@@ -40,6 +40,30 @@
 > Full analysis: [30_agent_teams/](../30_agent_teams/)
 > **NEW in 2.1.32** - Multi-agent collaboration via swarms
 
+### Agent Identity & Detection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $Y | isTeammate | cli.chunks.mjs:3609 | function |
+| BY | TEAM_LEAD_NAME | - | constant |
+| E7 | isAgentTeamsEnabled | chunks.50.mjs:2543 | function |
+| H$ | getTeammateColor | cli.chunks.mjs:3616 | function |
+| i3 | getAgentName | cli.chunks.mjs:3620 | function |
+| KZ | isTeamLead | cli.chunks.mjs:3610 | function |
+| l5 | getTeamName | cli.chunks.mjs:3615 | function |
+| nM | getAgentId | - | function |
+
+### Agent Identity (Teammate Context - AsyncLocalStorage)
+
+> AsyncLocalStorage-based context for tracking teammate agent identity across async operations.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| dD1 | createTeammateContext | chunks.84.mjs:1415 | function |
+| ef8 | teammateContextStorage | chunks.84.mjs:1425 | AsyncLocalStorage |
+| iM | getTeammateContext | chunks.84.mjs:1403 | function |
+| UD1 | runWithTeammateContext | chunks.84.mjs:1407 | function |
+
 ### Team Management & Tools
 
 | Obfuscated | Readable | File:Line | Type |
@@ -48,13 +72,24 @@
 | F$1 | cleanupTeam | chunks.123.mjs:187 | function |
 | FSY | sanitizeTeamName | chunks.141.mjs:543 | function |
 | iB | SEND_MESSAGE_TOOL_NAME | chunks.89.mjs:592 | constant ("SendMessage") |
-| M51 | readTeamConfig | chunks.131.mjs:2046 | function |
-| mSY | writeTeamConfig | chunks.141.mjs:534 | function |
 | QP | getTeamsBaseDirectory | chunks.1.mjs:4047 | function |
 | QSY | TeamCreateTool | chunks.141.mjs:571 | object |
 | ul4 | getTeamConfigPath | chunks.141.mjs:530 | function |
 | USY | TeamDeleteTool | chunks.141.mjs:759 | object |
-| YhY | SendMessageTool | chunks.141.mjs:1373 | object |
+
+### SendMessage Tool & Messaging
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _xY | approvePlan | chunks.145.mjs:2521 | function |
+| AxY | sendDirectMessage | chunks.145.mjs:2345 | function |
+| hI | SEND_MESSAGE_NAME | chunks.91.mjs:39 | constant |
+| KxY | sendShutdownRequest | chunks.145.mjs:2418 | function |
+| OxY | SendMessageTool | chunks.145.mjs:2609 | object |
+| qxY | broadcastMessage | chunks.145.mjs:2374 | function |
+| wxY | rejectPlan | chunks.145.mjs:2547 | function |
+| YxY | handleShutdownApproval | chunks.145.mjs:2443 | function |
+| zxY | handleShutdownRejection | chunks.145.mjs:2499 | function |
 
 ### Spawn & Execution
 
@@ -63,33 +98,33 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| pNY | spawnTeammateDispatcher | chunks.135.mjs:1110 | function |
-| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
-| Rb | isInProcessEnabled | chunks.135.mjs:208 | function |
+| An4 | registerTeammateTracking | chunks.135.mjs:943 | function |
+| BNY | spawnSplitPaneTeammate | chunks.135.mjs:710 | function |
+| bZ1 | killInProcessTeammate | chunks.113.mjs:1272 | function |
+| DNY | inProcessRunnerPollLoop | chunks.134.mjs:1483 | function |
 | FNY | spawnInProcessTeammate | chunks.135.mjs:985 | function |
-| BNY | spawnSplitPaneTeammate | chunks.135.mjs:711 | function |
 | gNY | spawnTmuxTeammate | chunks.135.mjs:838 | function |
-| XNY | inProcessAgentRunner | chunks.134.mjs:1571 | function |
-| DNY | pollForNextMessage | chunks.134.mjs:1483 | function |
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 | JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
+| jNY | sleep | chunks.134.mjs:1441 | function (Promise-based delay) |
+| mZ6 | spawnInProcessTeammateCore | chunks.113.mjs:1188 | function |
+| pNY | spawnRouter | chunks.135.mjs:1110 | function |
+| qn4 | spawnTeammate | chunks.135.mjs:1116 | function |
+| Rb | isInProcessEnabled | chunks.135.mjs:208 | function |
 | xN1 | registerTeammateAndRun | chunks.134.mjs:1847 | function |
-| jNY | sleep | chunks.134.mjs:1441 | function |
-| bZ1 | killInProcessTeammate | chunks.113.mjs:1272 | function |
+| XNY | startTeammateAgentLoop | chunks.134.mjs:1571 | function |
 
 > **Note**: `iVY` was incorrectly documented as `spawnTeammateDispatcher`. The actual `iVY` is `fs.promises` (Node.js built-in).
 > See `symbol_index_core_execution.md` for more details and `iVY.access` usage patterns.
 
-### Agent Identity (Teammate Context)
-
-> AsyncLocalStorage-based context for tracking teammate agent identity across async operations.
+### Team Config
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| ef8 | teammateContextStorage | chunks.84.mjs:1425 | AsyncLocalStorage |
-| dD1 | createTeammateContext | chunks.84.mjs:1415 | function |
-| iM | getTeammateContext | chunks.84.mjs:1403 | function |
-| UD1 | runWithTeammateContext | chunks.84.mjs:1407 | function |
+| ei4 | getTeamDirectory | chunks.135.mjs:676 | function |
+| hu8 | deduplicateTeammateName | chunks.135.mjs:699 | function |
+| Kz6 | readTeamConfig | chunks.135.mjs:680 | function |
+| Ru8 | writeTeamConfig | chunks.135.mjs:690 | function |
 
 ### Backend Management
 
@@ -98,37 +133,44 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Ju8 | TmuxBackend | chunks.134.mjs:2411 | class |
-| Xu8 | ITermBackend | chunks.135.mjs:11 | class |
-| Mi4 | InProcessBackend | chunks.134.mjs:1888 | class |
-| zt | getBackend | chunks.131.mjs:1493 | function |
-| OI | isRunningInsideTmux | chunks.131.mjs:759 | function |
-| j51 | isRunningInIterm2 | chunks.131.mjs:772 | function |
-| Kt | isTmuxInstalled | chunks.131.mjs:768 | function |
-| xQ1 | isIt2CliInstalled | chunks.131.mjs:780 | function |
-| WN | SWARM_SESSION_NAME | chunks.131.mjs:1237 | constant ("claude-swarm") |
 | gP1 | SWARM_VIEW_WINDOW_NAME | chunks.131.mjs:1241 | constant ("swarm-view") |
+| j51 | isRunningInIterm2 | chunks.131.mjs:772 | function |
+| Ju8 | TmuxBackend | chunks.134.mjs:2411 | class |
+| Kt | isTmuxInstalled | chunks.131.mjs:768 | function |
+| Mi4 | InProcessBackend | chunks.134.mjs:1888 | class |
+| OI | isRunningInsideTmux | chunks.131.mjs:759 | function |
+| WN | SWARM_SESSION_NAME | chunks.131.mjs:1237 | constant ("claude-swarm") |
+| xQ1 | isIt2CliInstalled | chunks.131.mjs:780 | function |
+| Xu8 | ITermBackend | chunks.135.mjs:11 | class |
+| zt | getBackend | chunks.131.mjs:1493 | function |
 
 > **Note**: `fEA` and `EEA` were previously incorrectly mapped to TmuxBackend and ITermBackend.
 > The actual backend classes are `Ju8` (TmuxBackend) and `Xu8` (ITermBackend).
 
-### Message Handling
+### Permission Handling (Teammate)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| AhY | handlePlanApproval | chunks.145.mjs:2521 | function |
+| _NY | isTeamLeadProcess | chunks.134.mjs:973 | function |
+| bN1 | registerPermissionCallback | chunks.134.mjs:1130 | function |
+| CN1 | sendPermissionRequestToLeader | chunks.134.mjs:1005 | function |
+| ic6 | isTeammateProcess | chunks.134.mjs:979 | function |
+| If6 | processPermissionResponse | chunks.134.mjs:1146 | function |
+| IN1 | sendPermissionResponseToWorker | chunks.134.mjs:1028 | function |
+| SN1 | createPermissionRequestObject | chunks.134.mjs:950 | function |
+| tx8 | TEAMMATE_COMMUNICATION_PROMPT | chunks.134.mjs:930 | constant |
+
+### Message Handling (Plan Approval & Shutdown)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
 | aSY | handleBroadcast | chunks.145.mjs:1434 | function |
-| YxY | handleShutdownApproval | chunks.145.mjs:2443 | async function |
-| zxY | handleShutdownRejection | chunks.145.mjs:2499 | async function |
-| Gx8 | createShutdownApprovalResponse | chunks.145.mjs:2456 | function |
-| fx8 | createShutdownRejectionResponse | chunks.145.mjs:2502 | function |
 | iP1 | parsePlanApprovalResponse | chunks.129.mjs:1428 | function |
 | Nx4 | PlanApprovalResponseMessageSchema | chunks.129.mjs:1553 | schema |
 | oSY | handleDirectMessage | chunks.145.mjs:1432 | function |
-| qhY | handlePlanRejection | chunks.145.mjs:2547 | function |
 | sSY | handleShutdownRequest | chunks.145.mjs:1436 | function |
-| Vx4 | PlanApprovalRequestMessageSchema | chunks.129.mjs:1546 | schema |
 | Vq | gracefulExit | chunks.117.mjs:899 | async function |
+| Vx4 | PlanApprovalRequestMessageSchema | chunks.129.mjs:1546 | schema |
 
 ### Mailbox & Communication
 
@@ -137,18 +179,33 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| $TY | clearInbox | chunks.132.mjs:128 | function |
+| FY6 | getInboxPath | chunks.131.mjs:2849 | function |
+| HTY | formatMessagesAsXML | chunks.132.mjs:141 | function |
+| iv1 | lockOptions | chunks.132.mjs:463 | object (retries: 10, minTimeout: 5ms, maxTimeout: 100ms) |
+| kc6 | markMessagesAsRead | chunks.132.mjs:92 | function |
+| Nc6 | properLockfile | chunks.132.mjs:437 | module (npm) |
+| OTY | ensureInboxDirectoryExists | chunks.131.mjs:2858 | function |
+| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
+| ss | parseShutdownRequest | chunks.131.mjs:1396 | function |
+| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
 | wl | readMailbox | chunks.132.mjs:3 | function |
 | x3 | writeToMailbox | chunks.132.mjs:22 | function |
-| Vc6 | markMessageAsReadByIndex | chunks.132.mjs:57 | function |
-| kc6 | markMessagesAsRead | chunks.132.mjs:92 | function |
-| pY6 | readUnreadMessages | chunks.132.mjs:16 | function |
-| $TY | clearMailbox | chunks.132.mjs:128 | function |
-| HTY | formatMailboxMessages | chunks.132.mjs:141 | function |
-| ss | parseShutdownRequest | chunks.131.mjs:1396 | function |
-| FY6 | getInboxPath | chunks.131.mjs:2849 | function |
-| OTY | ensureInboxDirectoryExists | chunks.131.mjs:2858 | function |
-| Nc6 | properLockfile | chunks.132.mjs:437 | module (npm) |
-| iv1 | lockOptions | chunks.132.mjs:463 | object (retries: 10, minTimeout: 5ms, maxTimeout: 100ms) |
+
+### Message Factory Functions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Ec6 | createIdleNotification | chunks.132.mjs:153 | function |
+| fx8 | createShutdownRejected | chunks.132.mjs:282 | function |
+| Gx8 | createShutdownApproved | chunks.132.mjs:271 | function |
+| Px8 | createPermissionResponse | chunks.132.mjs:187 | function |
+| Wf6 | createShutdownRequest | chunks.132.mjs:261 | function |
+| Wx8 | createSandboxPermissionRequest | chunks.132.mjs:221 | function |
+| Xx8 | createPermissionRequest | chunks.132.mjs:174 | function |
+| Zx8 | createSandboxPermissionResponse | chunks.132.mjs:235 | function |
+
+**Idle reasons**: "available", "interrupted", "failed"
 
 ### System Reminder Integration
 
@@ -166,11 +223,11 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| $N9 | claimTaskWithAgentBusyValidation | chunks.84.mjs:1831 | async function |
+| ft | unassignTeammateTasks | chunks.84.mjs:1883 | async function |
 | Ji4 | claimUnclaimedTask | chunks.134.mjs:1464 | function |
 | JNY | findNextAvailableTask | chunks.134.mjs:1445 | function |
 | OT8 | claimTask | chunks.84.mjs:1781 | async function |
-| $N9 | claimTaskWithAgentBusyValidation | chunks.84.mjs:1831 | async function |
-| ft | unassignTeammateTasks | chunks.84.mjs:1883 | async function |
 | PVY | generatePromptFromTask | chunks.131.mjs:231 | function |
 
 > **Note**: `ib4` (chunks.131.mjs:336) maps to `getUnclaimedTaskPrompt`, not `claimNextTask`.
@@ -178,25 +235,22 @@
 > function is `JNY` at chunks.134.mjs:1445, called by `Ji4` (claimUnclaimedTask).
 > The task claiming logic flow: `Ji4` → `JNY` → `OT8`.
 
-### Idle Notification Protocol
-
-> Teammates notify team-lead when idle, ready for new work assignments.
+### Team Status UI
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Ec6 | buildIdleNotification | chunks.132.mjs:153 | function |
-| yc6 | parseIdleNotification | chunks.132.mjs:166 | function |
-| Xx8 | buildPermissionRequest | chunks.132.mjs:174 | function |
-| Px8 | buildPermissionResponse | chunks.132.mjs:187 | function |
+| gZ1 | TeamStatusRenderer | chunks.113.mjs:1616 | function |
 
-**Idle reasons**: "available", "interrupted", "failed"
-
-### Constants & Helpers
+### Plan Mode Swarm UI
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| BY | TEAM_LEAD_ID | chunks.131.mjs:1981 | constant ("team-lead") |
-| jNY | sleep | chunks.134.mjs:1441 | function (Promise-based delay) |
+| $d4 | setTaskAwaitingPlanApproval | chunks.139.mjs:2587 | function |
+| $fY | PlanApprovalRequestMessage | chunks.129.mjs:1756 | function (React) |
+| Hd4 | findTaskByAgentName | chunks.139.mjs:2581 | function |
+| kM6 | renderTeamMessageContent | chunks.129.mjs:1869 | function |
+| OfY | PlanApprovalResponseMessage | chunks.129.mjs:1799 | function (React) |
+| _fY | getTeamMessageSummary | chunks.129.mjs:1882 | function |
 
 ---
 
@@ -388,6 +442,145 @@
 |------------|----------|-----------|------|
 | toY | memoryEditorModal | chunks.155.mjs:714 | function |
 | TA | updateUserSettings | chunks.153.mjs | function |
+
+### System Prompt Integration (NEW — 2026-03-29)
+
+> **Correction**: Memory is registered as `"memory"` (NOT `"auto_memory"`). It uses `AF` (cacheBreak=false), meaning the value is cached in `v1.systemPromptSectionCache` after first evaluation per session, NOT re-read every turn.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| R0 | buildSystemPrompt | chunks.168.mjs:2143 | async function |
+| AF | createStaticSystemPromptComponent | chunks.144.mjs:1726 | function |
+| m8q | createCacheBreakingSystemPromptComponent | chunks.144.mjs:1406 | function |
+| B8q | evaluateSystemPromptComponents | chunks.144.mjs:1413 | async function |
+| ou1 | getSystemPromptCache | chunks.1.mjs:3111 | function |
+| au1 | setSystemPromptCache | chunks.1.mjs:3115 | function |
+| su1 | clearSystemPromptCacheData | chunks.1.mjs:3119 | function |
+| RT6 | clearSystemPromptCache | chunks.144.mjs:1751 | function |
+| lf8 | buildSystemPromptContent | chunks.84.mjs:~800 | function (lazy) |
+| JB | MAX_CHAR_LIMIT | chunks.84.mjs:~800 | constant (40000) |
+| Qv9 | CODEBASE_INSTRUCTIONS_HEADER | chunks.84.mjs:~800 | constant |
+
+> - `R0` builds the system prompt array before each LLM API call
+> - `AF("memory", () => ID1())` registers memory as a NON-cache-breaking component (key = `"memory"`)
+> - `B8q` checks `v1.systemPromptSectionCache` before calling `ID1()` — cache HIT returns without disk read
+> - Cache is cleared by `RT6()` during: worktree create/reset (chunks.144.mjs:1832, 1939), session reset `gl()` (chunks.147.mjs:2552)
+> - `lf8` collects all CLAUDE.md-type files; TeamMem content wrapped in `<team-memory-content source="shared">` tags
+> - `tengu_paper_halyard=true` causes `lf8` to skip Project and Local type files
+
+### Relevant Memories Pipeline (NEW — 2026-03-29)
+
+> Per-turn dynamic memory injection (gated by `tengu_moth_copse`). Runs CONCURRENTLY with LLM request.
+> Injected AFTER tool execution (between tool turns), not before initial LLM call.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Oz1 | isCoworkMode | chunks.50.mjs:2439 | function |
+| _qq | filterAlreadyReadMemories | chunks.147.mjs:637 | function |
+| uuY | getRecentSuccessfulToolNames | chunks.147.mjs:373262 | function |
+| gl | resetSession | chunks.147.mjs:2552 | function |
+
+> - `Oz1()` returns true when `CLAUDE_COWORK_MEMORY_PATH_OVERRIDE` env var is set
+> - In cowork mode, auto-memory write bypass is DISABLED (shared remote path safety)
+> - `_qq` filters `relevant_memories` to remove files already read via Read tool this turn
+> - `uuY` extracts recently-succeeded tool names for LLM memory selection context
+> - `gl` calls `RT6()` + clears file state, telemetry, compact state on full session reset
+
+### Attachment Pipeline (NEW — 2026-03-29)
+
+> The core mechanism for injecting between-turn context. Memory attachments travel through this pipeline.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| _uY | computeAllAttachments | chunks.147.mjs:1 | async function |
+| Hz | attachmentComputationWrapper | chunks.147.mjs:20 | async function |
+| Vf6 | streamAttachmentsAsMessages | chunks.147.mjs:822 | async generator |
+| DuY | producePlanModeAttachment | chunks.147.mjs:136 | async function |
+
+> - `_uY` runs all attachment producers (nested_memory, plan_mode, etc.) in parallel with 1s timeout
+> - `Hz` wraps each producer with error isolation + 5%-sampled telemetry
+> - `Vf6` is the async generator: calls `_uY` then yields each result as `f4(O)` message
+> - `DuY` returns `[]` when not in plan mode (zero overhead); rate-limited by `TURNS_BETWEEN_ATTACHMENTS`
+> - **Note**: `Nm9` and `J94` moved to Agent Memory section with corrected readable names
+
+### Extraction Subagent (NEW — 2026-03-29)
+
+> Memory extraction happens via a forked agent spawned after every non-subagent turn.
+> Guarded by `tengu_passport_quail` flag; runs fire-and-forget after main query completes.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cmY | createExtractMemoriesModule | chunks.148.mjs:508 | function |
+| vKq | executeExtractMemories | chunks.148.mjs:580 | function |
+| lmY | triggerExtractMemories | chunks.148.mjs:599 | function |
+| av | runForkedAgent | chunks.148.mjs:2026 | async function |
+| Bc6 | buildForkedToolContext | chunks.148.mjs:1978 | function |
+| Fb | buildCacheSafeParams | chunks.148.mjs:1924 | function |
+| QmY | countMessagesSince | chunks.148.mjs:427 | function |
+| UmY | didConversationWriteMemory | chunks.148.mjs:442 | function |
+| fKq | buildMemoryToolFilter | chunks.148.mjs:460 | function |
+| TKq | extractFilePathFromToolUse | chunks.148.mjs:484 | function |
+| dmY | extractWrittenPaths | chunks.148.mjs:494 | function |
+| Np8 | isUserOrAssistantMessage | chunks.148.mjs:423 | function |
+
+> - `cmY` is called once at init; creates closure tracking last-processed UUID, in-progress flag, throttle counter
+> - `vKq` gates on `tengu_passport_quail`, `Z3()`, `t4()`, and `!agentId` before spawning
+> - `av` is the generic fork runner: creates isolated context via `Bc6`, runs `Yh` agent loop
+> - `Bc6` sets `shouldAvoidPermissionPrompts=true`, copies readFileState via `DI`, assigns new agentId
+> - `fKq` restricts extraction subagent to Read (always) + Edit/Write (only on auto memory path)
+> - Trailing run: if extraction in progress when invoked, stashes context and runs after completion
+
+### Prompt Variants — Auto Memory System Prompt (NEW — 2026-03-29)
+
+> `ID1()` selects among 6 variants based on team memory × tengu_passport_quail × tengu_swinburne_dune.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| xv9 | buildPassiveMemoryPrompt | chunks.84.mjs:329 | function |
+| uv9 | buildClassicAutoMemoryPrompt | chunks.84.mjs:367 | function |
+| U14 | buildTypedMemoryInstructions | chunks.84.mjs:324 | function |
+| d14 | buildTypedAgentMemoryPrompt | chunks.84.mjs:333 | function |
+| Q14 | buildClassicAgentMemoryPrompt | chunks.84.mjs:290 | function |
+
+> - `xv9`: passive/extraction mode — tells agent NOT to write, background agent will save
+> - `uv9`: classic auto-memory (single MEMORY.md, agent writes directly)
+> - `U14`: typed format (structured memory with index + topic files)
+> - `d14`/`Q14`: agent memory variants (agent-definition memory, not session auto-memory)
+
+### CLAUDE.md Include Resolution (NEW — 2026-03-29)
+
+> `cv9` parses @file.md references; `Sk` recursively loads them; `Xt` scans directories.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| cv9 | parseAtMentions | chunks.84.mjs:536 | function |
+| Sk | loadClaudeFileWithIncludes | chunks.84.mjs:602 | function |
+| Xt | loadRulesDirFiles | chunks.84.mjs:625 | function |
+| if8 | loadManagedAndUserRules | chunks.84.mjs:702 | function |
+| nf8 | loadProjectRules | chunks.84.mjs:712 | function |
+| iv9 | isClaudeFileExcluded | chunks.84.mjs:570 | function |
+| lv9 | MAX_INCLUDE_DEPTH | chunks.84.mjs:809 | constant (5) |
+
+> - `cv9` uses `marked.js` lexer to skip code blocks; resolves `@path` relative to parent file's dir
+> - `Sk` depth-limited to 5; guards `r14` (isInWorkingDirectory) for external include safety
+> - External @includes (absolute paths outside cwd) only loaded when `includeExternal=true`
+
+### Agent Memory (NEW — 2026-03-29)
+
+> Agent definition memory — scope-scoped persistent memory for custom agents.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| m36 | buildAgentMemoryInstructions | chunks.90.mjs:896 | function |
+| GW6 | getAgentMemoryDir | chunks.90.mjs:860 | function |
+| Nm9 | sanitizeAgentTypeName | chunks.90.mjs:851 | function |
+| J94 | getLocalScopeMemoryDir | chunks.90.mjs:855 | function |
+| LP1 | describeMemoryScope | chunks.90.mjs:883 | function |
+
+> - `m36(agentType, scope)` → generates scope-specific memory guide + reads current MEMORY.md
+> - `GW6` computes path: user=`~/.claude/agent-memory/{type}/`, project=`.claude/agent-memory/{type}/`
+> - `Nm9` sanitizes agent type: `":"` → `"-"` (safe for filesystem paths)
+> - `Mp6` permission bypass covers all paths that `GW6` can produce (by design)
 
 ### Attachment Normalization (Cross-reference: System Reminder)
 
@@ -929,72 +1122,84 @@
 |------------|----------|-----------|------|
 | a2 | applyPermissionAction | chunks.42.mjs:1637 | function |
 | A2z | buildPlanModeSparseReminder | chunks.173.mjs:676 | function |
-| nk6 | hasExitedPlanMode | chunks.1.mjs:2930 | function (getter) |
+| ag8 | setAwaitingPlanApproval | chunks.143.mjs:2708 | function |
+| aJ | EXIT_PLAN_MODE_NAME | chunks.90.mjs:507 | constant ("ExitPlanMode") |
+| aPq | ExitPlanModeDialog | chunks.165.mjs:2676 | function (React) |
 | Au4 | buildPermissionCliArgs | chunks.131.mjs:847 | function |
 | azz | buildPlanModeReminder | chunks.173.mjs:531 | function |
-| JuY | countTurnsSinceLastAttachment | chunks.147.mjs:105 | function |
+| bB | getSessionSlug | chunks.90.mjs:509 | function |
+| cbq | isAutoModeAvailableForCycle | chunks.191.mjs:3003 | function |
 | Dc4 | getPlanExploreAgentCount | chunks.140.mjs:1467 | function |
-| Dz | isTeammate | chunks.139.mjs:2690 | function |
-| EhA | getPromptSuggestionBlocker | chunks.151.mjs:149 | function |
 | Dp | handlePlanModeTransition | chunks.1.mjs:2946 | function |
-| dt | TOOL_NAME_ENTER_PLAN_MODE | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| dt | ENTER_PLAN_MODE_NAME | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
 | DuY | getPlanModeAttachment | chunks.147.mjs:136 | function (async) |
+| Dz | isTeammate | chunks.139.mjs:2690 | function |
+| E7 | isAgentTeamsEnabled | chunks.50.mjs:2543 | function |
+| E8q | renderEnterPlanModeResult | chunks.144.mjs:1526 | function |
+| EhA | getPromptSuggestionBlocker | chunks.151.mjs:149 | function |
+| Ezz | sparsePlanModeReminder | chunks.173.mjs:2692 | function |
 | ezz | buildPlanModeInterviewReminder | chunks.173.mjs:619 | function |
+| Fj | getPlanFilePath | chunks.90.mjs:533 | function |
+| Fu1 | getNeedsPlanModeExitAttachment | chunks.1.mjs:2938 | function (getter) |
 | g5 | getAgentName | chunks.139.mjs:2695 | function |
-| Gc4 | renderEnterPlanModeResult | chunks.132.mjs:2768 | function (React) |
-| W26 | cycleMode | chunks.191.mjs:3007 | function |
 | GH | handleCycleModeKeybinding | chunks.193.mjs:649 | function (keybinding handler) |
 | hmA | matchesAlwaysAllowRule | chunks.172.mjs:1884 | function |
 | hu4 | initializeInProcessTeammate | chunks.131.mjs:2305 | function |
-| t4q | PLAN_MODE_ATTACHMENT_CONFIG | chunks.147.mjs:1235 | constant (object) |
-| Kd4 | renderExitPlanModeResult | chunks.131.mjs:1153 | function (React) |
-| Ki6 | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
-| JS | setNeedsPlanModeExitAttachment | chunks.1.mjs:2942 | function |
-| l8 | hasTeamContext | chunks.1.mjs | function |
-| MuY | countPlanModeAttachments | chunks.147.mjs:124 | function |
-| MC1 | isPlanModeRequired | chunks.48.mjs:301 | function |
-| XuY | getPlanModeExitAttachment | chunks.147.mjs:170 | function (async) |
-| zD | ExitPlanModeTool | chunks.143.mjs:2802 | tool object |
-| Of6 | evaluateBashCommandReadiness | chunks.150.mjs:881 | function |
 | HV | setHasExitedPlanMode | chunks.1.mjs:2934 | function |
-| pD | getPlanFileContent | chunks.88.mjs:126 | function |
+| ik1 | findTeammateTaskByName | chunks.143.mjs:2702 | function |
+| JS | setNeedsPlanModeExitAttachment | chunks.1.mjs:2942 | function |
+| JuY | countTurnsSinceLastAttachment | chunks.147.mjs:105 | function |
+| k1q | clearAwaitingPlanApproval | chunks.143.mjs:2715 | function |
+| Ki6 | EnterPlanModeTool | chunks.144.mjs:1579 | tool object |
+| ki | modeTransitionHandler | chunks.173.mjs:409 | function |
+| kzz | iterativePlanModeReminder | chunks.173.mjs:2637 | function |
+| l8 | hasTeamContext | chunks.1.mjs | function |
+| lbq | computeModeCycle | chunks.191.mjs:3027 | function |
+| LT6 | savePrePlanMode | chunks.173.mjs:763 | function |
+| MC1 | isPlanModeRequired | chunks.48.mjs:301 | function |
+| MS | setNeedsAutoModeExitAttachment | chunks.1.mjs:2955 | function |
+| MuY | countPlanModeAttachments | chunks.147.mjs:124 | function |
+| N51/Xz6 | checkEditPermissions | chunks.146.mjs / chunks.139.mjs | function (Write/Edit plan file bypass — returns "allow" for plan file paths, short-circuiting orchestrator mode check) |
+| NF6 | isPlanModeRequired | chunks.84.mjs:1478 | function |
+| nk6 | hasExitedPlanModeInSession | chunks.1.mjs:2930 | function (getter) |
+| Nzz | fullPlanModeReminder | chunks.173.mjs:2555 | function |
+| Of6 | evaluateBashCommandReadiness | chunks.150.mjs:881 | function |
 | pCY | buildEnterPlanModePrompt | chunks.140.mjs:1488 | function |
+| pD | getPlanFileContent | chunks.88.mjs:126 | function |
+| pF8 | getPromptSuggestionBlockReason | chunks.148.mjs:2191 | function |
 | Pf6 | containsGitCommand | chunks.169.mjs:2014 | function |
 | PM | isTeamLeader | chunks.1.mjs | function |
+| pu1 | needsAutoModeExitAttachment | chunks.1.mjs:2951 | function (getter) |
 | q2z | buildPlanModeSubagentReminder | chunks.173.mjs:685 | function |
-| Fu1 | needsPlanModeExitAttachment | chunks.1.mjs:2938 | function (getter) |
+| Qu1 | handleAutoModeTransition | chunks.1.mjs:2959 | function |
+| r4 | TaskToolName | chunks.143.mjs:2950 | constant ("Task") |
+| RIY | getEnterPlanModePrompt | chunks.144.mjs:1416 | function |
 | rO | isPlanModeInterviewPhase | chunks.50.mjs:2520 | function |
+| SI | TaskToolDisplayName | chunks.143.mjs:3004 | constant ("Task") |
+| sJ | getPlanContent | chunks.90.mjs:539 | function |
+| sl6 | autoModeGate | chunks.143.mjs:2916 | object (module) |
 | szz | buildFullPlanModeReminder | chunks.173.mjs:531 | function |
+| T1q | renderExitPlanModeResult | chunks.143.mjs:2628 | function |
+| t4q | PLAN_MODE_ATTACHMENT_CONFIG | chunks.147.mjs:1235 | constant (object) |
+| tCY | autoModeState | chunks.143.mjs:2937 | object (module) |
 | tzz | buildAllowedToolsList | chunks.173.mjs:611 | function |
+| Uk | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:505 | constant ("ExitPlanMode") |
 | uW | getPlanFilePath | chunks.88.mjs:120 | function (returns path in format `~/.claude/plans/{slug}.md`) |
-| N51/Xz6 | checkEditPermissions | chunks.146.mjs / chunks.139.mjs | function (Write/Edit plan file bypass — returns "allow" for plan file paths, short-circuiting orchestrator mode check) |
 | vg1 | pushToRemote | chunks.139.mjs:2720 | function |
 | vP1 | generateRequestId | chunks.139.mjs:2710 | function |
+| W26 | getNextCycleMode | chunks.191.mjs:3007 | function |
+| Wzz | planModeReminderDispatcher | chunks.173.mjs:2525 | function |
+| x01 | PlanSubagentDefinition | chunks.93.mjs:1938 | object |
 | Xc4 | getPlanDesignAgentCount | chunks.140.mjs:1455 | function |
 | xm | isPlanModeEnabled | chunks.130.mjs:412 | function |
+| XuY | getPlanModeExitAttachment | chunks.147.mjs:170 | function (async) |
 | Yd4 | renderExitPlanModeRejected | chunks.131.mjs:1324 | function (React) |
-| jZ1 | RejectedPlanViewer | chunks.112.mjs:1142 | function (React) |
-| aPq | ExitPlanModeDialog | chunks.165.mjs:2676 | function (React) |
-| $Y | isTeammate | chunks.139.mjs:2690 | function |
-| NF6 | hasTeamConfig | chunks.139.mjs:2879 | function |
-| l5 | getTeamName | chunks.139.mjs:2882 | function |
-| ak | hashForRequestId | chunks.139.mjs:2883 | function |
-| x3 | writeToMailbox | chunks.139.mjs:2892 | function (async) |
-| ik1 | findTaskByAgentName | chunks.139.mjs:2898 | function |
-| ag8 | setAwaitingPlanApproval | chunks.139.mjs:2899 | function |
-| E7 | isTasksEnabled | chunks.143.mjs:2950 | function |
+| yzz | subagentPlanModeReminder | chunks.173.mjs:2701 | function |
 | z3 | matchesTool | chunks.56.mjs:1588 | function (checks tool.name === name or aliases.includes(name)) |
-| r4 | TaskToolName | chunks.143.mjs:2950 | constant ("Task") |
-| Fj | getPlanFilePath | chunks.143.mjs:2877 | function |
-| sJ | getPlanContent | chunks.143.mjs:2878 | function |
-| sl6 | autoModeGate | chunks.143.mjs:2916 | object (module) |
-| tCY | autoModeState | chunks.143.mjs:2937 | object (module) |
-| MS | setNeedsAutoModeExitAttachment | chunks.1.mjs:2955 | function |
-| pu1 | needsAutoModeExitAttachment | chunks.1.mjs:2951 | function (getter) |
-| Qu1 | handleAutoModeTransition | chunks.1.mjs:2959 | function |
-| Uk | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:505 | constant ("ExitPlanMode") |
-| aJ | TOOL_NAME_EXIT_PLAN_MODE_ALT | chunks.90.mjs:507 | constant ("ExitPlanMode") |
-| SI | TaskToolDisplayName | chunks.143.mjs:3004 | constant ("Task") |
+| Z1q | exitPlanModePromptText | chunks.143.mjs:2595 | constant |
+| zD | ExitPlanModeTool | chunks.143.mjs:2802 | tool object |
+| Zzz | ultraplanCompleteReminder | chunks.173.mjs:2532 | function |
+| jZ1 | RejectedPlanViewer | chunks.112.mjs:1142 | function (React) |
 
 ### Plan Mode — AskUserQuestion Tool
 
@@ -1084,8 +1289,8 @@ The previously documented symbols `CQ`, `Rv1`, `cP` do NOT exist as separate fun
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| dt | TOOL_NAME_ENTER_PLAN_MODE | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
-| aJ | TOOL_NAME_EXIT_PLAN_MODE | chunks.90.mjs:507 | constant ("ExitPlanMode") |
+| dt | ENTER_PLAN_MODE_NAME | chunks.90.mjs:3121 | constant ("EnterPlanMode") |
+| aJ | EXIT_PLAN_MODE_NAME | chunks.90.mjs:507 | constant ("ExitPlanMode") |
 | N_6 | TOOL_NAME_ENTER_PLAN_MODE | chunks.89.mjs:564 | constant ("EnterPlanMode") |
 | bW | TOOL_NAME_EXIT_PLAN_MODE | chunks.88.mjs:76 | constant ("ExitPlanMode") |
 

@@ -50,46 +50,67 @@ Plan mode integration with agent teams implements a **plan-first workflow** wher
 
 ```javascript
 // ============================================
-// spawnSplitPaneTeammate - Spawn mechanism setting plan_mode_required flag
-// Location: chunks.131.mjs:2077-2100
+// spawnSplitPaneTeammate (BNY) - Spawn pane-based teammate with plan_mode_required
+// Location: chunks.135.mjs:711-...
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function dVY(A, q, K) {
-    let { name: Y, task_id: z, task_instructions: w, description: H, system_prompt: $, ...$, allowed_tools: O, mode: _, allow_permission_prompts: J } = q;
-    // ... validation ...
-    let X = z ? await $h4(z) : null,
-        D = pv(Y, Z),
-        j = fX1(J),
-        M = {
-            name: Y,
-            mode: q.mode,
-            description: H,
-            task_id: z,
-            plan_mode_required: O  // ← Key flag derived from mode parameter
-        };
+async function BNY(A, q) {
+    let { setAppState: K, getAppState: Y } = q,
+        { name: z, prompt: _, agent_type: w, cwd: O, plan_mode_required: $ } = A,
+        H = yu8(A.model, Y().mainLoopModel);
+    if (!z || !_) throw Error("name and prompt are required for spawn operation");
+    let j = Y(),
+        J = A.team_name || j.teamContext?.teamName;
+    if (!J) throw Error("team_name is required...");
+    let M = await hu8(z, J),     // hu8 = deduplicateTeammateName
+        D = Lu8(M),               // Lu8 = formatAgentName
+        X = ak(D, J),             // ak = hashCombine → agentId
+        P = O || G1(),
+        // ... iTerm2 setup check, pane creation ...
+        V = [`--agent-id ${j4([X])}`,
+             `--agent-name ${j4([D])}`,
+             `--team-name ${j4([J])}`,
+             `--agent-color ${j4([G])}`,
+             `--parent-session-id ${j4([R1()])}`,
+             $ ? "--plan-mode-required" : "",  // ← plan_mode_required passed as CLI flag
+             w ? `--agent-type ${j4([w])}` : ""].filter(Boolean).join(" ");
     // ...
 }
 
 // READABLE (for understanding):
-async function spawnSplitPaneTeammate(context, params, teamName) {
-    let { name, task_id, task_instructions, description, system_prompt, allowed_tools, mode, allow_permission_prompts } = params;
-    // ... validation ...
-    let taskData = task_id ? await getTaskById(task_id) : null,
-        agentId = generateAgentId(name, sessionId),
-        allowPerms = parsePermissionPrompts(allow_permission_prompts),
-        teammateMetadata = {
-            name: name,
-            mode: params.mode,
-            description: description,
-            task_id: task_id,
-            plan_mode_required: isPlanMode  // ← Derived from mode === "plan"
-        };
+async function spawnSplitPaneTeammate(spawnInput, toolContext) {
+    let { setAppState, getAppState } = toolContext,
+        { name, prompt, agent_type, cwd, plan_mode_required } = spawnInput,
+        model = resolveModel(spawnInput.model, getAppState().mainLoopModel);
+
+    if (!name || !prompt) throw Error("name and prompt are required for spawn operation");
+
+    let appState = getAppState(),
+        teamName = spawnInput.team_name || appState.teamContext?.teamName;
+    if (!teamName) throw Error("team_name is required...");
+
+    let dedupedName = await deduplicateTeammateName(name, teamName),  // hu8
+        agentName = formatAgentName(dedupedName),                      // Lu8
+        agentId = hashCombine(agentName, teamName);                    // ak
+
+    // Build CLI args for new pane process
+    let cliArgs = [
+        `--agent-id ${shellQuote([agentId])}`,
+        `--agent-name ${shellQuote([agentName])}`,
+        `--team-name ${shellQuote([teamName])}`,
+        `--agent-color ${shellQuote([agentColor])}`,
+        `--parent-session-id ${shellQuote([getSessionId()])}`,
+        plan_mode_required ? "--plan-mode-required" : "",  // ← plan mode flag
+        agent_type ? `--agent-type ${shellQuote([agent_type])}` : ""
+    ].filter(Boolean).join(" ");
     // ...
 }
 
-// Mapping: dVY→spawnSplitPaneTeammate, A→context, q→params, K→teamName, Y→name, z→task_id,
-// w→task_instructions, H→description, $→system_prompt, O→isPlanMode, _→mode, J→allow_permission_prompts
+// Mapping: BNY→spawnSplitPaneTeammate, A→spawnInput, q→toolContext, z→name, _→prompt,
+//          w→agent_type, O→cwd, $→plan_mode_required, H→model, J→teamName,
+//          hu8→deduplicateTeammateName, Lu8→formatAgentName, ak→hashCombine, G1→getCwd,
+//          j4→shellQuote, R1→getSessionId
 ```
 
 **Plan mode derivation** (chunks.132.mjs:147):
@@ -167,55 +188,60 @@ The system prompt injection for teammates in plan mode includes instructions on 
 
 ```javascript
 // ============================================
-// ExitPlanMode - Teammate plan approval request submission
-// Location: chunks.139.mjs:2690-2722
+// ExitPlanMode.call() - Teammate branch: plan approval request submission
+// Location: chunks.143.mjs:2875-2908
 // ============================================
 
 // ORIGINAL (for source lookup):
-let Y = uW(q.agentId),
-    z = pD(q.agentId);
-if (Dz() && MC1()) {
+// Inside zD.call(A, q):
+let K = !!q.agentId,
+    Y = Fj(q.agentId),   // Fj = getPlanFilePath
+    z = sJ(q.agentId);   // sJ = getPlanContent
+if ($Y() && NF6()) {     // $Y = isTeammate, NF6 = isPlanModeRequired
     if (!z) throw Error(`No plan file found at ${Y}. Please write your plan to this file before calling ExitPlanMode.`);
-    let H = g5() || "unknown",
-        $ = i3(),
-        O = vP1("plan_approval", pv(H, $ || "default")),
-        _ = {
+    let H = i3() || "unknown",    // i3 = getCurrentAgentName
+        j = l5(),                  // l5 = getCurrentTeamName
+        J = bZ6("plan_approval", ak(H, j || "default")),  // bZ6 = generateUniqueId, ak = hashCombine
+        M = {
             type: "plan_approval_request",
             from: H,
             timestamp: new Date().toISOString(),
             planFilePath: Y,
             planContent: z,
-            requestId: O
+            requestId: J
         };
-    f9("team-lead", {
+    await x3("team-lead", {        // x3 = writeToMailbox
         from: H,
-        text: Q1(_),
+        text: B6(M),               // B6 = JSON.stringify
         timestamp: new Date().toISOString()
-    }, $);
-    let J = await q.getAppState(),
-        X = Hd4(H, J);
-    if (X) $d4(X, q.setAppState, !0);
+    }, j);
+    let D = q.getAppState(),       // NOTE: sync call, not await
+        X = ik1(H, D);             // ik1 = findTeammateTaskByName
+    if (X) ag8(X, q.setAppState, !0);  // ag8 = setAwaitingPlanApproval
     return {
         data: {
             plan: z,
             isAgent: !0,
             filePath: Y,
             awaitingLeaderApproval: !0,
-            requestId: O
+            requestId: J
         }
     }
 }
 
 // READABLE (for understanding):
-let planFilePath = getPlanFilePath(context.agentId),
-    planContent = getPlanContent(context.agentId);
-if (isTeammate() && hasTeamConfig()) {
+// Inside ExitPlanModeTool.call(input, toolContext):
+let isAgentContext = !!toolContext.agentId,
+    planFilePath = getPlanFilePath(toolContext.agentId),  // Fj
+    planContent = getPlanContent(toolContext.agentId);    // sJ
+
+if (isTeammate() && isPlanModeRequired()) {   // $Y() && NF6()
     if (!planContent) {
         throw Error(`No plan file found at ${planFilePath}. Please write your plan to this file before calling ExitPlanMode.`);
     }
-    let agentName = getAgentName() || "unknown",
-        teamName = getTeamName(),
-        requestId = generateRequestId("plan_approval", combineIds(agentName, teamName || "default")),
+    let agentName = getCurrentAgentName() || "unknown",  // i3()
+        teamName = getCurrentTeamName(),                  // l5()
+        requestId = generateUniqueId("plan_approval", hashCombine(agentName, teamName || "default")),  // bZ6(ak())
         approvalRequest = {
             type: "plan_approval_request",
             from: agentName,
@@ -225,18 +251,18 @@ if (isTeammate() && hasTeamConfig()) {
             requestId: requestId
         };
 
-    // Send to team lead's mailbox
-    writeToMailbox("team-lead", {
+    // Send to team lead's mailbox (x3 = writeToMailbox)
+    await writeToMailbox("team-lead", {
         from: agentName,
-        text: JSON.stringify(approvalRequest),
+        text: JSON.stringify(approvalRequest),  // B6
         timestamp: new Date().toISOString()
     }, teamName);
 
-    // Mark teammate as awaiting approval
-    let appState = await context.getAppState(),
-        teammateTask = findTeammateTask(agentName, appState);
+    // Mark teammate as awaiting approval (sync getAppState)
+    let appState = toolContext.getAppState(),       // SYNC — no await
+        teammateTask = findTeammateTaskByName(agentName, appState);  // ik1
     if (teammateTask) {
-        updateTeammateAwaitingFlag(teammateTask, context.setAppState, true);
+        setAwaitingPlanApproval(teammateTask, toolContext.setAppState, true);  // ag8
     }
 
     return {
@@ -250,9 +276,10 @@ if (isTeammate() && hasTeamConfig()) {
     };
 }
 
-// Mapping: uW→getPlanFilePath, pD→getPlanContent, Dz→isTeammate, MC1→hasTeamConfig,
-// g5→getAgentName, i3→getTeamName, vP1→generateRequestId, pv→combineIds, f9→writeToMailbox,
-// Q1→JSON.stringify, Hd4→findTeammateTask, $d4→updateTeammateAwaitingFlag
+// Mapping: zD→ExitPlanModeTool, Fj→getPlanFilePath, sJ→getPlanContent,
+//          $Y→isTeammate, NF6→isPlanModeRequired, i3→getCurrentAgentName, l5→getCurrentTeamName,
+//          bZ6→generateUniqueId, ak→hashCombine, x3→writeToMailbox, B6→JSON.stringify,
+//          ik1→findTeammateTaskByName, ag8→setAwaitingPlanApproval
 ```
 
 **Step-by-step flow**:
@@ -529,87 +556,86 @@ The teammate will receive the rejection with your feedback and can revise their 
 
 ```javascript
 // ============================================
-// handlePlanApproval - Team lead approval message handler
-// Location: chunks.141.mjs:1239-1262
+// approvePlan (_xY) - Team lead plan approval handler
+// Location: chunks.145.mjs:2521-2545
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function AhY(A, q) {
-    let K = await q.getAppState(),
-        Y = K.teamContext?.teamName;
-    if (!PM(K.teamContext))
-        throw Error("Only the team lead can approve plans. Teammates cannot approve their own or other plans.");
-
-    let z = K.toolPermissionContext.mode,
-        w = z === "plan" || z === "delegate" ? "default" : z,
-        H = {
+async function _xY(A, q, K) {
+    let Y = K.getAppState(),     // SYNC getAppState (no await), K = toolContext
+        z = Y.teamContext?.teamName;
+    if (!KZ(Y.teamContext)) throw Error("Only the team lead can approve plans. Teammates cannot approve their own or other plans.");
+    let _ = Y.toolPermissionContext.mode,
+        w = _ === "plan" ? "default" : _,   // NOTE: only "plan" → "default", no "delegate" check
+        O = {
             type: "plan_approval_response",
-            requestId: A.request_id,
+            requestId: q,    // q = requestId string (not params.request_id)
             approved: !0,
             timestamp: new Date().toISOString(),
             permissionMode: w
         };
-
-    return f9(A.recipient, {
-        from: K2,
-        text: Q1(H),
+    return await x3(A, {    // A = recipient name, x3 = writeToMailbox
+        from: BY,            // BY = TEAM_LEAD_ID constant
+        text: B6(O),         // B6 = JSON.stringify
         timestamp: new Date().toISOString()
-    }, Y), {
+    }, z), {
         data: {
             success: !0,
-            message: `Plan approved for ${A.recipient}. They will receive the approval and can proceed with implementation.`,
-            request_id: A.request_id
+            message: `Plan approved for ${A}. They will receive the approval and can proceed with implementation.`,
+            request_id: q
         }
-    };
+    }
 }
 
 // READABLE (for understanding):
-async function handlePlanApproval(params, context) {
-    let appState = await context.getAppState(),
+async function approvePlan(recipient, requestId, toolContext) {
+    // NOTE: 3 separate params — recipient (string), requestId (string), toolContext (object)
+    let appState = toolContext.getAppState(),  // SYNC — no await
         teamName = appState.teamContext?.teamName;
 
-    // Authorization check: only team lead can approve
-    if (!isTeamLead(appState.teamContext)) {
-        throw Error("Only the team lead can approve plans. Teammates cannot approve their own or other plans.");
+    // Authorization: only team lead can approve
+    if (!isTeamLead(appState.teamContext)) {  // KZ
+        throw Error("Only the team lead can approve plans...");
     }
 
-    // Determine target permission mode for teammate after approval
+    // Mode transition: if lead is in plan mode, teammate gets default mode
+    // (no special handling for delegate mode — that check was fabricated)
     let currentMode = appState.toolPermissionContext.mode,
-        targetMode = currentMode === "plan" || currentMode === "delegate" ? "default" : currentMode,
+        targetMode = currentMode === "plan" ? "default" : currentMode,
         approvalResponse = {
             type: "plan_approval_response",
-            requestId: params.request_id,
+            requestId: requestId,
             approved: true,
             timestamp: new Date().toISOString(),
-            permissionMode: targetMode  // ← Mode teammate transitions to
+            permissionMode: targetMode
         };
 
     // Send approval to teammate's mailbox
-    writeToMailbox(params.recipient, {
-        from: "team-lead",
-        text: JSON.stringify(approvalResponse),
+    await writeToMailbox(recipient, {  // x3
+        from: TEAM_LEAD_ID,            // BY
+        text: JSON.stringify(approvalResponse),  // B6
         timestamp: new Date().toISOString()
     }, teamName);
 
     return {
         data: {
             success: true,
-            message: `Plan approved for ${params.recipient}. They will receive the approval and can proceed with implementation.`,
-            request_id: params.request_id
+            message: `Plan approved for ${recipient}. They will receive the approval and can proceed with implementation.`,
+            request_id: requestId
         }
     };
 }
 
-// Mapping: AhY→handlePlanApproval, A→params, q→context, K→appState, Y→teamName,
-// PM→isTeamLead, z→currentMode, w→targetMode, H→approvalResponse, f9→writeToMailbox,
-// K2→"team-lead", Q1→JSON.stringify
+// Mapping: _xY→approvePlan, A→recipient, q→requestId, K→toolContext, Y→appState, z→teamName,
+//          KZ→isTeamLead, _→currentMode, w→targetMode, O→approvalResponse,
+//          x3→writeToMailbox, BY→TEAM_LEAD_ID, B6→JSON.stringify
 ```
 
 **Step-by-step approval flow**:
 
 1. **Authorization**: Verify caller is team lead (not a teammate trying to self-approve)
 2. **Determine target mode**: Calculate what permission mode the teammate should transition to:
-   - If lead is in `plan` or `delegate` mode → transition teammate to `default`
+   - If lead is in `plan` mode → transition teammate to `default` (NOTE: only `plan` triggers downgrade; `delegate` mode check was NOT in source)
    - Otherwise → transition to lead's current mode (e.g., if lead is in `acceptEdits`, teammate gets `acceptEdits`)
 3. **Create approval response**: Build JSON message with:
    - `type: "plan_approval_response"`
@@ -635,62 +661,58 @@ async function handlePlanApproval(params, context) {
 
 ```javascript
 // ============================================
-// handlePlanRejection - Team lead rejection message handler
-// Location: chunks.141.mjs:1265-1287
+// rejectPlan (wxY) - Team lead plan rejection handler
+// Location: chunks.145.mjs:2547-2569
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function qhY(A, q) {
-    let K = await q.getAppState(),
-        Y = K.teamContext?.teamName;
-    if (!PM(K.teamContext))
-        throw Error("Only the team lead can reject plans. Teammates cannot reject their own or other plans.");
-
-    let z = A.content || "Plan needs revision",
-        w = {
-            type: "plan_approval_response",
-            requestId: A.request_id,
-            approved: !1,
-            feedback: z,
-            timestamp: new Date().toISOString()
-        };
-
-    return f9(A.recipient, {
-        from: K2,
-        text: Q1(w),
+async function wxY(A, q, K, Y) {
+    let z = Y.getAppState(),    // SYNC, Y = toolContext
+        _ = z.teamContext?.teamName;
+    if (!KZ(z.teamContext)) throw Error("Only the team lead can reject plans. Teammates cannot reject their own or other plans.");
+    let w = {
+        type: "plan_approval_response",
+        requestId: q,    // q = requestId
+        approved: !1,
+        feedback: K,     // K = feedback string
         timestamp: new Date().toISOString()
-    }, Y), {
+    };
+    return await x3(A, {    // A = recipient, x3 = writeToMailbox
+        from: BY,
+        text: B6(w),
+        timestamp: new Date().toISOString()
+    }, _), {
         data: {
             success: !0,
-            message: `Plan rejected for ${A.recipient} with feedback: "${z}"`,
-            request_id: A.request_id
+            message: `Plan rejected for ${A} with feedback: "${K}"`,
+            request_id: q
         }
-    };
+    }
 }
 
 // READABLE (for understanding):
-async function handlePlanRejection(params, context) {
-    let appState = await context.getAppState(),
+async function rejectPlan(recipient, requestId, feedback, toolContext) {
+    // NOTE: 4 separate params — recipient (string), requestId (string), feedback (string), toolContext
+    let appState = toolContext.getAppState(),  // SYNC — no await
         teamName = appState.teamContext?.teamName;
 
-    // Authorization check: only team lead can reject
-    if (!isTeamLead(appState.teamContext)) {
-        throw Error("Only the team lead can reject plans. Teammates cannot reject their own or other plans.");
+    // Authorization: only team lead can reject
+    if (!isTeamLead(appState.teamContext)) {  // KZ
+        throw Error("Only the team lead can reject plans...");
     }
 
-    // Extract feedback or use default message
-    let feedback = params.content || "Plan needs revision",
-        rejectionResponse = {
-            type: "plan_approval_response",
-            requestId: params.request_id,
-            approved: false,
-            feedback: feedback,  // ← Specific revision guidance
-            timestamp: new Date().toISOString()
-        };
+    let rejectionResponse = {
+        type: "plan_approval_response",
+        requestId: requestId,
+        approved: false,
+        feedback: feedback,  // ← Specific revision guidance
+        timestamp: new Date().toISOString()
+        // NOTE: no permissionMode field — teammate stays in plan mode for revision
+    };
 
     // Send rejection to teammate's mailbox
-    writeToMailbox(params.recipient, {
-        from: "team-lead",
+    await writeToMailbox(recipient, {  // x3
+        from: TEAM_LEAD_ID,
         text: JSON.stringify(rejectionResponse),
         timestamp: new Date().toISOString()
     }, teamName);
@@ -698,14 +720,15 @@ async function handlePlanRejection(params, context) {
     return {
         data: {
             success: true,
-            message: `Plan rejected for ${params.recipient} with feedback: "${feedback}"`,
-            request_id: params.request_id
+            message: `Plan rejected for ${recipient} with feedback: "${feedback}"`,
+            request_id: requestId
         }
     };
 }
 
-// Mapping: qhY→handlePlanRejection, A→params, q→context, K→appState, Y→teamName,
-// PM→isTeamLead, z→feedback, w→rejectionResponse, f9→writeToMailbox, K2→"team-lead", Q1→JSON.stringify
+// Mapping: wxY→rejectPlan, A→recipient, q→requestId, K→feedback, Y→toolContext,
+//          z→appState, _→teamName, KZ→isTeamLead, w→rejectionResponse,
+//          x3→writeToMailbox, BY→TEAM_LEAD_ID, B6→JSON.stringify
 ```
 
 **Step-by-step rejection flow**:
@@ -733,31 +756,31 @@ async function handlePlanRejection(params, context) {
 
 ```javascript
 // ============================================
-// PlanApprovalResponseMessageSchema - Zod schema for validation
-// Location: chunks.129.mjs:1553-1559
+// PlanApprovalResponseMessageSchema (md4) - Zod schema for validation
+// Location: chunks.132.mjs:477-483
 // ============================================
 
 // ORIGINAL (for source lookup):
-Nx4 = u.object({
-    type: u.literal("plan_approval_response"),
-    requestId: u.string(),
-    approved: u.boolean(),
-    feedback: u.string().optional(),
-    timestamp: u.string(),
-    permissionMode: cP1.optional()
-});
+md4 = F6(() => C.object({
+    type: C.literal("plan_approval_response"),
+    requestId: C.string(),
+    approved: C.boolean(),
+    feedback: C.string().optional(),
+    timestamp: C.string(),
+    permissionMode: J66().optional()
+}));
 
 // READABLE (for understanding):
 PlanApprovalResponseMessageSchema = zod.object({
     type: zod.literal("plan_approval_response"),
-    requestId: zod.string(),  // Matches original request ID
+    requestId: zod.string(),  // Matches original request ID for correlation
     approved: zod.boolean(),  // true = approved, false = rejected
     feedback: zod.string().optional(),  // Only present if rejected
     timestamp: zod.string(),  // ISO 8601 timestamp
-    permissionMode: PermissionModeSchema.optional()  // Only present if approved
+    permissionMode: getPermissionModeSchema().optional()  // J66(), only present if approved
 });
 
-// Mapping: Nx4→PlanApprovalResponseMessageSchema, u→zod, cP1→PermissionModeSchema
+// Mapping: md4→PlanApprovalResponseMessageSchema, C→zod, J66→getPermissionModeSchema
 ```
 
 **Example approval payload**:

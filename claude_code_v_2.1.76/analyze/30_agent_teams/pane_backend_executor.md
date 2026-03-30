@@ -1,7 +1,7 @@
 # Pane Backend Executor & In-Process Backend - Agent Team Execution Modes
 
 > **Module**: Agent Teams - Backend Execution
-> **Source**: `chunks.131.mjs` (lines 3-1000), `chunks.129.mjs` (lines 1073-1420), `chunks.123.mjs` (lines 242-460)
+> **Source**: `chunks.134.mjs` (main: in-process runner, PaneBackendExecutor), `chunks.132.mjs` (mailbox/shutdown), `chunks.113.mjs` (AppState tasks)
 > **Version**: Claude Code 2.1.76
 
 ---
@@ -11,7 +11,7 @@
 1. [Overview](#1-overview)
 2. [In-Process Poll Loop (DNY)](#2-in-process-poll-loop-dny)
 3. [In-Process Agent Runner (XNY)](#3-in-process-agent-runner-xny)
-4. [PaneBackendExecutor (Ku4)](#4-panebackendexecutor-ku4)
+4. [PaneBackendExecutor (Ti4)](#4-panebackendexecutor-ku4)
 5. [InProcessBackend (nb4)](#5-inprocessbackend-nb4)
 6. [Graceful Shutdown Protocol](#6-graceful-shutdown-protocol)
 7. [Related Symbols](#7-related-symbols)
@@ -25,7 +25,7 @@ Claude Code supports two fundamentally different execution modes for agent teamm
 | Mode | Class | How Teammates Run | Communication |
 |------|-------|-------------------|---------------|
 | **In-Process** | `InProcessBackend` (nb4) | Same Node.js process, separate agent loop iterations | Shared memory (AppState) + file-based mailbox |
-| **Pane-Based** | `PaneBackendExecutor` (Ku4) | Separate tmux/iTerm2 panes, each a full Claude CLI process | File-based mailbox only |
+| **Pane-Based** | `PaneBackendExecutor` (Ti4) | Separate tmux/iTerm2 panes, each a full Claude CLI process | File-based mailbox only |
 
 **Key architectural insight**: Both backends implement the same interface (`spawn`, `sendMessage`, `terminate`, `kill`, `isActive`) but with radically different lifecycles. The in-process mode is lighter (no process spawn overhead) but shares a single event loop. The pane-based mode provides full process isolation and visual separation via terminal multiplexer panes.
 
@@ -68,9 +68,9 @@ Priority 5: Claim next available task from shared task list
 
 3. **Check for abort**: If the abort controller signal is aborted, return `{type: "aborted"}` immediately.
 
-4. **Read the full mailbox**: Calls `readMailbox` (Ld) to get all messages for this agent in this team.
+4. **Read the full mailbox**: Calls `readMailbox` (wl) to get all messages for this agent in this team.
 
-5. **Scan for shutdown requests** (Priority 2): Iterates through *all* unread messages looking for a valid `shutdown_request` (parsed via `parseShutdownRequest` / `ss`). If found, it is returned **immediately** -- even if there are older unread messages ahead of it in the inbox. The log message explicitly notes how many unread messages were skipped: `"prioritized over ${W} unread messages"`.
+5. **Scan for shutdown requests** (Priority 2): Iterates through *all* unread messages looking for a valid `shutdown_request` (parsed via `parseShutdownMessage` / `M66`). If found, it is returned **immediately** -- even if there are older unread messages ahead of it in the inbox. The log message explicitly notes how many unread messages were skipped: `"prioritized over ${W} unread messages"`.
 
 6. **Find team-lead messages** (Priority 3): Scans for the first unread message where `from === "team-lead"` (K2). The team-lead's instructions take precedence over peer messages.
 
@@ -182,39 +182,49 @@ Conclusion: Even for extreme cases, Priority 2 scan adds negligible latency (<20
 // ============================================
 
 // ORIGINAL (for source lookup):
-async function DNY(A, q, K, Y, z, w) {
-    h(`[inProcessRunner] ${A.agentName} starting poll loop (abort=${q.signal.aborted})`);
-    let $ = 0;
+async function DNY(A, q, K, Y, z, _) {
+    k(`[inProcessRunner] ${A.agentName} starting poll loop (abort=${q.signal.aborted})`);
+    let O = 0;
     while (!q.signal.aborted) {
-        let _ = (await Y()).tasks[K];
-        if (_ && _.type === "in_process_teammate" && _.pendingUserMessages.length > 0) {
-            let X = _.pendingUserMessages[0];
-            return z((D) => { /* ... dequeue first pendingUserMessage ... */ }), {
-                type: "new_message", message: X, from: "user"
+        let H = Y().tasks[K];    // Y() is SYNC — no await
+        if (H && H.type === "in_process_teammate" && H.pendingUserMessages.length > 0) {
+            let J = H.pendingUserMessages[0];
+            return z((M) => { /* dequeue first pendingUserMessage */ }), {
+                type: "new_message", message: J, from: "user"
             }
         }
-        if ($ > 0) await jVY(500);
-        if ($++, q.signal.aborted) return { type: "aborted" };
+        if (O > 0) await jNY(500);   // jNY = sleep (NOT jVY)
+        if (O++, q.signal.aborted) return { type: "aborted" };
         try {
-            let X = wl(A.agentName, A.teamName), D = -1, j = null;
-            // Priority 2: Scan ALL unread for shutdown_request
-            for (let P = 0; P < X.length; P++) {
-                let W = X[P];
-                if (W && !W.read) { let G = ss(W.text); if (G) { D = P; j = G; break } }
+            let J = await wl(A.agentName, A.teamName),   // wl = readMailbox (async)
+                M = -1, D = null;
+            // Priority 2: Scan unread for shutdown_request
+            for (let P = 0; P < J.length; P++) {
+                let W = J[P];
+                if (W && !W.read) { let Z = M66(W.text); if (Z) { M = P; D = Z; break } }  // M66 = parseShutdownMessage
             }
-            if (D !== -1) { /* return shutdown_request */ }
-            // Priority 3: team-lead messages
-            let M = -1;
-            for (let P = 0; P < X.length; P++) {
-                let W = X[P]; if (W && !W.read && W.from === K2) { M = P; break }
+            if (M !== -1) {
+                let P = J[M], W = J.slice(0, M).filter((Z) => !Z.read).length;
+                return await Vc6(A.agentName, A.teamName, M), {
+                    type: "shutdown_request", request: D, originalMessage: P.text
+                }
             }
-            // Priority 4: any unread
-            if (M === -1) M = X.findIndex((P) => !P.read);
-            if (M !== -1) { /* return new_message */ }
-        } catch (X) { /* log error */ }
+            // Priority 3: team-lead; Priority 4: any unread (merged block)
+            let X = -1;
+            for (let P = 0; P < J.length; P++) {
+                let W = J[P]; if (W && !W.read && W.from === BY) { X = P; break }
+            }
+            if (X === -1) X = J.findIndex((P) => !P.read);
+            if (X !== -1) {
+                let P = J[X];
+                if (P) return await Vc6(A.agentName, A.teamName, X), {
+                    type: "new_message", message: P.text, from: P.from, color: P.color, summary: P.summary
+                }
+            }
+        } catch (J) { k(`[inProcessRunner] ${A.agentName} poll error: ${J}`) }
         // Priority 5: task claiming
-        let J = Ji4(w, A.agentName);
-        if (J) return { type: "new_message", message: J, from: "task-list" }
+        let j = await Ji4(_, A.agentName);   // _ = teammateContext
+        if (j) return { type: "new_message", message: j, from: "task-list" }
     }
     return { type: "aborted" }
 }
@@ -224,8 +234,8 @@ async function pollForNextMessage(identity, abortController, taskId, getAppState
     log(`[inProcessRunner] ${identity.agentName} starting poll loop`);
     let pollCount = 0;
     while (!abortController.signal.aborted) {
-        // Priority 1: Check for direct user messages injected into AppState
-        let taskState = (await getAppState()).tasks[taskId];
+        // Priority 1: Check for direct user messages injected into AppState (SYNC call)
+        let taskState = getAppState().tasks[taskId];   // Y() is synchronous
         if (taskState?.type === "in_process_teammate" && taskState.pendingUserMessages.length > 0) {
             let message = taskState.pendingUserMessages[0];
             setAppState(/* dequeue first pending user message */);
@@ -268,9 +278,9 @@ async function pollForNextMessage(identity, abortController, taskId, getAppState
 }
 
 // Mapping: DNY→pollForNextMessage, A→identity, q→abortController, K→taskId,
-//   Y→getAppState, z→setAppState, w→parentSessionId, $→pollCount,
-//   jVY→sleep, wl→readMailbox, ss→parseShutdownRequest, Vc6→markMessageAsReadByIndex,
-//   K2→TEAM_LEAD_ID ("team-lead"), Ji4→claimUnclaimedTask
+//   Y→getAppState (SYNC), z→setAppState, _→teammateContext, O→pollCount,
+//   jNY→sleep, wl→readMailbox, M66→parseShutdownMessage, Vc6→markMessageAsReadByIndex,
+//   BY→TEAM_LEAD_ID ("team-lead"), Ji4→claimUnclaimedTask, Ku8→formatTeammateMessage
 ```
 
 ### claimUnclaimedTask (Ji4) - Self-assign work from shared task list
@@ -427,7 +437,7 @@ The core LLM + tool execution is delegated to `agentLoop` (dR), the same generat
 After each prompt completion, the runner:
 1. Fires any registered `onIdleCallbacks` (used by callers waiting for idle)
 2. Sets `isIdle: true` in AppState
-3. Calls `sendIdleNotification` (lb4) which creates an idle notification message and writes it to the team-lead's mailbox
+3. Calls `sendIdleNotification` (ji4) which creates an idle notification message and writes it to the team-lead's mailbox
 
 The idle notification includes:
 - `idleReason`: `"available"` (normal completion), `"interrupted"` (user pressed Escape), or `"failed"` (error)
@@ -457,21 +467,29 @@ async function XNY(A) {
           systemPrompt: J, systemPromptMode: X, allowedTools: D, allowPermissionPrompts: j } = A;
     let { setAppState: M } = $;
     // ... system prompt construction ...
-    let f = [], Z = _EA("team-lead", Y, void 0, z), N = Z, T = !1;
+    let G = [],
+        f = Ku8("team-lead", Y, void 0, z),  // Ku8 = formatTeammateMessage (NOT _EA)
+        v = f, N = !1;
+    await Ji4(q.parentSessionId, q.agentName);  // Claim initial task
     try {
         // Main loop
-        while (!O.signal.aborted && !T) {
-            // ... token compaction check ...
-            // ... agent loop (dR) execution ...
-            // ... idle notification ...
-            let q1 = await DNY(q, O, K, $.getAppState, M, q.parentSessionId);
-            switch (q1.type) {
-                case "shutdown_request": N = _EA(q1.request?.from || "team-lead", q1.originalMessage); break;
-                case "new_message": N = q1.from === "user" ? q1.message : _EA(q1.from, q1.message, q1.color, q1.summary); break;
-                case "aborted": T = !0; break;
+        while (!$.signal.aborted && !N) {
+            // ... token compaction check (eW/oc6/mf6) ...
+            // ... agent loop (qh) execution + AppState progress tracking ...
+            // ... idle notification via ji4 (sendIdleNotification) ...
+            let K6 = await DNY(q, $, K, O.getAppState, X, q.parentSessionId);
+            switch (K6.type) {
+                case "shutdown_request":
+                    v = Ku8(K6.request?.from || "team-lead", K6.originalMessage);  // Ku8 wraps in <teammate_id> XML
+                    break;
+                case "new_message":
+                    if (K6.from === "user") v = K6.message;
+                    else v = Ku8(K6.from, K6.message, K6.color, K6.summary);
+                    break;
+                case "aborted": N = !0; break;
             }
         }
-    } catch (k) { /* error handling with idle notification */ }
+    } catch (V) { /* error handling with idle notification */ }
 }
 
 // READABLE (for understanding):
@@ -593,31 +611,34 @@ async function inProcessAgentRunner(config) {
 }
 
 // Mapping: XNY→inProcessAgentRunner, A→config, q→identity, K→taskId, Y→prompt,
-//   z→description, w→agentDefinition, H→teammateContext, $→toolUseContext,
-//   O→abortController, _→model, J→systemPrompt, X→systemPromptMode,
-//   D→allowedTools, j→allowPermissionPrompts, M→setAppState,
-//   f→conversationHistory, N→currentPrompt, T→shouldExit,
-//   _EA→formatTeammateMessage, Id→updateTaskInState, dR→agentLoop,
-//   DNY→pollForNextMessage, lb4→sendIdleNotification, XVY→buildTeammateCanUseTool,
-//   AW1→performCompaction, SQ1→getAutoCompactThreshold, Ev→estimateTokenCount,
-//   WQ1→extractLastMessageSummary, dZ→buildSystemPrompt, c6→createUserMessage,
-//   pY→createAssistantMessage, Cj6→appendMessageToTask
+//   z→description, _→agentDefinition, w→teammateContext, O→toolUseContext,
+//   $→abortController, H→model, j→systemPrompt, J→systemPromptMode,
+//   M→allowedTools, D→allowPermissionPrompts, X→setAppState,
+//   G→conversationHistory, v→currentPrompt, N→shouldExit,
+//   Ku8→formatTeammateMessage, kb→updateTaskInState, qh→agentLoop,
+//   DNY→pollForNextMessage, ji4→sendIdleNotification, $NY→buildTeammateCanUseTool,
+//   mf6→performCompaction, oc6→getAutoCompactThreshold, eW→estimateTokenCount,
+//   hc6→extractLastMessageSummary, R0→buildSystemPrompt, p1→createUserMessage,
+//   jNY→sleep, Ji4→claimUnclaimedTask
 ```
 
-### formatTeammateMessage (_EA) - XML envelope for inter-agent messages
+### formatTeammateMessage (Ku8) - XML envelope for inter-agent messages
 
 **What it does:** Wraps a message in `<teammate-message teammate_id="..." color="..." summary="...">` XML tags so the LLM can identify the sender and context of incoming messages.
 
 ```javascript
 // ============================================
-// formatTeammateMessage - Wrap message in teammate XML envelope
-// Location: chunks.131.mjs:182-188
+// formatTeammateMessage (Ku8) - Wrap message in teammate XML envelope
+// Location: chunks.134.mjs:1405-1411
 // ============================================
 
 // ORIGINAL (for source lookup):
-function _EA(A, q, K, Y) {
-    let z = K ? ` color="${K}"` : "", w = Y ? ` summary="${Y}"` : "";
-    return `<${qJ} teammate_id="${A}"${z}${w}>\n${q}\n</${qJ}>`
+function Ku8(A, q, K, Y) {
+    let z = K ? ` color="${K}"` : "",
+        _ = Y ? ` summary="${Y}"` : "";
+    return `<${fj} teammate_id="${A}"${z}${_}>
+${q}
+</${fj}>`
 }
 
 // READABLE (for understanding):
@@ -627,53 +648,58 @@ function formatTeammateMessage(senderId, messageText, color, summary) {
     return `<teammate-message teammate_id="${senderId}"${colorAttr}${summaryAttr}>\n${messageText}\n</teammate-message>`;
 }
 
-// Mapping: _EA→formatTeammateMessage, A→senderId, q→messageText, K→color, Y→summary,
-//   qJ→TEAMMATE_MESSAGE_TAG ("teammate-message")
+// Mapping: Ku8→formatTeammateMessage, A→senderId, q→messageText, K→color, Y→summary,
+//   fj→TEAMMATE_MESSAGE_TAG_CONST ("teammate-message")
 ```
 
-### sendIdleNotification (lb4) - Notify team-lead that agent is idle
+### sendIdleNotification (ji4) - Notify team-lead that agent is idle
 
 **What it does:** Creates an `idle_notification` JSON message and writes it to the team-lead's mailbox. This is how teammates tell the orchestrator they are ready for new work.
 
 ```javascript
 // ============================================
-// sendIdleNotification - Write idle status to team-lead mailbox
-// Location: chunks.131.mjs:213-216
+// sendIdleNotification (ji4) - Write idle status to team-lead mailbox
+// Location: chunks.134.mjs:1436-1439
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lb4(A, q, K, Y) {
-    let z = DQ1(A, Y);
-    DVY(A, Q1(z), q, K)
+async function ji4(A, q, K, Y) {
+    let z = Ec6(A, Y);        // Ec6 = createIdleNotification (chunks.132.mjs:153)
+    await HNY(A, B6(z), q, K) // HNY = sendToTeamLead, B6 = JSON.stringify
 }
 
 // READABLE (for understanding):
-function sendIdleNotification(agentName, agentColor, teamName, options) {
-    let notification = createIdleNotification(agentName, options);
+async function sendIdleNotification(agentName, agentColor, teamName, options) {
     // options: { idleReason, summary, completedTaskId, completedStatus, failureReason }
-    sendToTeamLead(agentName, JSON.stringify(notification), agentColor, teamName);
+    let notification = createIdleNotification(agentName, options);  // Ec6
+    await sendToTeamLead(agentName, JSON.stringify(notification), agentColor, teamName);  // HNY
 }
 
-// Mapping: lb4→sendIdleNotification, A→agentName, q→agentColor, K→teamName, Y→options,
-//   DQ1→createIdleNotification, DVY→sendToTeamLead
+// Mapping: ji4→sendIdleNotification, A→agentName, q→agentColor, K→teamName, Y→options,
+//   Ec6→createIdleNotification, HNY→sendToTeamLead, B6→JSON.stringify
 ```
 
-### sendToTeamLead (DVY) - Route message to team-lead's mailbox
+### sendToTeamLead (HNY) - Route message to team-lead's mailbox
 
 ```javascript
 // ============================================
-// sendToTeamLead - Write message to team-lead inbox
-// Location: chunks.135.mjs:204-211
+// sendToTeamLead (HNY) - Write message to team-lead inbox
+// Location: chunks.134.mjs:1427-1434
 // ============================================
 
 // ORIGINAL (for source lookup):
-function DVY(A, q, K, Y) {
-    x3(K2, { from: A, text: q, timestamp: new Date().toISOString(), color: K }, Y)
+async function HNY(A, q, K, Y) {
+    await x3(BY, {
+        from: A,
+        text: q,
+        timestamp: new Date().toISOString(),
+        color: K
+    }, Y)
 }
 
 // READABLE (for understanding):
-function sendToTeamLead(fromAgent, messageText, agentColor, teamName) {
-    writeToMailbox("team-lead", {
+async function sendToTeamLead(fromAgent, messageText, agentColor, teamName) {
+    await writeToMailbox(TEAM_LEAD_ID, {  // x3, BY
         from: fromAgent,
         text: messageText,
         timestamp: new Date().toISOString(),
@@ -681,13 +707,13 @@ function sendToTeamLead(fromAgent, messageText, agentColor, teamName) {
     }, teamName);
 }
 
-// Mapping: DVY→sendToTeamLead, A→fromAgent, q→messageText, K→agentColor, Y→teamName,
-//   x3→writeToMailbox, K2→TEAM_LEAD_ID ("team-lead")
+// Mapping: HNY→sendToTeamLead, A→fromAgent, q→messageText, K→agentColor, Y→teamName,
+//   x3→writeToMailbox, BY→TEAM_LEAD_ID ("team-lead")
 ```
 
 ---
 
-## 4. PaneBackendExecutor (Ku4)
+## 4. PaneBackendExecutor (Ti4)
 
 ### PaneBackendExecutor - Tmux/iTerm2 pane-based teammate spawning
 
@@ -705,9 +731,9 @@ spawn(config):
   6. Write initial prompt to agent's mailbox
 ```
 
-**CLI flag construction (Au4):**
+**CLI flag construction (fi4):**
 
-The `buildCLIFlags` function (Au4) creates the command-line flags for the spawned teammate process:
+The `buildCLIFlags` function (fi4) creates the command-line flags for the spawned teammate process:
 
 | Flag | Source | Purpose |
 |------|--------|---------|
@@ -728,21 +754,29 @@ The `buildCLIFlags` function (Au4) creates the command-line flags for the spawne
 
 ```javascript
 // ============================================
-// buildCLIFlags - Construct CLI flags for teammate process
-// Location: chunks.131.mjs:847-864
+// buildCLIFlags (fi4) - Construct CLI flags for teammate process
+// Location: chunks.134.mjs:2100-2121
 // ============================================
 
 // ORIGINAL (for source lookup):
-function Au4(A) {
-    let q = [], { planModeRequired: K, permissionMode: Y } = A || {};
-    if (K); // plan mode: don't add permission skip flags
-    else if (Y === "bypassPermissions" || HQ()) q.push("--dangerously-skip-permissions");
+function fi4(A) {
+    let q = [],
+        { planModeRequired: K, permissionMode: Y } = A || {};
+    if (K);  // plan mode: no permission flags
+    else if (Y === "bypassPermissions" || qA6()) q.push("--dangerously-skip-permissions");
     else if (Y === "acceptEdits") q.push("--permission-mode acceptEdits");
-    let z = HT(); if (z) q.push(`--model ${R7([z])}`);
-    let w = Il(); if (w) q.push(`--settings ${R7([w])}`);
-    let H = $61(); for (let O of H) q.push(`--plugin-dir ${R7([O])}`);
-    let $ = bQ1();
-    return q.push(`--teammate-mode ${$}`), q.join(" ")
+    let z = HS();
+    if (z) q.push(`--model ${j4([z])}`);
+    let _ = kn();
+    if (_) q.push(`--settings ${j4([_])}`);
+    let w = AA6();
+    for (let H of w) q.push(`--plugin-dir ${j4([H])}`);
+    let O = Al6();
+    q.push(`--teammate-mode ${O}`);
+    let $ = Qk6();
+    if ($ === !0) q.push("--chrome");
+    else if ($ === !1) q.push("--no-chrome");
+    return q.join(" ")
 }
 
 // READABLE (for understanding):
@@ -775,7 +809,7 @@ function buildCLIFlags(options) {
     return flags.join(" ");
 }
 
-// Mapping: Au4→buildCLIFlags, A→options, K→planModeRequired, Y→permissionMode,
+// Mapping: fi4→buildCLIFlags, A→options, K→planModeRequired, Y→permissionMode,
 //   HQ→isPermissionsSkipped, HT→getModelOverride, Il→getSettingsFilePath,
 //   $61→getPluginDirectories, bQ1→getTeammateModeFromSnapshot, R7→shellQuote
 ```
@@ -785,7 +819,7 @@ function buildCLIFlags(options) {
 ```javascript
 // ============================================
 // PaneBackendExecutor.spawn - Spawn teammate in terminal pane
-// Location: chunks.131.mjs:887-939
+// Location: chunks.134.mjs:Ti4.spawn (lines ~2160-2250)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -798,7 +832,7 @@ async spawn(A) {
     if (z && w) await this.backend.enablePaneBorderStatus();
     let H = eb4(); // Get CLI executable path
     let $ = [`--agent-id ${R7([q])}`, `--agent-name ${R7([A.name])}`, ...].join(" ");
-    let _ = Au4({ planModeRequired: A.planModeRequired, permissionMode: O.toolPermissionContext.mode });
+    let H = fi4({ planModeRequired: A.planModeRequired, permissionMode: $.toolPermissionContext.mode });
     // ... model override handling ...
     let M = `cd ${R7([X])} && ${j} ${R7([H])} ${$}${J}`;
     await this.backend.sendCommandToPane(Y, M, !w);
@@ -856,7 +890,7 @@ async spawn(config) {
 }
 
 // Mapping: pv→makeAgentId, bd→generateColor, eb4→getClaudeExecutablePath,
-//   Au4→buildCLIFlags, R7→shellQuote, OI→isRunningInsideTmux,
+//   fi4→buildCLIFlags, R7→shellQuote, OI→isRunningInsideTmux,
 //   Tq→registerCleanup, x3→writeToMailbox, U6→getSessionId
 ```
 
@@ -1011,9 +1045,9 @@ class Mi4 {
     async terminate(A, q) {
         let Y = ps(A, K.tasks); // Find task by agentId
         if (Y.shutdownRequested) return !0;
-        let w = lP1({ requestId: `shutdown-${A}-${Date.now()}`, from: "team-lead", reason: q });
+        let w = Wf6({ requestId: `shutdown-${A}-${Date.now()}`, from: "team-lead", reason: q });  // Wf6 = createShutdownRequest
         x3(Y.identity.agentName, { from: "team-lead", text: JSON.stringify(w), timestamp: ... }, Y.identity.teamName);
-        MTA(Y.id, this.context.setAppState); // Mark shutdownRequested in AppState
+        YL8(Y.id, this.context.setAppState); // YL8 = markShutdownRequested
         return !0
     }
     async kill(A) {
@@ -1092,7 +1126,7 @@ class InProcessBackend {
 
 // Mapping: nb4→InProcessBackend, FNY→spawnInProcessTeammate, nM6→startAgentRunner,
 //   c31→parseAgentId, x3→writeToMailbox, ps→findTaskByAgentId,
-//   lP1→createShutdownRequest, MTA→markShutdownRequested,
+//   Wf6→createShutdownRequest, YL8→markShutdownRequested,
 //   Rj6→abortAndCleanup, sq6→removeFromTaskList
 ```
 
@@ -1143,7 +1177,7 @@ Team Lead decides to shut down a teammate
 terminate(agentId, reason)
     │
     ├─ InProcessBackend: Creates shutdown_request JSON, writes to mailbox via x3
-    │   Also marks task.shutdownRequested = true in AppState via MTA
+    │   Also marks task.shutdownRequested = true in AppState via YL8
     │
     └─ PaneBackendExecutor: Creates shutdown_request JSON, writes to mailbox via x3
         (No AppState marking -- the pane process manages its own state)
@@ -1167,16 +1201,16 @@ Agent marks itself idle → sends idle notification → poll loop re-enters
     │  If aborted during this cycle, exits cleanly
 ```
 
-### createShutdownRequest (lP1) - Structured shutdown message
+### createShutdownRequest (Wf6) - Structured shutdown message
 
 ```javascript
 // ============================================
-// createShutdownRequest - Build shutdown request payload
-// Location: chunks.129.mjs:1345-1353
+// createShutdownRequest (Wf6) - Build shutdown request payload
+// Location: chunks.132.mjs:261-269
 // ============================================
 
 // ORIGINAL (for source lookup):
-function lP1(A) {
+function Wf6(A) {
     return {
         type: "shutdown_request",
         requestId: A.requestId,
@@ -1197,51 +1231,51 @@ function createShutdownRequest({ requestId, from, reason }) {
     };
 }
 
-// Mapping: lP1→createShutdownRequest
+// Mapping: Wf6→createShutdownRequest
 ```
 
-### parseShutdownRequest (ss) - Detect shutdown in mailbox
+### parseShutdownMessage (M66) - Detect shutdown in mailbox
 
 ```javascript
 // ============================================
-// parseShutdownRequest - Parse shutdown_request from message text
-// Location: chunks.134.mjs (in-process agent runner)
+// parseShutdownMessage (M66) - Parse shutdown_request from message text
+// Location: chunks.132.mjs:312
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ss(A) {
+function M66(A) {
     try {
-        let q = Tx4.safeParse(_A(A));
-        if (q.success) return q.data
+        let q = i1(A);  // i1 = JSON.parse
+        if (q && q.type === "shutdown_request") return q
     } catch {}
     return null
 }
 
 // READABLE (for understanding):
-function parseShutdownRequest(messageText) {
+function parseShutdownMessage(messageText) {
     try {
-        let result = shutdownRequestSchema.safeParse(JSON.parse(messageText));
-        if (result.success) return result.data;
+        let parsed = JSON.parse(messageText);
+        if (parsed && parsed.type === "shutdown_request") return parsed;
     } catch {}
     return null;  // Not a shutdown request
 }
 
-// Mapping: ss→parseShutdownRequest, Tx4→shutdownRequestSchema, _A→JSON.parse
+// Mapping: M66→parseShutdownMessage, i1→JSON.parse
 ```
 
 **Key insight:** The shutdown request is embedded as JSON in the message text field of a regular mailbox message. The poll loop tries to parse every unread message as a shutdown request before treating it as a regular message. This piggybacks on the existing mailbox infrastructure without needing a separate control channel.
 
-### markShutdownRequested (MTA) - Prevent duplicate shutdown requests
+### markShutdownRequested (YL8) - Prevent duplicate shutdown requests
 
 ```javascript
 // ============================================
-// markShutdownRequested - Flag task as shutdown-pending in AppState
-// Location: chunks.123.mjs:440-448
+// markShutdownRequested (YL8) - Flag task as shutdown-pending in AppState
+// Location: chunks.113.mjs:1337-1343
 // ============================================
 
 // ORIGINAL (for source lookup):
-function MTA(A, q) {
-    c5(A, q, (K) => {
+function YL8(A, q) {
+    i9(A, q, (K) => {    // i9 = updateTask helper
         if (K.status !== "running" || K.shutdownRequested) return K;
         return { ...K, shutdownRequested: !0 }
     })
@@ -1249,13 +1283,13 @@ function MTA(A, q) {
 
 // READABLE (for understanding):
 function markShutdownRequested(taskId, setAppState) {
-    updateTask(taskId, setAppState, (task) => {
+    updateTask(taskId, setAppState, (task) => {    // i9
         if (task.status !== "running" || task.shutdownRequested) return task;  // Idempotent
         return { ...task, shutdownRequested: true };
     });
 }
 
-// Mapping: MTA→markShutdownRequested, c5→updateTask
+// Mapping: YL8→markShutdownRequested, A→taskId, q→setAppState, i9→updateTask(helper)
 ```
 
 ---
@@ -1281,27 +1315,27 @@ Key functions in this document:
 - `sleep` (jNY) - Promise-based delay @ chunks.134.mjs:1441
 
 **Pane Execution:**
-- `PaneBackendExecutor` (Ku4) - Tmux/iTerm2 pane-based teammate spawning
-- `buildCLIFlags` (Au4) - Construct CLI flags for subprocess
-- `getClaudeExecutablePath` (eb4) - Resolve Claude CLI binary path
+- `PaneBackendExecutor` (Ti4) - Tmux/iTerm2 pane-based teammate spawning
+- `buildCLIFlags` (fi4) - Construct CLI flags for subprocess
+- `getClaudeExecutablePath` (Gi4) - Resolve Claude CLI binary path @ chunks.134.mjs:2095
 - `TmuxBackend` (Ju8) - Tmux terminal backend implementation @ chunks.134.mjs:2411
 - `ITermBackend` (Xu8) - iTerm2 terminal backend implementation @ chunks.135.mjs:11
 - `paneCreationDelay` (Ju4) - 200ms delay between pane creations
 
 **Communication:**
-- `formatTeammateMessage` (_EA) - XML envelope for inter-agent messages
-- `sendIdleNotification` (lb4) - Notify team-lead of idle status
-- `sendToTeamLead` (DVY) - Route message to team-lead mailbox
+- `formatTeammateMessage` (Ku8) - XML envelope for inter-agent messages @ chunks.134.mjs:1405
+- `sendIdleNotification` (ji4) - Notify team-lead of idle status @ chunks.134.mjs:1436
+- `sendToTeamLead` (HNY) - Route message to team-lead mailbox @ chunks.134.mjs:1427
 - `writeToMailbox` (x3) - Write message to agent's file-based inbox
 - `readMailbox` (wl) - Read all messages from agent's inbox
 - `markMessageAsReadByIndex` (Vc6) - Mark specific message as read
-- `createIdleNotification` (DQ1) - Build idle notification payload
-- `extractLastMessageSummary` (WQ1) - Extract summary from last SendMessage tool use
+- `createIdleNotification` (Ec6) - Build idle notification payload @ chunks.132.mjs:153
+- `extractLastMessageSummary` (hc6) - Extract summary from last SendMessage tool use
 
 **Shutdown Protocol:**
-- `createShutdownRequest` (lP1) - Build shutdown request JSON
-- `parseShutdownRequest` (ss) - Detect shutdown request in message text
-- `markShutdownRequested` (MTA) - Flag task as shutdown-pending
+- `createShutdownRequest` (Wf6) - Build shutdown request JSON @ chunks.132.mjs:261
+- `parseShutdownMessage` (M66) - Detect shutdown request in message text @ chunks.132.mjs:312
+- `markShutdownRequested` (YL8) - Flag task as shutdown-pending @ chunks.113.mjs:1337
 - `abortAndCleanup` (Rj6) - Force-stop via abort controller + cleanup
 
 **State Management:**

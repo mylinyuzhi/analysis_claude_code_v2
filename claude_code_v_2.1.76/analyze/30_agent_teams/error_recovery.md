@@ -153,16 +153,18 @@ handleShutdownApproval:
 
 **Algorithm:**
 
-1. **Extract context**: Get `teamName`, `agentName`, `request_id`, and `content` (rejection reason)
+Signature: `handleShutdownRejection(requestId, reason)` — two separate string parameters (NOT a single object).
+
+1. **Extract context**: Get `teamName` and `agentName` from session globals
 
 2. **Format rejection message**: Create `shutdown_rejection_response` with:
-   - `requestId`: Original request ID
+   - `requestId`: Original request ID (passed directly as first param)
    - `from`: Teammate name rejecting shutdown
-   - `reason`: User-provided explanation
+   - `reason`: Rejection reason (passed directly as second param)
 
-3. **Send rejection to team-lead**: Call `sendTeamMessage(team-lead, rejectionMessage, teamName)`
+3. **Send rejection to team-lead**: Call `writeToMailbox(TEAM_LEAD_ID, message, teamName)` (x3)
 
-4. **Return success response**: Return `{success: true, message: "Shutdown rejected. Reason: {reason}. Continuing to work."}`
+4. **Return success response**: Return `{data: {success: true, message: "Shutdown rejected. Reason: \"{reason}\". Continuing to work.", request_id: requestId}}`
 
 **Why rejection is important**: Allows teammates to push back if:
 - Critical work is in progress (unsaved changes, running tests)
@@ -350,20 +352,20 @@ async function zxY(A, q) {
 }
 
 // READABLE (for understanding):
-function handleShutdownRejection(request) {
+async function handleShutdownRejection(requestId, reason) {
+    // NOTE: Two separate params — requestId (string) and reason (string), NOT a single object
     let teamName = getCurrentTeamName();
     let agentName = getCurrentAgentName() || "teammate";
-    let requestId = request.request_id;
 
     // Format rejection message
     let rejectionMessage = createShutdownRejectionResponse({
         requestId: requestId,
         from: agentName,
-        reason: request.content || ""
+        reason: reason
     });
 
     // Send rejection to team-lead
-    sendTeamMessage(TEAM_LEAD_NAME, {
+    await writeToMailbox(TEAM_LEAD_ID, {
         from: agentName,
         text: JSON.stringify(rejectionMessage),
         timestamp: new Date().toISOString(),
@@ -373,7 +375,7 @@ function handleShutdownRejection(request) {
     return {
         data: {
             success: true,
-            message: `Shutdown rejected. Reason: "${request.content}". Continuing to work.`,
+            message: `Shutdown rejected. Reason: "${reason}". Continuing to work.`,
             request_id: requestId
         }
     };

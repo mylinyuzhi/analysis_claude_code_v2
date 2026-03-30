@@ -477,22 +477,26 @@ function getHomeDirectory() {
 
 ## 5. Integration Points
 
-### 5.1 System Prompt Registration
+### 5.1 System Prompt Component Registration
 
-**Location**: chunks.169.mjs:231, 246
+**CORRECTION (2026-03-29)**: Memory is NOT registered as a "dynamic variable". It is registered as a static system prompt component with key `"memory"` (not `"auto_memory"`).
 
-Memory is registered as a **dynamic variable** in system prompt:
+**Actual Location**: `chunks.168.mjs:2153` (inside `buildSystemPrompt` function `R0`)
 
 ```javascript
-registerDynamicVariable("auto_memory",
-   () => getAutoMemory(),  // ID1 - async entry point
-   "MEMORY.md is read from disk each turn and can be edited by the model")
+// Actual source: chunks.168.mjs:2153
+j = [AF("memory", () => ID1()),    // key = "memory", cacheBreak = false
+     AF("ant_model_override", ...), ...]
+J = await B8q(j)   // evaluates and caches all components
 ```
 
-**Dynamic variable behavior**:
-- **Re-evaluated every turn**: Calls `ID1()` (getAutoMemory) before each API request
-- **Fresh from disk**: Always gets latest file contents
-- **Editable by agent**: Can be modified via Write/Edit tools
+**Component behavior** (`AF` = `createStaticSystemPromptComponent`):
+- `cacheBreak: false` — value is CACHED in `v1.systemPromptSectionCache`
+- First turn: `ID1()` called, result cached under `"memory"`
+- Subsequent turns: cache HIT returned without calling `ID1()` again
+- Cache invalidated by `RT6()` on worktree/session reset
+
+**Editable by agent**: Agent can modify MEMORY.md via Write/Edit tools; changes appear in the system prompt on next session start (or after `RT6()` cache clear).
 
 ---
 
@@ -635,18 +639,29 @@ function formatStalenessReminder(timestamp) {
 
 ---
 
-### 7.3 Disk Read Every Turn
+### 7.3 Session-Level Caching with Context-Based Invalidation
 
-**Decision**: Read MEMORY.md from disk on every turn (no caching)
+**CORRECTION (2026-03-29)**: Prior analysis incorrectly stated "no caching". The actual implementation caches memory content per session.
 
-**Rationale**:
-- **Always fresh**: Captures latest changes immediately
-- **Multi-agent safe**: Different agents can update same memory
+**Actual decision**: Memory is registered as a static system prompt component (`AF("memory", () => ID1())` with `cacheBreak: false`). The value is cached in `v1.systemPromptSectionCache` after the first evaluation.
 
-> **For detailed analysis**, see [18_system_reminder_generation.md](./18_system_reminder_generation.md) - Dynamic variable registration and prompt building flow.
-- **Simple**: No cache invalidation complexity
+**How it works:**
+- First turn: `ID1()` called → reads MEMORY.md from disk → result cached under key `"memory"`
+- Subsequent turns: `B8q()` checks cache → cache HIT → returns cached value without disk read
+- Cache cleared by `RT6()` when: worktree created/reset, full session reset via `gl()`
 
-**Trade-off**: Disk I/O overhead (~1-5ms per turn)
+**Two-path architecture:**
+- **Static path (cached)**: MEMORY.md content in system prompt — refreshed only on context change
+- **Dynamic path (per-turn, `tengu_moth_copse`)**: `zqq()` → concurrent semantic search → `relevant_memories` injected post-turn as user messages
+
+**Rationale for caching:**
+- **Performance**: Avoids repeated disk I/O for unchanged content
+- **Consistency**: Prevents partial state if MEMORY.md is being written mid-session
+- The `relevant_memories` dynamic path provides fresh semantic memory lookup each turn
+
+> **For detailed analysis**, see [39_agent_loop_integration_deep_dive.md](./39_agent_loop_integration_deep_dive.md) - Complete system prompt caching architecture with source code.
+
+**Trade-off**: Agent won't see mid-session MEMORY.md changes in the system prompt until context reset. Mitigated by `relevant_memories` dynamic path for fresh semantic lookup.
 
 ---
 

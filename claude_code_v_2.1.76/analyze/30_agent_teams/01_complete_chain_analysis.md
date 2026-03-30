@@ -291,33 +291,42 @@ spawnTeammateDispatcher(params, context)  [chunks.135.mjs:1110]
 
 // ORIGINAL (for source lookup):
 function Rb() {
-    return Y0(process.env.FORCE_IN_PROCESS) || !process.stdin.isTTY || !OI() && !j51()
+    if (q7()) return k("[BackendRegistry] isInProcessEnabled: true (non-interactive session)"), !0;
+    let A = LNY(),
+        q;
+    if (A === "in-process") q = !0;
+    else if (A === "tmux") q = !1;
+    else q = !uN1();
+    return k(`[BackendRegistry] isInProcessEnabled: ${q} (mode=${A}, insideTmux=${uN1()})`), q
 }
 
 // READABLE (for understanding):
 function isInProcessEnabled() {
-    // Force in-process mode via env var
-    if (parseBoolean(process.env.FORCE_IN_PROCESS)) return true;
+    // Non-interactive session (piped stdin etc.) → always in-process
+    if (isNonInteractiveSession()) return true;  // q7()
 
-    // Non-interactive session (no TTY) → must use in-process
-    if (!process.stdin.isTTY) return true;
+    let mode = getSpawnMode();  // LNY() → reads configured backend mode string
 
-    // No tmux AND no iTerm2 available → fallback to in-process
-    if (!isRunningInsideTmux() && !isRunningInIterm2()) return true;
+    // Explicitly configured mode takes priority
+    if (mode === "in-process") return true;
+    if (mode === "tmux") return false;
 
-    return false;
+    // Auto-detect: use in-process only when NOT inside tmux
+    // (tmux is needed to split panes; without it, in-process is the only option)
+    return !insideTmux();  // uN1()
 }
 
-// Mapping: Rm→isInProcessEnabled, Y0→parseBoolean, OI→isRunningInsideTmux, j51→isRunningInIterm2
+// Mapping: Rb→isInProcessEnabled, q7→isNonInteractiveSession, LNY→getSpawnMode,
+//          uN1→insideTmux, A→mode, q→result, k→log
 ```
 
 **Why this approach**:
 
-1. **Non-interactive defaults to in-process**: CI/CD environments or SSH sessions without tmux can't spawn panes
-2. **Backend availability fallback**: If user has no terminal multiplexer, in-process is the only option
-3. **User override**: `FORCE_IN_PROCESS=1` for debugging or testing in-process behavior
+1. **Non-interactive first** (`q7()`): If stdin is not a TTY (CI/CD, piped input), in-process is always correct — pane spawning requires an interactive terminal
+2. **Explicit mode config takes priority** (`LNY()` mode string): The user or team config can force "in-process" or "tmux" regardless of environment detection
+3. **Auto-detect via tmux presence**: In the absence of explicit config, checks `insideTmux()` — if already in tmux, pane-based spawning works; if not, fall back to in-process
 
-**Trade-off**: In-process mode shares one Node.js event loop between all agents. CPU-intensive work in one agent blocks others. Pane-based mode provides full process isolation but requires tmux/iTerm2.
+**Trade-off**: In-process mode shares one Node.js event loop between all agents. CPU-intensive work in one agent blocks others. Pane-based mode (tmux/iTerm) provides full process isolation but requires terminal multiplexer availability.
 
 ### 4.3 Split-Pane Spawning (tmux Backend Example)
 
