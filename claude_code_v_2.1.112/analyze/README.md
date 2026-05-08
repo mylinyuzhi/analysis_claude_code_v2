@@ -23,6 +23,8 @@ This directory analyzes every changelog item from Claude Code **v2.1.88** (sourc
 | `by_version/v2.1.107-109.md` | (Recap, prompt cache 1h, model-invokable built-in skills) |
 | `by_version/v2.1.110.md` | (/tui, push notifications, /focus split from Ctrl+O) |
 | `by_version/v2.1.111-112.md` | (Opus 4.7, xhigh effort, /ultrareview, /less-permission-prompts) |
+| `07_compact/` | Full module — Context Compaction (autocompact, microcompact, context_hint, dead-code audit) |
+| `30_agent_team/` | Full module — Agent Teams (multi-agent collaboration, mailbox protocol, in-process runner, polling priorities, plan integration) |
 
 ## How to Read
 

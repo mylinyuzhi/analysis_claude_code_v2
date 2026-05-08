@@ -177,6 +177,92 @@ PreCompact can now block compaction via:
 | `XtY` | `recordContextCollapseCommit` (write-only persistence shim, no callers) | chunks.191.mjs:1102-1110 | function |
 | `MtY` | `recordContextCollapseSnapshot` (write-only persistence shim, no callers) | chunks.191.mjs:1112-1120 | function |
 
+**State preservation collectors (post-compact restoration):**
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Nx8` | `restoreFilesPostCompact` (last 5 files, 50k aggregate cap) | chunks.159.mjs:1057-1079 | function |
+| `hx8` | `loadTaskStatusAttachments` (local-agent task statuses) | chunks.159.mjs:1125-1139 | function |
+| `Ex8` | `collectPlanAttachment` (plan file content reference) | chunks.159.mjs:1081-1090 | function |
+| `Lx8` | `collectAsyncAgentAttachment` (plan-mode reminder when active) | chunks.159.mjs:1112-1123 | function |
+| `yx8` | `collectInvokedSkillsAttachment` (skills sorted by recency) | chunks.159.mjs:1092-1110 | function |
+| `IDY` | `truncateContent` (per-skill truncation helper) | chunks.159.mjs (referenced) | function |
+| `bDY` | `extractPathsFromKeptMessages` (used by Nx8 for partial compact dedup) | chunks.159.mjs (referenced) | function |
+| `xDY` | `isInternalFile` (filters internal/temp paths in Nx8) | chunks.159.mjs (referenced) | function |
+| `p97` | `readFileWithLimits` (post-compact file reader with cap) | chunks.159.mjs (referenced) | function |
+| `g81` | `getInvokedSkillsMap` | chunks.159.mjs (referenced) | function |
+| `lP` | `readPlanFileContent` | chunks.159.mjs (referenced) | function |
+| `eW` | `getPlanFilePath` | chunks.159.mjs (referenced) | function |
+| `$A` | `getTaskOutputPath` (used in hx8) | chunks.159.mjs (referenced) | function |
+| `MR6` | `buildDeferredToolsReminder` (deferred_tools_delta) | chunks.155.mjs:1738-1748 | function |
+| `PR6` | `buildAgentListingReminder` (agent_listing_delta) | chunks.155.mjs:1750-1785 | function |
+| `WR6` | `buildMcpInstructionsReminder` (mcp_instructions_delta) | chunks.155.mjs:1787-1803 | function |
+| `Y4` | `wrapAttachment` (envelope: type:"attachment" + uuid + timestamp) | chunks.155.mjs:2497-2504 | function |
+| `pe6` | `preserveReadFileState` (Map → Object snapshot) | chunks.86.mjs:1531-1533 | function |
+| `sj6` | `resetMemorySelector` | chunks.86.mjs:2631-2634 | function |
+
+**Boundary marker, summary, telemetry helpers:**
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `p18` | `createCompactBoundaryMessage` (system + subtype:"compact_boundary" + compactMetadata) | chunks.166.mjs:118-137 | function |
+| `b18` | `compactSummaryContent` (composes the post-compact user message) | chunks.101.mjs:804-820 | function |
+| `rc` | `collectPreCompactDiscoveredTools` (carries discovered tools across compacts) | chunks.159.mjs:2310-2333 | function |
+| `aK6` | `emitOpenTelemetryCompactEvent` (always-fire `compaction` event in `finally`) | chunks.87.mjs:1531-1546 | function |
+| `aI` | `extractApiUsage` (input/output/cache token counts) | utility | function |
+| `GD6` | `setPendingPostCompactionFlag` | chunks.1.mjs:2549-2551 | function |
+| `DR6` | `reAppendSessionMetadata` | chunks.191.mjs:1715-1717 | function |
+| `Ne6` | `clearReplCacheReadTokens` (REPL state clear post-compact) | chunks.85.mjs:1055-1059 | function |
+| `nj6` | `notifyCacheDeletion` (UI flag for "cache will be invalidated") | chunks.85.mjs:1143-1145 | function |
+| `i04` | `notifyCacheDeletionForAntUser` (per-cache-hash registry tracking) | chunks.85.mjs:1049-1053 | function |
+| `bs` | `clearLastCompactWarningSuppression` | chunks.159.mjs (referenced) | function |
+| `_F` | `onCompactSucceeded` (records success in app state) | chunks.159.mjs (referenced) | function |
+
+**LLM call infrastructure for compact:**
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Or1` | `permissionStubForCompactAgent` (rejects all tool use during compaction) | chunks.159.mjs:937-946 | function |
+| `Kz` | `summaryStubTool` (the only tool exposed during compact) | chunks.159.mjs (referenced) | constant |
+| `eb6` | `apiCall` (the underlying streaming API call) | chunks.159.mjs (referenced) | function |
+| `rP` | `cachePrefixCall` (the inner `skipCacheWrite:true` fork call) | chunks.159.mjs (referenced) | function |
+| `MJ6` | `extractSummaryText` (filters text content from assistant message) | chunks.165.mjs:2034-2039 | function |
+| `_R6` | `switchPermissionContext` (no-op in v2.1.112) | chunks.100.mjs:2172-2174 | function |
+| `t8` | `makeUserMessage` (wraps content in user-message envelope) | chunks.159.mjs (referenced) | function |
+| `H2` | `filterRelevantMessages` (drops progress, etc.) | chunks.159.mjs (referenced) | function |
+| `SDY` | `stripImagesAndDocs` (cold-compact stripping) | chunks.159.mjs (referenced) | function |
+| `CDY` | `truncateContents` (cold-compact tool input/result truncation) | chunks.159.mjs (referenced) | function |
+| `Gx8` | `ensureMessageAlternation` | chunks.159.mjs (referenced) | function |
+| `Ar1` | `stripUnusedTools` | chunks.159.mjs (referenced) | function |
+| `K0` | `prepareMessages` | chunks.159.mjs (referenced) | function |
+| `sK` | `buildSystemPrompt` | chunks.159.mjs (referenced) | function |
+| `Rh8` | `extractApiTokenDelta` (used by KLK to compute drop-count from API error) | chunks.159.mjs (referenced) | function |
+| `AR6` | `groupIntoTurnPairs` (used by KLK) | chunks.159.mjs (referenced) | function |
+| `fM` | `findLastAssistantMessage` (used by ALK after cache-prefix call) | chunks.159.mjs (referenced) | function |
+| `fp` | `isApiErrorString` (detect API errors in summary text) | chunks.159.mjs (referenced) | function |
+| `S6` | `parseExplicitTrue` (env var boolean parser) | chunks.1.mjs (referenced) | function |
+| `bx` | `isAntUser` (= `tengu_cobalt_raccoon` experiment) | chunks.101.mjs:1530-1533 | function |
+| `iI` | `isReplBeingUsed` | chunks.159.mjs (referenced) | function |
+| `JJ` | `isReplBeingUsed` (alt) / context check | chunks.159.mjs (referenced) | function |
+| `bY` | `currentTranscriptPath` | chunks.159.mjs (referenced) | function |
+| `Oa6` | `getReplContexts` | chunks.159.mjs (referenced) | function |
+| `qx8` / `Kx8` | `collectCompactStats` (per-message stats collector for telemetry) | chunks.159.mjs (referenced) | function |
+| `YLK` | `showCompactErrorToUser` (manual compact error display) | chunks.159.mjs (referenced) | function |
+
+**Slash command `/compact`:**
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aIK` | `compactCommandRegistration` | chunks.167.mjs:2343-2354 | function |
+| `MLY` | `compactCommandDescriptor` (slash-command descriptor object) | chunks.167.mjs:2343 | constant |
+| `Un8` | (alias of MLY) | chunks.167.mjs | constant |
+| `JLY` | `compactCommandHandler` (parses arg, calls vI6 or XLY) | chunks.167.mjs:2287-2316 | function |
+| `XLY` | `reactiveCompactPath` (Ant-only experimental compact path) | chunks.167.mjs (referenced) | function |
+| `iIK` | `loadCacheSafeParams` (builds cacheSafeParams for vI6) | chunks.167.mjs (referenced) | function |
+| `nIK` | `formatCompactDisplayText` (formats userDisplayMessage for UI) | chunks.167.mjs (referenced) | function |
+| `oIK` | `loadCompactCommandModule` | chunks.167.mjs (referenced) | function |
+| `rIK` | `compactCommandModule` (the lazy-loaded handler module export) | chunks.167.mjs (referenced) | constant |
+
 **Microcompact via context_hint reject path (chunks.194.mjs):**
 
 | Obfuscated | Readable | File:Line | Type |
@@ -368,6 +454,245 @@ PreCompact can now block compaction via:
 | `H6`/`q6` | `onEffortChange` (slider callback) | chunks.168.mjs:740-744 | function |
 | `KhY` | `applyEffortChange` | chunks.168.mjs | function |
 | `eA7` | `getDefaultEffortForCurrentModel` | chunks.168.mjs | function |
+
+---
+
+## Module: Agent Teams (Multi-agent collaboration)
+
+### Feature Gate
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `z4` | `isAgentTeamsEnabled` | chunks.63.mjs:2617 | function |
+| `cN_` | `agentTeamsCliFlag` | chunks.63.mjs:2613 | function |
+| `eQ` | `runWithTeammateContext` | chunks.63.mjs:2632 | function |
+| `uB` | `getCurrentTeammateContext` | chunks.63.mjs:2628 | function |
+| `nN_` | `isSubagent` | chunks.63.mjs:2636 | function |
+| `r74` | `getSubagentName` | chunks.63.mjs:2640 | function |
+
+### Spawning (chunks.137.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `n7Y` | `spawnTeammateDispatcher` | chunks.137.mjs:2929 | function |
+| `P2K` | `spawnTeammateLegacyAlias` | chunks.137.mjs:2941 | function |
+| `c7Y` | `spawnSplitPaneTeammate` | chunks.137.mjs:2534 | function |
+| `l7Y` | `spawnTmuxTeammate` (**unreachable** — only path through `n7Y` requires `use_splitpane: false`, which no caller passes) | chunks.137.mjs:2653 | function (dead) |
+| `j2K` | `spawnInProcessTeammate` | chunks.137.mjs:2803 | function |
+| `M2K` | `registerInProcessTask` | chunks.137.mjs:2757 | function |
+| `d7Y` | `pickUniqueTeammateName` | chunks.137.mjs:2525 | function |
+| `S77` | `sanitizeAgentName` | chunks.155.mjs:1165 | function |
+| `UX6` | `getTeammateMode` | chunks.137.mjs:1738 | function |
+| `gX6` | `setTeammateModeOverride` | chunks.137.mjs:1735 | variable |
+| `HK8` | `buildTeammateEnv` | chunks.137.mjs:2374 | function |
+| `J2K` | `resolveClaudeBinPath` | chunks.137.mjs:2449 | function |
+| `X2K` | `buildExtraCliArgs` | chunks.137.mjs:2454 | function |
+| `_2K` | `buildExtraCliArgsWithTeammateMode` (**dead code** — no callers; near-duplicate of `X2K` with `--teammate-mode` arg) | chunks.137.mjs:2350 | function (dead) |
+| `A5` | `shellEscape` | chunks.137.mjs:1710 | function |
+| `T96` | `sanitizeForTmuxName` | chunks.155.mjs:1161 | function |
+| `Y2K` | `assignSwarmPaneId` | chunks.137.mjs:2402 | function |
+| `A2K` | `ensureSwarmView` | chunks.137.mjs:2406 | function |
+| `O2K` | `sendKeysToPane` | chunks.137.mjs:2410 | function |
+| `Q7Y` | `ensureTmuxSession` | chunks.137.mjs:2442 | function |
+| `z2K` | `isInsideTmux` | chunks.137.mjs:2395 | function |
+| `y77` | `persistTeammateRecord` | chunks.137.mjs:2517 | function |
+| `E77` | `wrapWithTeamConfigUpdate` | chunks.137.mjs:2476 | function |
+| `R77` | `invalidatePaneBackendCache` | chunks.155.mjs:1141 | function |
+| `v96` | `paneBackendProbe` | chunks.155.mjs:1002 | function |
+| `h77` | `enableInProcessFallback` | chunks.155.mjs:1096 | function |
+| `bF` | `inProcessExecutorCheck` | chunks.155.mjs:1104 | function |
+| `FXY` | `getTeammateBackendMode` | chunks.155.mjs:1100 | function |
+| `d37` | `resolveBackendType` | chunks.155.mjs:1119 | function |
+| `LNK` | `getInProcessBackend` | chunks.155.mjs:1123 | function |
+| `gXY` | `pickBackendExecutor` | chunks.155.mjs:1128 | function |
+| `UXY` | `cachePaneBackendExecutor` | chunks.155.mjs:1133 | function |
+
+### Mailbox (chunks.99.mjs / chunks.100.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `eH6` | `getInboxPath` | chunks.99.mjs:1934 | function |
+| `dWz` | `ensureInboxDirectory` | chunks.99.mjs:1943 | function |
+| `ts` | `readMailbox` | chunks.99.mjs:1952 | function |
+| `qJ6` | `readUnreadMessages` | chunks.99.mjs:1965 | function |
+| `_18` | `parseAgentName` | chunks.99.mjs:1902 | function |
+| `ph6` | `composeMessageId` | chunks.99.mjs:1911 | function |
+| `gh6` | `defaultSwarmName` | chunks.99.mjs:1916 | function |
+| `F_` | `writeToMailbox` | chunks.100.mjs:3 | function |
+| `Y18` | `markMessageAsReadByIndex` | chunks.100.mjs:38 | function |
+| `A18` | `markMessagesAsRead` | chunks.100.mjs:73 | function |
+| `O18` | `clearInbox` | chunks.100.mjs:103 | function |
+| `cWz` | `formatTeammateXmlBlocks` | chunks.100.mjs:122 | function |
+| `w18` | `buildIdleNotification` | chunks.100.mjs:134 | function |
+| `$18` | `parseIdleNotification` | chunks.100.mjs:147 | function |
+| `Ti1` | `buildPermissionRequest` | chunks.100.mjs:155 | function |
+| `Vi1` | `buildPermissionResponse` | chunks.100.mjs:168 | function |
+| `j18` | `parsePermissionRequest` | chunks.100.mjs:186 | function |
+| `KJ6` | `parsePermissionResponse` | chunks.100.mjs:194 | function |
+| `ki1` | `buildSandboxPermissionRequest` | chunks.100.mjs:202 | function |
+| `Ni1` | `buildSandboxPermissionResponse` | chunks.100.mjs:216 | function |
+| `cWz` | `formatTeammateMessages` (XML formatter) | chunks.100.mjs:122 | function |
+| `dh6` | `buildShutdownRequest` (`Yb4` schema) | chunks.100.mjs:242 | function |
+| `Ei1` | `buildShutdownApproved` (`Ab4` schema) | chunks.100.mjs:252 | function |
+| `yi1` | `buildShutdownRejected` (`Ob4` schema) | chunks.100.mjs:263 | function |
+| `RI8` | `dispatchShutdownRequest` (non-tool path) | chunks.100.mjs:273 | function |
+| `i56` | `parseShutdownRequest` | chunks.100.mjs:293 | function |
+| `_J6` | `parsePlanApprovalRequest` (uses `_b4` — was wrongly attributed to sandbox) | chunks.100.mjs:301 | function |
+| `Qk` | `parseShutdownApproved` (uses `Ab4` — was wrongly attributed to sandbox) | chunks.100.mjs:309 | function |
+| `SI8` | `parseShutdownRejected` (uses `Ob4`) | chunks.100.mjs:317 | function |
+| `ch6` | `parsePlanApprovalResponse` (uses `zb4`) | chunks.100.mjs:325 | function |
+| `hI8` | `parseSandboxPermissionRequest` | chunks.100.mjs:226 | function |
+| `H18` | `parseSandboxPermissionResponse` | chunks.100.mjs:234 | function |
+| `Yb4` | `shutdownRequestSchema` | chunks.100.mjs:464 | object |
+| `Ab4` | `shutdownApprovedSchema` | chunks.100.mjs:470 | object |
+| `Ob4` | `shutdownRejectedSchema` | chunks.100.mjs:477 | object |
+
+### Additional message types (newly mapped from v2.1.88 cross-validation)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| (inline parser) | `isTeamPermissionUpdate` (`team_permission_update` envelope: addRules broadcast) | chunks.100.mjs (referenced) | function |
+| (inline parser) | `isTaskAssignment` (`task_assignment` envelope) | chunks.100.mjs (referenced) | function |
+| (inline parser) | `isModeSetRequest` (`mode_set_request`, uses `ModeSetRequestMessageSchema`) | chunks.100.mjs (referenced) | function |
+| (inline) | `createModeSetRequestMessage` | chunks.100.mjs (referenced) | function |
+| (inline) | `markMessagesAsReadByPredicate` (selective mark-as-read with predicate) | chunks.100.mjs (referenced) | function |
+| `J18` | `getLastPeerDmSummary` (extracts last peer DM summary for idle notification) | chunks.100.mjs (referenced) | function |
+| (inline) | `isStructuredProtocolMessage` (10-type-discriminator) | chunks.100.mjs (referenced) | function |
+
+### In-Process Runner (chunks.155.mjs / chunks.154.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `bXY` | `inProcessAgentRunner` | chunks.155.mjs:3 | function |
+| `Jg8` | `startInProcessAgentExecution` | chunks.155.mjs:309 | function |
+| `yXY` | `pollIntervalMs` (`= 500`) | chunks.155.mjs:316 | constant |
+| `JNK` | `InProcessBackend` | chunks.155.mjs:350 | class |
+| `N97` | `TmuxBackend` | chunks.155.mjs:639 | class |
+| `y97` | `ITermBackend` | chunks.155.mjs:870 | class |
+| `TNK` | `registerTmuxBackend` | chunks.155.mjs:832 | function |
+| `NNK` | `registerITermBackend` | chunks.155.mjs:955 | function |
+| `WNK` | `wrapPaneBackendExecutor` | chunks.155.mjs (referenced) | function |
+| `XNK` | `makeInProcessBackend` | chunks.155.mjs (referenced) | function |
+| `oF` | `getTeamConfigPath` | chunks.155.mjs:1173 | function |
+| `uM` | `readTeamConfigSync` | chunks.155.mjs:1177 | function |
+| `$J6` | `readTeamConfigAsync` | chunks.155.mjs:1187 | function |
+| `lM6` | `writeTeamConfig` | chunks.155.mjs:1197 | function |
+| `LXY` | `buildCanUseToolForTeammate` | chunks.154.mjs:2203 | function |
+| `k97` | `wrapMessageForTeammate` | chunks.154.mjs:2386 | function |
+| `sF` | `mutateInProcessTeammateTask` | chunks.154.mjs:2394 | function |
+| `hXY` | `dispatchToLeader` | chunks.154.mjs:2410 | function |
+| `jNK` | `sendIdleNotification` | chunks.154.mjs:2419 | function |
+| `RXY` | `findClaimableTask` | chunks.154.mjs:2424 | function |
+| `SXY` | `formatTaskPrompt` | chunks.154.mjs:2433 | function |
+| `HNK` | `claimUnclaimedTask` | chunks.154.mjs:2443 | function |
+| `CXY` | `pollForNextMessage` | chunks.154.mjs:2462 | function |
+
+### Permission Sync (chunks.100.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `bb4` | `getTeamLeaderName` | chunks.100.mjs:1369 | function |
+| `aI8` | `sendPermissionRequest` | chunks.100.mjs:1377 | function |
+| `sI8` | `sendPermissionResponse` | chunks.100.mjs:1401 | function |
+| `Ib4` | `makeSandboxRequestId` | chunks.100.mjs:1423 | function |
+| `xb4` | `sendSandboxPermissionRequest` | chunks.100.mjs:1427 | function |
+| `tI8` | `sendSandboxPermissionResponse` | chunks.100.mjs:1455 | function |
+| `Y0z` | `derivePermissionMode` | chunks.100.mjs:1073 | function |
+| `cI8` | `spawnInProcessHelper` | chunks.100.mjs:1079 | function |
+| `W18` | `updateTaskWithResult` (kill path) | chunks.100.mjs:1152 | function |
+
+### Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `LJY` | `SendMessageTool` | chunks.153.mjs:367 | object |
+| `tW` | `SEND_MESSAGE_TOOL_NAME` (`"SendMessage"`) | chunks.153.mjs (referenced) | constant |
+| `jJY` | `TeamDeleteTool` (third user-facing team tool, distinct from TeamCreate; emits `tengu_team_deleted`) | chunks.152.mjs:2609 | object |
+| `Cc` | `TEAM_DELETE_TOOL_NAME` (`"TeamDelete"`) | chunks.98.mjs:1491 | constant |
+| `vJY` | `sendMessageToOne` | chunks.153.mjs:96 | function |
+| `TJY` | `broadcastMessage` | chunks.153.mjs:125 | function |
+| `VJY` | `sendShutdownRequest` | chunks.153.mjs:169 | function |
+| `kJY` | `approveShutdown` | chunks.153.mjs:194 | function |
+| `NJY` | `rejectShutdown` | chunks.153.mjs:250 | function |
+| `EJY` | `approveTeammatePlan` | chunks.153.mjs:272 | function |
+| `yJY` | `rejectTeammatePlan` | chunks.153.mjs:298 | function |
+| `_b4` | `planApprovalRequestSchema` | chunks.100.mjs:451 | object |
+| `zb4` | `planApprovalResponseSchema` | chunks.100.mjs:458 | object |
+| `RHK` | `AgentTool` | chunks.141.mjs:456 | object |
+| `T4` | `AGENT_TOOL_NAME` (`"Agent"`) | chunks.141.mjs (referenced) | constant |
+| `wJY` | `TeamCreateTool` | chunks.152.mjs:2439 | object |
+| `lp` | `TEAM_CREATE_TOOL_NAME` (`"TeamCreate"`) | chunks.152.mjs (referenced) | constant |
+
+### TUI Helpers (chunks.183.mjs / chunks.100.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$u6` | `formatTeammateStatusVerb` | chunks.183.mjs:2733 | function |
+| `ju6` | `allTeammatesAreInProcess` | chunks.183.mjs:2740 | function |
+| `_nK` | `AgentStatusComponent` | chunks.183.mjs:2756 | function |
+| `AJ6` | `getSpinnerVerbs` | chunks.100.mjs:624 | function |
+| `LJ` | `pickRandomSpinnerVerb` | chunks.100.mjs:621 | function |
+| `Si1` | `DEFAULT_SPINNER_VERBS` | chunks.100.mjs:633 | constant |
+| `nh6` | `IDLE_VERBS` | chunks.100.mjs (referenced) | constant |
+
+### Hooks (chunks.192.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `W38` | `runTeammateIdleHook` (event: `TeammateIdle`) | chunks.192.mjs:2814 | function |
+| `e58` | `runTaskCreatedHook` (event: `TaskCreated`) | chunks.192.mjs:2829 | function |
+| `CM6` | `runTaskCompletedHook` (event: `TaskCompleted`) | chunks.192.mjs:2848 | function |
+
+### Constants (chunks.99.mjs)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Mz` | `LEAD_NAME` (`"team-lead"`) | chunks.99.mjs:1920 | constant |
+| `Ny` | `SWARM_SESSION` (`"claude-swarm"`) | chunks.99.mjs:1922 | constant |
+| `Fh6` | `SWARM_VIEW_WINDOW` (`"swarm-view"`) | chunks.99.mjs:1924 | constant |
+| `mD` | `TMUX` (`"tmux"`) | chunks.99.mjs:1926 | constant |
+| `Gi1` | `HIDDEN_PANE` (`"claude-hidden"`) | chunks.99.mjs:1928 | constant |
+| `Uh6` | `TEAMMATE_COMMAND_ENV` (`"CLAUDE_CODE_TEAMMATE_COMMAND"`) | chunks.99.mjs:1930 | constant |
+| `oX` | `TEAMMATE_MESSAGE_TAG` (`"teammate-message"`) | chunks.16.mjs:584 | constant |
+| `z18` | `LOCK_RETRY_OPTS` (`{retries: {retries: 10, minTimeout: 5, maxTimeout: 100}}`) | chunks.100.mjs:443 | constant |
+
+### Telemetry Events (string literals)
+
+| Event | File:Line | When fired |
+|-------|-----------|------------|
+| `tengu_team_created` | chunks.152.mjs:2544 | TeamCreate success (`teammate_count: 1` always — only the lead) |
+| `tengu_team_deleted` | chunks.152.mjs:2659 | TeamDelete tool (`Cc` / `jJY`) success |
+| `tengu_teammate_mode_changed` | chunks.169.mjs:675 | teammateMode toggle |
+| `tengu_teammate_default_model_changed` | chunks.169.mjs:1069 | model setting changed |
+| `tengu_team_mem_sync_started` | chunks.163.mjs:1614 | Team memory sync begins |
+| `tengu_team_mem_sync_pull` | chunks.163.mjs:1388 | Team memory pulled |
+| `tengu_team_mem_sync_push` | chunks.163.mjs:1415 | Team memory pushed |
+| `tengu_team_mem_push_suppressed` | chunks.163.mjs:1511 | Team memory push skipped |
+| `tengu_team_mem_secret_skipped` | chunks.163.mjs:1192 | Secret detected & skipped |
+| `tengu_team_mem_entries_capped` | chunks.163.mjs:973 | Memory cap reached |
+| `tengu_team_mem_accessed` | chunks.163.mjs:1776 | Generic team-memory file touch |
+| `tengu_team_mem_file_read/edit/write` | chunks.163.mjs:1781/1786/1791 | Per-file ops |
+| `tengu_agent_memory_loaded` | chunks.155.mjs:46 | Custom agent memory in runner |
+
+### v2.1.76 → v2.1.112 Symbol Renames (Agent Teams)
+
+| Concept | v2.1.76 | v2.1.112 |
+|---------|---------|----------|
+| Feature gate | `E7` | `z4` |
+| Spawn dispatcher | `pNY` | `n7Y` |
+| In-process spawn | `FNY` | `j2K` |
+| Split-pane spawn | `BNY` | `c7Y` |
+| Tmux window spawn | `gNY` | `l7Y` |
+| In-process check | `Rb` | `bF` |
+| Runner | `XNY` | `bXY` |
+| Poll loop | `DNY` | `CXY` |
+| Task claim | `Ji4` | `HNK` |
+| Mailbox write | `x3` | `F_` |
+| Mailbox read | `wl` | `ts` |
+| Mark read | `kc6` | `A18` |
+| Mark single read | `Vc6` | `Y18` |
+| SendMessage tool | `OxY` | `LJY` |
+| Status renderer | `gZ1` | (consolidated; see `_nK`) |
 
 ---
 

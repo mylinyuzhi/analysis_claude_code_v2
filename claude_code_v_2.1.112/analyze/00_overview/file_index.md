@@ -75,12 +75,17 @@ The chunks aren't strictly one-feature-per-file (rollup splits by import graph),
 | `chunks.101.mjs` | Tool definitions: Monitor, PushNotification, compact stage | `ic`, `cI4`, `lI4`, `_0`, `$r1`, `e56`, `wr1`, `oc` |
 | `chunks.102.mjs` | Syntax highlighting grammars (incl. Cedar) | `xZz` (Cedar grammar) |
 | `chunks.116.mjs` | Provider env vars (Bedrock/Vertex/Foundry/Mantle) | `aNz`, `BR6` |
-| `chunks.137.mjs` | Remote-task env passthrough | `g7Y` |
+| `chunks.63.mjs` | Agent teams: feature gate, AsyncLocalStorage scope | `z4` (gate), `cN_`, `eQ`, `uB`, `nN_`, `r74` |
+| `chunks.99.mjs` | Agent teams: mailbox path/read, constants | `eH6`, `dWz`, `ts`, `qJ6`, `_18`, `ph6`, `gh6`, `Mz`, `Ny`, `Fh6`, `mD`, `Gi1`, `Uh6` |
+| `chunks.100.mjs` | Agent teams: mailbox write/mark, message builders, permission sync, in-process spawn helper | `F_`, `Y18`, `A18`, `O18`, `cWz`, `w18`, `$18`, `Ti1`, `Vi1`, `j18`, `KJ6`, `dh6`, `i56`, `bb4`, `aI8`, `sI8`, `xb4`, `tI8`, `Y0z`, `cI8`, `W18` |
+| `chunks.137.mjs` | Remote-task env passthrough; **Agent teams: spawn dispatchers** | `g7Y`, `n7Y`, `c7Y`, `l7Y`, `j2K`, `M2K`, `d7Y`, `UX6`, `gX6`, `HK8`, `Y2K`, `O2K`, `Q7Y`, `z2K`, `y77`, `E77`, `R77`, `v96`, `h77` |
 | `chunks.149.mjs` | Bash permission rules (additional) | (Bash classifier helpers) |
 | `chunks.151.mjs` | Settings descriptions, EnterWorktree, autoScrollEnabled | `WvK`, `DvK`, `bjY` (EnterWorktree); `autoScrollEnabled` field |
-| `chunks.153.mjs` | PermissionDenied retry message handling | (PermissionDenied wiring) |
-| `chunks.154.mjs` | (autocompact state plumbing) | `consecutiveFailures` reads |
-| `chunks.155.mjs` | In-process subagent runner | (PreCompact-blocked log) |
+| `chunks.141.mjs` | Agent tool (subagent + teammate spawn) | `RHK` (Agent tool), `T4` (`"Agent"` name) |
+| `chunks.152.mjs` | TeamCreate tool, telemetry sites | `wJY` (TeamCreate), `lp` (`"TeamCreate"` name), `tengu_team_created/deleted` emit |
+| `chunks.153.mjs` | PermissionDenied retry message handling; **Agent teams: SendMessage tool + dispatchers** | (PermissionDenied wiring); `LJY` (SendMessage), `tW`, `vJY`, `TJY`, `VJY`, `kJY`, `NJY`, `EJY`, `yJY` |
+| `chunks.154.mjs` | (autocompact state plumbing); **Agent teams: poll loop + helpers** | `consecutiveFailures` reads; `LXY`, `k97`, `sF`, `hXY`, `jNK`, `RXY`, `SXY`, `HNK`, `CXY` |
+| `chunks.155.mjs` | In-process subagent runner; **Agent teams: in-process runner + backends** | (PreCompact-blocked log); `bXY`, `Jg8`, `yXY` (=500), `JNK`, `N97`, `y97`, `bF`, `oF`, `uM`, `$J6`, `lM6`, `LNK`, `gXY`, `UXY`, `d37` |
 | `chunks.156.mjs`, `chunks.165.mjs` | Output-style + plugin loader (`keep-coding-instructions`) | `ht6` parser |
 | `chunks.157.mjs` | Plugin marketplace + plugin loader | (plugin install) |
 | `chunks.159.mjs` | **Autocompact dispatcher**, chain hooks | `QkK` (dispatcher), `gDY` (shouldCompact), `wLK=3`, `a_7=3`, `jLK=3`, `GI6` (PreCompact-blocked prefix) |
@@ -89,7 +94,10 @@ The chunks aren't strictly one-feature-per-file (rollup splits by import graph),
 | `chunks.168.mjs` | Keybindings (effort slider, etc.) | `KhY`, `modelPicker:decreaseEffort/increaseEffort` |
 | `chunks.180.mjs` | `/powerup`, lessons, /release-notes (now local-jsx) | `KQK`, `qQK`, `Xg`, `pFY` (release-notes) |
 | `chunks.181.mjs` | Welcome banner | `pdK`, `qUY` ("Welcome to Opus 4.7 xhigh!") |
-| `chunks.183.mjs` | `/ultrareview` | `ulK`, `wW6`, ultrareview preflight |
+| `chunks.163.mjs` | Team memory sync | `tengu_team_mem_sync_pull/push` (1388/1415), `tengu_team_mem_entries_capped` (973), file ops (1781-1791) |
+| `chunks.169.mjs` | Teammate mode/model setters | `tengu_teammate_mode_changed` (675), `tengu_teammate_default_model_changed` (1069) |
+| `chunks.183.mjs` | `/ultrareview`; **Agent teams: TUI helpers** | `ulK`, `wW6`, ultrareview preflight; `$u6`, `ju6`, `_nK` |
+| `chunks.192.mjs` | **Agent teams: hook handlers** | `W38` (TeammateIdle, line 2814), `CM6` (TaskCompleted, line 2848) |
 | `chunks.185.mjs` | `/tui` command | `bcY`, `IcY`, `n$7` (validTuiModes) |
 | `chunks.188.mjs` | `/rewind` and aliases | aliases: ["checkpoint","undo"] |
 | `chunks.189.mjs` | `/focus`, `/recap`, slash commands | `FoY` (focus), `LaY` (recap), `OtK` |
