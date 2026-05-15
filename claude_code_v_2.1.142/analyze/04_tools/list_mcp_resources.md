@@ -1,7 +1,7 @@
 # ListMcpResources — Enumerate MCP Server Resources
 
 > **Tool name:** `ListMcpResourcesTool` (user-facing: `listMcpResources`)
-> **Source:** see `O$_` schema and `Q3H_Tool` declaration in `cli_inner_pretty.js`
+> **Source:** see `O$_` schema (`cli_inner_pretty.js:210753`) and `B3H` (the `"ListMcpResourcesTool"` name constant) at `cli_inner_pretty.js:210584`; tool factory registration around `cli_inner_pretty.js:210767-210815`.
 > **Search hint:** *list resources from connected MCP servers*
 > **Concurrency-safe:** true · **Read-only:** true
 
@@ -80,6 +80,6 @@ The tool is registered as deferred (`shouldDefer`) so it's part of the tool-sear
 > - [symbol_additions_v2_1_142_tools_utility.md](../00_overview/symbol_additions_v2_1_142_tools_utility.md) — *Module: Tools — MCP*
 
 Key functions in this document:
-- `ListMcpResourcesTool` — declaration
-- `listMcpResourcesInputSchema` (`O$_`) — optional `server` filter
-- `LIST_MCP_RESOURCES_TOOL_NAME` (`Q3H`)
+- `ListMcpResourcesTool` (obfuscated: `j7H`) — tool factory declaration at `cli_inner_pretty.js:210767-210815`
+- `listMcpResourcesInputSchema` (obfuscated: `O$_`) — optional `server` filter
+- `LIST_MCP_RESOURCES_TOOL_NAME` (obfuscated: `B3H`) — the `"ListMcpResourcesTool"` name string at `cli_inner_pretty.js:210584`
