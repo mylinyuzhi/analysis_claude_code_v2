@@ -287,7 +287,7 @@ So: the shell wrapper just doesn't enforce these. The actual `Bash` tool's comma
 
 ## 8. The full output (example)
 
-For an ant-native build, `createFindGrepShellIntegration()` returns:
+For an ant-native build, `createFindGrepShellIntegration()` returns the following (the `find` function shown in full; `grep` has identical structure but with `argv0=ugrep` and the longer prepend-args list — see Section 6 above):
 
 ```sh
 unalias find 2>/dev/null || true
@@ -307,22 +307,14 @@ function find {
   fi
 }
 function grep {
-  local _cc_bin="${CLAUDE_CODE_EXECPATH:-}"
-  [[ -x $_cc_bin ]] || _cc_bin=$(command -v claude 2>/dev/null)
-  if [[ ! -x $_cc_bin ]]; then command grep "$@"; return; fi
-  if [[ -n $ZSH_VERSION ]]; then
-    ARGV0=ugrep "$_cc_bin" -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl "$@"
-  elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
-    ARGV0=ugrep "$_cc_bin" -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl "$@"
-  elif [[ $BASHPID != $$ ]]; then
-    exec -a ugrep "$_cc_bin" -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl "$@"
-  else
-    (exec -a ugrep "$_cc_bin" -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl "$@")
-  fi
+  # ... same 14-line body, but each branch ends with:
+  # ARGV0=ugrep "$_cc_bin" -G --ignore-files --hidden -I \
+  #   --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg \
+  #   --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl "$@"
 }
 ```
 
-The grep function is verbose — the `--exclude-dir=` flags get repeated four times (once per branch). Acceptable cost given they all just inline-interpolate from the same `argSuffix` string.
+The prepended `--exclude-dir=` flags get repeated four times in the grep function (once per shell branch). Acceptable cost — they all interpolate from the same `argSuffix` string in `createArgv0ShellFunction`.
 
 ---
 
@@ -335,10 +327,10 @@ Rationale (compounding several factors):
 
 | Factor | rg | find/grep |
 |--------|----|-----------|
-| Ubiquity of system version | Variable (many users don't install) | Universal (every Unix has them) |
-| User customisation likelihood | High (rg users tweak it) | Low (rare to override find/grep) |
-| Behavioural drop-in compat | ugrep/bfs match rg/find well enough | Same — and the prepended flags align them with the tools' expected semantics |
-| Cost of always-shadowing | Risk overriding user-preferred rg | Minimal — embedded versions are uniformly good |
+| Ubiquity of system version | Opt-installed (not on most systems by default) | Universal (every Unix has them) |
+| User customisation likelihood | High (rg users have rc files / custom flags) | Low (rare to override find/grep) |
+| Prepended-flags requirement | None (rg has no compat shim) | Mandatory (without them, semantics diverge from `GlobTool`/`GrepTool`) |
+| Tool registry interaction | No `RgTool` to replace | `GlobTool`/`GrepTool` are removed; the shadows are the only path |
 
 The find/grep wrappers explicitly replace the dedicated `GlobTool` and `GrepTool` tools (which are removed from the registry when embedded search tools ship). So always-shadowing is a *correctness requirement*: if the model is told to use `Bash` with `find`/`grep`, and the wrappers don't fire, the model gets behaviour that doesn't match what `GlobTool`/`GrepTool` would have given.
 

@@ -340,41 +340,31 @@ The catch: silent fallback to system find/grep means subtle behavioural drift â€
 
 ---
 
-## 9. Testing the function
+## 9. Observing the dispatch
 
-Sample reproduction in a fresh bash shell (with embedded-tool build):
+After Claude Code generates a snapshot, you can inspect it directly:
 
 ```bash
-$ CLAUDE_CODE_EXECPATH=/usr/local/bin/claude bash
-$ source <(claude --print-snapshot 2>/dev/null)   # hypothetical
-$ type find
-find is a function
-find ()
-{
-    local _cc_bin="${CLAUDE_CODE_EXECPATH:-}";
-    ...
+$ cat ~/.claude/shell-snapshots/snapshot-bash-*-*.sh | grep -A 20 'function find'
+function find {
+  local _cc_bin="${CLAUDE_CODE_EXECPATH:-}"
+  [[ -x $_cc_bin ]] || _cc_bin=$(command -v claude 2>/dev/null)
+  if [[ ! -x $_cc_bin ]]; then command find "$@"; return; fi
+  ...
 }
-$ find . -regex '.*\.\(js\|ts\)' | head -3
-./src/foo.ts
-./src/bar.js
-./lib/baz.ts
 ```
 
-Without the `-regextype findutils-default` (i.e. calling `bfs` directly), the same regex would return zero results because bfs defaults to POSIX BRE where `\|` is not alternation.
-
-You can observe `argv[0]` from inside bun (or any process) by reading `/proc/self/cmdline` on Linux:
+To confirm `argv[0]` is set as intended, run the shadow in the background and check `ps`:
 
 ```bash
-$ function show { ARGV0=hello /usr/bin/cat /proc/self/cmdline | tr '\0' ' '; }   # mock
-```
-
-For Claude's `find` shadow:
-```bash
-$ find /tmp -name '*.txt' &        # background
+$ source ~/.claude/shell-snapshots/snapshot-bash-*-*.sh
+$ find /tmp -name '*.txt' &
 $ ps -o pid,args -p $!
    PID ARGS
- 12345 bfs /tmp -name *.txt    <-- argv[0] is "bfs", not "/path/to/claude"
+ 12345 bfs /tmp -name *.txt        <-- argv[0] is "bfs", not the bun path
 ```
+
+Without `-regextype findutils-default`, a regex like `find . -regex '.*\.\(js\|ts\)'` returns zero results under bfs (POSIX BRE default treats `\|` as literal). With it, GNU-find-compatible alternation works.
 
 ---
 

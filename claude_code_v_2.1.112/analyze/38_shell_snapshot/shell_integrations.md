@@ -119,7 +119,7 @@ You might ask: if all three need the same argv0 dispatch, why three separate fun
 Beyond flags, the **shape of the output differs**:
 - `createRipgrepShellIntegration` returns `{ type: "alias" | "function", snippet: string }` — the snapshot script's emitter handles those two cases with different surrounding shell (heredoc vs. simple alias line).
 - `createFindGrepShellIntegration` returns a single concatenated string of two `unalias` lines plus two function definitions, or `null` if not applicable.
-- `createBqShellIntegration` (`t_Y`) is a stub that always returns `null` in this build — reserved for a Google-BQ integration not enabled in OSS.
+- `createBqShellIntegration` (`t_Y`) is a stub that always returns `null` in this build — likely a placeholder for a `bq` (BigQuery CLI) integration in a future or alternative build.
 
 Each generator owns its discovery / config logic locally; they share only the *template* via `createArgv0ShellFunction`.
 
