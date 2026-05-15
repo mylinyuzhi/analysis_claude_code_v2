@@ -262,7 +262,7 @@ The local-agent default exists because subagents spawned by Claude itself run us
 
 ---
 
-## 5. Upstream Proxy Env (CCR Sessions)
+## 5. Upstream Proxy Env (`CLAUDE_CODE_REMOTE` sessions, e.g. CCR)
 
 ```javascript
 // ============================================
@@ -292,12 +292,12 @@ function getUpstreamProxyEnv() {
 
 **Why dynamic registration:**
 
-The upstreamproxy module (which manages the CCR HTTP relay) is heavy — it includes a TLS terminator, an HTTPS connection pool, and a request mirroring stack. Loading it for non-CCR sessions wastes memory.
+The upstreamproxy module (which manages the local HTTP relay used by remote sessions, including CCR containers) is heavy — it includes a TLS terminator, an HTTPS connection pool, and a request mirroring stack. Loading it for normal local sessions wastes memory.
 
-The pattern is:
-1. `subprocessEnv.ts` declares `_getUpstreamProxyEnv` as `undefined`.
-2. `init.ts` checks if CCR mode is active; if yes, it dynamically imports the upstreamproxy module.
-3. After import, the upstreamproxy module calls `registerUpstreamProxyEnvFn(fn)` to wire in its env-vending function.
+The pattern (confirmed in `chunks.196.mjs:2223-2230`):
+1. `subprocessEnv` declares the registration slot as `undefined` at module load.
+2. `init.ts` checks `if (parseExplicitTrue(process.env.CLAUDE_CODE_REMOTE))`; if yes, it dynamically imports the upstreamproxy module.
+3. The import calls `registerUpstreamProxyEnvFn(getUpstreamProxyEnv)` to wire in its env-vending function, then runs `initUpstreamProxy()` to start the relay.
 4. From then on, `subprocessEnv()` includes the proxy-related env vars (`HTTPS_PROXY`, CA bundle path, etc.) in every subprocess spawn.
 
 **Why this matters for Bash tool integration:**

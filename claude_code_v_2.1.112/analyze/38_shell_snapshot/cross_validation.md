@@ -84,7 +84,8 @@ This tags every BigQuery job initiated through Claude Code with a source label, 
 | `YzY` (chunks.144.mjs:2134) | `NUL_REDIRECT_REGEX` | Match | Same regex, same `g` flag |
 | `cPK` (chunks.144.mjs:2124) | `isPipeSafe` | Match | Same three-stage check (heredoc, stdin redirect, default true) |
 | `dPK` (chunks.144.mjs:2110) | `evalWrap` | Match | Same heredoc/multiline branching, same `'"'"'` escape |
-| `gPK` (chunks.144.mjs) | `evalWrapPipeSafe` | Match | Same tokenization fallback chain |
+| `gPK` (chunks.144.mjs:1802) | `evalWrapPipeSafe` | Behavior changed | v2.1.76 had a complex tokenize-and-insert-before-pipe path (`B54`). v2.1.112 simplified to `singleQuoteWrap(cmd) + " < /dev/null"` — see 8.7 |
+| `l_Y` (chunks.144.mjs:1806) | `singleQuoteWrap` | Match (new helper) | Extracted from v2.1.76's inline `'...'` escape pattern |
 | `l47` (chunks.144.mjs:2099) | `hasHeredoc` | Match | Same three negative guards (bitshift, `[[ ]]`, `$(( ))`) |
 | `_zY` (chunks.144.mjs:2104) | `hasMultilineQuoted` | Match | Same dual regex for single/double-quoted multiline |
 | `zzY` (chunks.144.mjs:2120) | `hasExplicitStdinRedirect` | Match | Same `<` not followed by `<` or `(` regex |
@@ -207,7 +208,20 @@ if (S6(process.env.CLAUDE_CODE_REMOTE)) D.push('export BUN_OPTIONS="--smol${BUN_
 
 When the session is detected as remote (e.g., SSH or container), every Bash tool spawn forces Bun to use the `--smol` (low-memory) heap policy. Prevents the bun binary from consuming too much RAM on shared/remote hosts.
 
-### 8.7 `sessionEnvVars` and `tmuxSocket` parameters
+### 8.7 Simplified pipe-aware eval wrap (`gPK`)
+
+In v2.1.76, when a command contained a pipe and was pipe-safe, the wrap function (`B54`) tokenized the command, found the first top-level pipe, and inserted `< /dev/null` BEFORE that pipe — so `cat file | grep foo` became `cat file < /dev/null | grep foo`. The motivation: prevent the first command in a pipeline from blocking on stdin while keeping the piped data flowing to subsequent commands.
+
+In v2.1.112, `gPK` is just:
+
+```javascript
+function gPK(q) { return l_Y(q) + " < /dev/null" }
+function l_Y(q) { return "'" + q.replaceAll("'", `'"'"'`) + "'" }
+```
+
+The redirect now appears after the whole pipeline. For typical pipelines, this is functionally equivalent because the last command's stdin comes from the pipe anyway. The cases where it matters (first command of a pipe that would block on stdin) trade correctness for a clean, low-edge-case implementation. The cost is bounded by the per-command timeout.
+
+### 8.8 `sessionEnvVars` and `tmuxSocket` parameters
 
 `getEnvironmentOverrides` gained two new parameters in v2.1.112:
 - `sessionEnvVars` — a `Map<string, string>` of per-call env overrides, populated by session-env hooks

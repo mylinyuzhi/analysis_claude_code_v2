@@ -17,7 +17,7 @@ Key functions in this document:
 - `substituteNulRedirect` (`lPK`) - Windows `NUL` -> `/dev/null` - chunks.144.mjs:2130
 - `isPipeSafe` (`cPK`) - Pipe-redirect safety check - chunks.144.mjs:2124
 - `evalWrap` (`dPK`) - Standard eval wrap with optional `< /dev/null` - chunks.144.mjs:2110
-- `evalWrapPipeSafe` (`gPK`) - Pipe-aware eval wrap that inserts `< /dev/null` before first pipe - chunks.144.mjs
+- `evalWrapPipeSafe` (`gPK`) - Simple single-quote wrap + `< /dev/null` (used when pipe present and pipe-safe) - chunks.144.mjs:1802
 - `disableExtglobCommand` (`wzY`) - Shell-specific extglob disable - chunks.144.mjs:2140
 - `applyShellPrefix` (`dU8`) - Wraps the chain with `CLAUDE_CODE_SHELL_PREFIX` - chunks.144.mjs:2088
 - `getSessionEnvironment` (`PC4`) - Returns concatenated hook scripts - chunks.98.mjs:2616
@@ -320,57 +320,57 @@ The heredoc path bypasses `shellQuote` and uses the classic shell single-quote e
 
 ---
 
-## 6. Eval Wrapping (Pipe-Aware Path)
+## 6. Pipe-Aware Eval Wrap (Simple Fallback in v2.1.112)
 
 ```javascript
 // ============================================
-// evalWrapPipeSafe - Insert < /dev/null BEFORE the first pipe
-// Location: chunks.144.mjs (~ line 2150 area, gPK function)
+// evalWrapPipeSafe / singleQuoteWrap - Pipe-aware wrap path
+// Location: chunks.144.mjs:1802-1808
 // ============================================
 
-// READABLE (recap from v2.1.76, identical in v2.1.112):
-function evalWrapPipeSafe(command) {
-  // Fall back to evalWrap if command contains:
-  //   - backticks
-  //   - $(...) command substitution
-  //   - for/while/until/if/case/select keywords
-  //   - multi-line after line-continuation collapse
-  //   - tokenization failure
-  if (command.includes("`")) return fallback(command);
-  if (command.includes("$(")) return fallback(command);
-  if (hasControlFlow(command)) return fallback(command);
-  const collapsed = collapseLineContinuations(command);
-  if (collapsed.includes("\n")) return fallback(command);
-  const tokenResult = tokenize(collapsed);
-  if (!tokenResult.success) return fallback(command);
-
-  const tokens = tokenResult.tokens;
-  const pipeIndex = findFirstPipe(tokens);
-  if (pipeIndex <= 0) return fallback(command);
-
-  // Insert "< /dev/null" before the pipe operator
-  const reconstructed = [
-    ...rebuildTokens(tokens, 0, pipeIndex),
-    "< /dev/null",
-    ...rebuildTokens(tokens, pipeIndex, tokens.length),
-  ];
-  return shellQuoteRaw(reconstructed.join(" "));
+// ORIGINAL (for source lookup):
+function gPK(q) {
+    return l_Y(q) + " < /dev/null"
 }
+function l_Y(q) {
+    return "'" + q.replaceAll("'", `'"'"'`) + "'"
+}
+
+// READABLE (for understanding):
+function evalWrapPipeSafe(command) {
+  return singleQuoteWrap(command) + " < /dev/null";
+}
+function singleQuoteWrap(command) {
+  // Standard shell single-quote escape: '...' "'"... '...'
+  return "'" + command.replaceAll("'", `'"'"'`) + "'";
+}
+
+// Mapping: gPK->evalWrapPipeSafe, l_Y->singleQuoteWrap
 ```
 
-**Why a separate pipe-aware path:**
+**What this does:**
 
-Consider: `cat file | grep foo`. Adding `< /dev/null` to the end gives `cat file | grep foo < /dev/null`. Bash interprets this as `cat file | (grep foo < /dev/null)`. `grep`'s stdin is now `/dev/null`, but `grep` was supposed to receive `cat`'s output via the pipe.
+When a command contains a pipe and is pipe-safe (`b54` returned true), the chain switches from `evalWrap` to `evalWrapPipeSafe`:
 
-The fix: insert `< /dev/null` **before** the first pipe: `cat file < /dev/null | grep foo`. Now `cat` (which doesn't need stdin) gets `/dev/null`, and the pipe to `grep` works normally.
+1. **`singleQuoteWrap`** — wraps the whole command in literal single quotes, escaping any internal single quotes with the `'"'"'` trick. The result is one shell-quoted token suitable for `eval`.
+2. **Append `< /dev/null`** — gives `eval`'s combined command an empty stdin.
 
-This path is used **only** when:
-- Sandbox is disabled (`!ctx.useSandbox`), because sandbox wrapping has its own redirect logic
-- The command contains a pipe (`command.includes("|")`)
-- The command is pipe-safe (`isPipeSafe` returned true)
-- The fallbacks are not triggered (no backticks/`$()`, no control flow, single-line after continuation collapse, parseable tokens, has a top-level pipe)
+**Difference from `evalWrap`:**
 
-When any fallback triggers, it falls back to the simpler `evalWrap` approach, accepting that one command in the pipeline might hang on stdin. The author chose precision-where-possible-with-fallback over a single complex code path because shell tokenization edge cases are too varied to handle perfectly.
+| Function | Wrapping | When |
+|----------|----------|------|
+| `evalWrap` (`dPK`) | Either `shellQuote([cmd])` for simple commands, or `'...'` single-quote for heredocs/multiline | Always |
+| `evalWrapPipeSafe` (`gPK`) | Always `'...'` single-quote | Only when command contains `\|` AND is pipe-safe |
+
+The semantic difference: `shellQuote([cmd])` is conservative — it adds quoting only where needed. `singleQuoteWrap` is unconditional — it always wraps in `'...'`. For a command like `ls -la | grep foo`, the former gives `'ls -la | grep foo'` (just enough), the latter gives `'ls -la | grep foo'` (same). For `ls $HOME`, `shellQuote` gives `'ls $HOME'` (literal `$HOME`, escaped), but unconditional single-quote also gives `'ls $HOME'` — both preserve the literal, just via different paths.
+
+**Why the simpler approach in v2.1.112:**
+
+v2.1.76 had a more complex `B54`/`gPK` that tokenized the command, found the first top-level pipe, and inserted `< /dev/null` BEFORE that pipe (so `cat file | grep foo` became `cat file < /dev/null | grep foo`). This handled cases where stdin should go to the first command in the pipeline, not the last.
+
+In v2.1.112 the pipe-aware wrap is just `singleQuoteWrap + " < /dev/null"`. The `< /dev/null` ends up after the whole pipeline, which means it redirects the stdin of the **last** command in the pipe — but pipe semantics make this irrelevant: the last command receives its stdin from the pipe, not from the redirect. The redirect is effectively a no-op for typical pipelines.
+
+The simplification trades a clever-but-fragile tokenization path for a uniform behavior. The cases that v2.1.76's clever path optimized (a command at the start of the pipe that would block on stdin without the pre-pipe redirect) are rare, and the cost of one extra `cat file | ...` hanging is bounded by the per-command timeout. Removing the tokenization removed an entire class of shell-parsing edge cases.
 
 ---
 
