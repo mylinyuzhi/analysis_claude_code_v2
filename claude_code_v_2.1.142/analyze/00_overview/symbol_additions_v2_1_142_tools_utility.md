@@ -163,9 +163,9 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| Q3H | LIST_MCP_RESOURCES_TOOL_NAME | cli_inner_pretty.js:(name) | constant |
-| O$_ | listMcpResourcesInputSchema | cli_inner_pretty.js:(schema) | function |
-| Q3H_Tool | ListMcpResourcesTool | cli_inner_pretty.js:(tool decl) | function |
+| B3H | LIST_MCP_RESOURCES_TOOL_NAME | cli_inner_pretty.js:210584 | constant |
+| O$_ | listMcpResourcesInputSchema | cli_inner_pretty.js:210753 | function |
+| j7H | ListMcpResourcesTool | cli_inner_pretty.js:210767-210815 | function |
 | Gz | READ_MCP_RESOURCE_TOOL_NAME | cli_inner_pretty.js:(name) | constant |
 | Xe_ | readMcpResourceInputSchema | cli_inner_pretty.js:(schema) | function |
 | Gz_Tool | ReadMcpResourceTool | cli_inner_pretty.js:(tool decl) | function |
