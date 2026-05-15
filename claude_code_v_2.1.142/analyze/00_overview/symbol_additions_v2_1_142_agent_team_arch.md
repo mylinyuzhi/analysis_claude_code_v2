@@ -277,6 +277,14 @@ Cross-validated against:
 
 ---
 
+## Module: Channels (MCP `claude/channel` capability; cli_inner_pretty.js)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `yDH` | `findChannelEntryByQualifiedName` (split `name` on `:`, find server-kind exact match or `plugin:<name>` match against the session `--channels` allowlist) | cli_inner_pretty.js:394920-394923 | function |
+
+---
+
 ## Module: Settings Keys Relevant to Architecture
 
 | Key | Type | Notes |
