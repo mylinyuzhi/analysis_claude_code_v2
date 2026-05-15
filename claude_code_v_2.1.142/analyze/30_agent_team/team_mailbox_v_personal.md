@@ -182,39 +182,40 @@ allowedChannelPlugins: y.array(y.object({ marketplace: y.string(), plugin: y.str
 ),
 ```
 
-### Channel Gating (Org Policy)
+### Channel Entry Lookup (Qualified Names)
+
+When `tiH` decides whether to honor an incoming `claude/channel` capability, it must first locate the server's entry in the session's allowlist (populated from `--channels`). Names are *qualified*: a first-party MCP server appears as its bare `name`, while a plugin-provided MCP server appears as `plugin:<plugin-name>`. The lookup helper splits on `:` and routes by `kind`:
 
 ```javascript
 // ============================================
-// isChannelsRestrictedByOrg - Default-off logic for managed orgs
-// Location: cli_inner_pretty.js:394915-394935
+// findChannelEntryByQualifiedName - Resolve "server-name" or "plugin:<plugin>" against the session allowlist
+// Location: cli_inner_pretty.js:394920-394923
 // ============================================
 
 // ORIGINAL (for source lookup):
-function ZSk5(H, $) {
-  return ($ === "team" || $ === "enterprise") && H?.channelsEnabled !== !0;
-}
-function $Sk5(H) {
-  return H !== null && H.channelsEnabled !== !0;
-}
-// ... at use site ...
-if (channelsBlocked) {
-  return {
-    enabled: !1,
-    reason: "channels not enabled by org policy (set channelsEnabled: true in managed settings)",
-  };
+function yDH(H, $) {
+  let q = H.split(":");
+  return $.find((K) => (K.kind === "server" ? H === K.name : q[0] === "plugin" && q[1] === K.name));
 }
 
 // READABLE (for understanding):
-function isChannelsRestrictedByConsumerTier(settings, tier) {
-  // claude.ai Teams or Enterprise: channels OFF by default.
-  return (tier === "team" || tier === "enterprise") && settings?.channelsEnabled !== true;
+function findChannelEntryByQualifiedName(qualifiedName, allowlistEntries) {
+  // qualifiedName is either a bare server name ("github") or a plugin-qualified
+  // reference ("plugin:slack-bot"). Split once and route by the entry kind.
+  const parts = qualifiedName.split(":");
+  return allowlistEntries.find((entry) =>
+    entry.kind === "server"
+      // For first-party / direct-server entries, the whole qualified name must equal the entry name.
+      ? qualifiedName === entry.name
+      // For plugin-sourced entries, require the "plugin:" prefix and a matching plugin name.
+      : parts[0] === "plugin" && parts[1] === entry.name
+  );
 }
-function isChannelsRestrictedByConsole(settings) {
-  // Console (managed-settings-bearing) accounts: channels OFF if managed settings explicitly say so.
-  return settings !== null && settings.channelsEnabled !== true;
-}
+
+// Mapping: yDH→findChannelEntryByQualifiedName, H→qualifiedName, $→allowlistEntries, q→parts, K→entry
 ```
+
+The call site (`tiH(serverName, capability, pluginCtx)` at `cli_inner_pretty.js:394937`) invokes `yDH(serverName, jj())` to obtain the matching entry from `jj()` (the session's `--channels` list) and then checks `_.kind === "plugin"` to apply the marketplace/dev-plugin gates. If no entry matches, the channel push is rejected with `{ action: "skip", kind: "session", reason: "server <name> not in --channels list for this session" }`.
 
 ### Allowlist Logic (Anthropic + Org)
 
