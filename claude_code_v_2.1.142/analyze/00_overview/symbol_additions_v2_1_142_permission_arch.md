@@ -117,7 +117,6 @@ These symbols are the cross-references used by the seven architecture documents 
 | jJ$ | classifyYoloAction | cli_inner_pretty.js:338062 | function |
 | zT6 | formatActionForClassifier | cli_inner_pretty.js:(formats tool+input for classifier) | function |
 | qT6 | runClassifierRequest | cli_inner_pretty.js:(actual API call) | function |
-| qS7 | classifierRequestSchema | cli_inner_pretty.js:(classifier request shape) | function |
 | MS7 | extractUsageFromClassifierResult | cli_inner_pretty.js:(usage extraction) | function |
 | $T6 | extractRequestIdFromClassifierResult | cli_inner_pretty.js:(req-id extraction) | function |
 | HT6 | logClassifierStage | cli_inner_pretty.js:(stage logging) | function |
@@ -125,7 +124,7 @@ These symbols are the cross-references used by the seven architecture documents 
 | fS7 | parseStageDecision | cli_inner_pretty.js:(parse shouldBlock from classifier text) | function |
 | OS7 | extractClassifierReason | cli_inner_pretty.js:(parse reason from classifier text) | function |
 | qz8 | buildClassifierFailureReason | cli_inner_pretty.js:(failure-mode reason builder) | function |
-| qS7 | classifierStop | cli_inner_pretty.js:(stop-token list) | constant |
+| qS7 | CLASSIFIER_REQUEST_TIMEOUT_MS | cli_inner_pretty.js:337522 (30s) | constant |
 | CF_ | stage1SystemPromptSuffix | cli_inner_pretty.js:338623 | constant |
 | bF_ | stage2SystemPromptSuffix | cli_inner_pretty.js:338625 | constant |
 | RF_ | fastModeSystemPromptSuffix | cli_inner_pretty.js:338621 | constant |
