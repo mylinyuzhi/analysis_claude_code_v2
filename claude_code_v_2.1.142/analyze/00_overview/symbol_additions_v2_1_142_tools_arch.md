@@ -156,6 +156,12 @@
 | `ge7` | `renderReadToolUseErrorMessage` (Read error renderer with did-you-mean) | cli_inner_pretty.js:(referenced from readTool.renderToolUseErrorMessage) | function |
 | `MI6` | `getReadActivitySummary` (extracts a short input summary for spinner) | cli_inner_pretty.js:(referenced from readTool.getToolUseSummary) | function |
 | `Qe7` | `readToolUserFacingName` (UI display name for Read) | cli_inner_pretty.js:(referenced from readTool.userFacingName) | function |
+| `Iw8` | `editToolUserFacingName` (Edit tool's userFacingName; returns `"Update"` / `"Updated plan"` / `"Create"`; also reused by Bash for `sed -i`) | cli_inner_pretty.js:415257-415263 | function |
+| `mp7` | `writeToolUserFacingName` (Write tool's userFacingName; returns `"Updated plan"` for plan-dir files, else `"Write"`) | cli_inner_pretty.js:359731-359734 | function |
+| (inline arrow) | `bashToolUserFacingName` (Bash's input-dependent userFacingName method; inline on tool object — no top-level binding) | cli_inner_pretty.js:419501-419509 | function |
+| `FvH` | `parseSedInPlace` (parser recognising `sed -i …` as a file-edit-equivalent command; used by Bash userFacingName + sandbox layer) | cli_inner_pretty.js:336532 | function |
+| `bH` | `parseBoolean` (env-var truthy parser: `"1"`/`"true"`/`"yes"`/`"on"`) | cli_inner_pretty.js:1769 | function |
+| `SO` | `getPlanDirPrefix` (memoised lazy initialiser returning the plan-mode scratch directory; gates `"Updated plan"` labels) | cli_inner_pretty.js:517791 | function |
 | `le7` | `readFileImpl` (actual file-reading worker) | cli_inner_pretty.js:407377 | function |
 | `S45` | `findCaseInsensitiveMatch` (fallback when ENOENT) | cli_inner_pretty.js:407380 | function |
 | `mS$` | `suggestSimilarFilename` (did-you-mean by edit distance) | cli_inner_pretty.js:407387 | function |

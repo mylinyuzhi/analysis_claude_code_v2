@@ -277,24 +277,82 @@ The `userFacingName` property can be:
 - A function `(input?) => string` — recomputed per call (e.g., MCP tools that show server name)
 - Defaulted to `() => H.name` by the factory if absent — most tools rely on this
 
-Two patterns appear in the bundle for derived user-facing names:
+Three patterns appear in the bundle for derived user-facing names. Each is realised as either an inline method on the tool object or a standalone function reused across tools.
+
+### Pattern 1: static override
 
 ```javascript
-// Pattern 1: static override (most common)
-userFacingName: () => "Stop Task",       // TaskStop tool — UI display differs from API name
-
-// Pattern 2: input-dependent (Bash)
-userFacingName: Mr3,                     // Bash uses a function that returns:
-                                          // - "Bash" (normal)
-                                          // - "SandboxedBash" (when sandbox active)
-                                          // - "Update" / "Updated plan" (for plan-mode todo wrappers)
-
-// Pattern 3: MCP-derived
-userFacingName: () => `${H.name} - ${f.annotations?.title || f.name} (MCP)`,
-//                              ^^ MCP server name        ^^ tool name from server
+// Most common — returns a single fixed display string regardless of input.
+userFacingName: () => "Stop Task",       // taskStopTool — UI display differs from API name
 ```
 
-The fragment `"--- branch 1 ---\nBash\n\n--- branch 2 ---\n..."` in `tools_index.json` for Bash is the disassembler's reconstruction of all possible return strings from `Mr3` after dead-code splitting.
+### Pattern 2: input-dependent (Bash) — inline arrow + delegation to the Edit-style labeller
+
+The Bash tool resolves its `userFacingName` *inline* as a method on the tool object — there is no dedicated top-level function. It returns one of three label families:
+
+1. `"Bash"` when there is no input (e.g., name lookups before a call).
+2. The Edit-style label (`"Updated plan"` for plan-mode files, `"Update"` otherwise) when the command parses as `sed -i …`, because the bundle treats an in-place `sed` as a file-write equivalent. This branch delegates to `editToolUserFacingName` (obfuscated: `Iw8`) — the same function the Edit tool installs as its `userFacingName` — by synthesising a `{file_path, old_string:"x"}` payload. The non-empty `"x"` guarantees the `"Create"` branch of `Iw8` is never reached for Bash, so only `"Updated plan"` or `"Update"` are observable on this code path.
+3. `"SandboxedBash"` when the `CLAUDE_CODE_BASH_SANDBOX_SHOW_INDICATOR` env flag is truthy *and* `shouldSandboxThisCommand` (obfuscated: `bV`) reports the command will be sandboxed; otherwise `"Bash"`.
+
+The `sed -i` detection uses `parseSedInPlace` (obfuscated: `FvH`), the same parser that the sandbox/permission layer uses to recognise edit-equivalent shell commands.
+
+```javascript
+// ============================================
+// bashToolUserFacingName - Bash's input-dependent display name
+// Location: cli_inner_pretty.js:419501-419509
+// ============================================
+
+// ORIGINAL (for source lookup):
+userFacingName(H) {
+  if (!H) return "Bash";
+  if (H.command) {
+    let $ = FvH(H.command);
+    if ($) return Iw8({ file_path: $.filePath, old_string: "x" });
+  }
+  return bH(process.env.CLAUDE_CODE_BASH_SANDBOX_SHOW_INDICATOR) && bV(H) ? "SandboxedBash" : "Bash";
+},
+
+// READABLE (for understanding):
+userFacingName(input) {
+  if (!input) return "Bash";                                  // No input yet → static label
+  if (input.command) {
+    const sedEdit = parseSedInPlace(input.command);           // FvH: recognise `sed -i` edits
+    if (sedEdit) {
+      // Treat in-place sed as a file edit and reuse the Edit tool's labeller
+      // so a `sed -i` shows as "Updated plan" (for plan-mode files) or "Update" in the UI.
+      // old_string is hardcoded non-empty to bypass Iw8's "Create" branch.
+      return editToolUserFacingName({ file_path: sedEdit.filePath, old_string: "x" });
+    }
+  }
+  // Sandbox indicator: show "SandboxedBash" only if BOTH the env flag is set
+  // AND the per-input sandbox decision actually sandboxes this command.
+  return parseBoolean(process.env.CLAUDE_CODE_BASH_SANDBOX_SHOW_INDICATOR) && shouldSandboxThisCommand(input)
+    ? "SandboxedBash"
+    : "Bash";
+},
+
+// Mapping: H→input, FvH→parseSedInPlace, Iw8→editToolUserFacingName, bH→parseBoolean, bV→shouldSandboxThisCommand
+```
+
+**Why the indirection?** The Edit tool's `userFacingName` (`Iw8`) already knows how to special-case plan-mode files ("Updated plan") and create-vs-update labelling. By piping a `sed -i` through the same labeller, Bash inherits that logic for free instead of duplicating the plan-directory string-prefix check inside its own method.
+
+### Pattern 3: MCP-derived
+
+```javascript
+// MCP wrappers include the server identity in the display name so the user
+// can distinguish two servers' tools that share a base name.
+userFacingName: () => `${tool.name} - ${mcpServer.annotations?.title || mcpServer.name} (MCP)`,
+//                                ^^ MCP tool name         ^^ MCP server name (annotated title preferred)
+```
+
+### Related labelling helpers
+
+The "Updated plan" / "Update" / "Create" / "Write" strings are *not* a Bash concept — they originate from two file-write tools:
+
+- `editToolUserFacingName` (obfuscated: `Iw8`) at `cli_inner_pretty.js:415257-415263` — installed as the Edit tool's `userFacingName`. Returns `"Update"` (default, no input, or non-empty `old_string` with no `edits`), `"Updated plan"` (file under plan dir), `"Update"` (when `edits != null`), or `"Create"` (when `old_string === ""`). Reused by Bash for `sed -i`.
+- `writeToolUserFacingName` (obfuscated: `mp7`) at `cli_inner_pretty.js:359731-359734` — installed as the Write tool's `userFacingName`. Returns `"Updated plan"` when the write target is under `getPlanDirPrefix()` (obfuscated: `SO`), otherwise `"Write"`.
+
+Both helpers gate the `"Updated plan"` string on the file path starting with the plan-mode directory prefix.
 
 ## Related Symbols
 
