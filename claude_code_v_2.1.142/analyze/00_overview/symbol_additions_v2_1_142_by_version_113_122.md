@@ -205,7 +205,7 @@ Obfuscated → readable mappings discovered while analyzing changes across v2.1.
 | n77 | onHookCaptured | cli_inner_pretty.js:530763 | function |
 | mD6 | maybeRecordHookSetup | cli_inner_pretty.js:530763 | function |
 | Z8 | recordTelemetry | cli_inner_pretty.js:530763 | function |
-| I6 | isMainProcess | cli_inner_pretty.js:530763 | function |
+| I6 | isRemoteWorkspace (= `U$.caps.workspace === "remote"`; declared at cli_inner_pretty.js:3104; usage site at 530763) | cli_inner_pretty.js:3104-3106 | function |
 
 ---
 

@@ -65,9 +65,9 @@ v2.1.140 adds a precondition check: if `disableAllHooks` or `allowManagedHooksOn
         v
    ┌────────────────────────────────────────────────────────────┐
    │  Overlay panel (interactive only)                          │
-   │   - cli_inner_pretty.js:507607 (Hx5) renders the /goal     │
+   │   - cli_inner_pretty.js:507612 (Xk4) renders the /goal     │
    │     dialog state ("set", "active", "achieved")             │
-   │   - cli_inner_pretty.js:544479-544509 renders the          │
+   │   - cli_inner_pretty.js:544426 (Xx4) renders the           │
    │     "◎ /goal active" status badge with elapsed time when   │
    │     active                                                 │
    └────────────────────────────────────────────────────────────┘
@@ -162,14 +162,16 @@ Key symbols:
 - `GOAL_CLEAR_KEYWORDS` (`rv5`) - cli_inner_pretty.js:486771 - set of clear synonyms
 - `MAX_GOAL_CONDITION_CHARS` (`RaH`) - cli_inner_pretty.js:486756 - 4000
 - `isClearKeyword` (`UX8`) - cli_inner_pretty.js:486690 - tests against `rv5`
-- `disableAllHooks` (`km`) - cli_inner_pretty.js:240936 - precondition source
-- `allowManagedHooksOnly` (`rw`) - cli_inner_pretty.js:240930 - precondition source
+- `isAllHooksDisabled` (`km`) - cli_inner_pretty.js:240936 - precondition source (reads `policySettings.disableAllHooks`)
+- `isAllowManagedHooksOnly` (`rw`) - cli_inner_pretty.js:240930 - precondition source (policy + user-tier `disableAllHooks`)
 - `isTrustedWorkspace` (`T6`) - module-wide - precondition source
+- `isRemoteWorkspace` (`I6`) - cli_inner_pretty.js:3104 - remote bridge bypass for the `pR5.isEnabled` check
 - `restoreGoalFromTranscript` (`Cr5`) - cli_inner_pretty.js:564153
 - `findGoalToRestore` (`Eg4`) - cli_inner_pretty.js:564144
-- `GoalOverlayPanel` (`Hx5` -> rendered through `lk4`/`Vk4` exports) - cli_inner_pretty.js:507607
-- `goalLabelField` (`UF6`) - cli_inner_pretty.js:507749 - label component for the overlay
-- `GoalActiveBadge` (anonymous in the status renderer) - cli_inner_pretty.js:544494 - "◎ /goal active" text
+- `GoalOverlayPanel` (`Xk4`) - cli_inner_pretty.js:507612 - the React dialog component
+- `goalDefaultExport` (`Hx5` -> `WE4.default` -> `BR5`) - cli_inner_pretty.js:514106 - export alias for `goalCommand`
+- `LabeledField` (`UF6`) - cli_inner_pretty.js:507749 - "Label: value" row used by the overlay
+- `GoalActiveBadge` (`Xx4`) - cli_inner_pretty.js:544426 - "◎ /goal active" status-bar component
 - `BADGE_PULSE_PERIOD_MS` (`Ug5`) - cli_inner_pretty.js:544514 - 4000
 - `BADGE_DOT_INTERVAL_FRAC` (`Fg5`) - cli_inner_pretty.js:544515 - 0.18
 - `BADGE_DOTS` (`V28`) - cli_inner_pretty.js:544513 - 20
