@@ -54,16 +54,16 @@ The throughline is **hooks gaining shapes that match how they're authored in pra
 Key functions added in v2.1.113 → v2.1.142:
 
 - `bashCommandHook` (`vW8`) — `cli_inner_pretty.js:520794-522029` — Shell command hook executor; now branches on `args !== void 0` for exec form
-- `mcpToolHook` (`XQ6`) — `cli_inner_pretty.js:519807-519849` — MCP tool hook executor
-- `interpolateMCPHookInput` (`hu5`) — `cli_inner_pretty.js:519789-519814` — `${path.expr}` interpolation in mcp_tool input
+- `mcpToolHook` (`XQ6`) — `cli_inner_pretty.js:519817-519849` — MCP tool hook executor
+- `interpolateMCPHookInput` (`hu5`) — `cli_inner_pretty.js:519791-519816` — `${path.expr}` interpolation in mcp_tool input
 - `dispatchHookOutputStream` (`aP`) — `cli_inner_pretty.js:521329-522181` — Main async iterator that streams hook results; new validation throws on prompt/agent + context-less event
 - `parseHookJSONOutput` (`Kh4`) — `cli_inner_pretty.js:520521-520554` — Parses + validates `VsH` schema; recognizes `terminalSequence`
-- `applyHookJSONOutput` (`TW8`) — `cli_inner_pretty.js:520617-520795` — Builds the result object from validated JSON; routes `terminalSequence` through `Lm6` allowlist; routes `updatedToolOutput` for `PostToolUse`
+- `applyHookJSONOutput` (`TW8`) — `cli_inner_pretty.js:520611-520795` — Builds the result object from validated JSON; routes `terminalSequence` through `Lm6` allowlist; routes `updatedToolOutput` for `PostToolUse`
 - `validateTerminalSequence` (`Lm6`) — `cli_inner_pretty.js:467431-467435` — Allowlist for OSC 0/1/2/9/99/777 + BEL
 - `emitTerminalSequence` (`Pm6`) — `cli_inner_pretty.js:467447-467449` — Writes validated sequence to terminal stack
-- `createHookBaseInput` (`M_`) — `cli_inner_pretty.js:520506-520520` — Builds the hook envelope; now adds `effort: { level }` when model supports effort
-- `postToolUseHook` (`zL$`) — `cli_inner_pretty.js:520183-520195` — Now passes `duration_ms`
-- `postToolUseFailureHook` (`YL$`) — `cli_inner_pretty.js:520197-520213` — Now passes `duration_ms`
+- `createBaseHookInput` (`M_`) — `cli_inner_pretty.js:520506-520520` — Builds the hook envelope; now adds `effort: { level }` when model supports effort
+- `postToolUseHook` (`zL$`) — `cli_inner_pretty.js:520182-520193` — Now passes `duration_ms`
+- `postToolUseFailureHook` (`YL$`) — `cli_inner_pretty.js:520194-520211` — Now passes `duration_ms`
 - `setMainThreadAgentHooks` (`dv$`) — `cli_inner_pretty.js:3087-3091` — Persists agent-frontmatter hooks for main thread
 - `getMainThreadAgentHooks` (`kp`) — `cli_inner_pretty.js:3083-3086` — Reader consulted by `getMatchedHooks` and `hasHookForEvent`
 
@@ -119,6 +119,6 @@ The hook executor's result lifecycle has 4 stages: **execute → parse → apply
 ## Cross-References
 
 - **Agent frontmatter loading**: see [../30_agent_team/](../30_agent_team/) for `--agent` flag handling and `pJH` integration.
-- **MCP client list**: see [../22_mcp/](../22_mcp/) for `toolUseContext.options.mcpClients` shape that `mcpToolHook` consumes.
+- **MCP client list**: see [../06_mcp/](../06_mcp/) for `toolUseContext.options.mcpClients` shape that `mcpToolHook` consumes.
 - **Permission cascade**: unchanged from v2.1.112; see [defer_decision.md](../../../claude_code_v_2.1.112/analyze/11_hooks/defer_decision.md).
 - **Compaction blocking**: unchanged from v2.1.112; see [precompact_hook.md](../../../claude_code_v_2.1.112/analyze/11_hooks/precompact_hook.md).

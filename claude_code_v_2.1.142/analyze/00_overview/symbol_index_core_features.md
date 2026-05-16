@@ -113,7 +113,33 @@ Known new themes for this window:
 
 Hook event dispatch (PreToolUse, PostToolUse, PreCompact, PostCompact, UserPromptSubmit, SessionStart, Setup, SubagentStart/Stop, Stop, ConfigChange, PermissionRequest, PermissionDenied), hook-config schema, hook execution surface.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+> Full mapping table: see [symbol_additions_v2_1_142_hooks.md](symbol_additions_v2_1_142_hooks.md). Module docs: [`../11_hooks/`](../11_hooks/).
+
+Key symbols (full list in `symbol_additions_v2_1_142_hooks.md`):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `M_` | `createBaseHookInput` (now adds `effort: { level }` when supported) | cli_inner_pretty.js:520506-520520 | function |
+| `aP` | `dispatchHookOutputStream` (v2.1.142 validation: prompt/agent + no toolUseContext) | cli_inner_pretty.js:521329-522181 | function |
+| `vW8` | `bashCommandHook` (v2.1.139: `args` exec form, `detached: true`, `CLAUDE_EFFORT`) | cli_inner_pretty.js:520794-522029 | function |
+| `XQ6` | `mcpToolHook` (new in v2.1.118) | cli_inner_pretty.js:519817-519849 | function |
+| `hu5` | `interpolateMCPHookInput` (`${path}` substitution; v2.1.118) | cli_inner_pretty.js:519791-519816 | function |
+| `Ey4` | `promptHook` (v2.1.139: `continueOnBlock` consultation) | cli_inner_pretty.js:519169-519335 | function |
+| `Kh4` | `parseHookJSONOutput` (Zod validation; v2.1.141 `terminalSequence` recognized) | cli_inner_pretty.js:520521-520554 | function |
+| `TW8` | `applyHookJSONOutput` (v2.1.141: routes `terminalSequence`; v2.1.121: `updatedToolOutput`) | cli_inner_pretty.js:520611-520795 | function |
+| `zL$` | `postToolUseHook` (v2.1.119: `duration_ms`) | cli_inner_pretty.js:520182-520193 | function |
+| `YL$` | `postToolUseFailureHook` (v2.1.119: `duration_ms`) | cli_inner_pretty.js:520194-520211 | function |
+| `Lm6` | `validateTerminalSequence` (OSC 0/1/2/9/99/777 + BEL allowlist; v2.1.141) | cli_inner_pretty.js:467431-467435 | function |
+| `Pm6` | `emitTerminalSequence` (v2.1.141) | cli_inner_pretty.js:467447-467449 | function |
+| `ZW8` | `dispatchTerminalSequence` (side-channel for sync hook callers; v2.1.141) | cli_inner_pretty.js:522183-522192 | function |
+| `kp` | `getMainThreadAgentHooks` (v2.1.117) | cli_inner_pretty.js:3083-3086 | function |
+| `dv$` | `setMainThreadAgentHooks` (v2.1.117) | cli_inner_pretty.js:3087-3091 | function |
+| `pJH` | `applyMainThreadAgent` (admin-trust-gated installer; v2.1.117) | cli_inner_pretty.js:564134-564137 | function |
+| `uu5` | `getMatchedHooks` (v2.1.117: reads `kp()` for main-thread agent hooks) | cli_inner_pretty.js:521108-521126 | function |
+| `tI` | `hasHookForEvent` (v2.1.117: reads `kp()` early) | cli_inner_pretty.js:521135-521146 | function |
+| `DZ5` | `TERMINAL_ALLOWLIST` (`new Set([0, 1, 2, 9, 99, 777])`) | cli_inner_pretty.js:467456 | constant |
+| `F2$` | `terminalEmitterStack` (LIFO stack of emit callbacks) | cli_inner_pretty.js:467457 | variable |
+| `jW8` | `AGENT_HOOK_ID_PREFIX` (`"hook-agent-"`) | cli_inner_pretty.js:519573 | constant |
 
 Known new themes for this window:
 

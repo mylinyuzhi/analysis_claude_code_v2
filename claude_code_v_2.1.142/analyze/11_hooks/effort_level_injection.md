@@ -22,7 +22,7 @@ This lets hooks and tools observe effort-level changes (e.g., to skip slow valid
 
 Key functions in this document:
 
-- `createHookBaseInput` (`M_`) — Builds the hook envelope; injects `effort` when model supports it
+- `createBaseHookInput` (`M_`) — Builds the hook envelope; injects `effort` when model supports it
 - `bashCommandHook` (`vW8`) — Parses `effort.level` from JSON input to populate `CLAUDE_EFFORT` env
 - `modelSupportsEffort` (`CP`) — Predicate: does this model accept effort levels
 - `resolveEffortValue` (`aT`) — Returns the level string after any silent downgrade
@@ -31,7 +31,7 @@ Key functions in this document:
 
 ```javascript
 // ============================================
-// createHookBaseInput - Envelope builder now embeds effort metadata
+// createBaseHookInput - Envelope builder now embeds effort metadata
 // Location: cli_inner_pretty.js:520506-520520
 // ============================================
 
@@ -53,7 +53,7 @@ function M_(H, $, q) {
 }
 
 // READABLE (for understanding):
-function createHookBaseInput(permissionMode, sessionIdOverride, toolUseContext) {
+function createBaseHookInput(permissionMode, sessionIdOverride, toolUseContext) {
   const sessionId = sessionIdOverride ?? getSessionId();
   const agentType = toolUseContext?.agentType ?? getMainThreadAgentType();
   const currentModel = toolUseContext?.options?.mainLoopModel;
@@ -77,7 +77,7 @@ function createHookBaseInput(permissionMode, sessionIdOverride, toolUseContext) 
 }
 
 // Mapping:
-//   M_→createHookBaseInput, H→permissionMode, $→sessionIdOverride, q→toolUseContext,
+//   M_→createBaseHookInput, H→permissionMode, $→sessionIdOverride, q→toolUseContext,
 //   K→sessionId, _→agentType, A→currentModel, z→effortMetadata,
 //   v$→getSessionId, Kh→getMainThreadAgentType, UV→getTranscriptPath, I$→getCwd,
 //   CP→modelSupportsEffort, aT→resolveEffortValue
@@ -117,7 +117,7 @@ try {
 // Mapping: K→jsonInput, R→envVars, YH→effortFromInput
 ```
 
-The env var is sourced from the parsed JSON input — **not** from a direct `getEffortValue()` call. This means the JSON envelope is the **canonical source**; if `createHookBaseInput` decided to omit `effort` (e.g., model doesn't support it), the env var is also absent. Single source of truth.
+The env var is sourced from the parsed JSON input — **not** from a direct `getEffortValue()` call. This means the JSON envelope is the **canonical source**; if `createBaseHookInput` decided to omit `effort` (e.g., model doesn't support it), the env var is also absent. Single source of truth.
 
 ## Bash Tool Integration
 
@@ -198,7 +198,7 @@ If any check fails, `z` is `undefined`, the result object has `effort: undefined
 In v2.1.112's `J9` (the v2.1.112 counterpart to `M_`), the return object had no `effort` field. The schema documentation made no mention of `effort.level`. Command hooks set `CLAUDE_PROJECT_DIR` but not `CLAUDE_EFFORT`. Bash-tool execution didn't propagate effort.
 
 The v2.1.133 patch adds:
-1. `createHookBaseInput` — compute `effortMetadata` and include in return.
+1. `createBaseHookInput` — compute `effortMetadata` and include in return.
 2. `bashCommandHook` — try/catch JSON.parse + env injection.
 3. Slash-command / Bash tool path — `${CLAUDE_EFFORT}` template substitution and `CLAUDE_EFFORT` env in the spawn options.
 4. Schema docs — top-level "effort" field with description on the input-schema definition.

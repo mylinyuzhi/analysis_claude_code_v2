@@ -29,7 +29,7 @@ Key functions in this document:
 ```javascript
 // ============================================
 // postToolUseHook - PostToolUse envelope with duration_ms
-// Location: cli_inner_pretty.js:520183-520195
+// Location: cli_inner_pretty.js:520182-520193
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -59,7 +59,7 @@ async function* postToolUseHook(
   durationMs,                              // ← NEW v2.1.119: tool execution time
 ) {
   const hookInput = {
-    ...createHookBaseInput(permissionMode, undefined, toolUseContext),
+    ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: "PostToolUse",
     tool_name: toolName,
     tool_input: toolInput,
@@ -80,7 +80,7 @@ async function* postToolUseHook(
 // Mapping:
 //   zL$→postToolUseHook, H→toolName, $→toolUseID, q→toolInput, K→toolResponse,
 //   _→toolUseContext, A→permissionMode, z→signal, Y→timeoutMs, f→durationMs,
-//   M_→createHookBaseInput, aP→dispatchHookOutputStream, p_→DEFAULT_HOOK_TIMEOUT
+//   M_→createBaseHookInput, aP→dispatchHookOutputStream, p_→DEFAULT_HOOK_TIMEOUT
 ```
 
 ## v2.1.142 PostToolUseFailure Dispatcher
@@ -88,7 +88,7 @@ async function* postToolUseHook(
 ```javascript
 // ============================================
 // postToolUseFailureHook - Failure envelope with duration_ms
-// Location: cli_inner_pretty.js:520197-520213
+// Location: cli_inner_pretty.js:520194-520211
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -127,7 +127,7 @@ async function* postToolUseFailureHook(
   // Skip dispatch if no PostToolUseFailure hooks are registered — saves the envelope-build cost
   if (!hasHookForEvent("PostToolUseFailure", appState, sessionId)) return;
   const hookInput = {
-    ...createHookBaseInput(permissionMode, undefined, toolUseContext),
+    ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: "PostToolUseFailure",
     tool_name: toolName,
     tool_input: toolInput,

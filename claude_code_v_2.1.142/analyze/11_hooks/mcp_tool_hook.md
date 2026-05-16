@@ -79,7 +79,7 @@ Example config:
 ```javascript
 // ============================================
 // interpolateMCPHookInput - ${path.expr} substitution for tool args
-// Location: cli_inner_pretty.js:519789-519814
+// Location: cli_inner_pretty.js:519791-519816
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -156,7 +156,7 @@ function interpolateMCPHookInput(toolInputTemplate, hookInputJSON) {
 ```javascript
 // ============================================
 // mcpToolHook - MCP tool hook executor
-// Location: cli_inner_pretty.js:519815-519849
+// Location: cli_inner_pretty.js:519817-519849
 // ============================================
 
 // ORIGINAL (for source lookup):

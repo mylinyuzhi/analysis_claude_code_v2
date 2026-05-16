@@ -42,7 +42,7 @@ async function* $M$(H, $, q, K, _, A = p_, z) {
 // READABLE (for understanding):
 async function* sessionStartHook(source, sessionIdOverride, agentType, model, signal, timeoutMs, forceSyncExecution) {
   const hookInput = {
-    ...createHookBaseInput(undefined, sessionIdOverride),
+    ...createBaseHookInput(undefined, sessionIdOverride),
     hook_event_name: "SessionStart",
     source,
     agent_type: agentType,
@@ -59,7 +59,7 @@ async function* sessionStartHook(source, sessionIdOverride, agentType, model, si
   });
 }
 
-// Mapping: $M$→sessionStartHook, aP→dispatchHookOutputStream, M_→createHookBaseInput
+// Mapping: $M$→sessionStartHook, aP→dispatchHookOutputStream, M_→createBaseHookInput
 ```
 
 `setupHook` (`qM$`, cli_inner_pretty.js:520044-520054) and `subagentStartHook` (`QL$`, cli_inner_pretty.js:520056) follow the same pattern. `subagentStartHook` does pass `getAppState` (to query session-scoped hooks) but not the full `toolUseContext`.
