@@ -35,24 +35,84 @@ Known new themes for this window:
 
 ## Module: Background Agents (claude agents)
 
-The user-facing background sessions feature. Covers the React dashboard, dispatch UI, daemon-status formatting, attach-flow. (Daemon protocol itself is in `symbol_index_infra_platform.md`.)
+The user-facing background sessions feature. Covers the React dashboard, the on-demand daemon supervisor, dispatch flag plumbing, attach/detach handoff, and persistent state. The full v2.1.142 mapping table lives in [`symbol_additions_v2_1_142_agents.md`](symbol_additions_v2_1_142_agents.md) — the rows below are the most load-bearing entries; refer to the additions file for telemetry events and the long tail.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+### Agent View & Dispatch Surface
 
-Known new symbols (preliminary, full mapping pending):
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ao5` | `mountFleetView` | cli_inner_pretty.js:569079-569208 | function |
+| `EQ4` | `FleetViewDashboard` | cli_inner_pretty.js:567084-… | function |
+| `yQ4` | `mountFleetViewFromLeftArrow` | cli_inner_pretty.js:569366-569381 | function |
+| `MoH` | `shouldAcceptLeftArrowToAgentView` | cli_inner_pretty.js:435227-435228 | function |
+| `$1H` | `setHasUsedAgentsFleet` | cli_inner_pretty.js:435230-435233 | function |
+| `fF` | `isAgentsFleetEnabled` | cli_inner_pretty.js:139882-139884 | function |
+| `rmH` | `isAgentViewDisabled` | cli_inner_pretty.js:139859-139861 | function |
+| `Cq6` | `consumeAgentViewRelaunchMarker` | cli_inner_pretty.js:139921-139924 | function |
+| `E5$` | `AGENT_VIEW_RELAUNCH_ENV_KEY` | cli_inner_pretty.js:139925 | constant |
+| `og4` | `STATE_LABELS` | cli_inner_pretty.js:569355 | constant |
+| `rg4` | `STATE_BUCKET_ORDER` | cli_inner_pretty.js:569354 | constant |
+| `So5` | `JOB_KIND_LABELS` | cli_inner_pretty.js:569361 | constant |
+| `Go6` | `parseAgentsDispatchFlags` | cli_inner_pretty.js:65-103 | function |
+| `gg4` | `coerceDispatchDefaults` | cli_inner_pretty.js:565469-565478 | function |
+| `qg6` | `dispatchDefaultsToArgv` | cli_inner_pretty.js:509773-509780 | function |
+| `MN4` | `setDispatchExtraArgsForSession` | cli_inner_pretty.js:509767-509769 | function |
+| `OG$` | `dispatchExtraArgsState` | cli_inner_pretty.js (near 509790) | variable |
 
-- `EQ4` — agents dashboard React component
-- `H$9`, `Lg6`, `KG$`, `O44`, `RC5`, `T$A`, `T7A`, `W7A`, `WKA`, `ao5`, `bP8`, `qm8` — dashboard sibling helpers (cli_unpack_pretty/decls/functions/, found via `grep -l "claude agents"`)
-- `In6`, `vn6`, `kn6`, `jQ4` — dashboard initial state / dispatcher recents
+### Daemon Lifecycle
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `O89` | `runDaemonSupervisor` | cli_inner_pretty.js:609952-610186 | function |
+| `f89` | `getBinaryIdentity` | cli_inner_pretty.js:609938-609947 | function |
+| `tKA` | `binaryIdentityChanged` | cli_inner_pretty.js:609948-609951 | function |
+| `aB` | `BgWorkerHandle` | cli_inner_pretty.js:527970-528594 | class |
+| `aB.retireIfSettled` | `BgWorkerHandle.retireIfSettled` | cli_inner_pretty.js:527901-527964 | function |
+| `aB.shiftGraceClocksForward` | `BgWorkerHandle.shiftGraceClocksForward` | cli_inner_pretty.js:528143-528147 | function |
+| `aKA` | `STALE_BINARY_POLL_MS` (60000) | cli_inner_pretty.js:610188 | constant |
+| `sKA` | `DAEMON_IDLE_GRACE_DEFAULT_MS` (5000) | cli_inner_pretty.js:610189 | constant |
+| `gKA` | `BG_RETIRE_GRACE_DEFAULT_MS` (3600000) | cli_inner_pretty.js:609576 | constant |
+| `Ur6` | `BG_RETIRE_TICK_MS` (60000) | cli_inner_pretty.js:609578 | constant |
+| `i$9` | `BG_RETIRE_LOW_MEM_GRACE_MS` (60000) | cli_inner_pretty.js:609577 | constant |
+| `BB5` | `BG_RECENT_ADOPT_GRACE_MS` (120000) | cli_inner_pretty.js:528605 | constant |
+| `pB5` | `BG_EMPTY_IDLE_GRACE_MS` (300000) | cli_inner_pretty.js:528606 | constant |
+| `mB5` | `BG_REATTACH_TIMEOUT_MS` (120000) | cli_inner_pretty.js:528604 | constant |
+
+### Worktree Recognition (v2.1.142)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `DE6` | `enterExistingWorktree` | cli_inner_pretty.js:523107-523141 | function |
+| `NP8` | `gitWorktreeListPorcelain` | cli_inner_pretty.js:523088-523106 | function |
+| `CiH` | `cleanupWorktreeOrPreserveExisting` | cli_inner_pretty.js:523155-523197 | function |
+| `eJ$` | `createAgentWorktree` | cli_inner_pretty.js:523198-… | function |
+
+### Dispatch / Spare / Capability Forwarding
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `jN4` | `claimSpareOrColdDispatch` | cli_inner_pretty.js:509877-509921 | function |
+| `yP8` | `coldDispatchFromTemplate` | cli_inner_pretty.js:509781-509834 | function |
+| `RN4` | `flagsWithoutPositional` | cli_inner_pretty.js:511207-511225 | function |
+| `_b5` | `BG_FLAGS_BOOLEAN` | cli_inner_pretty.js:511327-511332 | constant |
+| `Pg6` | `BG_FLAGS_WITH_ARGUMENT` | cli_inner_pretty.js:511283-511326 | constant |
+| `vJ` | `getAttacherCaps` | cli_inner_pretty.js:2686-2688 | function |
+| `aV8` | `setAttacherCaps` | cli_inner_pretty.js:2689-2691 | function |
+| `xy` | `resolvePreferredEditor` | cli_inner_pretty.js:445808-445810 | function |
+| `AL8` | `isClaudeInChromeEnabled` | cli_inner_pretty.js:493305-493314 | function |
+| `HG8` | `jobMatchesCwd` | cli_inner_pretty.js:565822-565825 | function |
+| `e0$` | `spawnOriginDir` | cli_inner_pretty.js:566055-566059 | function |
+
+See [`symbol_additions_v2_1_142_agents.md`](symbol_additions_v2_1_142_agents.md) for the full table (telemetry events, persistence schema, subagent-type matcher, completed-vs-working classifier).
 
 See `symbol_index_core_execution.md` Module: Agents for the CLI subcommand surface.
 
 Known new themes:
 
-- v2.1.139 introduction (`claude agents` Research Preview)
-- v2.1.140: Completed-vs-Working state for background-shell agents
+- v2.1.139 introduction (`claude agents` Research Preview — promoted from the ant-only `agentsPlatform` subcommand of v2.1.88)
+- v2.1.140: Completed-vs-Working state for background-shell agents; subagent_type slug normalization
 - v2.1.141: `--cwd <path>`, empty-placeholder cleanup, 5-min idle retire, onboarding text
-- v2.1.142: clock-jump detection, brew-upgrade clean exit, dispatch flags, Apple Terminal color bleed
+- v2.1.142: clock-jump detection (`shiftGraceClocksForward`), brew-upgrade clean exit (`tKA`), pre-existing worktree recognition (`DE6`), dispatch flags (`--add-dir`/`--settings`/`--mcp-config`/`--plugin-dir`/`--strict-mcp-config`/`--permission-mode`/`--model`/`--effort`/`--dangerously-skip-permissions`), `$EDITOR` forwarding via `attacher-caps`, Chrome shim isolation, `--dangerously-skip-permissions` survives retire/wake (via `RN4` + `_b5`)
 
 ---
 
