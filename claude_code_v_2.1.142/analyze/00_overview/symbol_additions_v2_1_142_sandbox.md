@@ -192,15 +192,16 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `n6.isSandboxingEnabled` | isSandboxingEnabled | cli_inner_pretty.js:198248 | function |
-| `n6.isAutoAllowBashIfSandboxedEnabled` | isAutoAllowBashIfSandboxedEnabled | cli_inner_pretty.js:198251-198254 | function |
-| `n6.areUnsandboxedCommandsAllowed` | areUnsandboxedCommandsAllowed | cli_inner_pretty.js:(allowUnsandboxedCommands gate) | function |
-| `n6.setSandboxSettings` | setSandboxSettings | cli_inner_pretty.js:(state mutator) | function |
-| `n6.checkDependencies` | checkSandboxDependencies | cli_inner_pretty.js:(wraps TFK) | function |
+| `n6.isSandboxingEnabled` (→ `st$`) | isSandboxingEnabled | cli_inner_pretty.js:198273-198279 | function |
+| `n6.isAutoAllowBashIfSandboxedEnabled` (→ `bs1`) | isAutoAllowBashIfSandboxedEnabled | cli_inner_pretty.js:198251-198254 | function |
+| `n6.areUnsandboxedCommandsAllowed` (→ `xs1`) | areUnsandboxedCommandsAllowed | cli_inner_pretty.js:198255-198257 | function |
+| `n6.setSandboxSettings` (→ `Us1`) | setSandboxSettings | cli_inner_pretty.js:(state mutator) | function |
+| `n6.checkDependencies` (→ wraps `TFK`) | checkSandboxDependencies | cli_inner_pretty.js:(wraps TFK at 195527) | function |
 | `n6.getFsWriteConfig` | getFilesystemWriteConfig | cli_inner_pretty.js:207035-207043 | function |
-| `n6.areSandboxSettingsLockedByPolicy` | areSandboxSettingsLockedByPolicy | cli_inner_pretty.js:(policy lock check) | function |
+| `n6.areSandboxSettingsLockedByPolicy` (→ `ps1`) | areSandboxSettingsLockedByPolicy | cli_inner_pretty.js:(policy lock check) | function |
 | `n6.isSupportedPlatform` | isSandboxSupportedPlatform | cli_inner_pretty.js:(platform gate) | function |
-| `n6.isPlatformInEnabledList` | isPlatformInEnabledList | cli_inner_pretty.js:198262-198266 | function |
+| `n6.isPlatformInEnabledList` (→ `at$`) | isPlatformInEnabledList | cli_inner_pretty.js:198262-198272 | function |
+| `n6` (namespace) | sandboxStateNamespace | cli_inner_pretty.js:198457-198475 | object |
 
 ---
 

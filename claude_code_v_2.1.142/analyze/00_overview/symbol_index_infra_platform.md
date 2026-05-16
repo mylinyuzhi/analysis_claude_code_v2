@@ -92,7 +92,7 @@ Known new themes for this window:
 
 Bubblewrap/socat (Linux/WSL), darwin app-sandbox, PID-namespace isolation, allowed/denied domains, dangerous-path safety net.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+Detailed module-doc set: [`../18_sandbox/v2_1_142_README.md`](../18_sandbox/v2_1_142_README.md). Per-subsection mappings live in [`symbol_additions_v2_1_142_sandbox.md`](symbol_additions_v2_1_142_sandbox.md); the consolidated table below is the canonical lookup for the v2.1.113→v2.1.142 sandbox window.
 
 Known new themes for this window:
 
@@ -101,6 +101,133 @@ Known new themes for this window:
 - Dangerous-path check no longer bypassed by sandbox auto-allow for `rm`/`rmdir` (v2.1.116)
 - `allowManagedDomainsOnly`/`allowManagedReadPathsOnly` ignored on higher-priority source lacking `sandbox` block (v2.1.126 security fix)
 - `parentSettingsBehavior` admin key (`first-wins` / `merge`) for SDK `managedSettings` policy merge (v2.1.133)
+
+### Schema
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Xh9 | SandboxNetworkConfigSchema | cli_inner_pretty.js:48255-48306 | function |
+| Lh9 | SandboxFilesystemConfigSchema | cli_inner_pretty.js:48307-48340 | function |
+| yMq | SandboxSettingsSchema | cli_inner_pretty.js:48341-48390 | function |
+| hu8 | sandboxSchemaPathModule | cli_inner_pretty.js:48254 | variable |
+
+### Managed-Settings Tier Merger
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| MDq | mergeManagedPolicy | cli_inner_pretty.js:52104-52131 | function |
+| Tm8 | policyTierProjection | cli_inner_pretty.js:52046-52088 | function |
+| Gm8 | shouldMergeParentChain | cli_inner_pretty.js:52043-52045 | function |
+| uI9 | collectPolicyTierList | cli_inner_pretty.js:52132-52137 | function |
+| wDq | resolvePolicySettings | cli_inner_pretty.js:52138-52148 | function |
+| WPH | getAllPolicyTierSettings | cli_inner_pretty.js:52338-52340 | function |
+| aR$ | pickKeys | cli_inner_pretty.js:(used by Tm8) | function |
+
+### Bwrap / Socat Path Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| tz$ | getBwrapPath | cli_inner_pretty.js:197238-197242 | function |
+| MgK | getSocatPath | cli_inner_pretty.js:197243-197247 | function |
+| Qt$ | resolveBubblewrap | cli_inner_pretty.js:197248-197252 | function |
+| Fx | whichExecutable | cli_inner_pretty.js:(executable-aware which) | function |
+| q7H | whichBinary | cli_inner_pretty.js:(plain which) | function |
+| ZFK | isExecutable | cli_inner_pretty.js:195520-195526 | function |
+| Uq$ | isWSL | cli_inner_pretty.js:48235-48243 | function |
+| TFK | checkSandboxDependencies | cli_inner_pretty.js:195527-195539 | function |
+
+### Dangerous-Path Safety (rm/rmdir)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| v64 | autoAllowAstChecker | cli_inner_pretty.js:420551-420579 | function |
+| WA5 | autoAllowSingleCmdChecker | cli_inner_pretty.js:420580-420632 | function |
+| VA5 | staticRuleCheck | cli_inner_pretty.js:420644-420673 | function |
+| IX6 | checkRmTargets | cli_inner_pretty.js:274835-274851 | function |
+| nUH | isCriticalPath | cli_inner_pretty.js:207091-207105 | function |
+| hX6 | askForApproval | cli_inner_pretty.js:274827-274834 | function |
+| Gk | expandTilde | cli_inner_pretty.js:207030-207033 | function |
+| LMH | stripWrapperPrefixes | cli_inner_pretty.js:(used at 420569) | function |
+| LdK | isDangerousCommand | cli_inner_pretty.js:205223-205225 | function |
+| ce1 | CRITICAL_WIN_DRIVE_ROOT_REGEX | cli_inner_pretty.js:207183 | constant |
+| le1 | CRITICAL_WIN_TOP_LEVEL_REGEX | cli_inner_pretty.js:207183 | constant |
+| bV | shouldSandboxThisCommand | cli_inner_pretty.js:421425-421432 | function |
+| RA5 | isCommandExcludedFromSandbox | cli_inner_pretty.js:421383-421424 | function |
+| vdH | COMMAND_ARG_EXTRACTORS | cli_inner_pretty.js:275266-275533 | object |
+
+### Network Filter
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pFK | networkPermissionFilter | cli_inner_pretty.js:196344-196358 | function |
+| ia1 | getNetworkPermissionConfig | cli_inner_pretty.js:196505-196510 | function |
+| hA6 | matchesHostPattern | cli_inner_pretty.js:196333-196343 | function |
+| NUK | canonicalizeHost | cli_inner_pretty.js:(host normalizer) | function |
+| nz$ | isValidHost | cli_inner_pretty.js:(host validator) | function |
+| KY$ | buildSandboxConfig | cli_unpack_pretty/decls/functions/KY$.js | function |
+| vUH | parsePermissionRule | cli_inner_pretty.js:(rule parser) | function |
+| FD | WEB_FETCH_TOOL_NAME | cli_inner_pretty.js:(constant) | constant |
+| e9 | sandboxConfig | cli_inner_pretty.js:(module-level cache) | variable |
+| da1 | initializeSandboxNetwork | cli_inner_pretty.js:196407-196483 | function |
+
+### Linux bwrap Wrapper
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vFK | linuxBwrapWrapper | cli_inner_pretty.js:195744-195831 | function |
+| VFK | spawnNetworkBridges | cli_inner_pretty.js:195540-195602 | function |
+| Ca1 | buildBridgedShellCommand | cli_inner_pretty.js:195612-195630 | function |
+| Ra1 | buildSeccompArgvPrefix | cli_inner_pretty.js:195604-195611 | function |
+| ba1 | buildBwrapMountArgs | cli_inner_pretty.js:195631-195743 | function |
+| Sa1 | enumerateDangerousFiles | cli_inner_pretty.js:195448-195519 | function |
+
+### Apply-Seccomp Helper
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| vA6 | findSeccompBinary | cli_inner_pretty.js:195367-195372 | function |
+| Ea1 | findSeccompBinaryImpl | cli_inner_pretty.js:195373-195388 | function |
+| XFK | detectArchitecture | cli_inner_pretty.js:195335-195355 | function |
+| Na1 | listBundleSearchPaths | cli_inner_pretty.js:195356-195366 | function |
+| TA6 | seccompBinaryCache | cli_inner_pretty.js:195394 | variable |
+| bgK | getSeccompConfig | cli_inner_pretty.js:(builds {applyPath, argv0}) | function |
+| RgK | isBundledSeccompAvailable | cli_inner_pretty.js:(bundled seccomp gate) | function |
+
+### Subprocess Env Scrub (Renames vs v2.1.112)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| aW | isSubprocessEnvScrubEnabled | cli_inner_pretty.js:197361-197364 | function |
+| Ws1 | shouldUseMcpAllowlistEnv | cli_inner_pretty.js:197365-197369 | function |
+| A7H | isScrubSandboxAvailable | cli_inner_pretty.js:197370-197373 | function |
+| mA6 | assertScrubSandboxAvailable | cli_inner_pretty.js:197374-197439 | function |
+| Z3H | SUBPROCESS_SCRUB_LIST | cli_inner_pretty.js:(25-var scrub list) | constant |
+| ou | sandboxContext | cli_inner_pretty.js:(module-level cache) | variable |
+| ct$ | cachedBwrapAvail | cli_inner_pretty.js:(module-level cache) | variable |
+| JgK | SAFE_PATH_PREFIXES | cli_inner_pretty.js:(path-filter prefixes) | constant |
+
+### macOS Sandbox Profile
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| pa1 | buildMacOSSandboxProfile | cli_inner_pretty.js:195952-196183 | function |
+| SFK | applyMacOSSandbox | cli_inner_pretty.js:(macOS sandbox-exec) | function |
+| dFK | getAllowMachLookup | cli_inner_pretty.js:196520-196522 | function |
+| gFK | getAllowUnixSockets | cli_inner_pretty.js:196511-196513 | function |
+| xFK | getAllowAllUnixSockets | cli_inner_pretty.js:196514-196516 | function |
+| QFK | getAllowLocalBinding | cli_inner_pretty.js:196517-196519 | function |
+| ra1 | getEnableWeakerNetworkIsolation | cli_inner_pretty.js:196529-196531 | function |
+| uFK | getAllowGitConfig | cli_inner_pretty.js:196538-196540 | function |
+
+### `n6` Sandbox State Namespace
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `n6` | sandboxStateNamespace | cli_inner_pretty.js:198457-198475 | object |
+| `n6.isSandboxingEnabled` (→ `st$`) | isSandboxingEnabled | cli_inner_pretty.js:198273-198279 | function |
+| `n6.isAutoAllowBashIfSandboxedEnabled` (→ `bs1`) | isAutoAllowBashIfSandboxedEnabled | cli_inner_pretty.js:198251-198254 | function |
+| `n6.areUnsandboxedCommandsAllowed` (→ `xs1`) | areUnsandboxedCommandsAllowed | cli_inner_pretty.js:198255-198257 | function |
+| `n6.isPlatformInEnabledList` (→ `at$`) | isPlatformInEnabledList | cli_inner_pretty.js:198262-198272 | function |
 
 ---
 
