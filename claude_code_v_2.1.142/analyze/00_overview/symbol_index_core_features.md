@@ -94,7 +94,75 @@ Known new themes for this window:
 
 Autocompact dispatcher, microcompact stub, context-collapse persistence, summarize-up-to-here, prompt cache interaction.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+Full delta mappings live in [`symbol_additions_v2_1_142_compact_arch.md`](symbol_additions_v2_1_142_compact_arch.md) (autocompact pipeline, prompts, hooks) and [`symbol_additions_v2_1_142_compact_cache.md`](symbol_additions_v2_1_142_compact_cache.md) (reactive compact, partial compact, telemetry). The canonical functions/constants for cross-doc lookup are summarized below.
+
+### Autocompact (proactive lane)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Fo7` | autoCompactGenerator | cli_inner_pretty.js:408400-408445 | function |
+| `qrH` | compactConversation | cli_inner_pretty.js:407582-407767 | function |
+| `o45` | shouldAutoCompactNow | cli_inner_pretty.js:408389-408399 | function |
+| `cZ` | isAutoCompactEnabled | cli_inner_pretty.js:408384-408388 | function |
+| `Wy6` | computeRapidRefillStreak | cli_inner_pretty.js:408349-408351 | function |
+| `vP$` | computeAutoCompactThreshold | cli_inner_pretty.js:408269-408274 | function |
+| `MH4` | computeContextLevel | cli_inner_pretty.js:408278-408289 | function |
+| `o47` | isAboveAutoCompactThreshold | cli_inner_pretty.js:408377-408383 | function |
+| `FHH` | getEffectiveContextWindow | cli_inner_pretty.js:408339-408344 | function |
+| `di` | resolveAutoCompactWindowSource | cli_inner_pretty.js:408320-408334 | function |
+| `Bn` | postCompactCleanup | cli_inner_pretty.js:243907-243920 | function |
+| `DH4` | MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES (=3) | cli_inner_pretty.js:408486 | constant |
+| `PI6` | RAPID_REFILL_TURN_WINDOW (=3) | cli_inner_pretty.js:408487 | constant |
+| `NO8` | MAX_CONSECUTIVE_RAPID_REFILLS (=3) | cli_inner_pretty.js:408488 | constant |
+| `Py6` | AUTOCOMPACT_THRASHING_MESSAGE | cli_inner_pretty.js:408513 | constant |
+| `YH4` | AUTOCOMPACT_BUFFER_TOKENS | cli_inner_pretty.js:408290 | constant |
+
+### Reactive compact (1M-context overflow lane, v2.1.113+)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Y97` | reactiveCompactDispatcher | cli_inner_pretty.js:243951-244055 | function |
+| `Ej6` | runReactiveCompact | cli_inner_pretty.js:244056-244092 | function |
+| `f97` | finalizeReactiveCompact | cli_inner_pretty.js:244093-244175 | function |
+| `uq8` | iterateReactiveSummarize | cli_inner_pretty.js:243253-243336 | function |
+| `X3_` | summarizeReactiveAttempt | cli_inner_pretty.js:243188-243241 | function |
+| `B47` | seedPreservedCount | cli_inner_pretty.js:243242-243248 | function |
+| `L3_` | nextStepFromGap | cli_inner_pretty.js:243249-243252 | function |
+| `H4H` | isReactiveCompactEligible | cli_inner_pretty.js:243938-243944 | function |
+| `mUH` | extractPTLTokenGap | cli_inner_pretty.js (referenced) | function |
+| `n47` | startPrecomputedCompact | cli_inner_pretty.js:243450-243540 | function |
+| `i47` | swapWithPrecomputeIfReady | cli_inner_pretty.js:243599-243630 | function |
+
+### Compact prompts (v2.1.139 sensitive-instructions clause)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `bq8` | compactFullPrompt | cli_inner_pretty.js:242949-243062 | function |
+| `m47` | compactPartialPrompt | cli_inner_pretty.js:242856-242948 | function |
+| `j3_` | compactRecentBodyConst | cli_inner_pretty.js:243108-243181 | constant |
+| `u47` | compactNoToolsReminder | cli_inner_pretty.js:243182-243186 | constant |
+| `Yj6` | lazyInitCompactBodies | cli_inner_pretty.js:243107 | function |
+| `J3_` | stripAnalysisAndRewrapSummary | cli_inner_pretty.js:243063-243084 | function |
+| `fM$` | wrapSummaryAsContinuationPrompt | cli_inner_pretty.js:243085-243105 | function |
+
+### Partial compact + /rewind (v2.1.141 "Summarize up to here", v2.1.133 silent abort)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_H4` | partialCompact | cli_inner_pretty.js:407768-407934 | function |
+| `AH4` | partialCompactErrorNotice | cli_inner_pretty.js:407935-407951 | function |
+| `Gb` | USER_ABORT_PATTERN | cli_inner_pretty.js:408217 | constant |
+| `ErH` | NO_MESSAGES_PATTERN | cli_inner_pretty.js:408213 | constant |
+| `$rH` | PRECOMPACT_BLOCKED_PREFIX | cli_inner_pretty.js:408218 | constant |
+| `tF` | PROMPT_TOO_LONG_PREFIX | cli_inner_pretty.js:200302 | constant |
+
+### Hooks (PreCompact blocking added v2.1.105)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ug` | executePreCompactHooks | cli_inner_pretty.js:519855-519893 | function |
+| `zMH` | executePostCompactHooks | cli_inner_pretty.js:519894-519912 | function |
+| `FM8` | throwOnPreCompactHookBlock | cli_inner_pretty.js:407549-407558 | function |
 
 Known new themes for this window:
 

@@ -27,6 +27,8 @@ The throughline: compaction got a second, smarter algorithm for big-context mode
 
 ## Document Map
 
+Per-change deltas (single-version focused):
+
 | File | Topic | Changelog Anchor |
 |------|-------|------------------|
 | [reactive_seeding.md](./reactive_seeding.md) | First summarize attempt seeds from overflow-size token gap | 2.1.142 |
@@ -37,7 +39,25 @@ The throughline: compaction got a second, smarter algorithm for big-context mode
 | [subagent_resume_dup_writes.md](./subagent_resume_dup_writes.md) | Subagent `--resume` no longer re-writes the multi-MB transcript head on PTL retries | 2.1.132 |
 | [fork_pointer_hydrate.md](./fork_pointer_hydrate.md) | `/fork` writes a pointer (`forkedFrom`) instead of a full conversation copy per fork | 2.1.118 |
 | [branch_size_limit_removal.md](./branch_size_limit_removal.md) | `/branch` streams via line-pump instead of buffering the whole JSONL — 50MB limit gone | 2.1.116 |
-| [../00_overview/symbol_additions_v2_1_142_compact_cache.md](../00_overview/symbol_additions_v2_1_142_compact_cache.md) | All symbol mappings discovered in this delta | — |
+
+Architecture deep-dives (cross-cutting reference):
+
+| File | Topic |
+|------|-------|
+| [proactive_vs_reactive.md](./proactive_vs_reactive.md) | Side-by-side comparison of the two compact algorithms (200k vs 1M lane) |
+| [autocompact_thrash_guard.md](./autocompact_thrash_guard.md) | Two breakers (consecutive-failure, rapid-refill) — state machines and trigger conditions |
+| [precompact_hook_interaction.md](./precompact_hook_interaction.md) | PreCompact hook block path: `decision: "block"`, exit-code 2, prefix-matched silent skip |
+| [fork_interaction.md](./fork_interaction.md) | How compaction crosses fork boundaries and resumed sessions |
+| [sensitive_instructions_preservation_internals.md](./sensitive_instructions_preservation_internals.md) | Internals of the v2.1.139 prompt clause across all four variants |
+| [summarization_model_selection.md](./summarization_model_selection.md) | Which model writes the summary (haiku-fast routing, env overrides) |
+| [summary_prompt_template.md](./summary_prompt_template.md) | The compaction meta-prompt structure (sections 1-9, `J3_` unwrap, `fM$` continuation) |
+
+Symbol references:
+
+| File | Topic |
+|------|-------|
+| [../00_overview/symbol_additions_v2_1_142_compact_cache.md](../00_overview/symbol_additions_v2_1_142_compact_cache.md) | Unit 11 — reactive compact, partial compact, telemetry symbols |
+| [../00_overview/symbol_additions_v2_1_142_compact_arch.md](../00_overview/symbol_additions_v2_1_142_compact_arch.md) | Unit 07 — autocompact pipeline, prompts, hooks, model selection symbols |
 
 ## Related Symbols
 
