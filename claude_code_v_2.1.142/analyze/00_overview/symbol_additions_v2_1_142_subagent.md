@@ -31,10 +31,10 @@ Cross-validated against:
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `Vb` | `runAgent` (the streaming generator that runs a subagent turn — registers frontmatter hooks, connects agent MCPs, runs the LLM loop, persists transcript, fires SubagentStop) | cli_inner_pretty.js:393107-393434 | function |
+| `Vb` | `runAgent` (the streaming generator that runs a subagent turn — registers frontmatter hooks, connects agent MCPs, runs the LLM loop, persists transcript, fires SubagentStop) | cli_inner_pretty.js:393099-393434 | function |
 | `eo7` | `registerFrontmatterHooks` (registers a subagent's `hooks:` frontmatter into `sessionHooksRegistry`, scoped to the subagent's agentId; cleared in SubagentStop) | cli_inner_pretty.js (called from 393200) | function |
 | `g85` | `initializeAgentMcpServers` (loads frontmatter `mcpServers:`; gates on `isSourceAdminTrusted` for `strictPluginOnlyCustomization`) | cli_inner_pretty.js (called from 393232) | function |
-| `slH` | `runSubagentLifecycle` (wraps `runAgent` in async-task registration, optional summarization, progress notification) | cli_inner_pretty.js (called from 386737) | function |
+| `slH` | `runSubagentLifecycle` (wraps `runAgent` in async-task registration, optional summarization, progress notification) | cli_inner_pretty.js:339762 (def), called from 386739 | function |
 | `uiH` | `runResumedSubagent` (resume entry: hydrates transcript, builds `resumePersistedCount`, dispatches to `slH`) | cli_inner_pretty.js:386626-386713 | function |
 | `Me` | `recordSidechainTranscript` (append messages to `~/.claude/sidechains/<agentId>.jsonl`) | cli_inner_pretty.js:514415 (export); called from 393304, 393360 | function |
 | `tJ$` | `writeAgentMetadata` (write `~/.claude/sidechains/<agentId>.json` — agentType, worktreePath, cwd, description, name) | cli_inner_pretty.js:514386 (export); called from 393305 | function |
@@ -119,7 +119,7 @@ Cross-validated against:
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `QL$` | `executeSubagentStartHooks` (fires `SubagentStart` for both agent-frontmatter and settings hooks; returns additional_context to inject) | cli_inner_pretty.js:520055 (definition), 520399 (export) | function |
+| `QL$` | `executeSubagentStartHooks` (fires `SubagentStart` for both agent-frontmatter and settings hooks; returns additional_context to inject) | cli_inner_pretty.js:520054-520057 (def), 520399 (export) | function |
 | `S9H` | `executeSubagentStopHooks` (fires `SubagentStop` at lifecycle end — runs via `runAgent`'s finally block on interrupted queries) | cli_inner_pretty.js (called from 393377) | function |
 | `eo7` | `registerFrontmatterHooks` (validates v2.1.142 prompt-/agent-type hooks against `SessionStart`/`Setup`/`SubagentStart` and rejects with "use a command-type hook instead") | cli_inner_pretty.js (called from 393200) | function |
 | `B7H` | `isAgentTypeAdminTrusted` (gate that lets policy-/plugin-/built-in-sourced agents register hooks even when user hooks are disabled) | cli_inner_pretty.js (called from 393199) | function |

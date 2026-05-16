@@ -27,11 +27,11 @@ In short: **a subagent is a worker, a teammate is a peer.** Subagents return a r
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks, Skills, Compact)
 
 Key functions in this README:
-- `runAgent` (`Vb`) - the streaming generator that runs a subagent turn (cli_inner_pretty.js:393107-393434)
+- `runAgent` (`Vb`) - the streaming generator that runs a subagent turn (cli_inner_pretty.js:393099-393434)
 - `runResumedSubagent` (`uiH`) - resume entrypoint that threads `resumePersistedCount` (cli_inner_pretty.js:386626-386713)
 - `isForkSubagentEnabled` (`W0`) - the env/feature-flag gate for the implicit `Agent`-without-`subagent_type` fork path (cli_inner_pretty.js:211750-211752)
 - `normalizeAgentTypeSlug` (`Zu7`) - the case- and separator-insensitive matcher (cli_inner_pretty.js:351139-351143)
-- `executeSubagentStartHooks` (`QL$`) - fires `SubagentStart` hooks and injects additional_context (cli_inner_pretty.js:520055)
+- `executeSubagentStartHooks` (`QL$`) - fires `SubagentStart` hooks and injects additional_context (cli_inner_pretty.js:520054-520057)
 - `startAgentSummarization` (`CM$`) - the per-subagent 30s timer loop that produces task-notification summaries (cli_inner_pretty.js:271869-271941)
 
 ## Three Entry Points
