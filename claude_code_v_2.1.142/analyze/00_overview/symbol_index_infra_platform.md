@@ -20,7 +20,7 @@ For v2.1.142, the canonical source citation is `cli_unpack_pretty/unknown/<obfus
 
 stdio/HTTP/SSE/WebSocket transports, OAuth flow, tool listing, resource templates, elicitation, server lifecycle.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+Symbol mappings: see [`symbol_additions_v2_1_142_mcp.md`](./symbol_additions_v2_1_142_mcp.md) for the consolidated MCP symbol table (config schemas, per-request fetch timeout, transport byte caps, tools/list lifecycle, connection & reconnect, OAuth refresh defense, claude.ai proxy, stdio env injection, reserved names, `alwaysLoad`, server-detail menu, telemetry).
 
 Known new themes for this window:
 
