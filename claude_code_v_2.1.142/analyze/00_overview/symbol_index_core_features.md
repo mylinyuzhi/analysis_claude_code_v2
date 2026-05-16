@@ -2,7 +2,7 @@
 
 > Symbol additions for v2.1.142 are tracked in 00_overview/symbol_additions_v2_1_142_*.md files. Consolidation into this index is a future pass.
 
-This index catalogs obfuscated → readable mappings for the **core feature** symbols introduced or changed between v2.1.113 and v2.1.142. Scope: Plan Mode, Background Agents, /goal, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI.
+This index catalogs obfuscated → readable mappings for the **core feature** symbols introduced or changed between v2.1.113 and v2.1.142. Scope: Plan Mode, Background Agents, /goal, Todo, Compact, Hooks, Skills, Thinking / Effort, Steering, CLI.
 
 For other categories see:
 
@@ -157,11 +157,30 @@ Known new themes:
 
 ---
 
-## Module: Thinking
+## Module: Thinking / Effort
 
-Extended thinking, thinking-summary toggle, thinking spinner (rotating, amber warmup), thinking-block redaction handling.
+Extended thinking, thinking-summary toggle, thinking spinner (rotating, amber warmup), thinking-block redaction handling, effort-level resolution and plumbing.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+For the full mapping see [symbol_additions_v2_1_142_think_ui.md](symbol_additions_v2_1_142_think_ui.md) (effort resolver, slider, hook/env plumbing, Bedrock-ARN resolution, byte-watchdog). Key symbols carried forward from v2.1.112 with new obfuscation:
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `CP` | `modelSupportsEffort` (was `QI` in v2.1.112) | cli_inner_pretty.js:198795-198811 | function |
+| `fY$` | `modelSupportsMaxEffort` (was `Ct6` in v2.1.112) | cli_inner_pretty.js:198812-198828 | function |
+| `OY$` | `modelSupportsXhigh` (was `bt6` in v2.1.112) | cli_inner_pretty.js:198829-198847 | function |
+| `Z3H` | `resolveAppliedEffort` (was `wy6` in v2.1.112) | cli_inner_pretty.js:198874-198884 | function |
+| `$e$` | `getDefaultEffortForModel` (was `IF1` in v2.1.112; simplified to 2 lines in v2.1.117) | cli_inner_pretty.js:198951-198954 | function |
+| `IUH` | `readEnvEffortLevel` (was `Zj6` in v2.1.112) | cli_inner_pretty.js:198867-198870 | function |
+| `aT` | `resolveEffortForApi` (single source-of-truth for `output_config.effort`, hook input, `CLAUDE_EFFORT` env) | cli_inner_pretty.js:198908-198911 | function |
+| `lm5` | `applyOutputConfigEffort` (sets `output_config.effort` gated on `modelSupportsEffort`) | cli_inner_pretty.js:524795-524803 | function |
+| `He$` | `isOpus47LaunchDefaultActive` (model is opus-4-7 AND !unpinOpus47LaunchEffort) | cli_inner_pretty.js:198871-198873 | function |
+| `py5` | `EffortSliderComponent` (env-aware initial index, v2.1.132) | cli_inner_pretty.js:496927-497117 | component |
+| `Ey5` | `applyEffortLevel` (typed-arg; surfaces env-override conflict, v2.1.132) | cli_inner_pretty.js:496721-496749 | function |
+| `yy5` | `clearEffortLevel` (`/effort auto` env-conflict message, v2.1.132) | cli_inner_pretty.js:496757-496769 | function |
+| `k7` | `resolveModelCanonicalId` (ARN→backing-model path added v2.1.122) | cli_inner_pretty.js:97419-97427 | function |
+| `abH` | `loadBedrockInferenceProfileBackingModel` (async cache, v2.1.122) | cli_inner_pretty.js:90502-90523 | function |
+| `TV1` | `wrapStreamWithByteWatchdog` (cancel-path clearAllTimers added v2.1.139) | cli_inner_pretty.js:128281-128392 | function |
+| `$l$` | `StreamIdleTimeoutError` | cli_inner_pretty.js:128470-128485 | class |
 
 Known new themes for this window:
 
@@ -171,6 +190,13 @@ Known new themes for this window:
 - Opus 4.7 + Bedrock IP ARN + thinking disabled: 400 fix (v2.1.117)
 - Alt+T (thinking toggle) on macOS terminals without Option-as-Meta (v2.1.132 fix)
 - `thinking.enabled` in status-line stdin (v2.1.119)
+- Default Pro/Max effort on Opus 4.6 / Sonnet 4.6: `medium` → `high` (v2.1.117)
+- `effort.level` in hook input JSON + `CLAUDE_EFFORT` env var (v2.1.133)
+- `/effort` slider opens at env-reflected position; env-override conflict messages (v2.1.132)
+- Bedrock application-inference-profile ARN now resolves to backing model so `/model` Effort row appears + `output_config.effort` is sent (v2.1.122)
+- Stream-idle watchdog rearms on clock-jump (Mac sleep/wake) and `cancel()` clears timers (v2.1.126, v2.1.139)
+
+See [`../19_think_level/v2_1_142_README.md`](../19_think_level/v2_1_142_README.md) for the end-to-end effort plumbing diagram.
 
 ---
 
