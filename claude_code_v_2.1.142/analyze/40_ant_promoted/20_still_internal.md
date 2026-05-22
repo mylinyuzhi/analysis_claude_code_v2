@@ -153,7 +153,7 @@ function getBughunterConfig() {
 ### version
 
 **2.1.88 gate**: `INTERNAL_ONLY_COMMANDS[12]` at `commands.ts:238`; import at `commands.ts:141`
-**2.1.142 gate**: STILL-INTERNAL via dual-stub pattern — defined at `cli_inner_pretty.js:492418-492437` as two variants (`local-jsx` and `local`) both with `isEnabled: () => !1`. The `local` variant additionally has `isHidden` gated on `T6()` (some other ant gate). The handler functions `IN5`/`RN5` are present but unreachable from `getCommands()`.
+**2.1.142 gate**: STILL-INTERNAL via dual-stub pattern — defined at `cli_inner_pretty.js:492418-492437` as two variants (`local-jsx` and `local`) both with `isEnabled: () => !1`. The `local` variant additionally has `isHidden` gated on `T6()` — confirmed at `cli_inner_pretty.js:2677` as `isNonInteractive` (returns `!U$.isInteractive`), NOT an ant probe (see [02_gate_mechanism.md](02_gate_mechanism.md) for the corrected mapping). Both stubs are unreachable from `getCommands()` regardless. The handler functions `IN5`/`RN5` are present but unreachable.
 **Purpose**: Print the exact version of the running session (distinct from the autoupdated version)
 **Status change**: Command shell remains but is permanently disabled — likely retained to avoid breaking the symbol export graph
 
@@ -203,13 +203,13 @@ const versionCommandText = {
   description: "Print the version this session is running (not what autoupdate downloaded)",
   isEnabled: () => false,
   get isHidden() {
-    return !isAntInternalRuntime();  // T6
+    return !isNonInteractive();  // T6 — returns !U$.isInteractive (cli_inner_pretty.js:2677), NOT an ant probe
   },
   supportsNonInteractive: true,
   load: () => Promise.resolve({ call: printVersionText }),
 };
 
-// Mapping: SN5→versionCommandJsx, Fp6→versionCommandText, IN5→renderVersionJsx, RN5→printVersionText, T6→isAntInternalRuntime
+// Mapping: SN5→versionCommandJsx, Fp6→versionCommandText, IN5→renderVersionJsx, RN5→printVersionText, T6→isNonInteractive
 ```
 
 ### ultraplan (ULTRAPLAN feature)
