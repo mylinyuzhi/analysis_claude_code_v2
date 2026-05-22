@@ -168,9 +168,8 @@ The cost: one daemon process per machine. To minimize that, the daemon exits its
 ## Related Symbols
 
 > Symbol mappings:
-> - [symbol_additions_v2_1_142_agents.md](../00_overview/symbol_additions_v2_1_142_agents.md) — All v2.1.142 symbols introduced/touched by this module
-> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) — Core features (Background Agents)
-> - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) — Platform (Daemon, Permissions)
+> - [symbol_additions_v2_1_142_agents.md](../00_overview/symbol_additions_v2_1_142_agents.md) — All v2.1.142 symbols introduced/touched by this module (the comprehensive table, including daemon-lifecycle entries)
+> - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) — Background Agents module pointer (delegates to the additions file pending consolidation)
 
 Key functions/types:
 - `mountFleetView` (`ao5`) — Agent-view loop; renders + re-attaches.
