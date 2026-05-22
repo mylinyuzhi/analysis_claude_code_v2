@@ -119,7 +119,7 @@ All three are React-tree functions. Defaults provided for unimplemented variants
 
 ## Tool counts by category (v2.1.142)
 
-> Source: `tools_index.json` (46 tools registered, plus `eval_registered__${...}` placeholder pattern).
+> Source: `assets/tools/_index.json` (46 tools registered, plus `eval_registered__${...}` placeholder pattern).
 
 | Category | Count | Tools |
 |----------|------:|-------|

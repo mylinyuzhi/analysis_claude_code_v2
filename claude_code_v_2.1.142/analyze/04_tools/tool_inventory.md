@@ -1,6 +1,6 @@
 # Tool Inventory — v2.1.142
 
-> All 46 tools registered in the v2.1.142 bundle, grouped by category. Offsets are in `cli_inner_pretty.js` and were extracted by the bundle-disassembler into `assets/tools_index.json`.
+> All 46 tools registered in the v2.1.142 bundle, grouped by category. Offsets are in `cli_inner_pretty.js` and were extracted by the bundle-disassembler into `assets/tools/_index.json` (the top-level `assets/tools_index.json` exists but is empty — the populated index is the per-tool one under `assets/tools/`).
 
 ## Notation
 
@@ -223,7 +223,7 @@ The 46 tools above are static. Each connected MCP server contributes additional 
 
 ## Source pointers
 
-- `tools_index.json`: `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/assets/tools_index.json`
+- `tools_index.json` (per-tool): `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/assets/tools/_index.json`
 - Per-tool markdown: `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/assets/tools/<Name>.md`
 - TypeScript reference (v2.1.88): `/lyz/codespace/3rd/claude-code/src/tools/<NameTool>/<NameTool>.ts`
 - Bundle: `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_inner_pretty.js` (offsets above)
