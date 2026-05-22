@@ -28,7 +28,7 @@ In short: **a subagent is a worker, a teammate is a peer.** Subagents return a r
 
 Key functions in this README:
 - `runAgent` (`Vb`) - the streaming generator that runs a subagent turn (cli_inner_pretty.js:393099-393434)
-- `runResumedSubagent` (`uiH`) - resume entrypoint that threads `resumePersistedCount` (cli_inner_pretty.js:386626-386713)
+- `runResumedSubagent` (`uiH`) - resume entrypoint that threads `resumePersistedCount` (cli_inner_pretty.js:386626-386766)
 - `isForkSubagentEnabled` (`W0`) - the env/feature-flag gate for the implicit `Agent`-without-`subagent_type` fork path (cli_inner_pretty.js:211750-211752)
 - `normalizeAgentTypeSlug` (`Zu7`) - the case- and separator-insensitive matcher (cli_inner_pretty.js:351139-351143)
 - `executeSubagentStartHooks` (`QL$`) - fires `SubagentStart` hooks and injects additional_context (cli_inner_pretty.js:520054-520057)
@@ -199,4 +199,5 @@ Source `resolveForkSubagentSource` (`S$_`): cli_inner_pretty.js:211733-211740 re
 - **Frontmatter parsing**: `parseMarkdownFrontmatter` (`tO`, cli_inner_pretty.js:141788)
 - **Color palette**: `AGENT_COLOR_PALETTE` (`Nf`, cli_inner_pretty.js:231368) — 8 colors: red, blue, green, yellow, purple, orange, pink, cyan
 - **Identity headers**: `x-claude-code-agent-id`, `x-claude-code-parent-agent-id` (cli_inner_pretty.js:128061-128062, since v2.1.139)
-- **OTel attributes**: `agent_id`, `parent_agent_id` on `claude_code.llm_request` spans (since v2.1.139)
+- **OTel attributes**: `agent_id`, `parent_agent_id` on `claude_code.llm_request` spans (cli_inner_pretty.js:241778-241779, since v2.1.139)
+- **Agent context store**: `AsyncLocalStorage`-backed; `getAgentContext` (`RD`, cli_inner_pretty.js:97620-97622) reads the current `{ agentId, agentType, parentAgentId, ... }`; spawn wraps the child generator via `runWithAgentContext` (`RU`, cli_inner_pretty.js:97623-97625). All HTTP / OTel / hook code reads identity via `RD()` rather than threading params through every call.

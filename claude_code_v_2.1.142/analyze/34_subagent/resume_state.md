@@ -25,7 +25,7 @@ Three v2.1.x fixes form the modern resume story:
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform (MCP auth)
 
 Key functions in this document:
-- `runResumedSubagent` (`uiH`) - resume entrypoint (cli_inner_pretty.js:386626-386713)
+- `runResumedSubagent` (`uiH`) - resume entrypoint (cli_inner_pretty.js:386626-386766)
 - `loadSubagentTranscript` (`miH`) - read sidechain JSONL into messages array
 - `readAgentMetadata` (`vE6`) - read `~/.claude/sidechains/<id>.json` (cli_inner_pretty.js:514425)
 - `writeAgentMetadata` (`tJ$`) - write metadata sidecar (cli_inner_pretty.js:514386)
@@ -41,7 +41,7 @@ Key functions in this document:
 ```javascript
 // ============================================
 // runResumedSubagent - Re-hydrate a persisted subagent and resume execution
-// Location: cli_inner_pretty.js:386626-386713 (excerpt)
+// Location: cli_inner_pretty.js:386626-386766 (excerpt)
 // ============================================
 
 // ORIGINAL (for source lookup):

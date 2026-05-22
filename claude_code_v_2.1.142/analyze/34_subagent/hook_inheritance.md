@@ -24,12 +24,13 @@ Together: the same `hooks:` block in an agent's `.md` file works whether the age
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks)
 
 Key functions in this document:
-- `registerFrontmatterHooks` (`eo7`) - attach frontmatter hooks to sessionHooksRegistry (cli_inner_pretty.js, called from 393200)
-- `executeSubagentStartHooks` (`QL$`) - fire SubagentStart hooks; collect additional_context (cli_inner_pretty.js:520055)
-- `executeSubagentStopHooks` (`S9H`) - fire SubagentStop in cleanup/finally (cli_inner_pretty.js, called from 393377)
+- `registerFrontmatterHooks` (`eo7`) - attach frontmatter hooks to sessionHooksRegistry (cli_inner_pretty.js:393014; called from 393200)
+- `executeSubagentStartHooks` (`QL$`) - fire SubagentStart hooks; collect additional_context (cli_inner_pretty.js:520054-520057)
+- `executeSubagentStopHooks` (`S9H`) - fire SubagentStop in cleanup/finally (cli_inner_pretty.js:520098; called from 393377)
+- `dispatchHook` (`aP`) - per-hook executor that throws the v2.1.142 prompt/agent-type guard (cli_inner_pretty.js:521329; checks at 521481-521508)
 - `setMainThreadAgentHooks` (`dv$`) - state setter for `--agent`-supplied hooks (cli_inner_pretty.js:3087-3090)
 - `getMainThreadAgentHooks` (`kp`) - state getter (cli_inner_pretty.js:3083-3085)
-- `isAgentTypeAdminTrusted` (`B7H`) - hook registration gate for plugin/policy agents (called from 393199)
+- `isAgentTypeAdminTrusted` (`B7H`) - hook registration gate for plugin/policy agents (cli_inner_pretty.js:229389; called from 393199)
 - `isFeatureBypassed` (`DX`) - hook-kill-switch consulted by `B7H`
 
 ## The Two Hook Registries
@@ -158,24 +159,42 @@ Pre-v2.1.142, a hook configured this way would silently fail or produce confusin
 
 ### The New Behavior
 
-`registerFrontmatterHooks` (`eo7`) now validates the (event, type) pair at registration time and emits a user-visible error like:
+The hook dispatcher (`aP`, cli_inner_pretty.js:521329 onwards) now throws a precise `Error` when it encounters a `prompt`- or `agent`-type hook whose event lacks a conversation context (`SessionStart`, `Setup`, `SubagentStart`):
 
-> Cannot register a prompt-type hook for `SubagentStart`. Use a command-type hook instead — it can run an external process or script that observes the event without needing a conversation context.
+```javascript
+// cli_inner_pretty.js:521481-521508 (excerpt)
+if (g.type === "prompt") {
+  if (!z)
+    throw Error(
+      `prompt-type hooks are not supported for ${M} events (no conversation context is available). Use a command-type hook instead.`,
+    );
+  // ...
+}
+if (g.type === "agent") {
+  if (!z)
+    throw Error(
+      `agent-type hooks are not supported for ${M} events (no conversation context is available). Use a command-type hook instead.`,
+    );
+  // ...
+}
+```
 
-This is a *configuration error*, not a runtime error: the agent file fails to load with a clear message, the user fixes it, and the agent loads cleanly on retry.
+Where `z` is the conversation-context bundle (carried for tool-call / submit-prompt events; absent for the three "no-context-yet" events). `M` is the event name. The message is the same wording for both hook types, with the event interpolated in.
+
+This is a *dispatch-time* check that fires when the hook would have run, not at registration. The agent's `.md` file still loads (registration via `eo7` doesn't reject these pairs); but the first time the event fires after the bad-config agent starts, the user gets the actionable error in their terminal.
 
 ### Implementation Site
 
-The validation is in `registerFrontmatterHooks` (cli_inner_pretty.js, called from runAgent at 393200):
+Registration is in `registerFrontmatterHooks` (`eo7`, cli_inner_pretty.js:393014), called from runAgent at line 393200:
 
 ```javascript
 let PH = !DX("hooks") || B7H(H.source);                  // PH = registrations allowed?
 if (H.hooks && PH) eo7(q.sessionHooksRegistry, u, H.hooks, `agent '${H.agentType}'`, !0);
 ```
 
-The `B7H` gate (`isAgentTypeAdminTrusted`) admits hook registration for plugin / policy / built-in agents even when `disableAllHooks` or `allowManagedHooksOnly` is set in settings — admin-trusted sources are pre-approved. User-controlled agents must pass the `disable("hooks")` check.
+The `B7H` gate (`isAgentTypeAdminTrusted`) admits hook registration for plugin / policy / built-in agents even when `disableAllHooks` or `allowManagedHooksOnly` is set in settings — admin-trusted sources are pre-approved. User-controlled agents must pass the `DX("hooks")` (`isFeatureBypassed`) check.
 
-`eo7` itself walks the agent's `hooks:` object, validates each event/type pair, and registers with the agent's `agentId` as scope. v2.1.142's improved validation lives in this function.
+`eo7` walks the agent's `hooks:` object and registers each handler with the agent's `agentId` as scope. v2.1.142's improved error wording lives in `aP` (the hook executor), not in `eo7`.
 
 ## How `SubagentStart` Fires
 
