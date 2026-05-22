@@ -44,6 +44,7 @@ release adds `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN` as a peer of
 
 | Version | Kind | Change | Doc |
 |---------|------|--------|-----|
+| 2.1.113 | feat | `Ctrl+A` / `Ctrl+E` move to logical-line start/end in multiline input | [multiline_input_ctrl_a_e.md](./multiline_input_ctrl_a_e.md) |
 | 2.1.116 | feat | Inline thinking spinner ("still thinking", "thinking more", "almost done thinking") | [thinking_spinner_inline.md](./thinking_spinner_inline.md) |
 | 2.1.117 | feat | Faster MCP startup (cross-cuts — covered in 06_mcp); remote control sessions | (out of unit scope) |
 | 2.1.118 | feat | vim visual mode (`v`) and visual-line mode (`V`) | [vim_visual_mode.md](./vim_visual_mode.md) |
@@ -62,6 +63,7 @@ release adds `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN` as a peer of
 | 2.1.141 | feat | Spinner warms to amber after 10s | [spinner_amber_warm.md](./spinner_amber_warm.md) |
 | 2.1.141 | feat | `/feedback` includes recent sessions | [feedback_recent_sessions.md](./feedback_recent_sessions.md) |
 | 2.1.141 | fix  | AskUserQuestion popup hiding last line of preceding chat content (layout fix) | (covered in [slash_command_consistency.md](./slash_command_consistency.md)) |
+| 2.1.142 | feat | `/web-setup` warns before replacing an existing GitHub App connection | [web_setup_replace_warning.md](./web_setup_replace_warning.md) |
 
 The `/config` persistence (v2.1.119) is documented at
 [config_persist.md](./config_persist.md). It's a small change for the
@@ -186,3 +188,5 @@ Key components/objects in this module:
 11. [pasting_footer_hint.md](./pasting_footer_hint.md) — "Pasting…" hint
 12. [feedback_recent_sessions.md](./feedback_recent_sessions.md) — `/feedback` scope picker
 13. [slash_command_consistency.md](./slash_command_consistency.md) — visual consistency + AskUserQuestion fix
+14. [multiline_input_ctrl_a_e.md](./multiline_input_ctrl_a_e.md) — Ctrl+A / Ctrl+E switched to logical-line motion (v2.1.113)
+15. [web_setup_replace_warning.md](./web_setup_replace_warning.md) — `/web-setup` pre-replace warning for existing GitHub App (v2.1.142)
