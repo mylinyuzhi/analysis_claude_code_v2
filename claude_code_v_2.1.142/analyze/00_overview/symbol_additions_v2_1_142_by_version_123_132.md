@@ -213,3 +213,7 @@ When merging into the canonical `symbol_index_*.md` files, route as follows:
 | Bash tool / shell prefix | `symbol_index_core_execution.md` (Tools section, Bash subsection) |
 
 The "Obfuscated" column uses identifiers from the 2.1.142 build (`cli_inner_pretty.js`). Where an identifier appears multiple times for the same symbol across builds (e.g. `RT` for `hasFirstPartyBetaAccess` is the 2.1.142 name; older builds used different letters), only the 2.1.142 name is listed — this file documents *what was discovered in 2.1.142's 2.1.123–2.1.132 source*, not the cross-version drift.
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work. (Core-feature portions — ExitPlanMode tool name constants, skillOverrides settings key — routed to core_features; remaining auth/LLM API/MCP/model/permissions/sandbox portions are routed to the sibling indexes.)

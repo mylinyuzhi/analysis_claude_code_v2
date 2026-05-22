@@ -307,3 +307,7 @@ Rule formats accepted:
 | v2.1.126 skill_activated OTel | `Qf$` cli_inner_pretty.js:218520-218533 |
 | v2.1.121 /skills filter | `uJ4` cli_inner_pretty.js:476969-477062 |
 | v2.1.120 ${CLAUDE_EFFORT} | `$I6.getPromptForCommand` cli_inner_pretty.js:406269 |
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work.

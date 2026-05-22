@@ -222,3 +222,7 @@ To merge into the appropriate `symbol_index_*.md` once unit work completes:
 | (inline) | `pastingFooterHint` ("Pasting…" dim text when `isPasting`) | cli_inner_pretty.js:550854-550859 | constant |
 | (inline) | `pasteAgainHint` ("paste again to expand") | cli_inner_pretty.js:550861-550866 | constant |
 | `kill-paste-hint` | toast key — "Ctrl+Y to paste deleted text" | cli_inner_pretty.js:176077 | constant |
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work. (Thinking/effort portion routed to core_features; UI components for /scroll-speed, transcript nav, vim, theme editor remain consumable by `symbol_index_infra_integration.md`.)

@@ -263,3 +263,7 @@ grep -n "function Sq6\|function Li\\\$\|function nmH" /lyz/codespace/claude-code
 ```
 
 All cited symbols have been verified present in the v2.1.142 bundle.
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work.
