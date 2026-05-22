@@ -22,8 +22,21 @@ The `/plan` command, plan-file naming and persistence, plan-mode permission over
 
 *(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
 
+Known new symbols (`/ultraplan` promotion — see `40_ant_promoted/10_promoted_ultraplan.md`):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `sQ` | `isUltraplanEnabled` | cli_inner_pretty.js:475282 | function |
+| `YdH` | `isCloudCodeRunnerBridgeAvailable` | cli_inner_pretty.js:272755 | function |
+| `I6` | `isCurrentlyInRemoteWorkspace` | cli_inner_pretty.js:3104 | function |
+| `$J4` | `ultraplanSlashCommand` | cli_inner_pretty.js:475814 | object |
+| `DT5` | `ultraplanCallImpl` | cli_inner_pretty.js:~475730 | function |
+| `JX8` | `getUltraplanShape` | cli_inner_pretty.js:~475790 | function |
+| `pjH` | `CCR_TERMS_URL` | cli_inner_pretty.js:~475818 | constant |
+
 Known new themes for this window:
 
+- `/ultraplan` promoted from `feature('ULTRAPLAN')` build flag to GrowthBook runtime gate (`tengu_ultraplan_config.enabled`)
 - `/plan` and `/plan open` act on existing plan when entering plan mode (v2.1.119 fix)
 - Plan mode not re-applied after `ExitPlanMode` within same session (v2.1.132 fix)
 - `--permission-mode` flag honored when resuming plan-mode session with `-p --continue`/`--resume` (v2.1.132)
@@ -70,11 +83,22 @@ Known new symbols (preliminary):
 - `ov5` — `"/goal is only available in trusted workspaces..."` error string
 - (related) `"active_goal"` event-type discriminator string
 
+Promoted dual-export symbols (see `40_ant_promoted/10_promoted_goal.md`):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `BR5` | `goalInteractiveCommand` | cli_inner_pretty.js:507850 | object |
+| `pR5` | `goalNonInteractiveCommand` | cli_inner_pretty.js:507858 | object |
+| `UR5` | `goalCommandDefaultExport` | cli_inner_pretty.js:507870 | variable |
+| `T6` | `isNonInteractive` | cli_inner_pretty.js:2677 | function |
+| `uR5` | `interactiveGoalCall` | cli_inner_pretty.js:507787 | function |
+
 Known new themes:
 
 - v2.1.139 introduction (`/goal <condition>`, interactive/`-p`/Remote Control coverage)
 - v2.1.140: clear error when `disableAllHooks`/`allowManagedHooksOnly` is set
 - Overlay shows elapsed/turns/tokens
+- Dual-export pattern: `local-jsx` (REPL) + `local` non-interactive (SDK/RC)
 
 ---
 
@@ -194,6 +218,31 @@ Known new themes for this window:
 CLI argparser, subcommand router, top-level flags, environment-variable parsing.
 
 *(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+
+Promoted-feature CLI symbols (see `40_ant_promoted/`):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_9` | `isFastModeEnabled` | cli_inner_pretty.js:96854 | function |
+| `Yu` | `getFastModeModelDisplay` | cli_inner_pretty.js:96908 | function |
+| `Cc` | `isOpus46FastModeOverride` | cli_inner_pretty.js:96905 | function |
+| `Da` | `getFastModeUnavailableReason` | cli_inner_pretty.js:96881 | function |
+| `Uw` | `isFastModeSupportedByModel` | cli_inner_pretty.js:96922 | function |
+| `Ev5` | `fastInteractiveCommand` | cli_inner_pretty.js:484225 | object |
+| `KP4` | `fastNonInteractiveCommand` | cli_inner_pretty.js:484242 | object |
+| `IaH` | `isImmediateModelCommandEnabled` | cli_inner_pretty.js:483882 | function |
+| `V1H` | `isUltrareviewEnabled` | cli_inner_pretty.js:474757 | function |
+| `JaH` | `getReviewBughunterConfig` | cli_inner_pretty.js:474742 | function |
+| `fJ4` | `ultrareviewSlashCommand` | cli_inner_pretty.js:476334 | object |
+| `rqA` | `ultrareviewCliHandler` | cli_inner_pretty.js:604787 | function |
+| `aqA` | `pollUntilReviewComplete` | cli_inner_pretty.js:604868 | function |
+| `oqA` | `extractRemoteError` | cli_inner_pretty.js:604858 | function |
+| `Or` | `getDurationNote` | cli_inner_pretty.js:474749 | function |
+| `CEH` | `getCostNote` | cli_inner_pretty.js:474745 | function |
+| `RC5` | `detectInvocationKind` | cli_inner_pretty.js:509150 | function |
+| `rmH` | `isAgentViewDisabled` | cli_inner_pretty.js:139859 | function |
+| `KG$` | `ensureDaemonRunningWithInstallOffer` | cli_inner_pretty.js:509189 | function |
+| `bP8` | `backgroundedJobHelpFooter` | cli_inner_pretty.js:510749 | function |
 
 Known new themes for this window:
 

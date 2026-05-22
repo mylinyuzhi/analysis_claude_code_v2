@@ -265,6 +265,32 @@ Known new themes for this window:
 
 ---
 
+## Module: Bridge / Remote Control
+
+The "bridge" (internal codename) / "Remote Control" (external name) connects a local CLI to a cloud control surface (claude.ai/code in browser, phone). Includes the `/remote-control` slash command, `/bridge-kick` (disabled in external), bridge debug handle, fault injection, reconnect strategies, telemetry events. See `40_ant_promoted/10_promoted_bridge_sessions.md` for the 88→142 promotion story.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `uk` | `isRemoteControlAvailable` | cli_inner_pretty.js:272764 | function |
+| `UK8` | `isDisabledByManagedSettings` | cli_inner_pretty.js:272761 | function |
+| `Ph5` | `remoteControlCommand` | cli_inner_pretty.js:497963 | object |
+| `EN5` | `bridgeKickCommand` | cli_inner_pretty.js:492234 | object |
+| `NN5` | `bridgeKickHandler` | cli_inner_pretty.js:492128 | function |
+| `$Z4` | `getBridgeDebugHandle` | cli_inner_pretty.js:492110 | function |
+| `Up6` | `BRIDGE_KICK_USAGE` | cli_inner_pretty.js:492118 | constant |
+| `Wh5` | `remoteControlDefaultExport` | cli_inner_pretty.js:497976 | variable |
+
+Known new themes:
+
+- `/bridge` user-facing slash command renamed to `/remote-control` (with `/rc` alias)
+- `/bridge-kick` hard-disabled in external builds (`isEnabled: () => false`); handler bytes preserved
+- Telemetry events still `tengu_bridge_*` for analytics continuity
+- `disableRemoteControl` single managed-setting disables `/remote-control`, `claude remote-control`, `--remote-control`/`--rc`, auto-start, in-session toggle
+- Bridge reconnect Strategy 1 (POST /bridge/reconnect) falls through to Strategy 2 on 404
+- v2.1.141 Token rotation race fix
+
+---
+
 ## Module: Model Selection
 
 Model alias resolution, `/model` picker, default-model resolution (`opus` alias, `getDefaultEffortForModel`), 3P-provider model overrides, gateway `/v1/models` discovery.
