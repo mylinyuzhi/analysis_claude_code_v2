@@ -53,7 +53,7 @@ The unit treats these as **non-breaking but observable refactors**: every v2.1.1
         │  CLAUDE_COWORK_MEMORY_GUIDELINES set ─► verbatim # auto memory   │
         │                                                                  │
         │  SIMPLE_SYSTEM_PROMPT && !tiny ──────► simple combined-or-auto   │
-        │       (IVK6 emitter — compact one-block prompt)                  │
+        │       (IVK emitter — compact one-block prompt)                   │
         │                                                                  │
         │  SIMPLE_SYSTEM_PROMPT && tiny ───────► simple agent header       │
         │                                                                  │
@@ -169,11 +169,11 @@ The memory section is still injected as one of the system prompt's dynamic secti
 2. **Dispatch** (`loadMemoryPrompt` → `c5$`):
    - Reject if `isAutoMemoryEnabled() === false` → return `null` and emit `tengu_memdir_disabled`.
    - If `CLAUDE_COWORK_MEMORY_GUIDELINES` env var is set → return `# auto memory\n${envVar}` verbatim (no taxonomy, no how-to-save).
-   - If `LY()` (simple system prompt) is on and **not** tiny → call `IVK6` (the simple-form dual-directory prompt) with private + optional team paths.
+   - If `LY()` (simple system prompt) is on and **not** tiny → call `IVK` (the simple-form dual-directory prompt) with private + optional team paths.
    - If `LY()` is on and tiny → return a one-line agent header pointing at `{path, cowork-extras, search section}`.
    - If tiny and team-mem enabled → `hVK` (tiny dual-dir + COMBINED tiny types).
    - If tiny and only auto-mem → `yVK` (tiny single-dir + INDIVIDUAL tiny types).
-   - If team-mem enabled (non-tiny) → `fS1.buildCombinedMemoryPrompt` (private + team, dual frontmatter, COMBINED).
+   - If team-mem enabled (non-tiny) → `OS1.buildCombinedMemoryPrompt` (resolves to function `fS1` on the `xVK` namespace — private + team, dual frontmatter, COMBINED).
    - Otherwise → `VK6.buildMemoryLines` (single directory, INDIVIDUAL types section).
 3. **Directory ensured** (`ensureMemoryDirExists` → `PKH`): Recursive mkdir; errors are logged at debug level but never thrown.
 4. **Content read** (`buildMemoryPrompt` only — for the per-agent override variant `mVK`): `readFileSync(memoryDir + "MEMORY.md")`. Failure is silent — no file simply means an empty index.
@@ -202,10 +202,20 @@ Key core-feature symbols in v2.1.142:
 - `loadMemoryPrompt` (`c5$`) - Top-level dispatcher (cli_inner_pretty.js:142855-142927)
 - `buildMemoryPrompt` (`mVK`) - Agent-memory variant that includes content inline (cli_inner_pretty.js:142805-142828)
 - `buildMemoryLines` (`VK6`) - Behavioral instructions without MEMORY.md content (cli_inner_pretty.js:142743-142804)
+- `buildMemoryLinesTiny` (`yVK`) - Tiny single-dir variant (cli_inner_pretty.js:142167-142215)
+- `buildCombinedMemoryPromptTiny` (`hVK`) - Tiny dual-dir variant (cli_inner_pretty.js:142216-142272)
+- `buildSimpleMemoryPrompt` (`IVK`) - Compact single-block prompt for simple-system-prompt branch (cli_inner_pretty.js:142273-142312)
+- `buildDreamPrompt` (`SVK`) - `/dream` pruning prompt builder (cli_inner_pretty.js:142313-142340)
+- `buildCombinedMemoryPrompt` (`fS1`, exposed on `xVK` namespace as `OS1.buildCombinedMemoryPrompt`) - Non-tiny team dual-dir prompt (cli_inner_pretty.js:142599-142671)
 - `truncateEntrypointContent` (`oi$`) - 200L/25KB cap enforcer (cli_inner_pretty.js:142678-142716)
 - `ensureMemoryDirExists` (`PKH`) - Idempotent recursive mkdir (cli_inner_pretty.js:142717-142725)
+- `logMemoryDirCounts` (`jl`) - Async file/subdir count telemetry (cli_inner_pretty.js:142726-142742)
 - `getAutoMemPath` (`UY`) - Memoized path resolver (cli_inner_pretty.js:139849-139857)
 - `isAutoMemoryEnabled` (`x9`) - 7-step enablement chain (cli_inner_pretty.js:139749-139760)
+- `isCcrSentinelDisabled` (`Pi$`) - CCR cohort kill-switch via `tengu_sepia_cormorant` + `tengu_umber_petrel` (cli_inner_pretty.js:139761-139768)
+- `isTinyMemoryEnabled` (`gM`) - `tengu_billiard_aviary` flag (cli_inner_pretty.js:139780-139782)
+- `isSimpleSystemPromptEnabled` (`LY`) - Memoized predicate gated on `tengu_vellum_lantern` and other signals (cli_inner_pretty.js:141432-141439)
+- `isBouncerEnabled` (`LK6`) - `tengu_ochre_finch` flag (cli_inner_pretty.js:141958-141960)
 - `parseMemoryType` (`VVK`) - Validating string→MemoryType coercion (cli_inner_pretty.js:141954-141957)
 - `MEMORY_TYPES` (`JK6`) - The closed 4-element array (cli_inner_pretty.js:141990)
 - `TINY_MEMORY_TYPES` (`WK6`) - 3-element array for tiny variant (cli_inner_pretty.js:142352)

@@ -730,7 +730,7 @@ Top-level entry point used by `systemPromptSection('memory', …)`. Returns `str
 The biggest delta is **structural**, not algorithmic — five branches instead of three:
 
 - **NEW: cowork verbatim** (`CLAUDE_COWORK_MEMORY_GUIDELINES`) takes precedence over all other auto-mode paths. Useful for SDK callers that pass an entire `# auto memory` body via env var.
-- **NEW: simple-system-prompt + non-tiny** routes to `IVK6` instead of `VK6` — a much shorter prompt.
+- **NEW: simple-system-prompt + non-tiny** routes to `IVK` instead of `VK6` — a much shorter prompt.
 - **NEW: tiny variants** (`yVK` / `hVK`) — both single-dir and dual-dir.
 - **REMOVED: KAIROS daily-log branch** — no longer dispatched here. The `logs/YYYY/MM/YYYY-MM-DD.md` path layout only appears in the `/dream` skill asset.
 - **PRESERVED: team-mem non-tiny non-simple** — same `OS1.buildCombinedMemoryPrompt` as v2.1.112's `FtY.buildCombinedMemoryPrompt`.

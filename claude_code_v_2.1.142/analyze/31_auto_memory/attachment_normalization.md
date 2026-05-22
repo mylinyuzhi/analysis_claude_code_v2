@@ -9,14 +9,18 @@ This document covers the *final mile* of the auto-memory subsystem: how a `Relev
 - `/lyz/codespace/3rd/claude-code/src/utils/messages.ts` (cases)
 
 **v2.1.142 locations** in `cli_inner_pretty.js`:
-- `398150-398234` — `getRelevantMemoryAttachments` (analog of `RMY`) — function `Oq5`
+- `398168-398205` — `getRelevantMemoryAttachments` (analog of `RMY`) — function `Oq5`
+- `398206-398213` — `collectSurfacedMemories` (analog of `SMY`) — function `Mq5`
+- `398214-398234` — `readMemoriesForSurfacing` (analog of `CMY`) — function `wq5`
 - `398235-398242` — `memoryHeader` — function `_h6`
 - `398243-398281` — `startRelevantMemoryPrefetch` (analog of `ikK`) — function `oo7`
+- `398288-398295` — `filterDuplicateMemoryAttachments` — function `ao7`
 - `425073-425091` — `relevant_memories` normalization case
 - `426132-426140` — `nested_memory` normalization case
-- `398282-398295` — Filter for already-surfaced memories — function `ao7`
+- `398729-398730` — Constants: `qh6 = 200` (lines), `Rs7 = 4096` (bytes)
+- `398824` — `m65 = { MAX_SESSION_BYTES: 61440 }`
+- `398827` — `Dq5` — `EXCLUDED_PREFETCH_QUERY_SOURCES` set
 - `244932-...` — `B97` (legacy obfuscated symbol used by SDK SSE — see note below)
-- `398197-398234` — `readMemoriesForSurfacing` (analog of `CMY`)
 
 **v2.1.112 → v2.1.142 changes:**
 1. Module-level rename only — same data flow, same cache-stability principle, same wrapping.
@@ -30,15 +34,20 @@ This document covers the *final mile* of the auto-memory subsystem: how a `Relev
 > - [symbol_additions_v2_1_142_auto_memory.md](../00_overview/symbol_additions_v2_1_142_auto_memory.md) — symbols added by this unit
 
 Key functions in this document:
+- `getRelevantMemoryAttachments` (`Oq5`) — Recall dispatcher (selector vs synthesis) for memory attachments (cli_inner_pretty.js:398168-398205)
+- `collectSurfacedMemories` (`Mq5`) — Walks message history, returns `{paths: Set, totalBytes: number}` (cli_inner_pretty.js:398206-398213)
+- `readMemoriesForSurfacing` (`wq5`) — Reads selected files with line + byte truncation, attaches `memoryHeader` (cli_inner_pretty.js:398214-398234)
 - `memoryHeader` (`_h6`) — Conditional staleness + path prefix (cli_inner_pretty.js:398235-398242)
-- `readMemoriesForSurfacing` (filename TBC) — Read selected files with line + byte truncation
+- `startRelevantMemoryPrefetch` (`oo7`) — Kicks off the non-blocking memdir side-call at turn start (cli_inner_pretty.js:398243-398281)
+- `filterDuplicateMemoryAttachments` (`ao7`) — De-dups already-read memories from `readFileState` (cli_inner_pretty.js:398288-398295)
 - `relevant_memories` normalization — Converts attachment to user messages wrapped in `<system-reminder>` (cli_inner_pretty.js:425073-425091)
 - `nested_memory` normalization — Renders `@import` style memory file content (cli_inner_pretty.js:426132-426140)
-- `startRelevantMemoryPrefetch` (`oo7`) — Kicks off the non-blocking memdir side-call at turn start (cli_inner_pretty.js:398243-398281)
-- `ao7` — De-dups already-read memories from `readFileState`
-- `wrapMessagesInSystemReminder` (`o_`) — Adds open/close `<system-reminder>` user messages
-- `createUserMessage` (`w8`) — Constructs a `UserMessage` with `isMeta: true`
-- `MAX_SESSION_BYTES` (`m65.MAX_SESSION_BYTES = 61440`) — 60 KB total memory bytes per session
+- `wrapMessagesInSystemReminder` (`o_`) — Adds open/close `<system-reminder>` user messages (cli_inner_pretty.js:424748)
+- `createUserMessage` (`w8`) — Constructs a `UserMessage` with `isMeta: true` (cli_inner_pretty.js:423394)
+- `EXCLUDED_PREFETCH_QUERY_SOURCES` (`Dq5`) — Set of query sources that skip the memdir prefetch (cli_inner_pretty.js:398827)
+- `MEMORY_RECALL_LINE_CAP` (`qh6 = 200`) — Line budget for reading recalled memories (cli_inner_pretty.js:398729)
+- `MEMORY_RECALL_BYTE_CAP` (`Rs7 = 4096`) — Byte budget for reading recalled memories (cli_inner_pretty.js:398730)
+- `MAX_SESSION_BYTES` (`m65.MAX_SESSION_BYTES = 61440`) — 60 KB total memory bytes per session (cli_inner_pretty.js:398824)
 
 ---
 
@@ -64,8 +73,8 @@ Key functions in this document:
               │  ├─ dispatch gM() flag                            │
               │  │  ├─ selector: FK7 per dir, dedupe, slice 5     │
               │  │  └─ synthesis: gK7 per dir → synthesis prose   │
-              │  └─ readMemoriesForSurfacing (CMY analog)         │
-              │      ├─ read each file (200 lines, 4096 bytes)    │
+              │  └─ wq5  readMemoriesForSurfacing                 │
+              │      ├─ read each file (qh6=200 lines, Rs7=4096B) │
               │      ├─ truncate body, append truncation note     │
               │      └─ compute _h6 memoryHeader, store inline    │
               └──────────────────────────────────────────────────┘
@@ -147,22 +156,78 @@ There is a separate `B97` function at `cli_inner_pretty.js:244932-...` in v2.1.1
 
 ---
 
-## `readMemoriesForSurfacing` — File Reading with Caps
+## `readMemoriesForSurfacing` (`wq5`) — File Reading with Caps
 
 ### What it does
 
-Takes the up-to-5 selected `RelevantMemory` paths and reads each file's content with **both** a line cap (200) and a byte cap (4096). When either cap fires, the body is truncated and a Markdown-blockquote note is appended pointing at FileReadTool for the rest. The function also computes the `memoryHeader` at this point — the only place where a memory's `header` field is initialized.
+Takes the up-to-5 selected `RelevantMemory` paths and reads each file's content with **both** a line cap (`qh6 = 200`) and a byte cap (`Rs7 = 4096`). When either cap fires, the body is truncated and a Markdown-blockquote note is appended pointing at FileReadTool for the rest. The function also computes the `memoryHeader` at this point — the only place where a memory's `header` field is initialized.
 
 ### How it works
 
-The v2.1.142 implementation is at `cli_inner_pretty.js:398196-398234` (visible around `function ao7` and the surrounding helpers). The structure is bit-identical to v2.1.112's `CMY`:
+The v2.1.142 implementation is `wq5` at `cli_inner_pretty.js:398214-398234`. The structure is bit-identical to v2.1.112's `CMY`:
 
-1. For each selected `{path, mtimeMs}`, call `readFileInRange(path, 0, 200, 4096, signal, { truncateOnByteLimit: true })`.
-2. Determine if the file was truncated (`totalLines > 200 || truncatedByBytes`).
-3. If truncated, append `\n\n> This memory file was truncated (${cap-description}). Use the ${FILE_READ_TOOL_NAME} tool to view the complete file at: ${path}`.
-4. Compute `header = memoryHeader(path, mtimeMs)` and store inline.
+1. For each selected `{path, mtimeMs}`, call `pOH(path, 0, qh6, Rs7, signal, { truncateOnByteLimit: true })` (the shared `readFileInRange` helper).
+2. Determine if the file was truncated (`totalLines > qh6 || truncatedByBytes`).
+3. If truncated, append `\n\n> This memory file was truncated (${cap-description}). Use the ${Bq} tool to view the complete file at: ${path}` (where `Bq` is the FileReadTool name constant).
+4. Compute `header = _h6(path, mtimeMs)` and store inline.
 5. Return `{ path, content, mtimeMs, header, limit: truncated ? lineCount : undefined }`.
 6. Failed reads return `null` and are filtered out.
+
+```javascript
+// ============================================
+// readMemoriesForSurfacing - Read selected files with line/byte caps, attach memoryHeader
+// Location: cli_inner_pretty.js:398214-398234
+// ============================================
+
+// ORIGINAL (for source lookup):
+async function wq5(H, $) {
+  return (
+    await Promise.all(
+      H.map(async ({ path: K, mtimeMs: _ }) => {
+        try {
+          let A = await pOH(K, 0, qh6, Rs7, $, { truncateOnByteLimit: !0 }),
+            z = A.totalLines > qh6 || A.truncatedByBytes,
+            Y = z
+              ? A.content + `\n\n> This memory file was truncated (${A.truncatedByBytes ? `${Rs7} byte limit` : `first ${qh6} lines`}). Use the ${Bq} tool to view the complete file at: ${K}`
+              : A.content;
+          return { path: K, content: Y, mtimeMs: _, header: _h6(K, _), limit: z ? A.lineCount : void 0 };
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((K) => K !== null);
+}
+
+// READABLE (for understanding):
+async function readMemoriesForSurfacing(selected, signal) {
+  const results = await Promise.all(
+    selected.map(async ({ path, mtimeMs }) => {
+      try {
+        const r = await readFileInRange(path, 0, MEMORY_RECALL_LINE_CAP, MEMORY_RECALL_BYTE_CAP, signal, { truncateOnByteLimit: true })
+        const truncated = r.totalLines > MEMORY_RECALL_LINE_CAP || r.truncatedByBytes
+        const reason = r.truncatedByBytes ? `${MEMORY_RECALL_BYTE_CAP} byte limit` : `first ${MEMORY_RECALL_LINE_CAP} lines`
+        const content = truncated
+          ? `${r.content}\n\n> This memory file was truncated (${reason}). Use the ${FILE_READ_TOOL_NAME} tool to view the complete file at: ${path}`
+          : r.content
+        return {
+          path, content, mtimeMs,
+          header: memoryHeader(path, mtimeMs),
+          limit: truncated ? r.lineCount : undefined,
+        }
+      } catch {
+        return null
+      }
+    }),
+  )
+  return results.filter(r => r !== null)
+}
+
+// Mapping: wq5→readMemoriesForSurfacing, H→selected, $→signal, K→path/result, _→mtimeMs,
+//          A→r (readFileInRange result), z→truncated, Y→content,
+//          pOH→readFileInRange, qh6→MEMORY_RECALL_LINE_CAP, Rs7→MEMORY_RECALL_BYTE_CAP,
+//          Bq→FILE_READ_TOOL_NAME, _h6→memoryHeader
+```
 
 ### Why this approach
 
