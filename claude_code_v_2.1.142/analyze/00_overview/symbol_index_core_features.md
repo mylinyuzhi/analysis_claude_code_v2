@@ -138,22 +138,54 @@ Known new themes for this window:
 
 Skill registry, frontmatter parsing, `${CLAUDE_EFFORT}` interpolation, model-invocation gating, skill-tool dispatch, plugin-skill bridging.
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
-
-Known new symbols (preliminary):
-
-- `ks4` — `/claude-api` skill prompt string (cli_inner_pretty.js:593195)
-- Plugin SKILL.md at root surfaces as skill (v2.1.142)
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| Am7 | isUserTypedSlashCommandInTurn | cli_inner_pretty.js:353362 | function |
+| Ax5 | getSkillsFromAllSources | cli_inner_pretty.js:513752 | function |
+| Dh6 | loadPluginSkills | cli_inner_pretty.js (referenced from Ax5) | function |
+| D9H | applyFallbackDeduplication | cli_inner_pretty.js:513829 | function |
+| H2 | SKILLS_DIR_SENTINEL ("skills-dir") | cli_inner_pretty.js:218312 | constant |
+| H_ | pathExists | cli_inner_pretty.js (used by U88 skills fallback) | function |
+| iP8 | isSkillHiddenFromUser | cli_inner_pretty.js:513855 | function |
+| kB6 | SKILL_OVERRIDE_VALUES | cli_inner_pretty.js:477208 | constant |
+| kg | validatePluginComponentPaths | cli_inner_pretty.js:229997 | function |
+| KI6 | loadSkillDirCommands | cli_inner_pretty.js (referenced from Ax5) | function |
+| ks4 | /claude-api skill prompt string | cli_inner_pretty.js:593195 | constant |
+| nX5 | scanSkillsPaths | cli_inner_pretty.js:457453 | function |
+| N7H | formatSkillSourceForOtel (skillSourceMetadata) | cli_inner_pretty.js:218534 | function |
+| oT5 | resolveSkillOverrideLock | cli_inner_pretty.js:476885 | function |
+| aT5 | resolveProjectSkillOverride | cli_inner_pretty.js:476894 | function |
+| Qf$ | emitSkillActivatedOtel | cli_inner_pretty.js:218520 | function |
+| r__ | manifestPathsCoverDefaultFolder | cli_inner_pretty.js:230034 | function |
+| rT5 | SKILL_OVERRIDE_STYLES | cli_inner_pretty.js:477209 | constant |
+| sT5 | SkillRow | cli_inner_pretty.js:477137 | function |
+| st | getSkillOverride | cli_inner_pretty.js:513847 | function |
+| TE4 | getAllCommands | cli_inner_pretty.js:514269 | function |
+| U88 | loadPluginFromDir | cli_inner_pretty.js:230049 | function |
+| uFH | substituteArgsInPrompt | cli_inner_pretty.js:217479 | function |
+| uJ4 | SkillsDialog | cli_inner_pretty.js:476909 | function |
+| VE4 | isSkillModelInvocationDisabled | cli_inner_pretty.js:513851 | function |
+| Vx | escapeRegex | cli_inner_pretty.js:9491 | function |
+| WTH | resolvePluginPathRelative | cli_inner_pretty.js:229990 | function |
+| xJ4 | formatSkillSource | cli_inner_pretty.js:476897 | function |
+| XG$ | shouldListSkillForModel | cli_inner_pretty.js:513858 | function |
+| z36 | parseArgumentString | cli_inner_pretty.js:217462 | function |
+| zG4 | getBundledSkills | cli_inner_pretty.js (referenced from Ax5) | function |
 
 Known new themes:
 
 - `/claude-api` skill added (v2.1.142)
-- `${CLAUDE_EFFORT}` in skill content (v2.1.120)
-- `skillOverrides` setting honored: `off` / `user-invocable-only` / `name-only` (v2.1.129)
-- Plugin root SKILL.md (no `skills/` subdir) surfaces as skill (v2.1.142)
-- `Skill(name *)` wildcard prefix match (v2.1.139)
-- Subagents discover project/user/plugin skills via Skill tool (v2.1.133 fix)
-- Skill argument names with regex metacharacters (v2.1.139 fix)
+- `${CLAUDE_EFFORT}` in skill content (v2.1.120) — `aT(model, effort)` lookup, also exposed to hooks and Bash via `CLAUDE_EFFORT` env var
+- `skillOverrides` setting honored: `off` / `user-invocable-only` / `name-only` (v2.1.129) — four-tier resolution via `oT5`/`aT5`
+- Plugin root SKILL.md (no `skills/` subdir) surfaces as skill (v2.1.142) — gated by `P !== H2` (not the auto-loaded `skills-dir` marketplace)
+- `skills: ["./"]` valid in plugin manifest (v2.1.142) — `kg` resolves plugin root, post-filter accepts root for non-`skills-dir` plugins
+- `plugin.json skills` shadowing default `skills/` reports `folder-shadowed-by-manifest` advisory (v2.1.136)
+- File-path entries in `skills:` produce `component-load-failed` error (v2.1.136) — via `kg(..., expectDir=true)`
+- `Skill(name *)` wildcard prefix match (v2.1.139) — matcher accepts both `:*` and ` *` suffixes
+- Subagents discover project/user/plugin skills via Skill tool (v2.1.133 fix) — unified loader `Ax5`
+- Skill argument names with regex metacharacters (v2.1.139 fix) — `Vx` escape applied in `uFH`
+- `claude_code.skill_activated` OTel event (v2.1.126) — `Qf$` emits one per skill activation with `invocation_trigger` of `user-slash`/`claude-proactive`/`nested-skill`
+- `/skills` dialog type-to-filter (v2.1.121) — filters by name, description, source label
 
 ---
 
