@@ -2,11 +2,17 @@
 
 ## Overview
 
-This document covers compaction-subsystem changes that landed between v2.1.113 and v2.1.142. The v2.1.112 baseline analysis is in [../../../claude_code_v_2.1.112/analyze/07_compact/](../../../claude_code_v_2.1.112/analyze/07_compact/) — read it first for the foundational architecture (the `vI6` 8-phase pipeline, the `QkK` dispatcher gate cascade, two breakers, state anchoring, the `context_hint` reject path).
+This document covers compaction-subsystem changes that landed between v2.1.113 and v2.1.142. The v2.1.112 baseline analysis is in [../../../claude_code_v_2.1.112/analyze/07_compact/](../../../claude_code_v_2.1.112/analyze/07_compact/) — read it first for the foundational architecture (the 8-phase pipeline, the dispatcher gate cascade, two breakers, state anchoring, the `context_hint` reject path).
 
-Between v2.1.113 and v2.1.142, compaction picked up a second, structurally distinct algorithm — **reactive compaction** — that runs only when the model has a 1M-context window AND the request was just rejected with "Prompt is too long". This is a different shape from the legacy `vI6` autocompact:
+> **Symbol drift v2.1.112 → v2.1.142:** the v2.1.112 docs used `vI6` for `compactConversation` and `QkK` for the autocompact dispatcher. In v2.1.142, those identifiers shifted on the minifier: `vI6 = 10` is now an integer constant (`cli_inner_pretty.js:409308`) and `QkK` is the module wrapper at `:146874` (an unrelated `T(() => {...})` lodash-debounce helper). The actual v2.1.142 symbols are:
+> - Full compact pipeline → `qrH` / `compactConversation` (`cli_inner_pretty.js:407582`)
+> - Proactive dispatcher gate cascade → `Fo7` / `autoCompactGenerator` (`cli_inner_pretty.js:408400`)
+>
+> Throughout this document, treat any pre-v2.1.142 "full `vI6` compact" reference as `qrH`, and "`QkK` gate cascade" as `Fo7`.
 
-- **Local autocompact (`vI6`/`QkK`)** — still owns 200k-window models. Replaces the *whole* conversation with a 2–3 KB summary, runs proactively when token-count crosses an 80%-ish threshold.
+Between v2.1.113 and v2.1.142, compaction picked up a second, structurally distinct algorithm — **reactive compaction** — that runs only when the model has a 1M-context window AND the request was just rejected with "Prompt is too long". This is a different shape from the legacy autocompact:
+
+- **Local autocompact (`qrH` + `Fo7`)** — still owns 200k-window models. Replaces the *whole* conversation with a 2–3 KB summary, runs proactively when token-count crosses a `effectiveWindow − 13000` threshold (≈93.5% on 200k models).
 - **Reactive compact (`Y97`/`Ej6`/`uq8`)** — new for 1M-context models. Replaces *part* of the conversation by group-walking: tries to summarize the oldest N groups; if the summarize call itself hits PTL, preserves more groups and retries. Triggered by a 413/PTL response, not by a pre-flight threshold.
 
 The v2.1.142 release ships a refinement of reactive compact's first-attempt heuristic. The original implementation started at `groupsPreserved = 1` (summarize everything except the last group) and only widened on PTL. v2.1.142 seeds the first attempt from the token gap reported in the rejection itself, skipping the wasted near-full-context retry.
@@ -99,14 +105,14 @@ Key functions in this delta:
                   │                                              │                                              │
                   ▼                                              ▼                                              ▼
        Pre-flight (legacy)                          Streamed assistant response                   /compact / /rewind menu
-       autocompact gate (QkK)                       lands and a check sees PTL                   (manual entry points)
+       autocompact gate (Fo7)                       lands and a check sees PTL                   (manual entry points)
        chunks for 200k models                       on a 1M-model session                         │
-       Calls full vI6 compact                       Calls Y97 reactive compact                    │
+       Calls qrH (full compact)                     Calls Y97 reactive compact                    │
                   │                                              │                                              │
                   ▼                                              ▼                                              │
    ┌──────────────────────────┐                ┌───────────────────────────────────────────┐                    │
-   │ vI6 / compactConversation │                │ Y97 → Ej6 → uq8                            │                    │
-   │ (chunks.159.mjs equiv.)   │                │ Iterate groups, summarize oldest M groups  │                    │
+   │ qrH / compactConversation │                │ Y97 → Ej6 → uq8                            │                    │
+   │ (cli_inner_pretty:407582) │                │ Iterate groups, summarize oldest M groups  │                    │
    │ Replaces whole convo      │                │ Preserve newest A-M groups                 │                    │
    │ Single LLM call           │                │ On PTL: preserve more, retry               │                    │
    └──────────────────────────┘                │                                            │                    │
@@ -125,7 +131,7 @@ Key functions in this delta:
                                                                      ▼                                            ▼
                                                      ┌─────────────────────────────────────────────────────────────┐
                                                      │ Common post-compact path (f97 for reactive, last phases of  │
-                                                     │ vI6 for legacy, _H4 internals for /rewind):                  │
+                                                     │ qrH for legacy, _H4 internals for /rewind):                  │
                                                      │   - Boundary marker (compact_boundary)                       │
                                                      │   - Restore files, plans, todos, skills attachments          │
                                                      │   - SessionStart hook (source: "compact")                    │

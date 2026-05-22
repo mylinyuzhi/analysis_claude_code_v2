@@ -8,7 +8,7 @@
 
 All four variants of the compact summarizer prompt picked up two new sentences. The variants are:
 
-- `bq8` — full-conversation compact (used by autocompact `vI6` and slash `/compact`)
+- `bq8` — full-conversation compact (used by autocompact `Fo7` → `qrH` and slash `/compact`)
 - `m47` with `direction: "from"` — partial compact summarizing *forward* from a rewind point
 - `m47` with `direction: "up_to"` — partial compact summarizing *backward* up to a rewind point
 - The recent-portion analysis block (`j3_`, the `"up_to"` body) — bound inside `Yj6`
@@ -42,7 +42,7 @@ Showing the v2.1.142 full-compact prompt structure (line numbers from `cli_inner
 
 ```javascript
 // ============================================
-// compactFullPrompt - The big summarizer instruction for vI6 autocompact
+// compactFullPrompt - The big summarizer instruction for qrH/Fo7 autocompact pipeline
 // Location: cli_inner_pretty.js:242949-243062
 // ============================================
 

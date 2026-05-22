@@ -10,7 +10,7 @@ Subagents persist their transcripts to disk so the parent agent can read the fin
 
 When a subagent run with `--resume` hits **Prompt is too long** mid-stream, the runner retries by:
 
-1. Truncating the head of the messages array (PTL retry strategy from `vI6`/`KLK`).
+1. Truncating the head of the messages array (PTL retry strategy — the truncate-and-retry helper invoked from `qrH` / the agent loop's PTL handler).
 2. Re-issuing the LLM call.
 3. On success, continuing where it left off.
 
@@ -207,7 +207,7 @@ The bug pre-fix was that **Resume mode didn't exist** — every write was treate
 
 ## PTL Retry Interaction
 
-The PTL retry path in `vI6` (truncates head and retries) doesn't directly fan out to per-retry writes. But the subagent runner (`slH`) emits messages as the stream produces them, and each emitted message is independently appended to the JSONL. So a PTL retry that goes through `vI6` and re-streams would, pre-fix, re-emit the historical messages alongside the new ones — and each re-emission would re-append to disk.
+The PTL retry path inside the agent loop (truncates head and retries) doesn't directly fan out to per-retry writes. But the subagent runner (`slH`) emits messages as the stream produces them, and each emitted message is independently appended to the JSONL. So a PTL retry that goes through `qrH` and re-streams would, pre-fix, re-emit the historical messages alongside the new ones — and each re-emission would re-append to disk.
 
 With `resumePersistedCount` set, the runner's emit loop checks the slice point and only persists messages beyond that point. So PTL retries:
 
