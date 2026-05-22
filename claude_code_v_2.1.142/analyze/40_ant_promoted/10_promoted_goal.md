@@ -323,10 +323,180 @@ Key functions in this document:
 - `goalNonInteractiveCommand` (`pR5`) — local variant (cli_inner_pretty.js:507858)
 - `isNonInteractive` (`T6`) — visibility check for non-interactive variant (cli_inner_pretty.js:2677)
 - `interactiveGoalCall` (`uR5`) — slash command handler (cli_inner_pretty.js:507787)
-- `registerGoal` (`CaH`) — Stop hook installation
-- `clearGoal` (`baH`) — Stop hook removal
-- `GoalOverlayPanel` (`Xk4`) — React panel component
-- `STOP_HOOK_GOAL_PROMPT` (`FX8`) — priming text builder
-- `MAX_GOAL_CONDITION_CHARS` (`RaH`) — 4000 char ceiling
+- `registerGoal` (`CaH`) — Stop hook installation (cli_inner_pretty.js:486719)
+- `clearGoal` (`baH`) — Stop hook removal (cli_inner_pretty.js:486738)
+- `goalGateCheck` (`Xp6`) — combined trust + hooks gate (cli_inner_pretty.js:486714)
+- `findGoalStopHooks` (`gX8`) — locate goal-owned Stop hooks (cli_inner_pretty.js:486704)
+- `isHooksDisabledByPolicy` (`km`) — `policySettings.disableAllHooks === true` (cli_inner_pretty.js:240938)
+- `isHooksEffectivelyDisabled` (`rw`) — combined disable check (cli_inner_pretty.js:240930)
+- `isTrustedWorkspace` (`_5`) — trust dialog memoized check (cli_inner_pretty.js:140015)
+- `GoalOverlayPanel` (`Xk4`) — React panel component (cli_inner_pretty.js:507612)
+- `STOP_HOOK_GOAL_PROMPT_BUILDER` (`FX8`) — priming text builder (cli_inner_pretty.js:486755)
+- `GOAL_TRUST_GATE_MSG` (`ov5`) — trust-gate error string (cli_inner_pretty.js:486760)
+- `GOAL_HOOKS_DISABLED_MSG` (`av5`) — hooks-disabled error string (cli_inner_pretty.js:486762)
+- `GOAL_CLEAR_SYNONYMS` (`rv5`) — Set of clear synonyms (cli_inner_pretty.js:486770)
+- `MAX_GOAL_CONDITION_CHARS` (`RaH`) — 4000 char ceiling (cli_inner_pretty.js:486752)
 - `goalAchievedTelemetry` (`d("tengu_goal_achieved", ...)`) — emitted on auto-clear (cli_inner_pretty.js:391761)
 - `restoreGoalOnResume` telemetry (cli_inner_pretty.js:564163)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+`/goal` is net-new in v2.1.139 — there is **no v2.1.88 source** to compare against. Instead the meaningful diff is between the *Stop-hook primitive* that already shipped in v2.1.88 and the way `/goal` layers a slash command on top of it.
+
+Step-by-step, here is what v2.1.142 added at the gate (the entry point that turns a user typing `/goal <text>` into a session-scoped Stop hook):
+
+1. **v2.1.88 Stop hooks**: existed as settings-defined arrays in `~/.claude/settings.json` (key `hooks.Stop`). A v2.1.88 user could *write* a Stop hook by editing settings JSON, but no in-session command authored one. Trust gating was inherited from settings-trust (settings file present in a trusted workspace).
+2. **v2.1.142 `goalGateCheck` (`Xp6`)**: introduces a *dual* runtime check before authoring a Stop hook in session memory:
+
+```javascript
+// ============================================
+// goalGateCheck - hooks-disabled + trust-gate composite check
+// Location: cli_inner_pretty.js:486714-486718
+// ============================================
+
+// ORIGINAL (for source lookup):
+function Xp6() {
+  if (km() || rw()) return { message: av5, code: "hooks_gate" };
+  if (!T6() && !_5()) return { message: ov5, code: "trust_gate" };
+  return null;
+}
+
+// READABLE (for understanding):
+function goalGateCheck() {
+  // First gate: hooks must be alive
+  if (isHooksDisabledByPolicy() || isHooksEffectivelyDisabled()) {
+    return { message: GOAL_HOOKS_DISABLED_MSG, code: "hooks_gate" };
+  }
+  // Second gate: workspace must be trusted (skipped in non-interactive mode)
+  if (!isNonInteractive() && !isTrustedWorkspace()) {
+    return { message: GOAL_TRUST_GATE_MSG, code: "trust_gate" };
+  }
+  return null;  // gate passed → caller may register Stop hook
+}
+// Mapping: Xp6→goalGateCheck, km→isHooksDisabledByPolicy, rw→isHooksEffectivelyDisabled,
+//          T6→isNonInteractive, _5→isTrustedWorkspace, av5→GOAL_HOOKS_DISABLED_MSG,
+//          ov5→GOAL_TRUST_GATE_MSG
+```
+
+3. **v2.1.142 `registerGoal` (`CaH`)**: calls `goalGateCheck` first, *then* writes a Stop hook into `sessionHooksRegistry` and posts a metaMessage with the priming text (`FX8`). On gate failure, emits a `goal_set` failure metric with the gate code as the failure reason.
+4. **Non-interactive bypass**: `!T6() && !_5()` — the trust gate is *only* enforced when `isNonInteractive()` returns false. In `-p` mode and SDK contexts, trust is presumed (the SDK caller is responsible for trust decisions before invoking the CLI).
+
+### Why this promotion approach
+
+**Design rationale — Stop hooks instead of a new event type:**
+
+`/goal` could have introduced a new event `GoalCheck` and a corresponding `decision: "block"` semantic in the agent loop. Instead it *reuses* the existing `Stop` hook event. Why:
+
+- The agent loop already has exactly one decision point where "should the agent stop or continue?" is evaluated — the Stop hook. Adding a `GoalCheck` event would mean two decision points that could disagree.
+- Settings-defined Stop hooks (the v2.1.88 mechanism) already accept `decision: "block"` and a `reason`. The conversation rendering, the timeout handling, the disable-via-policy plumbing — all already exist for Stop. Reusing means zero new plumbing in the renderer, hook executor, or settings schema.
+- The mental model for users who already understand Stop hooks transfers directly: `/goal` is a Stop hook authored from inside the session, scoped to the session.
+
+**Alternatives considered (inferable from code shape):**
+
+- *PostToolUse hook with iteration counter*: would fire too often (after every tool call) and would need a counter to know "is the agent about to stop?" — strictly worse than Stop.
+- *PreCompact hook*: fires only on compaction. Misses the "agent thinks it is done" moment.
+- *New `Goal` event*: doubles the hook plumbing. The reuse-Stop choice is purely a "do not duplicate orthogonal decision points" simplification.
+- *System-prompt directive*: cannot be cleanly unset; persists into transcript exports; cannot be observed by the renderer for an "active goal" overlay panel.
+
+**Trade-offs:**
+
+- Cost of reusing Stop: a session-scoped Stop hook fires *every* time the model would stop, even when the goal is unrelated to the current turn (e.g. user asked an off-topic question mid-goal). Token cost per turn is bounded by `MAX_GOAL_CONDITION_CHARS=4000` + per-hook overhead.
+- Benefit: zero new event plumbing; consistent with existing settings-defined Stop hooks; the trust/disable model is shared.
+
+**Why a *trust-gate* error message instead of silent-skip:**
+
+A `/goal` that silently no-ops in an untrusted workspace would confuse the user ("I typed it, the panel didn't open, did it set?"). The explicit `ov5` text — *"Restart, accept the trust dialog, and try again."* — tells the user exactly which dialog to engage and gives recovery instructions.
+
+### Step-by-step runtime decision flow
+
+```
+User types `/goal write tests then make them pass`
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ Slash-command resolver matches name "goal"     │
+│ Variant: REPL → BR5 (local-jsx)                │
+│          -p   → pR5 (local, non-interactive)   │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ goalCommandCall(args) parses arg               │
+│ - empty            → open overlay or hint      │
+│ - in rv5 clear set → call clearGoal (baH)      │
+│ - other            → call registerGoal (CaH)   │
+└────────────────────────────────────────────────┘
+         │ (registerGoal path)
+         ▼
+┌────────────────────────────────────────────────┐
+│ goalGateCheck (Xp6)                            │
+│  ├─ km() || rw()  ─── true ──► return         │
+│  │      hooks_gate → "/goal can't run while    │
+│  │      hooks are disabled..."                 │
+│  ├─ !T6() && !_5() ── true ──► return          │
+│  │      trust_gate → "/goal is only available │
+│  │      in trusted workspaces..."             │
+│  └─ else (gate passed) ──────► null            │
+└────────────────────────────────────────────────┘
+         │ (null = gate passed)
+         ▼
+┌────────────────────────────────────────────────┐
+│ Remove any pre-existing goal Stop hooks        │
+│ (gX8 scans + .remove for each found)           │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ sessionHooksRegistry.add(sessionId, "Stop",    │
+│   "", { type: "prompt", prompt: condition })   │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ setAppState(activeGoal = {                     │
+│   condition, iterations: 0,                    │
+│   setAt: Date.now(), tokensAtStart: ...        │
+│ })                                             │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ applyMessageOp: append metaMessage with        │
+│ STOP_HOOK_GOAL_PROMPT (FX8) priming text:      │
+│ "A session-scoped Stop hook is now active..."  │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│ Telemetry:                                     │
+│  d("tengu_stop_hook_added", { via: "goal" })   │
+│  RH("goal_set")  ← success counter             │
+└────────────────────────────────────────────────┘
+         │
+         ▼
+    next model turn proceeds with Stop hook armed
+```
+
+Then on each subsequent model Stop attempt, the Stop hook fires; if `decision: "block"`, the agent continues; if "ok", the achievement detector at cli_inner_pretty.js:391751 emits `tengu_goal_achieved`, auto-clears the Stop hook, and appends a `goal_status` attachment with `met: true`.
+
+### Key insight
+
+`/goal` is *not* a new agent-loop control surface — it is a **slash-command authoring tool for an existing primitive**. The clever part is recognizing that the v2.1.88 Stop-hook infrastructure already supported per-session lifetime, `decision: "block"`, prompt-based hook handlers, and policy-disable plumbing. The only thing missing was an in-session authoring path, plus self-clear-on-success semantics. By layering those two affordances on top of an existing primitive, Anthropic shipped a "new feature" in one release without touching the agent loop, the hook executor, the renderer pipeline, or the settings schema. This is why `/goal` could ship fully-formed in v2.1.139 and only need polish (not architectural fixes) across v2.1.140-142.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|----------|------|---------|
+| Reuse Stop hook instead of new event | Stop fires every turn even if goal unrelated to current line of work; ~4000-char condition included in every Stop hook eval | Zero new agent-loop plumbing; inherits disable-via-policy, conversation rendering, trust-gating |
+| Trust-gate error message (not silent) | One extra string + branch in `Xp6` | User knows what to fix; avoids "did my command work?" support tickets |
+| Non-interactive bypass of trust gate (`!T6() && !_5()`) | An SDK caller in an untrusted workspace can set a goal silently | SDK callers manage trust at their layer; no double prompt; -p mode (the scripting path) does not need an interactive trust dialog |
+| Hooks-disabled gate (separate from trust) | Two error strings instead of one generic | Distinguishes "policy blocks goal" from "trust missing"; tells admin which setting to flip |
+| Session-scope (not global) | Goal lost on quit without resume; resume must re-register | Cannot accidentally persist into unrelated future sessions |
+| Auto-clear on success (not manual `/goal clear`) | Telemetry must fire at clear-time, not next-input-time | User does not need to ceremoniously dismiss success; stale Stop hooks never linger |
+| 4000-char cap on condition | Long acceptance criteria must be tightened | Bounds per-turn token overhead; predictable cost |
+| `STOP_HOOK_GOAL_PROMPT` (`FX8`) priming text injected as metaMessage | ~50-token first-turn overhead | Prevents wasted "what do you want me to do?" turn after `/goal` is set |
+| Separate `tengu_goal_restored_on_resume` event | Two events to monitor instead of one | Anthropic can measure "how often does a goal span a session resume?" — informs whether the restore path is worth maintaining |

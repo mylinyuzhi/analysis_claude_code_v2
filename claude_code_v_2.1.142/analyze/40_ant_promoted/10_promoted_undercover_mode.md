@@ -314,3 +314,135 @@ Key functions in this document (v2.1.88 only — no v2.1.142 mapping exists):
 - `getRepoClassCached` — repo identity check (src/utils/commitAttribution.ts, not in 2.1.88 copy)
 
 (No 2.1.142 symbols to add to `symbol_index_*.md` — feature is absent.)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+This is the *anti-promotion* case: a feature that existed in v2.1.88 (ant-only, runtime-gated) was **removed entirely** from the external v2.1.142 build instead of being promoted. The gate change is a removal-not-promotion, and the architectural story is *why* removal beat both "promote with new gate" and "ship as ant-only runtime check."
+
+**v2.1.88 (still in source):**
+
+```typescript
+// ============================================
+// isUndercover - v2.1.88 ant-only runtime gate
+// Location: src/utils/undercover.ts:28-37
+// ============================================
+
+// ORIGINAL (for source lookup):
+export function isUndercover(): boolean {
+  if (process.env.USER_TYPE === 'ant') {
+    if (isEnvTruthy(process.env.CLAUDE_CODE_UNDERCOVER)) return true
+    return getRepoClassCached() !== 'internal'
+  }
+  return false
+}
+
+// READABLE (for understanding):
+function isUndercover() {
+  if (!isAnthropicBuild()) return false;            // external build: hard-off
+  if (parseEnvBoolean(process.env.CLAUDE_CODE_UNDERCOVER)) return true;  // force-on
+  return getRepoClassCached() !== 'internal';       // safe-by-default auto
+}
+// Mapping: process.env.USER_TYPE→isAnthropicBuild
+```
+
+**v2.1.142 (in deobfuscated binary):**
+
+```bash
+$ grep -ni "undercover\|UNDERCOVER MODE\|blow your cover\|CLAUDE_CODE_UNDERCOVER" cli_inner_pretty.js
+(no matches)
+```
+
+The gate did not move from `USER_TYPE === 'ant'` to `isEnabled: () => false` (which would be the "hard-disable" pattern — see bridge-kick for an example). It went to *zero source bytes*. The entire `undercover.ts` file (89 lines), the `getUndercoverInstructions()` prompt builder, the `shouldShowUndercoverAutoNotice()` UI hook, the `hasSeenUndercoverAutoNotice` config flag, the `<UndercoverAutoCallout>` JSX component, the `"undercover"` PromptInputFooter badge, the BashTool prompt include — all gone.
+
+Contrast with the *commit* path: in v2.1.142 the `commit` slash command (cli_inner_pretty.js:430640) IS present and IS promoted. It always attributes `Co-Authored-By: Claude Code <noreply@anthropic.com>` (with a user-controlled `includeCoAuthoredBy: false` opt-out). The *attribution-suppression* layer that undercover provided has been replaced by a simpler user-controlled setting.
+
+### Why this promotion approach
+
+**Design rationale — why hard-remove instead of soft-disable:**
+
+For *almost every other ant-only feature*, v2.1.142 picks one of three promotion strategies:
+
+1. **Promote with new runtime gate** (bridge → remote-control, fast-mode, ultraplan)
+2. **Preserve with hard-disable** (`isEnabled: () => false`) — the bridge-kick pattern
+3. **Hard-remove** (undercover)
+
+Undercover is the only feature in this analysis that takes the third path. The reasoning is asymmetric to the others:
+
+- **Bridge-kick** is a debug command whose handler is testable and useful internally — keeping the bytes with `isEnabled: false` preserves the test surface for internal builds.
+- **Undercover** is *anti-feature* code — its purpose is to *suppress* what external users want to keep. There is no internal-only-build path that wants undercover bytes shipped to external users.
+- Keeping undercover bytes externally would also be a *prompt-injection attack surface*: a malicious file might convince the model to enter undercover mode and strip attribution from a commit it shouldn't.
+
+**Alternatives that would have been considered:**
+
+- *Generalize to a per-project `noAttribution` setting*: rejected because `includeCoAuthoredBy: false` already exists. Adding a second mechanism would mean two settings to teach.
+- *Keep with ant runtime check, ship bytes externally*: rejected because (a) bytes are wasted in external builds and (b) the bytes themselves are an attack surface even if `USER_TYPE !== 'ant'` — a runtime patch or a prompt injection that fakes the USER_TYPE check could re-enable.
+- *Move to a separate `claude-internal` bundle*: rejected as over-engineering for a single feature.
+
+**Why "undercover" is gated and `/commit` is promoted, even though both touch commit attribution:**
+
+The `/commit` command is *general-purpose commit authoring* — it works for any user, any repo. Attribution is one feature among many. The slash command itself is universally useful.
+
+Undercover is *attribution suppression for one specific failure mode* — Anthropic employees pushing to public OSS from their internal build accidentally including codenames. External users do not have this failure mode (they have no internal codenames to leak). So the slash command (`/commit`) is promoted, but the per-flow attribution-suppression header that undercover injected (`getUndercoverInstructions()`) is removed.
+
+The split is: **promote the general-purpose surface (slash command) + remove the narrow internal-only header (undercover prompt injection) + add a user-controlled opt-out (`includeCoAuthoredBy: false`)**.
+
+### Step-by-step runtime decision flow
+
+```
+v2.1.88 (ant build) — at commit-message generation time:
+  ┌──────────────────────────────────────────────────┐
+  │ buildCommitPrompt({ userMessage, repoContext })  │
+  └────────────────┬─────────────────────────────────┘
+                   ▼
+  ┌──────────────────────────────────────────────────┐
+  │ isUndercover()  ── reads USER_TYPE === 'ant' + │
+  │                    CLAUDE_CODE_UNDERCOVER +    │
+  │                    getRepoClassCached()        │
+  └────────────────┬─────────────────────────────────┘
+                   ├─ false ─► standard prompt; attribution ON
+                   └─ true  ─► prepend getUndercoverInstructions()
+                              + strip Co-Authored-By in attribution.ts
+                              + suppress model name leak
+                              + show one-time UI notice if first detected
+
+v2.1.88 (external build) — bundler dead-code-elimination:
+  isUndercover() reduces to `return false` (constant fold)
+  getUndercoverInstructions() reduces to `return ''`
+  shouldShowUndercoverAutoNotice() reduces to `return false`
+  All call sites become unconditional standard-prompt paths.
+
+v2.1.142 (external build, the only build) — at commit time:
+  ┌──────────────────────────────────────────────────┐
+  │ buildCommitPrompt({ userMessage, repoContext })  │
+  └────────────────┬─────────────────────────────────┘
+                   ▼
+  ┌──────────────────────────────────────────────────┐
+  │ Read user setting `includeCoAuthoredBy`          │
+  │  default true  → include trailer                 │
+  │  explicit false → omit trailer                   │
+  └────────────────┬─────────────────────────────────┘
+                   ▼
+  standard prompt; no per-flow header; one user-controlled switch
+```
+
+The v2.1.88 decision tree had four input signals (build type, env var, repo class, settings). The v2.1.142 decision tree has *one* (the user setting). This is a deliberate complexity reduction that costs Anthropic the codename-leak protection but buys a simpler external mental model.
+
+### Key insight
+
+The undercover removal is a **promotion-by-deletion**: instead of generalizing an internal feature for external users, Anthropic recognized that the *thing* undercover protected against (internal codename leaks) is a risk *only* internal users face, and the *thing* undercover suppressed (Co-Authored-By and model attribution) is what external users *want*. Promoting it as-is would invert the user's preference. So undercover dies in the GA assessment while its sibling (`/commit`) graduates fully. The cleanest signal that a "promote vs. remove" decision is being made: ask "would an external user *want* this feature?" — if the answer is no, removal is the right path, even if the code is fully working.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|----------|------|---------|
+| Hard-remove vs. soft-disable (`isEnabled: () => false`) | Loses ability to enable for an internal build without re-adding the file | ~3 KB bundle savings; no attack surface for prompt injection re-enabling; cleanest external mental model |
+| Promote `/commit` but not the undercover header that wrapped it | Two different shapes for two different code paths feels asymmetric | Slash command (general-purpose) graduates; narrow internal header is removed; user setting fills the opt-out gap |
+| User-controlled `includeCoAuthoredBy: false` vs. auto-detect | User must opt out manually; no per-repo automation | Single mechanism instead of repo-class detection + env var + one-time notice + prompt injection |
+| Drop attribution-suppression entirely from external (no opt-in to "undercover-like" behavior beyond `includeCoAuthoredBy: false`) | External users in AI-skeptical OSS communities have no way to mimic the v2.1.88 ant-only undercover header | Avoids shipping a feature whose primary use case ("hide that an AI was used") has compliance implications in some jurisdictions |
+| Preserve `Co-Authored-By` as the *default* | Some users may not want attribution; they must change a setting | Default-on attribution is marketing; PRs merging with the trailer advertise Claude Code; aligns with Anthropic's external posture |
+| Keep `--no-co-author` flag as per-invocation override | Two switches (setting + flag) to reason about | Per-script opt-out without permanent setting change |
+| Internal builds presumably retain undercover (not in external bundle) | Internal and external builds diverge | Internal users keep codename protection; external users get the simpler model |
