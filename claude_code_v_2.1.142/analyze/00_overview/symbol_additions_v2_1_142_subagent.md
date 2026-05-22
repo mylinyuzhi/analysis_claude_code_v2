@@ -178,3 +178,7 @@ Cross-validated against:
 - **Built-in agents**: `Plan` (`d88`, cli_inner_pretty.js:231700), `statusline-setup` (`q67`, cli_inner_pretty.js:231715), `Explore`, `general-purpose`. The frontmatter `omitClaudeMd: !0` (e.g. `Plan` line 231709) controls CLAUDE.md hierarchy inclusion in the subagent's userContext.
 - **Telemetry**: `tengu_subagent_type_normalized`, `tengu_subagent_type_miss`, `tengu_fork_subagent_enabled`, `tengu_agent_summary_skipped`.
 - **Subagent identity headers**: `x-claude-code-agent-id` and `x-claude-code-parent-agent-id` set in API request headers at cli_inner_pretty.js:128061-128062 (v2.1.139 introduction).
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.

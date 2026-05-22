@@ -277,3 +277,7 @@ These tools exist in the 2.1.88 TypeScript source but in v2.1.142 are either: re
 - **2.1.89 StructuredOutput schema cache**: `sdK` (WeakMap from input schema object → compiled validator) lets workflow scripts that call `agent({schema: BUGS_SCHEMA})` 30-80× per run reuse the compiled Ajv validator — reduces 80-call overhead from ~110 ms to ~4 ms.
 - **2.1.142 SendUserFile**: New tool added in this release; `fH5` registered alongside SendUserMessage.
 - **Per-decl files**: All functions above with single-letter or short obfuscated names also have corresponding `.js` files under `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_unpack_pretty/decls/functions/<name>.js` for cleaner per-decl reading.
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.

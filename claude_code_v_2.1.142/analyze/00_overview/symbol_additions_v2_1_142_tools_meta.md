@@ -379,3 +379,7 @@
 - **Tool wire-names vs JS variable names**: The wire-name (`"Agent"`, `"Skill"`, `"TaskCreate"`, etc.) is exposed via `tool.name`, while the JS variable holds the tool definition (`Gu7`, `SnH`, `Xn7`). The wire-name is what permission rules and analytics use; the JS variable is the internal handle. The constants `D7`/`fX`/`OX`/etc. hold the wire-names.
 
 - **`feature('PROACTIVE')`, `feature('KAIROS')`, etc.**: Build-time feature flags from `bun:bundle`. Code gated by these is included or stripped at bundle time. The bundle here may have some flags inlined (e.g., the comment-only condition `feature('KAIROS')` may resolve to `true` or `false` depending on build).
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.

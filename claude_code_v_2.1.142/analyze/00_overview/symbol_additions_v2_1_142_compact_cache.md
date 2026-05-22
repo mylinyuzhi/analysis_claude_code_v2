@@ -286,3 +286,7 @@ Used by multiple modules above.
    - `EU` (long_context beta) — may be in core_execution
 
 4. **Verification:** every symbol listed has been confirmed by `grep` against `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_inner_pretty.js` during the analysis.
+
+---
+
+**Status**: Core-execution-scoped rows (Subagent resume persistence, runForkedQuery, streaming API call, token-count accessors) consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work. Compact / prompt-cache / slash-command rows remain pending consolidation into their respective indexes.
