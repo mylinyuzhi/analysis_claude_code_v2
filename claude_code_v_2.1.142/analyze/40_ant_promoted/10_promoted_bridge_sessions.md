@@ -441,3 +441,207 @@ Key functions in this document:
 - `getBridgeDebugHandle` (`$Z4`) — debug-handle accessor (cli_inner_pretty.js:492110)
 - `BRIDGE_KICK_USAGE` (`Up6`) — usage string (cli_inner_pretty.js:492118)
 - `disableRemoteControl` setting (cli_inner_pretty.js:50529)
+- `isAccountLoggedIn` (`zL`) — login check used by CCR availability (cli_inner_pretty.js:272755)
+- `isFirstParty` (`FK8`) — first-party-account check (cli_inner_pretty.js:272755)
+- `isCloudCodeRunnerBridgeAvailable` (`YdH`) — composite cloud-side gate (cli_inner_pretty.js:272755)
+- `BridgeFatalError` (`Qb`) — typed error class (cli_inner_pretty.js:492090+)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+Bridge has *two distinct surfaces* and they took different promotion paths. The user-facing surface (`/bridge` → `/remote-control`) was **promoted with a generalized runtime gate**. The debug surface (`/bridge-kick`) was **preserved with a hard-disable** (`isEnabled: () => false`). The composite is unusual — one feature, two outcomes — and worth tracing.
+
+**v2.1.88 user-facing gate (build-time):**
+
+```typescript
+// ============================================
+// bridgeFeatureGuard - v2.1.88 build-time feature flag
+// Location: src/commands.ts:73-75
+// ============================================
+
+// ORIGINAL (for source lookup):
+const bridge = feature('BRIDGE_MODE')
+  ? require('./commands/bridge/index.js').default
+  : null
+
+// READABLE (for understanding):
+const bridge = buildFlag('BRIDGE_MODE')
+  ? requireBridgeCommandModule()
+  : null;
+// Mapping: feature→buildFlag, BRIDGE_MODE→build-time define
+```
+
+**v2.1.142 user-facing gate (runtime composite):**
+
+```javascript
+// ============================================
+// isRemoteControlAvailable - v2.1.142 runtime composite gate
+// Location: cli_inner_pretty.js:272764-272768
+// ============================================
+
+// ORIGINAL (for source lookup):
+function uk() {
+  if ($X6()) return !0;
+  if (UK8()) return !1;
+  return !fdH() && YdH();
+}
+function YdH() {
+  return zL() && FK8() && Z$("tengu_ccr_bridge", !1);
+}
+
+// READABLE (for understanding):
+function isRemoteControlAvailable() {
+  if (isForceEnabledOverride()) return true;        // dev-mode escape hatch
+  if (isDisabledByManagedSettings()) return false;  // managed-policy opt-out
+  return !hasApiKey() && isCloudCodeRunnerBridgeAvailable();
+}
+function isCloudCodeRunnerBridgeAvailable() {
+  return isAccountLoggedIn() && isFirstParty() && featureFlag("tengu_ccr_bridge", false);
+}
+// Mapping: uk→isRemoteControlAvailable, $X6→isForceEnabledOverride,
+//          UK8→isDisabledByManagedSettings, fdH→hasApiKey,
+//          YdH→isCloudCodeRunnerBridgeAvailable, zL→isAccountLoggedIn,
+//          FK8→isFirstParty
+```
+
+**Step-by-step diff:**
+
+1. v2.1.88 used a single build-time `feature('BRIDGE_MODE')` constant-folded by the bundler. The presence/absence of the command was decided at *build* time. One bundle had it, one didn't.
+2. v2.1.142 ships *one* bundle with the command always present in code. Whether to surface it is decided at *runtime* by `uk()`, which composes four independent signals:
+   - **`$X6`** — force-enable override (dev/test escape hatch, hard-coded `return !1` in this build, but the slot is preserved for internal builds)
+   - **`UK8`** — `disableRemoteControl` managed-setting kill switch
+   - **`!fdH`** — *negation* of `hasApiKey`: Remote Control requires a claude.ai account session, not an API key (because the bridge is anchored to a Claude.ai account)
+   - **`YdH`** — composite cloud-side: logged in + first-party + server-side feature flag `tengu_ccr_bridge`
+3. v2.1.88 `/bridge-kick` had `isEnabled: () => process.env.USER_TYPE === 'ant'` — a runtime check that the bundler can constant-fold in external builds (knocking out the gate but leaving the handler bytes). v2.1.142 replaces this with `isEnabled: () => !1` — a literal-false gate. The handler bytes remain at cli_inner_pretty.js:492128-492229 but no dispatch path reaches them.
+4. The error string inside `bridgeKickHandler` still contains the legacy phrase `"USER_TYPE=ant"` at cli_inner_pretty.js:492133 — this is a leftover of the v2.1.88 message that survives in the binary even though the command is now disabled and the message is unreachable from external slash dispatch.
+
+### Why this promotion approach
+
+**Design rationale — why a runtime composite gate (not the simpler build-time flag) for the user-facing command:**
+
+The v2.1.88 build-time gate decided the *binary identity* — one bundle had bridge, one didn't. This made sense when Remote Control was a cohort rollout (only some users got it). By v2.1.142, Anthropic wants Remote Control available to *everyone who meets the runtime conditions*, but those conditions are inherently runtime-determined:
+
+- "Logged in with a Claude.ai account" is a runtime fact.
+- "First-party (not third-party reseller)" depends on the live auth tier.
+- "Server-side feature flag `tengu_ccr_bridge` enabled" — Anthropic can flip this without a CLI release.
+- "Not disabled by enterprise managed settings" — depends on per-user policy files.
+- "Not using API key" — depends on which credential path the user is on right now.
+
+Build-time flags can't express any of these. The promotion essentially **moves the gate from build into runtime so Anthropic can roll out, scale back, or per-org enable without shipping a new CLI version**.
+
+**Why `bridge-kick` is *preserved* but hard-disabled (rather than removed):**
+
+This is the key architectural question for bridge. Three options were on the table:
+
+1. **Delete entirely**: zero binary cost, but loses the test surface for internal builds.
+2. **Keep ant-only runtime check (`USER_TYPE === 'ant'`)**: external users have the bytes anyway since `cli_inner_pretty.js` is the external build — the runtime check just hides the command. But an environment-variable trick could re-enable.
+3. **Keep with literal-false (`isEnabled: () => !1`)**: bytes ship to external, command is unreachable, no env-var trick re-enables, internal builds patch the gate to re-enable.
+
+Anthropic chose (3). The rationale is fitness for purpose:
+
+- `bridge-kick` is a *test harness* for the bridge reconnection logic. Anthropic engineers use it constantly to inject faults like `poll 404 not_found_error` (the 147K-events-per-week "dead gate" failure mode described in the v2.1.88 source comments).
+- The handler is ~100 lines of tested code that maps subcommand names to fault-injection calls on a debug handle (`getBridgeDebugHandle` → `injectFault`, `fireClose`, `forceReconnect`, etc.).
+- Deleting it and re-adding for internal builds would mean maintaining a fork.
+- The literal-false gate is the cleanest "ship the handler bytes, but make sure no external user input ever reaches them" guarantee.
+
+**Why bridge survived as still-internal rather than being promoted or removed — what infrastructure is missing for `/bridge-kick` to graduate:**
+
+`/bridge-kick` cannot be promoted because:
+
+1. **It is genuinely dangerous in production.** Subcommands like `/bridge-kick close 1002` deliberately tear down the user's WebSocket connection. There is no realistic user need for this surface.
+2. **The documentation IS the source code.** The `Up6` (`BRIDGE_KICK_USAGE`) string at cli_inner_pretty.js:492118 references `BridgeFatalError`, `injectFault`, `pollForWork`, `doReconnect`, `Strategy 2` — terms only meaningful to engineers who know the bridge code. No user-facing help text exists; building one would be more work than the command is worth externally.
+3. **The fault patterns reference internal telemetry events** (`tengu_bridge_repl_fatal_error`, `tengu_bridge_repl_env_lost`) and BQ-verified failure modes that external users cannot observe or reason about.
+4. **Reconnect testing is rare enough that build-team automation would be a better path** than a user-visible command. The reason it stays as a slash command at all is interactive debugging convenience for Anthropic engineers connected to a live Remote Control session.
+
+What would have to be true for `/bridge-kick` to graduate:
+
+- A user-mode "test my Remote Control connection" surface (with safe, transient fault injection) would need to exist.
+- Help text would need to be authored explaining each subcommand in user-meaningful terms.
+- The fault primitives would need to be hardened so a misuse cannot leave the session in an undefined state.
+
+None of those are present, so `/bridge-kick` stays disabled.
+
+### Step-by-step runtime decision flow
+
+```
+User invocation paths:
+  ┌────────────────────────────────────────────────────────┐
+  │ /remote-control  OR  /rc  (slash command path)         │
+  │ --remote-control / --rc   (CLI flag path)              │
+  │ claude remote-control     (subcommand path)            │
+  └────────────────┬───────────────────────────────────────┘
+                   ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ Slash registry consults remoteControlCommand (Ph5)     │
+  │  - isEnabled: uk                                       │
+  │  - isHidden:  () => !uk()                              │
+  └────────────────┬───────────────────────────────────────┘
+                   ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ uk() ─ composite gate evaluation:                      │
+  │   1. $X6 (isForceEnabledOverride)                      │
+  │      ─ true   ► AVAILABLE (dev/test bypass)            │
+  │   2. UK8 (isDisabledByManagedSettings)                 │
+  │      ─ true   ► UNAVAILABLE (enterprise policy)        │
+  │   3. fdH (hasApiKey)                                   │
+  │      ─ true   ► UNAVAILABLE (RC requires CCO session)  │
+  │   4. YdH (isCloudCodeRunnerBridgeAvailable)            │
+  │      = zL && FK8 && featureFlag("tengu_ccr_bridge")    │
+  │      ─ false  ► UNAVAILABLE                            │
+  │      ─ true   ► AVAILABLE                              │
+  └────────────────┬───────────────────────────────────────┘
+                   │ (AVAILABLE)
+                   ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ Load remote-control implementation (loadRemoteControl) │
+  │ Open Bridge connection (registerBridgeEnvironment)     │
+  │ Wire poll loop, heartbeat, reconnect strategies        │
+  │ Telemetry: tengu_bridge_command { action: "connect" }  │
+  └────────────────────────────────────────────────────────┘
+
+Separately, /bridge-kick path:
+  ┌────────────────────────────────────────────────────────┐
+  │ User types /bridge-kick close 1002                     │
+  └────────────────┬───────────────────────────────────────┘
+                   ▼
+  ┌────────────────────────────────────────────────────────┐
+  │ Slash registry consults bridgeKickCommand (EN5)        │
+  │  - isEnabled: () => !1   ◄─── always false             │
+  │  - command filtered out at registry layer              │
+  └────────────────┬───────────────────────────────────────┘
+                   ▼
+            "Unknown command" returned
+            (handler NN5 never reached)
+            (error string at :492133 never printed)
+
+  Internal build (hypothetical):
+            Patch isEnabled: () => true
+            ┌──────────────────────────────────────────────┐
+            │ getBridgeDebugHandle ($Z4) returns debug handle│
+            │  null → "No bridge debug handle registered. │
+            │         Remote Control must be connected   │
+            │         (USER_TYPE=ant)."                  │
+            │ present → dispatch to injectFault/fireClose/...│
+            └──────────────────────────────────────────────┘
+```
+
+### Key insight
+
+Bridge's promotion is **two separate decisions stitched together**: (1) the *user-facing* surface graduates by replacing a build-time `feature('BRIDGE_MODE')` flag with a runtime composite gate so Anthropic can roll the feature out, scale back, or per-org disable without re-releasing the CLI; (2) the *debug* surface stays internal by switching from `USER_TYPE === 'ant'` to `isEnabled: () => false` so the handler bytes stay available to internal builds (which can patch the single literal-false gate) but no environment-variable trick can resurrect the command for external users. The bridge-kick error message at cli_inner_pretty.js:492133 — still containing the phrase `"USER_TYPE=ant"` — is a fossil of the old gate: code that survives the promotion but whose only purpose was to be visible under the *old* gating mechanism. It is harmless because the new gate makes it unreachable from external dispatch.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|----------|------|---------|
+| Build-time flag → runtime composite gate (for `/remote-control`) | Composite logic harder to reason about than a build-time on/off | Anthropic can roll out, scale back, or per-org enable without CLI release; runtime signals (account type, server flag) impossible to express at build time |
+| Hard-disable (`isEnabled: () => !1`) vs. delete bridge-kick | ~5 KB handler code shipped to external users for an unreachable surface | Preserves test surface for internal builds (one-line patch re-enables); cleaner than runtime `USER_TYPE === 'ant'` check (no env-var trick can re-enable) |
+| Hard-disable vs. keep `USER_TYPE === 'ant'` runtime check | Internal builds need to patch a literal instead of setting an env var | Forensically stronger; external attacker cannot resurrect command by faking USER_TYPE; clearer intent ("disabled" vs. "ant-only") |
+| Rename `/bridge` to `/remote-control`, add `/rc` alias | Docs/support tickets must be updated; user habits broken | "Bridge" was internal codename; "Remote Control" is self-explanatory; `/rc` short alias offsets the longer canonical name |
+| Preserve `tengu_bridge_*` telemetry event names through the rename | Naming asymmetry (user-facing "Remote Control", events "bridge") | Historical analytics continuity; downstream pipelines (BigQuery, alerts, runbooks) do not need updates; rename + bug in same release would be hard to disentangle |
+| Composite gate uses `!hasApiKey()` (API-key users excluded) | API-key users cannot use Remote Control | RC is anchored to a Claude.ai account session, not an API key; gating prevents the surface appearing for users who can never make it work |
+| `disableRemoteControl` setting disables 5 surfaces with one switch | Setting name suggests one surface, actually disables five | Coherent user/admin mental model; partial-disable would leave inconsistent failure modes (e.g. flag works but slash command does not) |
+| Server-side feature flag `tengu_ccr_bridge` is part of composite | Anthropic-side flag flips can disable user features without notice | Allows immediate kill-switch if cloud-side bridge has incidents; complements client-side `disableRemoteControl` for enterprise opt-out |
+| Leftover `"USER_TYPE=ant"` string in bridge-kick handler at :492133 | Slightly inaccurate documentation if user binary-patches the gate | Removing the string would force re-testing the handler; surviving fossil is harmless because the new gate makes it unreachable |
