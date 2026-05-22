@@ -6,7 +6,9 @@
 
 ## The Problem
 
-Compaction (full `vI6`, partial `_H4`, reactive `Y97`) is an LLM round-trip with a streaming response. The user can interrupt it with **Esc** at any point. Pressing Esc fires `abortController.abort()` on the in-flight `JV` query, which propagates as:
+Compaction (full `qrH` / `compactConversation`, partial `_H4`, reactive `Y97`) is an LLM round-trip with a streaming response. The user can interrupt it with **Esc** at any point. Pressing Esc fires `abortController.abort()` on the in-flight `JV` query, which propagates as:
+
+> Note: in v2.1.142, the full-compact entry point is `qrH` at `cli_inner_pretty.js:407582`. The legacy `vI6` symbol (from v2.1.112 baseline) was an alias that has been demoted in v2.1.142 — `vI6 = 10` is now an unrelated integer constant at line 409308. References to "full `vI6` compact" in older analysis docs should be read as `qrH` for v2.1.142.
 
 ```javascript
 throw new ZA();                        // ZA is the abort-class error

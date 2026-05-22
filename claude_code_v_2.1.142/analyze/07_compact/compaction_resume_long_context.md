@@ -48,7 +48,7 @@ Two coordinated changes made in v2.1.113:
 
 ```javascript
 // ============================================
-// compactSlashCommand - Routes /compact to either reactive (1M) or vI6 (legacy) pipeline
+// compactSlashCommand - Routes /compact to either reactive (1M) or qrH (legacy) pipeline
 // Location: cli_inner_pretty.js:431845-431876
 // ============================================
 
