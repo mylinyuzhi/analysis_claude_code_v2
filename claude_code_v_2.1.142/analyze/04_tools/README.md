@@ -223,3 +223,13 @@ Key entries:
 - `TOOL_SEARCH_TOOL_NAME` (obfuscated: `cY`) - `"ToolSearch"` constant
 - `READ_TOOL_NAME` (obfuscated: `Bq`) - `"Read"` constant
 - `SEND_USER_FILE_TOOL_NAME` (obfuscated: `NH8`) - `"SendUserFile"` constant
+
+## Validation status (B1)
+
+Cross-checked against `extract/assets/tools/_index.json` (46 tools, of which 45 are named + 1 `eval_registered__${...}` placeholder):
+
+- All 45 named tools have a per-tool doc under `04_tools/` (45/45 coverage).
+- 4 supplementary docs (`brief.md`, `config.md`, `sleep.md`, `synthetic_output.md`) document tools present in the 2.1.88 TS baseline but removed/renamed/aliased in v2.1.142. These are kept as deobfuscation cross-references — not registered tools.
+- 9 architecture docs cover the pipeline (`registration.md`, `schema_validation.md`, `permission_pipeline.md`, `lifecycle.md`, `deferred_tools.md`, `mcp_integration.md`, `mcp_auth.md`, `tool_inventory.md`, `README.md`).
+- All v2.1.142-specific changes are documented in-place: `MCP_TOOL_TIMEOUT` (mcp.md, wait_for_mcp_servers.md), `alwaysLoad` MCP override added in 2.1.121 (mcp.md, mcp_integration.md, deferred_tools.md), PowerShell `tengu_cobalt_ridge` rollout gate (powershell.md), deferred-tool protocol (deferred_tools.md), subagent inheritance (agent.md), Monitor sleep guard added in 2.1.142 (bash.md, powershell.md), `SendUserFile` first-class addition (this README, send_user_file.md, deferred_tools.md).
+- Local markdown links: 58/58 clean. No empty stub docs (minimum doc size: 76 lines).
