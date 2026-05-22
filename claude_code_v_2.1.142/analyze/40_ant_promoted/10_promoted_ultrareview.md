@@ -420,3 +420,196 @@ Key functions in this document:
 - `getDurationNote` (`Or`) — GB-driven duration string
 - `getCostNote` (`CEH`) — GB-driven cost string
 - `launchUltrareview` (`fX8`) — shared launch entry (slash + CLI)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+Ultrareview's promotion path is **different in kind** from ultraplan's. Ultrareview was *already* GrowthBook-gated in v2.1.88 (no `USER_TYPE === 'ant'` build flag, no DCE'd require). The "promotion" here is layered: (a) hardening the same gate with CCR-feasibility checks, (b) introducing a CLI subcommand (`claude ultrareview`) in v2.1.120 that the slash command never had, and (c) wiring an enterprise `allow_remote_sessions` policy.
+
+**v2.1.88 — Single-condition gate**
+
+```typescript
+// src/commands/review/ultrareviewEnabled.ts:8-14
+export function isUltrareviewEnabled(): boolean {
+  const cfg = getFeatureValue_CACHED_MAY_BE_STALE<Record<string, unknown> | null>(
+    'tengu_review_bughunter_config', null)
+  return cfg?.enabled === true
+}
+```
+
+**v2.1.142 — Three-condition composite + new policy layer**
+
+```javascript
+// cli_inner_pretty.js:474757-474759
+function V1H() {
+  return JaH()?.enabled === !0 && YdH() && !I6();
+}
+// JaH() = Z$("tengu_review_bughunter_config", null)
+```
+
+Plus, inside the CLI handler (`rqA` at 604787-604856), a new **policy gate** runs *before* the launch:
+
+```javascript
+if (!S4("allow_remote_sessions"))
+  return (uH("cli_ultrareview", "cli_ultrareview_policy_disallowed"),
+          hq("Remote sessions are disabled by your organization's policy."));
+```
+
+`S4("allow_remote_sessions")` reads a **managed-settings policy** controlled by enterprise admins (distinct from the GB flag controlled by Anthropic). It's the *customer-controlled* layer that didn't exist in v2.1.88.
+
+Concrete excerpt of what *was added* in v2.1.142 vs v2.1.88 line-for-line:
+
+| New in v2.1.142 | Why |
+|---|---|
+| `YdH()` clause in gate | Don't show /ultrareview if CCR can't reach anthropic.com or user isn't OAuth'd |
+| `!I6()` clause in gate | Don't show /ultrareview inside a CCR worker (prevent recursion) |
+| `S4("allow_remote_sessions")` check in CLI | Enterprise admin can disable even when GB says yes |
+| `get description()` with `Or()` and `CEH()` | Duration + cost text editable from GB at runtime |
+| Parallelized check execution (v2.1.113) | Findings landed faster — parallel agents instead of serial |
+| `--diffstat` rendered in dialog (v2.1.113) | User sees scope ("47 files, +1200 -300") before paying |
+| `claude ultrareview [target]` CLI subcommand (v2.1.120) | CI/scripting path; bypasses interactive dialog |
+| `--json` and `--timeout` flags | Machine-readable output + custom polling ceiling |
+| `cli_ultrareview` telemetry family | Distinguish CLI invocations from slash-command invocations |
+
+### Why this promotion approach
+
+**Design rationale for the composite gate:**
+
+The maintainers could have left the v2.1.88 single-check gate (it already worked). They didn't, because shipping `/ultrareview` to first-party CCR-eligible users only is **not the same as shipping it everywhere**:
+
+- A Bedrock/Vertex user with `cfg?.enabled === true` from GB would have seen `/ultrareview` in their command list, clicked it, then hit a CCR bridge failure mid-launch — confusing UX.
+- An ant CLI running *inside* a CCR worker could see `/ultrareview` and trigger another remote review from within remote review — pathological recursion.
+- Hoisting both checks (`YdH()` + `!I6()`) into the gate means **users who can't actually run it never see the command** — the cleanest UX outcome.
+
+**Alternatives considered:**
+
+| Alternative | Why rejected |
+|---|---|
+| Show /ultrareview to everyone, error on launch | Three layers of failure dialogs the user has to dismiss — bad UX |
+| Build-time gate `feature('ULTRAREVIEW')` | Already runtime-gated in v2.1.88; would regress on rollback granularity |
+| Per-org allowlist via GB targeting rules | Works, but doesn't compose with the workspace + bridge checks; still need code-level enforcement |
+| Single boolean `allow_remote_sessions` policy | Combines /ultrareview + /ultraplan + future CCR features under one knob; chose this *in addition to* GB for layered defense |
+
+**Trade-offs:**
+
+- **Rollout control vs. complexity:** the maintainers picked layered (GB + CCR-ready + workspace + admin-policy). Each layer is a kill-switch at a different level (Anthropic-side, build-runtime, user-runtime, enterprise-side). The complexity buys defense-in-depth.
+- **Observability vs. user friction:** the `cli_ultrareview_policy_disallowed` telemetry reason is **observable** (Anthropic sees rollout pushback per-org); the user sees a single clear message. Win-win, modest extra telemetry surface.
+- **Confirming billing in CLI (`confirm: true`):** trades a small "accidental spend" risk for CI usability. Mitigated by the cost message printed to stderr before launch.
+
+### Step-by-step runtime decision flow
+
+```
+Branch 1: Slash command  "/ultrareview 12345"
+─────────────────────────────────────────────
+  REPL slash resolver
+    │
+    ▼  fJ4.isEnabled() → V1H()  [474757]
+  ┌──────────────────────────────────┐
+  │  GB enabled? JaH().enabled===true│
+  │  CCR ready?  YdH()                │
+  │  Not in CCR? !I6()                │
+  └────────────┬─────────────────────┘
+               │ all true
+               ▼
+  load() → ultrareviewCommandModule [476334]
+    │ JSX dialog renders:
+    │   • diffstat from local git
+    │   • duration Or()  "~10-20 min"
+    │   • est cost CEH() "$10-$20 USD"
+    │ user clicks "Approve"
+    │
+    ▼  fX8(target, {confirm:false}) [475038]
+  ┌──────────────────────────────────┐
+  │ V1H() re-check (defensive)        │
+  │ wB6(target) → resolve scope       │
+  │ DB6() → overage status            │
+  │   • "blocked": return blocked     │
+  │   • "needs-confirm" + !confirm:   │
+  │       return needs-confirm        │
+  │ jB6(scope, ctx, billingNote)      │
+  │   → create remote session         │
+  │   → register task in jaH          │
+  │   → emit tengu_review_launched   │
+  └────────────┬─────────────────────┘
+               │
+               ▼
+  Task pill in REPL; aqA() polls
+  for findings; render on completion.
+
+Branch 2: CLI subcommand  "claude ultrareview 12345 --json"
+──────────────────────────────────────────────────────────
+  CLI dispatcher detects "ultrareview" subcommand
+    │
+    ▼  rqA(target, opts)  [604787]
+  ┌──────────────────────────────────┐
+  │ SIGINT handler installed (exit 130)
+  │ $$H() — initSessionContext        │
+  │ S4("allow_remote_sessions") ?     │
+  │   ─ false: log + exit             │
+  │ VZ().catch() — auth hydrate       │
+  │ timeout = opts.timeout or default │
+  │ fX8(target, {confirm:true,        │
+  │              skipTaskRegistration:│
+  │              true, context:{...}})│
+  │   ─ confirm:true bypasses dialog  │
+  │     (cost shown to stderr instead)│
+  └────────────┬─────────────────────┘
+               │ launched
+               ▼
+  Replace SIGINT handler with        ┌─────────────────────┐
+  "second SIGINT prints URL + 130"   │ Two-stage SIGINT    │
+               │                     │  1st: exits clean   │
+               ▼                     │  2nd: shows URL,    │
+  aqA(sessionId, signal, timeoutMs)  │       exits 130     │
+  polls in foreground process        └─────────────────────┘
+               │
+               ▼
+  raw = poll result
+  remoteError = oqA(raw)
+    if --json:
+      stdout.write(raw)
+      exit (remoteError ? 1 : 0)
+    else:
+      stdout.write(formatFindings(raw))
+      exit (remoteError ? 1 : 0)
+```
+
+### Parallelized checks (v2.1.113) and diffstat (v2.1.113)
+
+Two improvements landed in v2.1.113 that materially changed the user experience:
+
+1. **Parallelized checks.** Before v2.1.113, the bughunter agents ran serially (correctness → security → verification). v2.1.113 fans them out concurrently. The end-to-end wall-clock drops from ~25-30 min to ~10-20 min — which is why the v2.1.142 default duration string `Or()` returns `"~10–20 min"`. The fan-out happens server-side in CCR; the client just sees faster findings, but the description string is the **observable artifact** of the change.
+
+2. **Diffstat in dialog.** v2.1.113 added a pre-launch summary: `"Reviewing current branch against main · Scope: 47 files, +1200 -300"`. This is rendered from `q.scope.diffStat` in `fX8` (line 475060). The motivation is **informed consent for spending** — before the user pays $10-$20, they can confirm the scope matches their intent (e.g. if they expected a 3-file PR but the dialog shows 47 files, something's wrong with the branch reference).
+
+The diffstat is *local* — computed before launching the remote. Cost: a few hundred milliseconds of `git diff --stat`. Benefit: ~$15 per accidental wide-review averted.
+
+### `claude ultrareview` CLI subcommand (v2.1.120) — design choices
+
+Three notable design decisions distinguish the CLI from the slash command:
+
+1. **`confirm: true` in launch.** The CLI auto-passes the "yes, I'm okay with the cost" confirmation. Rationale: CI environments have no interactive prompt to display. The cost is still emitted to stderr (`"Waiting for findings (~10–20 min)…"` line plus the description includes cost), so users running the binary by hand are not surprised.
+
+2. **`skipTaskRegistration: true`.** The CLI doesn't render REPL pills — it just polls the remote session in the foreground. Without this flag, every CLI invocation would create an orphaned task entry in the local app state. The flag short-circuits `jB6`'s registration path.
+
+3. **Two-stage SIGINT handler.** First SIGINT (during launch, before remote exists): exit 130 clean. Second SIGINT (after launch, while polling): print the session URL so the user can resume in the browser, then exit 130. This is the same "don't lose paid work" principle that drives the daemon design — the remote session keeps running on Claude.ai infra even after the local CLI exits.
+
+### Key insight
+
+**Ultrareview was not promoted by flipping a gate — it was promoted by adding a CLI surface.** The GrowthBook gate `tengu_review_bughunter_config.enabled === true` was *already* the public mechanism in v2.1.88. The v2.1.142 changes are about **completing the rollout**: harden the gate so users who can't use the feature don't see it (`YdH()` + `!I6()`), add an enterprise policy lever (`allow_remote_sessions`), and surface the feature in CI via `claude ultrareview`. The bytes for ultrareview were already shipping externally; v2.1.142 polishes the boundary so the rollout actually works.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|---|---|---|
+| Composite gate `GB ∧ CCR-ready ∧ ¬remote` | More checks per render (~3 µs); harder to debug "why doesn't /ultrareview appear?" | Users who can't run it don't see it — clean UX |
+| `allow_remote_sessions` admin policy in addition to GB | Two layers admins/Anthropic must keep in sync | Defense-in-depth; enterprise can disable independent of Anthropic |
+| `confirm: true` auto-approve in CLI | Accidental `claude ultrareview` types cost real money (~$15) | CI usability — no hanging prompt |
+| `skipTaskRegistration: true` in CLI | Cannot resume CLI-launched reviews from REPL's task pill | Clean foreground polling; no orphan tasks |
+| Two-stage SIGINT | More SIGINT plumbing | User cancelling local doesn't lose remote work; can browser-resume |
+| Diffstat pre-launch (v2.1.113) | ~300 ms git diff cost; ugly when repo is huge | $15 saved per scope-mistake review |
+| Parallelized checks (v2.1.113) | More server-side concurrency, higher CCR cost per session | ~50% wall-clock reduction; reframes ultrareview as "fast enough for PRs" |
+| `cli_ultrareview` distinct telemetry namespace | More event types | Distinguish CLI usage from slash usage for product analytics |

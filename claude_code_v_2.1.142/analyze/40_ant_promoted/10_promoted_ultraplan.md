@@ -322,3 +322,198 @@ Key functions in this document:
 - [x] Code snippets follow the dual-version format
 - [x] Document covers 88 → 142 diff with rationale
 - [x] Document is in 200-500 line target range
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+The promotion replaced a **two-layer build-time gate** with a **three-layer runtime gate**. Below is the concrete diff.
+
+**v2.1.88 — Gate A: bundler DCE on the import edge**
+
+```typescript
+// src/commands.ts:104-106
+const ultraplan = feature('ULTRAPLAN')
+  ? require('./commands/ultraplan.js').default
+  : null
+```
+
+`feature()` from `bun:bundle` is constant-folded at bundle time. For external builds the entire `require(...)` expression is removed by dead-code-elimination — the `ultraplan.js` module is **not present** in the bundle.
+
+**v2.1.88 — Gate B: `isEnabled` returning a build-time literal**
+
+```typescript
+// src/commands/ultraplan.tsx:461-467  (only reachable in ant builds)
+export default {
+  type: 'local-jsx',
+  name: 'ultraplan',
+  isEnabled: () => "external" === 'ant',   // bundler substitutes USER_TYPE literal
+  // ...
+} satisfies Command;
+```
+
+The string literal `"external" === 'ant'` is the post-substitution form: in external builds the bundler replaces `USER_TYPE` with `"external"`, yielding `false`. Even if the module loaded, `getCommands()` would filter it.
+
+**v2.1.142 — Gate A wrapped, Gate B replaced**
+
+```javascript
+// cli_inner_pretty.js:475282-475284
+function sQ() {
+  return Z$("tengu_ultraplan_config", null)?.enabled === !0 && YdH() && !I6();
+}
+```
+
+- Gate A (the bundler-time `require` gate) is **removed**. The module is unconditionally bundled (~30 KB cost) — every external user now ships the bytes.
+- Gate B (the `isEnabled` literal) is **replaced** by `sQ()`, which composes three runtime checks at every `getCommands()` render.
+- A new sentinel `__ULTRAPLAN_TELEPORT_LOCAL__` (line 475264) is hard-coded in three system-prompt blocks (lines 475364/475388/475415). This is the marker the model recognizes when CCR teleports a plan back to the local terminal.
+
+### Why this promotion approach
+
+**Design rationale: GrowthBook cache + workspace check.** The maintainers chose `Z$("tengu_ultraplan_config", null)?.enabled === !0` for three reasons:
+
+1. **Synchronous on the hot path.** `getCommands()` is called every Ink render. A network call here would jank the UI. `Z$` reads a Map populated at session start.
+2. **Server-side kill switch.** Anthropic can flip `enabled: true → false` in GrowthBook and within 24 hours all external CLIs stop offering `/ultraplan`. This is critical for a feature that can spend 30 minutes of remote compute per invocation.
+3. **Strict `=== true`, not truthy.** A misconfigured `{enabled: 1}` won't enable the feature — defensive against a config-typo causing a billing event.
+
+**Alternatives considered (inferable from surrounding code):**
+
+| Alternative | Why rejected |
+|---|---|
+| Keep `feature('ULTRAPLAN')` bundler gate | Cannot kill-switch in production. Every external rollout requires a new client release. |
+| `process.env.USER_TYPE === 'ant'` runtime check | Same as `agentsPlatform` v2.1.88 pattern. Hard-codes who can see it; no A/B granularity. |
+| Per-org `settings.json` opt-in | Forces every org admin to configure individually; no canary rollout. |
+| Server-side allowlist per OAuth org | Same effect, but requires a new API endpoint. GrowthBook already exists. |
+
+**Trade-offs:**
+- **Cost of runtime gate:** ~30 KB of bundle bytes ship to users who'll never use the feature; ~2 `Map.get()` lookups per render.
+- **Benefit:** instant rollback, A/B testing, per-org targeting, no client release for changes.
+
+The `YdH()` + `!I6()` additions are *new infrastructure* required by the promotion: v2.1.88's ant-only build never ran in CCR workers (CCR runs external builds), so it didn't need to defend against self-recursion. Once `/ultraplan` ships externally, an ant CLI running inside CCR could see the command and accidentally recurse — hence `!I6()`.
+
+### Step-by-step runtime decision flow
+
+```
+User types "/ultraplan refactor auth"
+            │
+            ▼
+┌──────────────────────────────────────────┐
+│ Slash command resolver                   │
+│ • getCommands() returns array of Command │
+│ • Filter: c.isEnabled?.() !== false      │
+└─────────────┬────────────────────────────┘
+              │
+              ▼ Calls sQ() — the promotion gate
+┌──────────────────────────────────────────┐
+│ sQ()  [cli_inner_pretty.js:475282]       │
+│  1. Z$("tengu_ultraplan_config", null)   │
+│     ─ Map lookup, sync, O(1)             │
+│  2. cfg?.enabled === true ?              │
+│     ─ Strict check; rejects truthy non-true
+│  3. YdH() ?                              │
+│     ─ zL() (OAuth?) +                    │
+│     ─ FK8() (firstParty API?) +          │
+│     ─ Z$("tengu_ccr_bridge", false)      │
+│  4. !I6() ?                              │
+│     ─ caps.workspace !== "remote"        │
+└─────────┬────────────────────────────────┘
+          │ all true
+          ▼
+┌──────────────────────────────────────────┐
+│ Command appears in autocomplete +        │
+│ user hits Enter                          │
+└─────────┬────────────────────────────────┘
+          │
+          ▼ DT5 (call handler) executes
+┌──────────────────────────────────────────┐
+│ Pre-launch policy check                  │
+│  S4("allow_remote_sessions")             │
+│  ─ If false: emit "tengu_ultraplan_     │
+│    create_failed" reason=policy_blocked  │
+│  ─ Return error message to dialog        │
+└─────────┬────────────────────────────────┘
+          │ allowed
+          ▼
+┌──────────────────────────────────────────┐
+│ UltraplanLaunchDialog opens              │
+│  ─ First-time? Show CCR_TERMS_URL         │
+│  ─ Fire tengu_ultraplan_first_launch      │
+│  ─ Read JX8().dialogBody for copy         │
+└─────────┬────────────────────────────────┘
+          │ user approves
+          ▼
+┌──────────────────────────────────────────┐
+│ Remote session created via CCR API       │
+│  ─ Store ultraplanSessionUrl in app state │
+│  ─ Register task in jaH (taskRegistry)    │
+│  ─ Spawn Qj4 polling state machine        │
+└─────────┬────────────────────────────────┘
+          │
+          ▼ Qj4 multi-turn state machine
+┌──────────────────────────────────────────┐
+│ Qj4(sessionId, timeoutMs, onPhase, ...)  │
+│  while (now < deadline):                 │
+│    fetch newEvents from CCR              │
+│    A.ingest(events) →                    │
+│      "approved" → return {target:remote} │
+│      "teleport" → return {target:local}  │
+│      "rejected" → bump rejectCount       │
+│    phase transitions:                    │
+│      running → plan_ready → approved     │
+│              ↓                           │
+│              needs_input (if idle)       │
+│    sleep 3s (Fj4)                        │
+│    on network err, retry up to r05 (=5)  │
+└─────────┬────────────────────────────────┘
+          │
+          ▼
+   ┌──────┴───────┐
+   │              │
+   ▼              ▼
+"remote"        "local"
+ │               │
+ ▼               ▼
+Execute        Inject __ULTRAPLAN_TELEPORT_LOCAL__
+on CCR         into ExitPlanMode feedback;
+infrastructure model sees marker → bails with
+                "Plan teleported."
+```
+
+### The `__ULTRAPLAN_TELEPORT_LOCAL__` session marker
+
+This 24-character string is the **cross-process protocol** between the remote CCR worker and the local terminal. When a remote ultraplan run produces a plan that the user wants to execute *locally* (not in CCR), the marker is the only way to signal "stop the remote loop without aborting it cleanly":
+
+1. Remote worker calls `ExitPlanMode` with the marker in `feedback`.
+2. Local CLI (which holds the open WebSocket) sees the marker via `a05()` extractor (line 475239).
+3. `Qj4` returns `{ executionTarget: "local" }`.
+4. The system prompts at lines 475364/475388/475415 instruct the model: "if rejection feedback contains `__ULTRAPLAN_TELEPORT_LOCAL__`, DO NOT revise — respond 'Plan teleported. Return to your terminal to continue.'" The model's response unwinds the remote agent loop cleanly.
+
+This is the kind of out-of-band signal a feature flag cannot deliver — and it's why three separate prompts in the binary share the exact literal. Search the binary for the marker: it appears verbatim in source code (line 475264) and three prompt strings (475364/475388/475415).
+
+### Multi-turn planning state machine (`Qj4` + `gj4`)
+
+`Qj4` is the polling driver; `gj4` (constructor preceding line 475178) is the **event ingestor** that tracks the conversation across multiple ExitPlanMode rejections. Key invariants:
+
+- `rejectedIds` set: dedup so a model that re-calls ExitPlanMode with the same content doesn't double-count rejections.
+- `everSeenPending`: distinguishes "timed out before any plan" (likely container start failure) from "user rejected too many times" — separates `timeout_no_plan` vs `timeout_pending` telemetry reasons.
+- `rescanAfterRejection`: tells the next ingest pass to look back further, because a fresh `pending` may have been queued behind a rejected one.
+- Phase transitions emit telemetry: `running → plan_ready` fires `tengu_ultraplan_plan_ready`; `plan_ready → approved` fires `tengu_ultraplan_approved`.
+
+The state machine is essentially "watch a long-running remote conversation and detect when it produces an approved plan, vs. asks the user a question, vs. fails." The complexity (compared to a single poll) is needed because CCR sessions can pause for user input mid-run — the local CLI needs to know when to nudge the user.
+
+### Key insight
+
+**The promotion is not "flip a flag" — it's "ship the bytes and gate them three ways."** v2.1.88 was a binary on/off (DCE in/out). v2.1.142 wraps the *same source code* with a runtime composition (`GB ∧ CCR-ready ∧ ¬remote`). The lasting consequence: external users now carry ~30 KB of code they may never execute, but Anthropic carries instant rollback and per-cohort A/B power. The `__ULTRAPLAN_TELEPORT_LOCAL__` marker, the `policy_blocked` telemetry reason, and the workspace check are the **infrastructure cost** of crossing the boundary — none of them were needed when the feature was ant-internal.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|---|---|---|
+| Bundle ultraplan bytes unconditionally | ~30 KB external bundle bloat | Bytes available for instant GB enablement |
+| `Z$` (cached GB) instead of fresh fetch | Stale cache (up to one session) may miss a flip | O(1) sync check on hot `getCommands()` path |
+| Strict `=== true` not truthy | Slightly more code in gate | Defensive against typo enabling expensive feature |
+| Add `!I6()` workspace check | One extra check per render | Prevents CCR worker recursion (3am page avoided) |
+| `policy_blocked` telemetry reason | New enum value, new translation | Lets Anthropic distinguish admin denial from user cancel — critical for diagnosing rollout friction |
+| `get description()` dynamic | Recomputes per render (~1µs) | Description text editable from GB without client release |
+| Keep `__ULTRAPLAN_TELEPORT_LOCAL__` literal | String appears 4× in binary | Cross-process protocol that any flag-gate cannot deliver |
