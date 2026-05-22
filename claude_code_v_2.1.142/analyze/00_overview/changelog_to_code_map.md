@@ -25,7 +25,7 @@ Versions are listed newest first.
 | Plugins with a root-level `SKILL.md` and no `skills/` subdirectory are now surfaced as a skill | plugins | (unmapped) plugin-loader skill discovery | Plugin manifest reader checks for root SKILL.md when `skills/` is absent |
 | The `/plugin` details pane and `claude plugin details` now show LSP servers a plugin provides | plugins / lsp | (unmapped) plugin-details renderer | Plugin details renderer iterates `manifest.lspServers` |
 | `/web-setup` warns before replacing an existing GitHub App connection | slash-cmd | (unmapped) /web-setup command handler | Pre-replace confirmation modal |
-| Fixed `MCP_TOOL_TIMEOUT` not raising the per-request fetch timeout for remote HTTP and SSE MCP servers, which capped tool calls at 60 seconds regardless of the configured value | mcp | (unmapped) MCP http/sse fetch wrapper | Pass `MCP_TOOL_TIMEOUT` into AbortController + fetch timeout |
+| Fixed `MCP_TOOL_TIMEOUT` not raising the per-request fetch timeout for remote HTTP and SSE MCP servers, which capped tool calls at 60 seconds regardless of the configured value | mcp | `cli_inner_pretty.js:413222,413347` (two MCP timeout readers) + env-var anchor at line 273690 | `parseInt(process.env.MCP_TOOL_TIMEOUT)` now passes through to AbortController + fetch timeout |
 | Fixed background sessions not recognizing pre-existing git worktrees, blocking Edit while EnterWorktree refused to create a duplicate | claude-agents | (unmapped) dispatcher worktree-detect path | Dispatcher consults `git worktree list`; skip `EnterWorktree` if cwd is already a worktree |
 | Fixed background sessions disappearing and daemon reconnect failing after macOS sleep/wake — the daemon now detects clock jumps instead of treating them as elapsed idle time | claude-agents | (unmapped) daemon idle-accounting | Switched from `Date.now()`-diff to monotonic clock / heartbeat |
 | Fixed daemon not exiting cleanly after the binary is upgraded (e.g. `brew upgrade`), causing dispatched agents to crash-loop on the deleted path | claude-agents | (unmapped) daemon self-monitor | Daemon stat's its own binary path; exits if file disappears |
@@ -65,7 +65,7 @@ Versions are listed newest first.
 
 | Bullet excerpt | v2.1.142 decl | Implementation hint |
 |----------------|---------------|---------------------|
-| Added `terminalSequence` field to hook JSON output so hooks can emit desktop notifications, window titles, and bells without a controlling terminal | (unmapped) hook output schema | New field + dispatch path |
+| Added `terminalSequence` field to hook JSON output so hooks can emit desktop notifications, window titles, and bells without a controlling terminal | `cli_inner_pretty.js:238108,519030` (field carriers) + schema at `520586` | New field + dispatch path |
 | Fixed hooks receiving a non-existent `transcript_path` after `EnterWorktree` switches the working directory | (unmapped) hook input builder | Recompute `transcript_path` after cwd change |
 | Improved spinner feedback during long thinking periods — the spinner now warms to amber after 10 seconds to signal Claude is still working | ui / thinking | spinner renderer | 10s timer transitions color |
 
@@ -73,8 +73,8 @@ Versions are listed newest first.
 
 | Bullet excerpt | v2.1.142 decl | Implementation hint |
 |----------------|---------------|---------------------|
-| Added `ANTHROPIC_WORKSPACE_ID` environment variable for workload identity federation — scopes the minted token to a specific workspace when the federation rule covers more than one | (unmapped) WIF token-mint | Pass workspace id into mint claim |
-| Added `CLAUDE_CODE_PLUGIN_PREFER_HTTPS` to clone GitHub plugin sources over HTTPS instead of SSH, for environments without a GitHub SSH key | (unmapped) plugin git-clone | Set git protocol based on env var |
+| Added `ANTHROPIC_WORKSPACE_ID` environment variable for workload identity federation — scopes the minted token to a specific workspace when the federation rule covers more than one | `cli_inner_pretty.js:4167,4192,4335` (WIF token-mint reads + error message) | Pass workspace id into mint claim |
+| Added `CLAUDE_CODE_PLUGIN_PREFER_HTTPS` to clone GitHub plugin sources over HTTPS instead of SSH, for environments without a GitHub SSH key | `cli_inner_pretty.js:228651,229761` (env var probes in plugin git-clone path) | Set git protocol based on env var |
 | Fixed desktop and third-party provider sessions incorrectly inheriting `apiKeyHelper`/`ANTHROPIC_AUTH_TOKEN` from host managed-settings | auth | (unmapped) auth resolver | Skip managed-settings auth keys for non-host-API sessions |
 | Bedrock: `awsCredentialExport` now always runs when configured instead of being skipped when ambient AWS credentials resolve, fixing auth for cross-account access | auth | (unmapped) Bedrock credential resolver | Remove "skip on ambient" guard |
 | Fixed Remote Control MCP connectors all failing with 401 when the worker session token rotated mid-session | mcp / oauth | (unmapped) remote-control session token | Pass new token on rotation event |
@@ -871,7 +871,7 @@ Versions are listed newest first.
 
 ## Coverage Stats
 
-Total bullets mapped above: ~330+ across 27 numbered releases (v2.1.113 to v2.1.142 minus skipped/internal).
+Total bullets mapped above: ~600+ table rows across all 23 published releases in this window — v2.1.113, v2.1.114, v2.1.116–v2.1.123, v2.1.126, v2.1.128, v2.1.129, v2.1.131–v2.1.133, v2.1.136–v2.1.142. The seven skipped numbers (v2.1.115, .124, .125, .127, .130, .134, .135) were never published; v2.1.138 was internal-only.
 
 The `(unmapped)` entries represent decls that haven't been pinpointed to a specific obfuscated identifier yet — they will be filled in as subsequent units explore each module. The string anchors and theme labels are still recorded so a unit owner can pick up the trail.
 
@@ -881,5 +881,8 @@ The `(unmapped)` entries represent decls that haven't been pinpointed to a speci
 
 - [`changelog_analysis.md`](changelog_analysis.md) — narrative architectural analysis
 - [`file_index.md`](file_index.md) — extracted-file inventory
-- [`symbol_index_*.md`](.) — obfuscated → readable symbol mappings (skeletons in unit 01)
+- [`symbol_index_core_execution.md`](symbol_index_core_execution.md) — Agent Loop, LLM API, Tools, Agents, Subagent, State
+- [`symbol_index_core_features.md`](symbol_index_core_features.md) — Plan, Background Agents, /goal, Compact, Hooks, Skills, Thinking, Steering, CLI
+- [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) — MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry
+- [`symbol_index_infra_integration.md`](symbol_index_infra_integration.md) — LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser, Slash Commands
 - The v2.1.112 baseline lives at `../../../claude_code_v_2.1.112/analyze/00_overview/changelog_to_code_map.md`

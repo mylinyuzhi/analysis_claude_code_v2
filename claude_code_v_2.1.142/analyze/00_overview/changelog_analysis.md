@@ -3,10 +3,10 @@
 This document is the **long-form narrative** for the v2.1.113 → v2.1.142 window. It complements:
 
 - [`changelog_to_code_map.md`](changelog_to_code_map.md) — per-bullet code-traceability table
-- The four `symbol_index_*.md` skeletons — obfuscated → readable mappings
+- The four `symbol_index_*.md` files — [core execution](symbol_index_core_execution.md), [core features](symbol_index_core_features.md), [platform infra](symbol_index_infra_platform.md), [integration infra](symbol_index_infra_integration.md)
 - [`file_index.md`](file_index.md) — extracted-file inventory
 
-Today's date is 2026-05-15. The window covers 30 releases (some numbers skipped — no v2.1.115, .124–.125, .127, .130, .134–.135, .138 was internal-only, .137 was VS Code only) shipped between roughly late 2025 and May 2026.
+The window spans 30 version numbers but **23 published releases** (v2.1.113, v2.1.114, v2.1.116–v2.1.123, v2.1.126, v2.1.128, v2.1.129, v2.1.131–v2.1.133, v2.1.136–v2.1.142). The seven skipped numbers (v2.1.115, .124, .125, .127, .130, .134, .135) were never published; v2.1.138 shipped as "internal fixes" only; v2.1.137 was VS Code-extension only.
 
 ---
 
@@ -465,5 +465,10 @@ Items that needed verification against source:
 
 - [`changelog_to_code_map.md`](changelog_to_code_map.md) — per-bullet → decl mapping
 - [`file_index.md`](file_index.md) — extracted-file inventory
-- The four `symbol_index_*.md` files — obfuscated → readable mappings (skeletons in unit 01)
+- [`symbol_index_core_execution.md`](symbol_index_core_execution.md) — Agent Loop, LLM API, Tools, Agents, Subagent, State
+- [`symbol_index_core_features.md`](symbol_index_core_features.md) — Plan, Background Agents, /goal, Compact, Hooks, Skills, Thinking, Steering, CLI
+- [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) — MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry
+- [`symbol_index_infra_integration.md`](symbol_index_infra_integration.md) — LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser, Slash Commands
+- Per-unit symbol additions (transitional) — `symbol_additions_v2_1_142_*.md`
+- Per-unit cross-validation reports — `cross_validation_report_*.md`
 - `../../claude_code_v_2.1.112/analyze/` — the prior window (v2.1.88 → v2.1.112)

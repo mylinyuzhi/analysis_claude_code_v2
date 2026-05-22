@@ -98,7 +98,7 @@ The flow has eight architectural touch-points. Each is implemented by a specific
    4a  │ TL$ (deny rule) │ 421590-421592                         │ rule|null
    4b  │ eS6 (ask rule)  │ 421593-421595                         │ rule|null
    4c  │ tool.checkPerms │ defined per-tool (Sq, gN, R$, ...)    │ {behavior, ...}
-   5   │ jJ$             │ 338062 (classifyYoloAction)           │ {shouldBlock, reason}
+   5   │ jJ$             │ 338324 (classifyYoloAction)           │ {shouldBlock, reason}
    6   │ UI prompt       │ permissionRequestRenderer             │ user-allow|user-deny
    7   │ PreToolUse hook │ b9H / BA5 / applyHookPermissionDecn   │ permissionDecision
    8   │ PostToolUse     │ post-call applyHookPermissionDecision │ updatedToolOutput
@@ -433,7 +433,7 @@ The classifier (`jJ$`) is *only* invoked when the deterministic chain returned `
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission_arch.md`](../00_overview/symbol_additions_v2_1_142_permission_arch.md) — Symbols introduced/used in this document
 > - [`symbol_additions_v2_1_142_sandbox.md`](../00_overview/symbol_additions_v2_1_142_sandbox.md) — Sandbox-tier symbols cross-referenced
-> - [`symbol_index_infra_platform.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md) — v2.1.112 baseline (when present)
+> - [`symbol_index_infra_platform.md`](../00_overview/symbol_index_infra_platform.md) — v2.1.112 baseline (when present)
 
 Key functions in this document:
 - `hasPermissionsToUseTool` (`tD`) — Auto-mode wrapper, the public entry-point exposed at `cli_inner_pretty.js:421493`
@@ -443,6 +443,6 @@ Key functions in this document:
 - `findMatchingAllowRule` (`g64`) — Walk allow rules (cli_inner_pretty.js:421584)
 - `recheckRulesAfterHookRewrite` (`oiH`) — v2.1.110 deny re-check after hook updatedInput (cli_inner_pretty.js:421627)
 - `runPermissionRequestHookForHeadlessAgent` (`BA5`) — Headless-mode hook driver (cli_inner_pretty.js:421635)
-- `classifyYoloAction` (`jJ$`) — Auto-mode classifier (cli_inner_pretty.js:338062)
+- `classifyYoloAction` (`jJ$`) — Auto-mode classifier (cli_inner_pretty.js:338324)
 - `resolvePermissionModeFromSources` (`rgK`) — Mode resolution from CLI/env/settings (cli_inner_pretty.js:198981)
 - `applyHookPermissionDecision` (around line 520649) — Maps hook output to `permissionBehavior`

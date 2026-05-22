@@ -334,7 +334,7 @@ The cost is verbosity — the rule must be *self-describing* in English. The tea
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_core_features.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_core_features.md) — Existing auto-mode symbols
+> - [`symbol_index_core_features.md`](../00_overview/symbol_index_core_features.md) — Existing auto-mode symbols
 
 Key functions and constants in this document:
 - `autoModeSettingsSchema` (`dI9`) — Zod schema for `autoMode.{allow,soft_deny,hard_deny,deny,environment}`

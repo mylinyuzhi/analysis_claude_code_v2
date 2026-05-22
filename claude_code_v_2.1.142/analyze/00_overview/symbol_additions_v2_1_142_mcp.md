@@ -331,3 +331,7 @@ This rename pattern is the same across the entire bundle — the obfuscator lett
 - v2.1.112 MCP analysis: `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.112/analyze/06_mcp/`
 - v2.1.142 MCP analysis: `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.142/analyze/06_mcp/`
 - v2.1.112 symbol baseline: `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.112/analyze/00_overview/symbol_additions_unit_14.md`
+
+---
+
+> **Note:** All MCP symbols above have been consolidated into [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) under the `Module: MCP Protocol` section. This file is retained as the per-unit working notes for the MCP analysis pass; the canonical lookup is the platform index.

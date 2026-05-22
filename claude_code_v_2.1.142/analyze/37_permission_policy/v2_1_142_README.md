@@ -208,8 +208,8 @@ The team's response is consistent with the prior window: when a bypass is found,
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_infra_platform.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
-> - [`symbol_index_core_features.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_core_features.md) — Plan-mode/skills symbols
+> - [`symbol_index_infra_platform.md`](../00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
+> - [`symbol_index_core_features.md`](../00_overview/symbol_index_core_features.md) — Plan-mode/skills symbols
 
 Key functions, constants, and settings keys discussed across these documents:
 - `expandDefaultsList` (`wJ$`) — Inserts `$defaults` placeholder with built-in rules at sentinel position

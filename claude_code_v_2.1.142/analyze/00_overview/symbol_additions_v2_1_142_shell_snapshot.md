@@ -229,3 +229,7 @@ For deep behavioural deobfuscation of each symbol, see the module docs:
 - [retention_cleanup.md](../38_shell_snapshot/retention_cleanup.md) — `al5`, `Rr`, `aB4`
 - [embedded_search_tools.md](../38_shell_snapshot/embedded_search_tools.md) — `dM` simplification + v2.1.121 fallback
 - [cross_validation.md](../38_shell_snapshot/cross_validation.md) — v2.1.88 ↔ v2.1.112 ↔ v2.1.142 audit
+
+---
+
+> **Note:** All Shell Snapshot symbols above have been consolidated into [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) under the `Module: Shell Snapshot` section. This file is retained as the per-unit working notes for the shell-snapshot analysis pass; the canonical lookup is the platform index.

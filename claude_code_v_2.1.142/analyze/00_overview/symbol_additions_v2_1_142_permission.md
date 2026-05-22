@@ -384,3 +384,7 @@ These are `decisionReason.type` discriminants used in permission decisions (cons
 2. **Cross-version**: when a symbol existed pre-v2.1.142 (e.g., `WdK`), its prior locations are documented in `claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md`.
 3. **Some readable names are aspirational**: the actual binding (e.g., `function WdK(H)`) doesn't have a JS-level name; the readable name is the analysis author's choice based on function behavior.
 4. **Compound symbols**: `SnH.checkPermissions` refers to a method on the `SnH` object/variable; the `.checkPermissions` is the *property* name (an unobfuscated public surface).
+
+---
+
+> **Note:** All Permissions symbols above have been consolidated into [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) under the `Module: Permissions` section. This file is retained as the per-unit working notes for the permission-policy analysis pass; the canonical lookup is the platform index.

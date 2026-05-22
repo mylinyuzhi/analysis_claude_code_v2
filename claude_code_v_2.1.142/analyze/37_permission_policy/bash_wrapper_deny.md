@@ -369,7 +369,7 @@ In v2.1.113, the bash classifier was extended; in v2.1.116, the sandbox was exte
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_infra_platform.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
+> - [`symbol_index_infra_platform.md`](../00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
 
 Key functions and constants in this document:
 - `bashWrapperStripper` (`WdK`) — AST-walker that strips transparent wrappers (`time`, `env`, `nice`, etc.)

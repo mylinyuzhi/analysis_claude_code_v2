@@ -71,7 +71,7 @@ The "external" set is the same — `bubble` (legacy internal name) was removed b
                   └──────────────────────────┘
 ```
 
-### The cycle ([`getNextPermissionMode`](`/lyz/codespace/3rd/claude-code/src/utils/permissions/getNextPermissionMode.ts`))
+### The cycle (`getNextPermissionMode` — see `/lyz/codespace/3rd/claude-code/src/utils/permissions/getNextPermissionMode.ts`)
 
 For external users (USER_TYPE !== "ant"):
 

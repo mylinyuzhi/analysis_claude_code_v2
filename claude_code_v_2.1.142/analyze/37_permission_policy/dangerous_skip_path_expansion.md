@@ -337,7 +337,7 @@ The friction was the issue. YOLO mode is opted-into specifically to **avoid prom
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_infra_platform.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
+> - [`symbol_index_infra_platform.md`](../00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
 
 Key functions and constants in this document:
 - `pathSafetyCheck` (`bY$`) — Top-level safety check; selects `hw8` vs `$u5` based on bypass state

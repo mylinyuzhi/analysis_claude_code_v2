@@ -210,3 +210,7 @@
 - **`n6` prefix**: Many sandbox functions are accessed through an object namespace `n6.*`. The underlying functions are individually named in the bundle; the namespace is for module-style import.
 - **Per-decl files**: All functions above with single-letter or short obfuscated names also have corresponding `.js` files under `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_unpack_pretty/decls/functions/<name>.js` for cleaner per-decl reading.
 - **Cross-version renames**: Several sandbox functions were renamed between v2.1.112 and v2.1.142 (see [pid_namespace_isolation.md](../18_sandbox/pid_namespace_isolation.md) for the rename table). The v2.1.142 unit uses the new names; the v2.1.112 baseline uses the old names. The symbol_index_*.md files for each version preserve their respective sets of mappings.
+
+---
+
+> **Note:** All Sandbox symbols above have been consolidated into [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) under the `Module: Sandbox` section. This file is retained as the per-unit working notes for the sandbox analysis pass; the canonical lookup is the platform index.
