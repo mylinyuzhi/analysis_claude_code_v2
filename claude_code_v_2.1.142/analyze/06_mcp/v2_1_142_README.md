@@ -25,7 +25,7 @@ The v2.1.112 documents that are still accurate at v2.1.142 — keep reading them
 - `headers_helper.md` — the `getMcpHeadersFromHelper` script-execution path is unchanged in v2.1.142 (still at `cli_inner_pretty.js:412394-412449`). Only the `/mcp` *reconnect copy* changed — covered in `headers_helper_reconnect.md`.
 - `nonblocking_connection.md` — `MCP_CONNECTION_NONBLOCKING` and 5 s deadline both still active.
 - `large_output_truncation.md` — persisted-output recipes unchanged.
-- `sse_buffer_leak.md` — accumulation bug fix carried forward; v2.1.139 then added a *hard cap* (16 MB) on top — see `sse_frame_cap.md`.
+- `sse_buffer_leak.md` — accumulation bug fix carried forward; v2.1.139 then added a *hard cap* (16 MB) on top — see `sse_frame_cap.md`. The v2.1.110 *stray non-JSON line tolerance* for stdio servers (a `SyntaxError` from `lR8` is downgraded to a `logMCPError` and discarded, not propagated as a fatal transport error) is also still active — it lives at `cli_inner_pretty.js:414468-414470` in the `O.onerror` handler.
 
 ## Cross-cutting themes
 
