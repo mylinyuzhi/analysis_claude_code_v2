@@ -381,3 +381,20 @@ When `--strict-mcp-config` is paired with `--mcp-config <files>` on the agent-vi
 | The dispatch defaults are gated by `gg4` before reaching the dashboard | cli_inner_pretty.js:569094, 565469-565478 |
 | The extras are stashed in `OG$` and re-applied to every spawn | cli_inner_pretty.js:509767, 509790, 509899-509900 |
 | The agent view requires `isTTY` | cli_inner_pretty.js:607805 |
+
+---
+
+## Companion: Identity Propagation Across the Spawn
+
+Dispatch flags carry *configuration* into the bg worker (argv → settings).
+They do **not** carry the *running agent's identity* (`agentId`,
+`parentAgentId`) — that channel is the v2.1.139+ `x-claude-code-agent-id`
+header pair driven by `AsyncLocalStorage` inside the process, and (across
+the worker fork) by `CLAUDE_AMBIENT_PARENT_SESSION_ID` in env.
+
+For interactive subagent spawns (within the agent-view *dispatcher* itself,
+not the dispatched workers), the dispatcher's session id surfaces as
+`parentSessionId` on each worker's first telemetry span — see
+`agent_identity_propagation.md`. This is why a worker dispatched by
+`claude agents` shows up in OTel with `parentSessionId` even when no `--bg`
+identity header is on its API requests yet.
