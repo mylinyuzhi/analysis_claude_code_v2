@@ -374,3 +374,7 @@ Symbols above are referenced from:
 | `auto_mode_classifier.md` | Classifier: `jJ$`, `zT6`, `qT6`, `CF_`, `bF_`, `VF_`, `wJ$`, `WAH`, `dI9`, `pA5`, `uA5`, `xT` |
 | `allow_deny_ask_precedence.md` | Order: `UA5` walk, `RQ`, `dw8`, `d64`, `F64`, source order |
 | `sandbox_integration.md` | Sandbox interop: `KY$`, `pFK`, `EUH`, `iM`, `n6`, `v64`, `IX6`, `nUH`, plus from sandbox unit |
+
+---
+
+> **Note:** All Permissions architecture symbols above have been consolidated into [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) under the `Module: Permissions` (and overlapping `Module: Sandbox`) sections. This file is retained as the per-unit working notes for the architecture deep-dive pass; the canonical lookup is the platform index.
