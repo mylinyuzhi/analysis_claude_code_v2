@@ -4,24 +4,45 @@ This directory holds the cross-cutting foundation for the v2.1.113 → v2.1.142 
 
 ## What's Here
 
-| File | Purpose | Owner |
-|------|---------|-------|
-| `README.md` | This file — overview navigation | unit 01 |
-| `changelog_analysis.md` | Long-form architectural narrative — themes, breaking changes | unit 01 |
-| `changelog_to_code_map.md` | Per-bullet code-traceability index | unit 01 |
-| `file_index.md` | Extracted-file inventory (`cli_unpack_pretty/`, `assets/`) | unit 01 |
-| `symbol_index_core_execution.md` | Skeleton: Agent Loop, LLM API, System Prompts, Tools, Agents, Subagent, State | unit 01 |
-| `symbol_index_core_features.md` | Skeleton: Plan, Background Agents, /goal, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI | unit 01 |
-| `symbol_index_infra_platform.md` | Skeleton: MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry | unit 01 |
-| `symbol_index_infra_integration.md` | Skeleton: LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser, Slash Commands | unit 01 |
-| `symbol_additions_v2_1_142_<unit>.md` | Per-unit symbol additions (added by other units) | other units |
+### Narrative and traceability
+
+| File | Purpose |
+|------|---------|
+| `README.md` | This file — overview navigation |
+| `changelog_analysis.md` | Long-form architectural narrative — themes, breaking changes |
+| `changelog_to_code_map.md` | Per-bullet code-traceability index (each changelog bullet → decl) |
+| `file_index.md` | Extracted-file inventory (`cli_unpack_pretty/`, `assets/`) |
+
+### Symbol indexes — four-file split
+
+The canonical obfuscated → readable symbol mappings are split into four files by category, per [`/lyz/codespace/analysis_claude_code_v2/CLAUDE.md`](/lyz/codespace/analysis_claude_code_v2/CLAUDE.md). Module docs use list-form references, never tables.
+
+| File | Scope (modules covered) |
+|------|-------------------------|
+| `symbol_index_core_execution.md` | Agent Loop, LLM API, System Prompts, Tools (incl. `04_tools/`), Agents (`30_agent_team/`), Subagent (`34_subagent/`), State |
+| `symbol_index_core_features.md` | Plan Mode (`12_plan_mode/`), Background Agents (`36_background_agents/`), `/goal` (`39_goal/`), Todo, Compact (`07_compact/`), Hooks (`11_hooks/`), Skills (`10_skill_system/`), Thinking (`19_think_level/`), Steering, CLI |
+| `symbol_index_infra_platform.md` | MCP (`06_mcp/`), Permissions (`37_permission_policy/`), Sandbox (`18_sandbox/`), Auth, Model selection, Prompt building, Telemetry, Prompt cache (`23_prompt_cache/`) |
+| `symbol_index_infra_integration.md` | LSP, Chrome/Browser, IDE, UI (`02_ui/`), Plugin system, Code indexing, Shell parser, Slash commands, Shell snapshot (`38_shell_snapshot/`), Auto memory (`31_auto_memory/`) |
+
+When adding a new symbol, choose the file from the category in this table.
+
+### Transitional files (consolidation in flight)
+
+| File pattern | Purpose | Lifecycle |
+|--------------|---------|-----------|
+| `symbol_additions_v2_1_142_*.md` | Per-unit symbol additions discovered during unit work — one file per analysis unit to avoid merge conflicts | Migrated into the four `symbol_index_*.md` files during the consolidation pass, then retired |
+| `cross_validation_report_*.md` | Per-unit cross-validation report comparing v2.1.142 mappings against the v2.1.88 readable reference (`claude-code-kim`) and the deobfuscated bundle (`cli_inner_pretty.js`) | Kept long-term as audit trail |
+| `cross_validation_summary.md` | Roll-up sweep across all units (random-sample spot-check, broken-link sweep, module-README sanity, alphabetical-ordering check, v2.1.112 drift sample) | Kept long-term as audit trail |
+
+Today the directory contains 22 `symbol_additions_v2_1_142_*.md` files (covering by-version slices and per-module deep dives), 23 `cross_validation_report_*.md` files (unit_01…unit_15 plus eight `augment_*` reports for the augmented passes on agentteam/compact/permission/subagent/tools), and 1 `cross_validation_summary.md` roll-up.
 
 ## Where to Start
 
 - **Trying to understand a single changelog bullet?** → `changelog_to_code_map.md`
 - **Trying to understand a release theme (e.g. how claude agents matures)?** → `changelog_analysis.md` + the corresponding module folder
-- **Looking up an obfuscated symbol?** → `symbol_additions_v2_1_142_*.md` (per-unit) or the four `symbol_index_*.md` skeletons (later, after consolidation)
+- **Looking up an obfuscated symbol?** → Pick the matching `symbol_index_*.md` file by category. Until consolidation completes, also grep `symbol_additions_v2_1_142_*.md`
 - **Trying to find which file contains a given feature?** → `file_index.md`
+- **Trying to gauge how trustworthy a mapping is?** → `cross_validation_report_*.md` for the relevant unit, or `cross_validation_summary.md` for the cross-unit roll-up
 
 ## Narrative Summary
 
@@ -101,5 +122,9 @@ This tree adheres to the project-wide CLAUDE.md conventions. In particular:
 ## See Also
 
 - [`../README.md`](../README.md) — top-level README
-- [`../../claude_code_v_2.1.112/analyze/README.md`](../../../claude_code_v_2.1.112/analyze/README.md) — the equivalent doc for the v2.1.88 → v2.1.112 window
-- [`../../claude_code_v_2.1.112/analyze/00_overview/`](../../../claude_code_v_2.1.112/analyze/00_overview) — baseline overview directory
+- [`changelog_analysis.md`](changelog_analysis.md) — long-form narrative
+- [`changelog_to_code_map.md`](changelog_to_code_map.md) — per-bullet code-traceability table
+- [`cross_validation_summary.md`](cross_validation_summary.md) — cross-unit validation roll-up
+- [`file_index.md`](file_index.md) — extracted-file inventory
+- [`../../../claude_code_v_2.1.112/analyze/README.md`](../../../claude_code_v_2.1.112/analyze/README.md) — the equivalent doc for the v2.1.88 → v2.1.112 window
+- [`../../../claude_code_v_2.1.112/analyze/00_overview/`](../../../claude_code_v_2.1.112/analyze/00_overview) — baseline overview directory

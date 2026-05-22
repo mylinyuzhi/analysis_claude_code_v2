@@ -24,31 +24,109 @@ This directory continues the deobfuscation analysis from v2.1.112 (in `../../cla
 
 ## Layout
 
+### Top-level overview and indexes
+
 | Path | Content |
 |------|---------|
 | `00_overview/README.md` | High-level narrative of v2.1.113 → v2.1.142 |
 | `00_overview/changelog_analysis.md` | Long-form architectural analysis — major themes, breaking changes |
 | `00_overview/changelog_to_code_map.md` | Per-bullet code-traceability index (changelog → obfuscated decl) |
 | `00_overview/file_index.md` | Inventory of `cli_unpack_pretty/` decls and `assets/` |
-| `00_overview/symbol_index_core_execution.md` | Skeleton — core execution (Agent Loop, Tools, LLM API, Agents, Subagent, State) |
-| `00_overview/symbol_index_core_features.md` | Skeleton — core features (Plan Mode, Background Agents, /goal, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI) |
-| `00_overview/symbol_index_infra_platform.md` | Skeleton — platform infra (MCP, Permissions, Sandbox, Auth, Model Selection, Prompt Building, Telemetry) |
-| `00_overview/symbol_index_infra_integration.md` | Skeleton — integration infra (LSP, Chrome, IDE, UI, Plugin System, Code Indexing, Shell Parser, Slash Commands) |
-| `00_overview/symbol_additions_v2_1_142_*.md` | Per-unit symbol additions (consolidation into `symbol_index_*.md` is a future pass) |
+| `00_overview/symbol_index_core_execution.md` | Symbol index — core execution (Agent Loop, Tools, LLM API, Agents, Subagent, State) |
+| `00_overview/symbol_index_core_features.md` | Symbol index — core features (Plan, Background Agents, /goal, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI) |
+| `00_overview/symbol_index_infra_platform.md` | Symbol index — platform infra (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry) |
+| `00_overview/symbol_index_infra_integration.md` | Symbol index — integration infra (LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser, Slash Commands) |
+| `00_overview/symbol_additions_v2_1_142_*.md` | Per-unit symbol additions, transitional until consolidated into the four `symbol_index_*.md` files |
+| `00_overview/cross_validation_report_*.md` | Per-unit cross-validation reports comparing v2.1.142 deobfuscation against v2.1.88 source (`claude-code-kim`) and the standalone deobfuscated bundle (`cli_inner_pretty.js`) |
+| `00_overview/cross_validation_summary.md` | Cross-unit validation roll-up — random-sample spot-check, broken-link sweep, module-README sanity, symbol-index ordering check, v2.1.112 drift sample |
+
+### Per-version delta files (`by_version/`)
+
+19 files cover the 23 numbered releases shipped in this window (some grouped where the deltas are small):
+
+```
+by_version/v2.1.113-114.md    (native binary cutover + permission dialog hotfix)
+by_version/v2.1.116.md        (resume perf, thinking spinner, embedded bfs/ugrep prep)
+by_version/v2.1.117.md        (Pro/Max default high, Glob/Grep → bfs/ugrep, Opus 4.7 1M fix)
+by_version/v2.1.118.md        (Vim visual mode, /usage, custom themes, MCP hook type)
+by_version/v2.1.119.md        (/config persistence, OTel tool_use_id, prUrlTemplate)
+by_version/v2.1.120.md        (claude ultrareview, ${CLAUDE_EFFORT}, AI_AGENT env)
+by_version/v2.1.121.md        (alwaysLoad MCP, plugin prune, themes/dictation)
+by_version/v2.1.122.md        (Bedrock service tier, OTel @-mention)
+by_version/v2.1.123.md        (auth 401 retry-loop hotfix)
+by_version/v2.1.126.md        (gateway /v1/models, claude project purge, OAuth paste)
+by_version/v2.1.128.md        (/mcp tool counts, OTEL_* not inherited, MCP reserved name)
+by_version/v2.1.129.md        (--plugin-url, FORCE_SYNC_OUTPUT, plugin themes/monitors → experimental)
+by_version/v2.1.131-132.md    (VS Code Windows hotfix, DISABLE_ALTERNATE_SCREEN, SESSION_ID)
+by_version/v2.1.133.md        (worktree.baseRef, bwrapPath/socatPath, effort.level)
+by_version/v2.1.136-138.md    (autoMode.hard_deny, plan-mode + Edit-allow fix)
+by_version/v2.1.139.md        (claude agents, /goal, /scroll-speed, hook args/continueOnBlock)
+by_version/v2.1.140.md        (Agent subagent_type insensitive, /goal hooks-disabled error)
+by_version/v2.1.141.md        (terminalSequence hook, ANTHROPIC_WORKSPACE_ID, claude agents --cwd)
+by_version/v2.1.142.md        (claude agents dispatch flags, Fast Mode Opus 4.7, /claude-api, /routines)
+```
+
+### Module deep-dives (18 modules)
+
+```
+02_ui/                  Renderer, themes, fullscreen/alt-screen, vim mode, keybindings
+04_tools/               Tool factory rename Y9→XK, SendUserFile (NEW v2.1.142), bfs/ugrep wrappers
+06_mcp/                 MCP token refresh, SSE frame caps, workspace reserved, alwaysLoad
+07_compact/             Reactive compaction, "preserve sensitive instructions", Summarize-up-to-here
+10_skill_system/        skillOverrides, plugin SKILL.md root, /claude-api skill body (NEW v2.1.142)
+11_hooks/               args/continueOnBlock/terminalSequence, mcp_tool type, effort.level input
+12_plan_mode/           /plan on existing plan, --permission-mode resume, Edit-allow bypass fix
+18_sandbox/             deniedDomains, bwrapPath/socatPath, dangerously-skip safety net
+19_think_level/         Inline-progressive spinner, amber warmup, Bedrock IP ARN quirks
+23_prompt_cache/        TTL ordering, 1-hour cache silent downgrade, subagent summary cache
+30_agent_team/          Multi-agent collaboration extensions, in-process runner
+31_auto_memory/         Auto-memory injection, sub-agent summary memory dedup
+34_subagent/            x-claude-code-agent-id headers, sub-agent transcript hash, Skill tool inheritance (NEW module v2.1.142)
+36_background_agents/   `claude agents` daemon + dashboard + dispatcher (NEW module v2.1.142)
+37_permission_policy/   autoMode.hard_deny, $defaults merge, Skill(name *) wildcard
+38_shell_snapshot/      bash startup snapshotting, SESSION_ID env, find descriptor budget
+39_goal/                /goal command, active_goal event, Stop-hook-as-loop (NEW module v2.1.142)
+```
+
+Four modules are new in this window vs the v2.1.112 baseline tree: `04_tools/`, `34_subagent/`, `36_background_agents/`, `39_goal/`.
+
+### `40_ant_promoted/` (planned cross-cutting pool)
+
+`40_ant_promoted/` is the **promotion pool for cross-cutting Anthropic-promoted features** — top-level concepts that don't fit cleanly under a single feature module because they span Agents, Skills, Hooks, and Prompts. It is being populated in a parallel work stream and is not yet present in this tree; until it lands, the same content lives inline in the deep-dive modules below. When created it will hold:
+
+- `/claude-api` skill body anchors (currently in `10_skill_system/`)
+- `/routines` slash command (currently in `30_agent_team/` and `36_background_agents/`)
+- Fast Mode default flip (currently in `02_ui/` plus model-selection notes in `00_overview/changelog_analysis.md` §7)
+- Anthropic-supplied skill upgrades that are listed in the changelog but cross multiple modules
+
+Read this directory after the per-module deep dives if you want the cross-cutting Anthropic-first surfaces in one place. Until then, follow the inline cross-references from each per-module README.
 
 ## How to Read This Tree
 
 This analysis tree is structured as a series of **delta units** numbered 01..NN. Each unit owns one feature theme (e.g. claude agents, /goal, plan mode fixes, hooks, MCP). Within a unit:
 
-1. The unit's module folder (e.g. `30_agent_team/` for claude agents) holds the deep-dive markdown.
-2. Symbols newly identified during the unit's work are recorded in `00_overview/symbol_additions_v2_1_142_<unit>.md` (separate file per unit to avoid merge conflicts).
-3. The four `symbol_index_*.md` files are skeletons — they reference the symbol_additions files until a consolidation pass merges them.
+1. The unit's module folder (e.g. `30_agent_team/` for claude agents, `36_background_agents/` for the daemon/dashboard, `39_goal/` for `/goal`) holds the deep-dive markdown.
+2. Symbols newly identified during the unit's work are recorded in `00_overview/symbol_additions_v2_1_142_<unit>.md` (separate file per unit to avoid merge conflicts) and migrated into the four `symbol_index_*.md` files during the consolidation pass.
+3. A cross-validation report (`00_overview/cross_validation_report_*.md`) is produced per unit to verify obfuscated→readable mappings against the deobfuscated bundle and the v2.1.88 reference source.
 
 For per-decl code lookup, read `cli_unpack_pretty/unknown/<symbol>.js`. The decl name is the obfuscated symbol from the build (e.g. `EQ4` is the React component for the claude agents dashboard).
 
+## Symbol Index — Four-File Split (vs v2.1.112's Single File)
+
+The v2.1.112 tree uses a single `00_overview/symbol_index.md`. For v2.1.142 the index is split into four files (listed in the Layout table above) to keep each under control as the symbol pool grew. The category-to-file routing matrix lives in [`/lyz/codespace/analysis_claude_code_v2/CLAUDE.md`](/lyz/codespace/analysis_claude_code_v2/CLAUDE.md); 00_overview/README.md also shows which feature modules each index covers.
+
+## Analysis Methodology
+
+Each unit cross-validates obfuscated → readable mappings against two independent sources:
+
+1. **v2.1.88 reference source** — `claude-code-kim/src/*.ts`/`*.tsx`. This is the last fully-readable build before obfuscation was hardened. Many symbols in v2.1.142 still trace back to functions whose v2.1.88 readable name + line range is known.
+2. **v2.1.142 deobfuscated source** — `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_inner_pretty.js` and per-decl `cli_unpack_pretty/unknown/<id>.js` files. Bun's `--compile` mode preserves obfuscated names; the extracted bundle is therefore a stable target for grep + decl reads.
+
+Cross-validation reports document each unit's confidence level per mapping (high if both sources agree, medium if only one source is conclusive, low if inferred from string anchors alone). The reports live at `00_overview/cross_validation_report_*.md`.
+
 ## Key Themes (v2.1.113 → v2.1.142)
 
-The window spans 30 releases (several skipped numbers — no v2.1.115, .124–.125, .127, .130, .134–.135). Coverage spreads across:
+The window spans 30 version numbers but **23 published releases** (v2.1.115, .124, .125, .127, .130, .134, .135 were skipped; v2.1.138 was internal-only). Coverage spreads across:
 
 1. **claude agents (background sessions)** — v2.1.139 introduced `claude agents` dashboard as Research Preview; v2.1.140–v2.1.142 hardened it with `--cwd`, daemon clock-jump detection, browser-shim fixes, crash-loop guards, and added the new flags `--add-dir`, `--settings`, `--mcp-config`, `--plugin-dir`, `--permission-mode`, `--model`, `--effort`, `--dangerously-skip-permissions` to scope dispatched sessions.
 2. **/goal command** — v2.1.139 added `/goal <condition>`: a session-scoped Stop hook that keeps Claude working across turns until the condition is met. Shows live elapsed/turns/tokens overlay. v2.1.140 fixed silent hangs under `disableAllHooks`/`allowManagedHooksOnly`.
@@ -93,14 +171,27 @@ For names that don't show up in changelog text (most internal helpers), work bac
 
 ## Symbol Mapping Conventions
 
-This tree follows the project-wide CLAUDE.md conventions:
+This tree follows the project-wide CLAUDE.md conventions: the four `symbol_index_*.md` files in `00_overview/` are the canonical mapping tables, module docs reference them as a list (never duplicate tables), and code snippets use the dual-version format (header → ORIGINAL → READABLE → Mapping). See [`/lyz/codespace/analysis_claude_code_v2/CLAUDE.md`](/lyz/codespace/analysis_claude_code_v2/CLAUDE.md) for the routing matrix and snippet template.
 
-- The four `symbol_index_*.md` files in `00_overview/` are the canonical mapping tables. Module docs reference them as a list, never duplicate the tables.
-- Code snippets use the dual-version format (ORIGINAL + READABLE + Mapping), see `/lyz/codespace/analysis_claude_code_v2/CLAUDE.md`.
-- New symbols discovered during a unit go into `symbol_additions_v2_1_142_<unit>.md`. The four canonical index files start as skeletons and will be consolidated in a final pass.
+## Entry Points for Readers
+
+Pick a starting file based on what you're trying to do:
+
+| Goal | Start here |
+|------|------------|
+| Understand release-by-release what changed | `by_version/v2.1.<NN>.md` for the version, then jump to the relevant module folder |
+| Understand a single changelog bullet | `00_overview/changelog_to_code_map.md` — find the bullet, follow the decl pointer |
+| Understand a feature theme (e.g. how `claude agents` evolved) | `00_overview/changelog_analysis.md` then the matching module (e.g. `36_background_agents/`) |
+| Look up an obfuscated identifier (`EQ4`, `T6A`, `NH8`, …) | Pick the right `symbol_index_*.md` file by category (see routing matrix above), or grep all four. Until consolidation completes, also check `00_overview/symbol_additions_v2_1_142_*.md` |
+| Find which extracted file contains a feature | `00_overview/file_index.md` — start from the asset listing or grep for a stable string |
+| Verify a mapping's confidence | `00_overview/cross_validation_report_*.md` for the relevant unit, or `00_overview/cross_validation_summary.md` for the cross-unit roll-up |
+| Read the deobfuscated source directly | `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_inner_pretty.js` and `cli_unpack_pretty/unknown/<id>.js` |
+
+For the cross-cutting Anthropic-promoted features that span multiple modules (`/claude-api`, `/routines`, Fast Mode flip), `40_ant_promoted/` is the entry point once it's populated.
 
 ## See Also
 
 - `../../claude_code_v_2.1.112/analyze/` — the v2.1.88 → v2.1.112 baseline this tree extends
 - `/lyz/codespace/analysis_claude_code_v2/CLAUDE.md` — project conventions and code-snippet format
 - `/lyz/codespace/claude-code-bomb/versions/2.1.142/README.md` — extraction notes and delta vs v2.1.132
+- `../CHANGELOG.md` — the upstream changelog this analysis tracks
