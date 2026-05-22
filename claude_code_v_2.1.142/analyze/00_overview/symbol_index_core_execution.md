@@ -652,7 +652,7 @@ Built-in tool definitions, parameter schemas, tool-result formatters, the tool f
 | `sc7` | exitPlanModeInputSchema | cli_inner_pretty.js:381612-381623 | function |
 | `sd7` | getReplDescription | cli_inner_pretty.js | function |
 | `sn_` | fileWriteInputSchema | cli_inner_pretty.js | function |
-| `tG` | hasOutstandingTasks (task pending check) | cli_inner_pretty.js | function |
+| `tG` | getAgentId (returns BW()?.agentId ?? Ou?.agentId) | cli_inner_pretty.js:97810-97814 | function |
 | `tl7` | enterWorktreePromptBody | cli_inner_pretty.js:383882-383917 | function |
 | `tn_` | fileWriteOutputSchema | cli_inner_pretty.js | function |
 | `tY6` | buildCronCreatePrompt | cli_inner_pretty.js:211598-211641 | function |
@@ -952,6 +952,35 @@ Known new themes:
 - Crash-loop on missing-cwd resilience (v2.1.141)
 - Background-color bleed on 256-color terminals (v2.1.142)
 
+### Agents — Identity & Context Propagation (v2.1.139)
+
+Two `AsyncLocalStorage` instances power agent identity propagation across processes (used for HTTP headers `x-claude-code-agent-id` / `x-claude-code-parent-agent-id`, OTel/Perfetto span attributes, and audit logging). `Atq` carries the agent context (this process's agent); `Ei8` carries the teammate context (parent → child team identity). Cross-validated against [agent_identity_propagation.md](../30_agent_team/agent_identity_propagation.md) (in 30_agent_team).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AA` | isTeammate (`BW() !== void 0`) | cli_inner_pretty.js:97826 | function |
+| `Atq` | agentContextStore (AsyncLocalStorage instance) | cli_inner_pretty.js:97640-97642 | variable |
+| `BW` | getTeammateContext (`Ei8.getStore()`) | cli_inner_pretty.js:97759 | function |
+| `DZ` | isInProcessTeammate (`Ei8.getStore() !== void 0`) | cli_inner_pretty.js:97771-97773 | function |
+| `Ei8` | teammateContextStore (AsyncLocalStorage instance) | cli_inner_pretty.js:97771-97774 | variable |
+| `Ni8` | (companion init for `Atq` AsyncLocalStorage) | cli_inner_pretty.js:97634 | function |
+| `RD` | getAgentContext (`Atq?.getStore()`) | cli_inner_pretty.js:97620 | function |
+| `RU` | runWithAgentContext (`Atq.run(ctx, fn)`) | cli_inner_pretty.js:97623 | function |
+| `q5` | getTeamName | cli_inner_pretty.js:97820 | function |
+| `tG` | getAgentId (`BW()?.agentId ?? Ou?.agentId`) | cli_inner_pretty.js:97810-97814 | function |
+| `vA` | getAgentName (`BW()?.agentName ?? Ou?.agentName`) | cli_inner_pretty.js:97815-97819 | function |
+| `y4$` | getDynamicTeamContext (returns module-level `Ou`) | cli_inner_pretty.js:97807-97809 | function |
+| `ztq` | (companion record-emitter for `Atq` context — invokingRequestId/invocationKind) | cli_inner_pretty.js:97629-97640 | function |
+
+OTel / Perfetto span identity attributes (consumers of the above):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `iO$` | buildAgentSpanAttributes (OTel attribute builder for agent_id/agent_name) | cli_inner_pretty.js:239952 | function |
+| `s68` | recordAgentSpanAttributes (apply identity attrs to active span) | cli_inner_pretty.js:240007 | function |
+| `t68` | recordAgentSpanAttributesAsync (async variant) | cli_inner_pretty.js:240335 | function |
+| `vh1` | (Perfetto-side identity attr emitter) | cli_inner_pretty.js:137636 | function |
+
 ---
 
 ## Module: Subagent
@@ -972,11 +1001,13 @@ The subagent runner: in-process spawn, transcript bridging, cwd preservation, to
 | `M_` | hookInputBase / buildHookInputBase (hook-input common fields builder) | cli_inner_pretty.js (called from 520055) | function |
 | `Me` | recordSidechainTranscript / persistSubagentTranscript (append to `~/.claude/sidechains/<agentId>.jsonl`) | cli_inner_pretty.js:514415 | function |
 | `QL$` | executeSubagentStartHooks (fires `SubagentStart`; returns `additionalContext`) | cli_inner_pretty.js:520055 | function |
+| `Q85` | isRecordableMessage (filter for assistant/user/progress/system+compact_boundary messages) | cli_inner_pretty.js:393091-393097 | function |
 | `S9H` | executeSubagentStopHooks (fires `SubagentStop` at lifecycle end) | cli_inner_pretty.js (called from 393377) | function |
 | `SUBAGENT_START` | hook event name string | cli_inner_pretty.js:48544, 237667 | constant |
 | `Vb` | runAgent / runSubagentInner (streaming generator running a subagent turn) | cli_inner_pretty.js:393098-393434 | function |
 | `Vy6` | recordForkContextRef (write a fork pointer rather than copy parent transcript — v2.1.118 fix) | cli_inner_pretty.js (called from 393300) | function |
 | `ZY_` | subagentStartHookInputSchema (Zod — `hookEventName: "SubagentStart"`, `additionalContext: string?`) | cli_inner_pretty.js:238068, 519062 | function |
+| `alH` | extractLastAssistantText (extract last assistant message text for subagent result passing — narrower than the TS-source rich shape) | cli_inner_pretty.js:339749-339761 | function |
 | `cJ6` | filterUnresolvedToolUses / stripIncompleteToolPairs (repairs interrupted transcripts on resume) | cli_inner_pretty.js:393435-393451 | function |
 | `ej$` | fixupOrphanToolUseIds (rebuild integrity invariants after dead-fork strip) | cli_inner_pretty.js (called from 386641) | function |
 | `eo7` | registerFrontmatterHooks (validates v2.1.142 prompt-/agent-type hooks; rejects with "use a command-type hook instead") | cli_inner_pretty.js (called from 393200) | function |
