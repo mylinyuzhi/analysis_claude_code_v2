@@ -26,7 +26,7 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `M_` | `createHookBaseInput` (now adds `effort: { level }` when supported) | cli_inner_pretty.js:520506-520520 | function |
+| `M_` | `createBaseHookInput` (now adds `effort: { level }` when supported) | cli_inner_pretty.js:520506-520520 | function |
 
 ## Module: Hooks — Event Dispatchers (snake_case envelope builders)
 
@@ -36,8 +36,8 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 | `qM$` | `setupHook` | cli_inner_pretty.js:520044-520054 | function |
 | `QL$` | `subagentStartHook` | cli_inner_pretty.js:520056 | function |
 | `QNH` | `sessionEndHook` | cli_inner_pretty.js:520057-520072 | function |
-| `zL$` | `postToolUseHook` (NEW v2.1.119: `duration_ms` parameter) | cli_inner_pretty.js:520183-520195 | function |
-| `YL$` | `postToolUseFailureHook` (NEW v2.1.119: `duration_ms`) | cli_inner_pretty.js:520197-520213 | function |
+| `zL$` | `postToolUseHook` (NEW v2.1.119: `duration_ms` parameter) | cli_inner_pretty.js:520182-520193 | function |
+| `YL$` | `postToolUseFailureHook` (NEW v2.1.119: `duration_ms`) | cli_inner_pretty.js:520194-520211 | function |
 | `FL$` | `postToolBatchHook` | cli_inner_pretty.js:520215-520221 | function |
 | `kL$` | `permissionDeniedHook` | cli_inner_pretty.js:520224+ | function |
 
@@ -65,7 +65,7 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 | `Kh4` | `parseHookJSONOutput` (Zod validation + structured error) | cli_inner_pretty.js:520521-520554 | function |
 | `VW8` | `parseHookStdoutPayload` (JSON-detect + fall back to plaintext) | cli_inner_pretty.js:520582-520600 | function |
 | `_h4` | `parseHTTPHookResponse` (empty-body → empty JSON object handling) | cli_inner_pretty.js:520602-520618 | function |
-| `TW8` | `applyHookJSONOutput` (NEW v2.1.141: routes `terminalSequence`; NEW v2.1.121: `updatedToolOutput`) | cli_inner_pretty.js:520620-520795 | function |
+| `TW8` | `applyHookJSONOutput` (NEW v2.1.141: routes `terminalSequence`; NEW v2.1.121: `updatedToolOutput`) | cli_inner_pretty.js:520611-520795 | function |
 | `m$H` | `isAsyncHookResponse` | (used at cli_inner_pretty.js:520948, 522244) | function |
 | `ZS` | `isPlainObject` | (utility) | function |
 | `CG$` | `truncateOrPersistHookOutput` | cli_inner_pretty.js:520557-520580 | function |
@@ -74,12 +74,12 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `Ey4` | `promptHook` (NEW v2.1.139: `continueOnBlock` consultation) | cli_inner_pretty.js:519166-519335 | function |
+| `Ey4` | `promptHook` (NEW v2.1.139: `continueOnBlock` consultation) | cli_inner_pretty.js:519169-519335 | function |
 | `hy4` | `agentHook` | cli_inner_pretty.js:519378-519573 | function |
 | `vW8` | `bashCommandHook` (NEW v2.1.139: `args` exec form, `detached: true`, `CLAUDE_EFFORT`) | cli_inner_pretty.js:520794-522029 | function |
-| `XQ6` | `mcpToolHook` (NEW v2.1.118) | cli_inner_pretty.js:519815-519849 | function |
+| `XQ6` | `mcpToolHook` (NEW v2.1.118) | cli_inner_pretty.js:519817-519849 | function |
 | `JQ6` | `httpHook` | (called at cli_inner_pretty.js:521517) | function |
-| `hu5` | `interpolateMCPHookInput` (NEW v2.1.118: `${path}` substitution) | cli_inner_pretty.js:519789-519814 | function |
+| `hu5` | `interpolateMCPHookInput` (NEW v2.1.118: `${path}` substitution) | cli_inner_pretty.js:519791-519816 | function |
 | `Bu5` | `callbackHook` | (called at cli_inner_pretty.js:521440) | function |
 | `mu5` | `functionHook` | (called at cli_inner_pretty.js:521470) | function |
 | `Wu5` | `countTokensInLastAssistantMessage` (transcript truncation helper for Stop prompt hooks) | cli_inner_pretty.js:519336-519345 | function |
@@ -154,7 +154,7 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 
 - **`bashCommandHook`** (vW8) — covers both shell-form (bash/pwsh) and exec-form (no shell). Named for the most common case; the exec-form gating is internal.
 - **`dispatchHookOutputStream`** (aP) — async generator that yields control signals (preventContinuation, terminalSequence, updatedToolOutput, etc.) from the inner per-hook executors to the outer event consumer. Both "dispatcher" and "stream" emphasized.
-- **`createHookBaseInput`** (M_) — kept matching the v2.1.112 readable name; just extends the return type with `effort`.
+- **`createBaseHookInput`** (M_) — kept matching the v2.1.112 readable name; just extends the return type with `effort`.
 - **`applyMainThreadAgent`** (pJH) — orchestrates type+hooks installation. Not `setMainThreadAgent` because it has the admin-trust gate.
 
 ---
