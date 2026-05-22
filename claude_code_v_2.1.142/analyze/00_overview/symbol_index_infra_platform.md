@@ -447,7 +447,7 @@ Permission rule schema, allow/deny rule matching, `auto`/`bypass`/`acceptEdits` 
 | `fS7` | `parseStageDecision` (parse `shouldBlock` from classifier text) | cli_inner_pretty.js | function |
 | `hF_` | `classifierStageResultUnionSchema` (union schema) | cli_inner_pretty.js | function |
 | `HT6` | `logClassifierStage` (stage logging) | cli_inner_pretty.js | function |
-| `jJ$` | `classifyYoloAction` | cli_inner_pretty.js:338062 | function |
+| `jJ$` | `classifyYoloAction` | cli_inner_pretty.js:338324 | function |
 | `JS7` | `SANDBOX_NETWORK_CLASSIFIER_TOOL_NAME` (= `"SandboxNetworkAccess"`) | cli_inner_pretty.js:338627 | constant |
 | `kF_` | `classifierToolDefinition` (tool def for the classifier API) | cli_inner_pretty.js | object |
 | `mA5` | `autoModeStateModule` (`isAutoModeActive`/`setAutoModeActive`) | cli_inner_pretty.js | object |

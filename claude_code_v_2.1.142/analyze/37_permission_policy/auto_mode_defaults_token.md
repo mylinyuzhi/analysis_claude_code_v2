@@ -380,7 +380,7 @@ Before `$defaults`, the workaround was "copy the built-ins into your settings, t
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_core_features.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_core_features.md) — Existing auto-mode symbols
+> - [`symbol_index_core_features.md`](../00_overview/symbol_index_core_features.md) — Existing auto-mode symbols
 
 Key functions and constants in this document:
 - `expandDefaultsList` (`wJ$`) — Inserts `$defaults` sentinel position with default rules

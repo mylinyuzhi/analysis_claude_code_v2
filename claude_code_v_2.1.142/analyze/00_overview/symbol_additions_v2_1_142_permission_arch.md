@@ -114,7 +114,7 @@ These symbols are the cross-references used by the seven architecture documents 
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| jJ$ | classifyYoloAction | cli_inner_pretty.js:338062 | function |
+| jJ$ | classifyYoloAction | cli_inner_pretty.js:338324 | function |
 | zT6 | formatActionForClassifier | cli_inner_pretty.js:(formats tool+input for classifier) | function |
 | qT6 | runClassifierRequest | cli_inner_pretty.js:(actual API call) | function |
 | MS7 | extractUsageFromClassifierResult | cli_inner_pretty.js:(usage extraction) | function |

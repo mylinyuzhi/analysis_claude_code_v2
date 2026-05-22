@@ -544,7 +544,7 @@ The pattern: **fail closed on transient and parse failures; fail open only on ra
 > - [`symbol_additions_v2_1_142_permission_arch.md`](../00_overview/symbol_additions_v2_1_142_permission_arch.md) — Symbols introduced/used in this document
 
 Key functions and constants in this document:
-- `classifyYoloAction` (`jJ$`) — Classifier entry point (cli_inner_pretty.js:338062)
+- `classifyYoloAction` (`jJ$`) — Classifier entry point (cli_inner_pretty.js:338324)
 - `formatActionForClassifier` (`zT6`) — Format tool input as classifier-readable text
 - `stage1SystemPromptSuffix` (`CF_`) — Stage 1 suffix (no user intent) (cli_inner_pretty.js:338623)
 - `stage2SystemPromptSuffix` (`bF_`) — Stage 2 suffix (user intent applied) (cli_inner_pretty.js:338625)

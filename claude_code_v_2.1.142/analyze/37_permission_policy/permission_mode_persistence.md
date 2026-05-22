@@ -380,7 +380,7 @@ The fixes in this window all live on the diagonal — they prevent rule changes 
 
 > Symbol mappings:
 > - [`symbol_additions_v2_1_142_permission.md`](../00_overview/symbol_additions_v2_1_142_permission.md) — Symbols introduced/changed in this module
-> - [`symbol_index_infra_platform.md`](../../../claude_code_v_2.1.112/analyze/00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
+> - [`symbol_index_infra_platform.md`](../00_overview/symbol_index_infra_platform.md) — Existing platform/permission symbols
 
 Key functions in this document:
 - `resolvePermissionMode` (`zR6`) — Top-level mode resolver, threading CLI/env/settings/agent through
