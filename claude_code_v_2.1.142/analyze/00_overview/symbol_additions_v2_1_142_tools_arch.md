@@ -216,3 +216,7 @@
 | (file location) | chunks.64.mjs (chunks-style bundle) | cli_inner_pretty.js (consolidated bundle) |
 
 The factory body itself is structurally identical between versions; the identifier change reflects bundling churn rather than semantic change. The defaults table is identical in both versions (`isEnabled→true`, `isConcurrencySafe→false`, `isReadOnly→false`, `isDestructive→false`, `checkPermissions→{allow}`, `toAutoClassifierInput→""`, `userFacingName→""`).
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.

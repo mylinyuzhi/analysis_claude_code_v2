@@ -271,7 +271,7 @@ Path conventions:
 | bDH | parsePowerShellForSecurity | cli_inner_pretty.js (PS AST parser) | function |
 | qW | extractPowerShellSubcommands | cli_inner_pretty.js (PS subcommand extractor) | function |
 | Vz | toPowerShellAlias | cli_inner_pretty.js (alias resolver) | function |
-| xY$ | extractPowerShellPrefix | cli_inner_pretty.js (PS rule prefix) | function |
+| xY$ | extractWildcardRulePrefix | cli_inner_pretty.js:207185 (shared Bash + PowerShell rule prefix matcher; aliased as `O64` from line 421196) | function |
 | We7 | EOL_CONSTANT | cli_inner_pretty.js (constant) | constant |
 | z45 | POWERSHELL_BLOCKING_BUDGET_MS | cli_inner_pretty.js (constant) | constant |
 | D45 | runPowerShellCommand | cli_inner_pretty.js (PS runner) | function |
@@ -287,7 +287,7 @@ Path conventions:
 | mf$ | extractPowerShellHints | cli_inner_pretty.js (hint extractor) | function |
 | OP$ | maybeRecordPluginHint | cli_inner_pretty.js (hint recorder) | function |
 | Y$$ | EndTruncatingAccumulator | cli_inner_pretty.js (output accumulator) | class |
-| vt7 | interpretPowerShellResult | cli_inner_pretty.js (PS semantic) | function |
+| vt7 | interpretPowerShellResult | cli_inner_pretty.js:402035 (dispatches via SK5 command-name map; Bash uses N84 at line 417282) | function |
 | VrH | isMonitorBetaForPS | cli_inner_pretty.js (PS monitor flag) | variable |
 
 ---
@@ -346,3 +346,7 @@ Path conventions:
 | `Iw8` (`fileEditUserFacingName`) | 2.1.130s | Used to re-label `sed -i` Bash calls as Edit |
 | `ed7` (`exportReplNewTools`) | 2.1.139 | Surfaces `registerTool` results from REPL up to the tool registry |
 | Plugin-provided LSP server discovery in `/plugin` details (2.1.142) | new in 2.1.142 | Adds `lspServers` to `claude plugin details` output |
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.

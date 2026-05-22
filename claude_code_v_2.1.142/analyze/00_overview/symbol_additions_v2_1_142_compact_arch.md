@@ -269,3 +269,7 @@ Both `forkedFrom` and `resumePersistedCount` are already mapped in `symbol_addit
 - `symbol_index_core_execution.md` — Subagent + state shape
 - `symbol_index_infra_platform.md` — Model registry + beta headers
 - `symbol_index_infra_integration.md` — `/branch`, `/fork`, `/rewind`, `/compact` slash commands
+
+---
+
+**Status**: Core-execution-scoped rows (Agent Loop, Subagent, State, cross-cutting LLM API) consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work. Compact / hooks / prompt-cache / model-selection rows remain pending consolidation into their respective indexes (core_features, infra_platform, infra_integration).

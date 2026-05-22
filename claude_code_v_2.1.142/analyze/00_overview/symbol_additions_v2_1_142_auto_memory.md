@@ -263,3 +263,7 @@ Where a v2.1.112 equivalent exists, it is listed in the rightmost column for tra
 | `userSettings.autoMemoryDirectory` | `ih1` | User-level setting |
 | `localSettings.autoMemoryDirectory` | **NOT READ in v2.1.142** | Removed from override sources (was read in v2.1.112) |
 | `projectSettings.autoMemoryDirectory` | NOT READ (security) | Never read for memory paths (security risk if `.claude/settings.json` is malicious) |
+
+---
+
+**Status**: Shared System-Prompts row (`tO` parseFrontmatter) consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work. The remainder (auto-memory paths, types taxonomy, scan/recall/synthesize, team memory, attachment pipeline) belongs to the Skills / Memory area of symbol_index_core_features.md and remains pending consolidation.

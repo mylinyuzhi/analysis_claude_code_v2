@@ -238,3 +238,7 @@ Cross-validated against:
 - The `qq` symbol used in `AL8` and elsewhere (`isOAuthAccountConnected`) is *not* the `qqH/qqK` cluster from the prompt schemas. It's `function qq()` from `/lyz/codespace/claude-code-bomb/versions/2.1.142/extract/cli_unpack_pretty/decls/functions/qq.js` — it tests `Cj()` (config has OAuth account) plus `vU(scopes)` (account scope flags). Chrome activation in `AL8` requires both `qq()` (Pro/Max-tier auth) and `isInteractive`.
 - The on-demand daemon's `retireIfSettled` is dispatched from the daemon supervisor's `setInterval(…, Ur6=60000)` (cli_inner_pretty.js:609402-609419). The same callback is the one that calls `shiftGraceClocksForward` whenever the actual elapsed wall-clock between ticks exceeds the configured interval by more than `Ur6` — the v2.1.142 sleep/wake fix.
 - The agent-view dispatcher (`mountFleetView` / `ao5`) builds a `dispatchExtraArgs` array from the parsed flags. That array is then stashed by `setDispatchExtraArgsForSession` (`MN4`) in module global `OG$`. When the user types a task into the dispatch input, `coldDispatchFromTemplate` (`yP8`) and `claimSpareOrColdDispatch` (`jN4`) prefix every spawn with `[...OG$, …]`. This is how `--add-dir`, `--settings`, `--mcp-config`, `--plugin-dir`, `--strict-mcp-config` propagate into every dispatched session.
+
+---
+
+**Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.
