@@ -20,12 +20,12 @@ Together: an agent's `.md` file's `mcpServers:` block works the same way whether
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra (MCP)
 
 Key functions in this document:
-- `initializeAgentMcpServers` (`g85`) - load frontmatter `mcpServers:` for a subagent (cli_inner_pretty.js, called from 393232)
-- `getMcpConfigByName` - look up a referenced MCP server by name
-- `connectToServer` - establish a connection (memoized per server config)
-- `fetchToolsForClient` - enumerate the server's tools
-- `isSourceAdminTrusted` - admin-trust gate under `strictPluginOnlyCustomization`
-- `isRestrictedToPluginOnly` - returns true when settings restrict MCP to plugin sources only
+- `initializeAgentMcpServers` (`g85`) - load frontmatter `mcpServers:` for a subagent (cli_inner_pretty.js:393036-393090; called from 393232)
+- `getMcpConfigByName` (`Ab`) - look up a referenced MCP server by name
+- `connectToServer` (`Ey`) - establish a connection (memoized per server config)
+- `fetchToolsForClient` (`WB`) - enumerate the server's tools
+- `isAgentTypeAdminTrusted` (`B7H`) - admin-trust gate under `strictPluginOnlyCustomization` (cli_inner_pretty.js:229389)
+- `isFeatureBypassed` (`DX`) - returns true when settings restrict that feature to plugin sources only
 
 ## The Spec Format
 
@@ -72,121 +72,138 @@ const AgentMcpServerSpecSchema = lazySchema(() =>
 
 ```javascript
 // ============================================
-// initializeAgentMcpServers - Merge frontmatter mcpServers with parent clients
-// Location: cli_inner_pretty.js (called from runAgent at 393232); TS source: tools/AgentTool/runAgent.ts
+// initializeAgentMcpServers - Merge frontmatter mcpServers with parent clients (parallel-connect post-v2.1.119)
+// Location: cli_inner_pretty.js:393036-393090; TS source: tools/AgentTool/runAgent.ts
 // ============================================
 
 // ORIGINAL (for source lookup):
-// (reconstructed from v2.1.88 TypeScript; structurally matches v2.1.142 minified)
 async function g85(H, $) {
-  if (!H.mcpServers?.length) return { clients: $, tools: [], cleanup: async () => {} };
-
-  // Admin-trust gate
-  let q = isSourceAdminTrusted(H.source);
-  if (isRestrictedToPluginOnly("mcp") && !q) {
-    log(`[Agent: ${H.agentType}] Skipping MCP servers: strictPluginOnlyCustomization locks MCP to plugin-only (agent source: ${H.source})`);
-    return { clients: $, tools: [], cleanup: async () => {} };
+  if (!H.mcpServers?.length) return { clients: $, agentClients: [], tools: [], cleanup: async () => {} };
+  let q = B7H(H.source);
+  if (DX("mcp") && !q)
+    return (
+      N(`[Agent: ${H.agentType}] Skipping MCP servers: strictPluginOnlyCustomization locks MCP to plugin-only (agent source: ${H.source})`),
+      { clients: $, agentClients: [], tools: [], cleanup: async () => {} }
+    );
+  let K = await Promise.all(
+      H.mcpServers.map(async (f) => {
+        let O = null, M, w = !1;
+        if (typeof f === "string") {
+          if (((M = f), (O = Ab(f)), !O))
+            return (N(`[Agent: ${H.agentType}] MCP server not found: ${f}`, { level: "warn" }), null);
+        } else {
+          let J = Object.entries(f);
+          if (J.length !== 1)
+            return (N(`[Agent: ${H.agentType}] Invalid MCP server spec: expected exactly one key`, { level: "warn" }), null);
+          let [X, L] = J[0];
+          ((M = X), (O = { ...L, scope: "dynamic" }), (w = !0));
+        }
+        let D = await Ey(M, O), j = [];
+        if (D.type === "connected")
+          ((j = await WB(D)), N(`[Agent: ${H.agentType}] Connected to MCP server '${M}' with ${j.length} tools`));
+        else N(`[Agent: ${H.agentType}] Failed to connect to MCP server '${M}': ${D.type}`, { level: "warn" });
+        return { client: D, tools: j, isNewlyCreated: w };
+      }),
+    ), _ = [], A = [], z = [];
+  for (let f of K) {
+    if (!f) continue;
+    if ((_.push(f.client), f.isNewlyCreated)) A.push(f.client);
+    z.push(...f.tools);
   }
-
-  let _ = [], A = [], z = [];               // agentClients, newlyCreatedClients, agentTools
-  for (let Y of H.mcpServers) {
-    let f = null, O, M = !1;
-    if (typeof Y === "string") {
-      // Reference by name: look up in existing config
-      O = Y;
-      f = getMcpConfigByName(Y);
-      if (!f) { log(`[Agent: ${H.agentType}] MCP server not found: ${Y}`, { level: "warn" }); continue; }
-    } else {
-      // Inline definition: agent-scoped server
-      let w = Object.entries(Y);
-      if (w.length !== 1) { log(`[Agent: ${H.agentType}] Invalid MCP server spec: expected exactly one key`, { level: "warn" }); continue; }
-      let [D, j] = w[0];
-      O = D;
-      f = { ...j, scope: "dynamic" };
-      M = !0;
-    }
-    let X = await connectToServer(O, f);
-    _.push(X);
-    if (M) A.push(X);
-    if (X.type === "connected") {
-      let L = await fetchToolsForClient(X);
-      z.push(...L);
-    }
-  }
-
   let Y = async () => {
-    for (let f of A) {
-      if (f.type === "connected") {
-        try { await f.cleanup(); } catch (M) { log(`Error cleaning up MCP server '${f.name}': ${M}`); }
-      }
-    }
+    for (let f of A)
+      if (f.type === "connected")
+        try { await f.cleanup(); }
+        catch (O) { N(`[Agent: ${H.agentType}] Error cleaning up MCP server '${f.name}': ${O}`, { level: "warn" }); }
   };
-
-  return { clients: [...$, ..._], tools: z, cleanup: Y };
+  return { clients: [...$, ..._], agentClients: _, tools: z, cleanup: Y };
 }
 
 // READABLE (for understanding):
 async function initializeAgentMcpServers(agentDefinition, parentClients) {
   // If no agent-specific servers, return parent as-is
   if (!agentDefinition.mcpServers?.length) {
-    return { clients: parentClients, tools: [], cleanup: async () => {} };
+    return { clients: parentClients, agentClients: [], tools: [], cleanup: async () => {} };
   }
 
   // Admin-trust gate for strictPluginOnlyCustomization
-  const agentIsAdminTrusted = isSourceAdminTrusted(agentDefinition.source);
-  if (isRestrictedToPluginOnly("mcp") && !agentIsAdminTrusted) {
-    log(`[Agent: ${agentDefinition.agentType}] Skipping MCP servers: ...`);
-    return { clients: parentClients, tools: [], cleanup: async () => {} };
+  const agentIsAdminTrusted = isAgentTypeAdminTrusted(agentDefinition.source);
+  if (isFeatureBypassed("mcp") && !agentIsAdminTrusted) {
+    log(`[Agent: ${agentDefinition.agentType}] Skipping MCP servers: strictPluginOnlyCustomization locks MCP to plugin-only (agent source: ${agentDefinition.source})`);
+    return { clients: parentClients, agentClients: [], tools: [], cleanup: async () => {} };
   }
 
-  const agentClients = [];          // all clients (referenced + inline)
-  const newlyCreatedClients = [];   // only inline (the ones we cleanup at agent stop)
+  // v2.1.119: connect every server concurrently via Promise.all,
+  // dropping startup latency to roughly the slowest single connect.
+  const perServerResults = await Promise.all(
+    agentDefinition.mcpServers.map(async (spec) => {
+      let config = null, name, isInline = false;
+      if (typeof spec === "string") {
+        name = spec;
+        config = getMcpConfigByName(spec);
+        if (!config) {
+          log(`[Agent: ${agentDefinition.agentType}] MCP server not found: ${spec}`, { level: "warn" });
+          return null;
+        }
+      } else {
+        // Inline definition: agent-scoped server
+        const entries = Object.entries(spec);
+        if (entries.length !== 1) {
+          log(`[Agent: ${agentDefinition.agentType}] Invalid MCP server spec: expected exactly one key`, { level: "warn" });
+          return null;
+        }
+        const [k, v] = entries[0];
+        name = k;
+        config = { ...v, scope: "dynamic" };
+        isInline = true;
+      }
+      const client = await connectToServer(name, config);
+      let tools = [];
+      if (client.type === "connected") {
+        tools = await fetchToolsForClient(client);
+        log(`[Agent: ${agentDefinition.agentType}] Connected to MCP server '${name}' with ${tools.length} tools`);
+      } else {
+        log(`[Agent: ${agentDefinition.agentType}] Failed to connect to MCP server '${name}': ${client.type}`, { level: "warn" });
+      }
+      return { client, tools, isNewlyCreated: isInline };
+    }),
+  );
+
+  // Fold the per-server results into the three parallel arrays
+  const agentClients = [];        // all clients (referenced + inline)
+  const newlyCreatedClients = []; // only inline (cleaned up at agent stop)
   const agentTools = [];
-
-  for (const spec of agentDefinition.mcpServers) {
-    let name, config, isInline = false;
-    if (typeof spec === "string") {
-      // Reference by name
-      name = spec;
-      config = getMcpConfigByName(spec);
-      if (!config) { log(`[Agent: ...] MCP server not found: ${spec}`, { level: "warn" }); continue; }
-    } else {
-      // Inline definition
-      const entries = Object.entries(spec);
-      if (entries.length !== 1) { log("Invalid spec: ...", { level: "warn" }); continue; }
-      [name, config] = entries[0];
-      config = { ...config, scope: "dynamic" };
-      isInline = true;
-    }
-
-    const client = await connectToServer(name, config);
-    agentClients.push(client);
-    if (isInline) newlyCreatedClients.push(client);
-
-    if (client.type === "connected") {
-      const tools = await fetchToolsForClient(client);
-      agentTools.push(...tools);
-    }
+  for (const entry of perServerResults) {
+    if (!entry) continue;
+    agentClients.push(entry.client);
+    if (entry.isNewlyCreated) newlyCreatedClients.push(entry.client);
+    agentTools.push(...entry.tools);
   }
 
   const cleanup = async () => {
     for (const c of newlyCreatedClients) {
       if (c.type === "connected") {
-        try { await c.cleanup(); } catch (e) { log(`Error cleaning up '${c.name}': ${e}`); }
+        try { await c.cleanup(); } catch (e) {
+          log(`[Agent: ${agentDefinition.agentType}] Error cleaning up MCP server '${c.name}': ${e}`, { level: "warn" });
+        }
       }
     }
   };
 
   return {
-    clients: [...parentClients, ...agentClients],   // merged (parent + agent)
+    clients: [...parentClients, ...agentClients],   // merged (parent + agent), exposed to subagent
+    agentClients,                                   // the subagent-only slice (used by refreshMcpClients)
     tools: agentTools,
     cleanup,
   };
 }
 
 // Mapping: g85→initializeAgentMcpServers, H→agentDefinition, $→parentClients,
-//          _→agentClients, A→newlyCreatedClients, z→agentTools,
-//          Y→spec/cleanup, O→name, f→config, M→isInline, X→client, L→tools
+//          K→perServerResults, _→agentClients, A→newlyCreatedClients, z→agentTools,
+//          f→spec/entry, O→config, M→name, w→isInline, X→k, L→v, J→entries,
+//          D→client, j→tools, Y→cleanup,
+//          B7H→isAgentTypeAdminTrusted, DX→isFeatureBypassed,
+//          Ab→getMcpConfigByName, Ey→connectToServer, WB→fetchToolsForClient
 ```
 
 ### What Gets Cleaned Up
@@ -231,7 +248,11 @@ A related improvement in v2.1.119:
 
 > Subagent and SDK MCP server reconfiguration now connects servers in parallel instead of serially
 
-Before v2.1.119, `initializeAgentMcpServers` iterated the `mcpServers` array sequentially, awaiting each `connectToServer` call. For a subagent with 5 MCP servers and 200ms latency per connect, startup added ~1s. Post-v2.1.119, the connects fan out via `Promise.all`, dropping startup latency to roughly the slowest single connect.
+Before v2.1.119, `initializeAgentMcpServers` iterated the `mcpServers` array sequentially, awaiting each `connectToServer` call. For a subagent with 5 MCP servers and 200ms latency per connect, startup added ~1s. Post-v2.1.119, the connects fan out via `Promise.all`, dropping startup latency to roughly the slowest single connect. The snippet above shows the v2.1.142 (post-fix) shape — `Promise.all(H.mcpServers.map(async ...))` followed by a serial fold step that preserves source-order in `agentClients` / `agentTools` without re-introducing latency dependencies between connects.
+
+### Why the `agentClients` Return Field?
+
+The actual signature returns *four* fields, not three: `{ clients, agentClients, tools, cleanup }`. The extra `agentClients` slice carries only the subagent's own additions (excludes inherited parent clients). It's consumed by the per-subagent `refreshMcpClients` thunk at cli_inner_pretty.js:393251-393256 so that a subagent calling `refreshMcpClients()` gets *parent-live + agent-private* clients, not just the parent's view.
 
 ## v2.1.101: Dynamic MCP Server Inheritance Fix
 

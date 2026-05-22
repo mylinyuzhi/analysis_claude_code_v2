@@ -375,7 +375,42 @@ Importantly, this write is **in-memory** — it doesn't persist the summary to t
 
 ## v2.1.101 Partial-Progress Reporting on Errors
 
-When a background subagent fails, the `<task-notification>` envelope it sends to the parent's next turn includes partial progress. The logic is in `extractPartialResult` (in `agentToolUtils.ts`):
+When a background subagent fails, the `<task-notification>` envelope it sends to the parent's next turn includes partial progress. The logic is in `extractPartialResult` (`alH` in cli_inner_pretty.js:339749-339761; `agentToolUtils.ts` in the TS source). The minified form is intentionally narrower than the TS reference shown below — it returns *only the last assistant text*, not the recent-tools list:
+
+```javascript
+// ============================================
+// extractPartialResult - Walk messages backwards for the last assistant text
+// Location: cli_inner_pretty.js:339749-339761
+// ============================================
+
+// ORIGINAL (for source lookup):
+function alH(H) {
+  for (let $ = H.length - 1; $ >= 0; $--) {
+    let q = H[$];
+    if (q.type !== "assistant") continue;
+    let K = f9(q.message.content, `\n`);
+    if (K) return K;
+  }
+  return;
+}
+
+// READABLE (for understanding):
+function extractPartialResult(messages) {
+  // Walk backwards to find the most recent assistant message with text content.
+  // (Newline-joined text blocks; tool_use-only assistant turns are skipped.)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.type !== "assistant") continue;
+    const text = joinTextBlocks(m.message.content, "\n");
+    if (text) return text;
+  }
+  return undefined;
+}
+
+// Mapping: alH→extractPartialResult, H→messages, $→i, q→m, K→text, f9→joinTextBlocks
+```
+
+The richer "recent-tools" payload described in the TS source (`agentToolUtils.ts:488`) appears to be a TS-side surface; in the v2.1.142 minified runtime, only the last assistant text is extracted and woven into the `<task-notification>` envelope. The conceptual model stands:
 
 ```typescript
 function extractPartialResult(persistedMessages, error) {
