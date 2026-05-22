@@ -79,10 +79,11 @@ Each per-server tool's input schema is constructed at MCP `tools/list` time from
 
 ## v2.1.112 → v2.1.142 Deltas
 
-- **v2.1.142:** Fixed `MCP_TOOL_TIMEOUT` not raising the per-request fetch timeout for remote HTTP/SSE MCP servers — capped tool calls at 60 s regardless of configured value.
+- **v2.1.142:** Fixed `MCP_TOOL_TIMEOUT` not raising the per-request fetch timeout for remote HTTP/SSE MCP servers. The env var is parsed twice (`r15` at `cli_inner_pretty.js:413221-413224` for the tool-call timeout — default `i15 = 1e8` ms, capped at `B$4 = 2147483647` ms; and `U$4` at `413346-413349` for the inner HTTP/SSE fetch — capped at `C$4..B$4`). Pre-fix, the inner fetch ignored `MCP_TOOL_TIMEOUT` and used a hard-coded 60s ceiling regardless of configuration.
 - **v2.1.141:** Fixed `/mcp` server list scrolling and OAuth refresh fixes around the generic MCP dispatcher.
+- **v2.1.139:** `CLAUDE_PROJECT_DIR` env var (`cli_inner_pretty.js:414308`) is now propagated to stdio MCP server child processes, so MCP servers can resolve project-relative paths consistently across spawns.
 - **v2.1.128:** MCP `workspace` is reserved server name; tools/list cache improvements.
-- **v2.1.121:** Added `alwaysLoad` MCP server option to bypass tool-search deferral — affects whether `isMcp` triggers deferring.
+- **v2.1.121:** Added `alwaysLoad` MCP server option to bypass tool-search deferral — affects whether `isMcp` triggers deferring. Schema declared at `cli_inner_pretty.js:48887-48959` across stdio/sse/http/sdk transport variants; the reader at `cli_inner_pretty.js:211831` short-circuits the `isMcp` defer when set.
 
 ---
 

@@ -417,6 +417,14 @@ For OAuth-bearing MCP servers, the host generates synthetic `authenticate` / `co
 
 These are auto-injected when a server's transport supports OAuth (sse, http) and the user hasn't authenticated yet. They disappear from the tools list once authentication completes.
 
+## v2.1.112 → v2.1.142 Deltas
+
+- **v2.1.121:** `alwaysLoad` config flag — both at the server level (`H.config.alwaysLoad`) and the per-tool `_meta["anthropic/alwaysLoad"]` annotation. When true, the tool bypasses tool-search deferral (`zm` returns `!1` at `cli_inner_pretty.js:211831`).
+- **v2.1.128:** MCP server name `workspace` reserved; tools/list cache improvements; structured content + content-block dual return finally renders both image and structured data correctly.
+- **v2.1.137:** HTTP/SSE servers returning 403 on connect classified as `needsAuth` (not `failed`) so `McpAuth` pseudo-tool surfaces.
+- **v2.1.139:** Plugin/MCP servers receive `CLAUDE_PROJECT_DIR` env var (`cli_inner_pretty.js:414308`) when spawned via stdio transport, so they can resolve project-relative paths consistently. `.mcp.json` edits now trigger remote reconnection (the watcher diffs current vs new config and reconnects affected servers without restarting the session).
+- **v2.1.142:** `MCP_TOOL_TIMEOUT` env var finally raises both the per-request tool-call timeout (`r15` at line 413221) and the per-fetch HTTP/SSE inner timeout (`U$4` at line 413346). The pre-fix bug capped the inner fetch at 60s regardless of `MCP_TOOL_TIMEOUT` setting.
+
 ## Related Symbols
 
 > Symbol mappings:
