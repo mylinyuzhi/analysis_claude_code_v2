@@ -389,4 +389,5 @@ An agent whose frontmatter sets `planModeRequired: true` (e.g., a planning-only 
 - [tool_inheritance.md](./tool_inheritance.md) — Tool availability inheritance (orthogonal to permission mode)
 - [worktree_isolation.md](./worktree_isolation.md) — `isolation: worktree` is a sibling sandboxing mechanism
 - [coordinator_process_model.md](./coordinator_process_model.md) — How the daemon persists dispatch defaults across retire/wake
+- [agent_identity_propagation.md](./agent_identity_propagation.md) — Sibling propagation channel that carries `agentId` / `parentAgentId` (independent of permission mode but flows alongside it)
 - v2.1.112 baseline: `permission_sync.md` for the `permission_request` / `permission_response` mailbox round-trip

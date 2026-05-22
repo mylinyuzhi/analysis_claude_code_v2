@@ -306,6 +306,7 @@ Not `Zu7(YH.agentType) === Zu7(G)`. Two reasons:
 - **Agent tool entry point** — cli_inner_pretty.js around 351200-351500 (the full handler including team-name routing and resource resolution).
 - **`subagent_type` schema field** — defined at cli_inner_pretty.js:351209 as `y.string().optional().describe("The type of specialized agent to use for this task")`.
 - **Color memoization** — `BOH` (`rememberLastResolutionColor`) is called when a normalized lookup wins, so the agent's display color is consistent across the session even when the user types different spellings. The cache is keyed by the *requested* name, not the canonical one, so `"PR Reviewer"` and `"pr-reviewer"` get the same color even though they enter the cache from different invocations.
+- **Identity propagation** — once a subagent is matched, dispatch produces a new `agentId` (the `taskId`) and snapshots `parentAgentId: RD()?.agentId`. See `agent_identity_propagation.md` for the AsyncLocalStorage mechanism that then carries this identity into outbound API headers and OTel spans.
 
 ---
 

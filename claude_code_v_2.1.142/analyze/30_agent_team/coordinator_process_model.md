@@ -636,4 +636,5 @@ The alternative (a real pool of size N) would only help workflows where the user
 - [permission_inheritance.md](./permission_inheritance.md) — how the daemon's `--permission-mode` flag is preserved across retire/wake
 - [mailbox_protocol.md](./mailbox_protocol.md) — the IPC primitive (file-based) used by spawned teammates
 - [worktree_isolation.md](./worktree_isolation.md) — `CLAUDE_BG_ISOLATION=worktree` env var set when a daemon dispatches into a worktree
+- [agent_identity_propagation.md](./agent_identity_propagation.md) — why bg-worker process boundary breaks `AsyncLocalStorage`-based identity and how the env-var fallback (`CLAUDE_AMBIENT_PARENT_SESSION_ID`) bridges it
 - v2.1.142 unit 08 worktree: `v2_1_142_dispatch_flags.md` for how the agent-view UI's flags reach this daemon
