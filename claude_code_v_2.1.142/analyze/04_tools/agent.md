@@ -474,8 +474,9 @@ A user-facing background hint appears after `PROGRESS_THRESHOLD_MS` (2 seconds) 
 | v2.1.129 | `requiredMcpServers` startup race protection: waits up to 30s for pending servers. |
 | v2.1.133 | `worktree.baseRef` setting (`fresh`/`head`) controls branch base for agent worktrees. |
 | v2.1.136 | `cwd` parameter for KAIROS builds (mutex with `isolation`). |
+| v2.1.139 | LLM API request headers carry agent identity for subagent telemetry: `x-claude-code-agent-id` (current agent's ID) and `x-claude-code-parent-agent-id` (spawning agent's ID). Emitted by `cli_inner_pretty.js:128061-128062` whenever the current `RD()` (`getActiveAgentContext`) returns a record with these fields. Subagents spawned from this tool inherit these headers via the agent context propagation. |
 | v2.1.140 | Subagent_type case- and separator-insensitive matching (`Zu7` normalizer). Ambiguity check throws clear error. New analytics event `tengu_subagent_type_normalized`. |
-| v2.1.142 | (Documented here) Schema stable; backing changes are in worktree integration and background-tasks lifecycle. |
+| v2.1.142 | (Documented here) Schema stable; backing changes are in worktree integration and background-tasks lifecycle. The `x-claude-code-agent-id` / `x-claude-code-parent-agent-id` headers (introduced v2.1.139) flow into OTel attributes via `RD()`. |
 
 ---
 
