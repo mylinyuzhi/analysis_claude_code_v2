@@ -222,3 +222,36 @@ To merge into the appropriate `symbol_index_*.md` once unit work completes:
 | (inline) | `pastingFooterHint` ("Pasting…" dim text when `isPasting`) | cli_inner_pretty.js:550854-550859 | constant |
 | (inline) | `pasteAgainHint` ("paste again to expand") | cli_inner_pretty.js:550861-550866 | constant |
 | `kill-paste-hint` | toast key — "Ctrl+Y to paste deleted text" | cli_inner_pretty.js:176077 | constant |
+
+## Module: Multiline Input Ctrl+A/E (02_ui — v2.1.113)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `o` (local in input hook) | `promptInputCtrlBindings` (ctrl-prefix key→action table; entries `a` and `e` re-pointed to logical-line motion in v2.1.113) | cli_inner_pretty.js:176104-176123 | object |
+| `muK` | `buildKeyDispatcher` (turns `[[key, action], …]` into a 1-key dispatcher) | cli_inner_pretty.js (used at 176104, 176124) | function |
+| `A4.startOfLogicalLine` | `Cursor.startOfLogicalLine` (target of new Ctrl+A binding) | cli_inner_pretty.js:175342-175344 | method |
+| `A4.endOfLogicalLine` | `Cursor.endOfLogicalLine` (target of new Ctrl+E binding) | cli_inner_pretty.js:175339-175341 | method |
+| `A4.findLogicalLineStart` | `Cursor.findLogicalLineStart` (lastIndexOf `\n`) | cli_inner_pretty.js:175312-175320 | method |
+| `A4.findLogicalLineEnd` | `Cursor.findLogicalLineEnd` (indexOf `\n`) | cli_inner_pretty.js:175321-175328 | method |
+| `A4.startOfLine` | `Cursor.startOfLine` (visual-row start; still bound to Home) | cli_inner_pretty.js:175289-175293 | method |
+| `A4.endOfLine` | `Cursor.endOfLine` (visual-row end; still bound to End) | cli_inner_pretty.js:175301-175311 | method |
+
+## Module: `/web-setup` Replace Warning (02_ui — v2.1.142)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `cR5` | `webSetupCommandDef` (`/web-setup` slash command, `claude-ai` availability + `tengu_cobalt_lantern` gate) | cli_inner_pretty.js:508122-508133 | object |
+| `lR5` | `webSetupCommandDefAlias` (assigned from `cR5`) | cli_inner_pretty.js:508133 | object |
+| `QR5` | `WebSetupConfirmDialog` (renders "Connect Claude on the web to GitHub?" + optional replace warning) | cli_inner_pretty.js:507995-508096 | component |
+| `dR5` | `webSetupCommandEntrypoint` (returns `<WebSetupConfirmDialog onDone>`) | cli_inner_pretty.js:508098-508100 | function |
+| `Ek4` | `getExistingGithubAuthSource` (probes `/api/oauth/.../sync/github/auth` → `"oauth"` / `"cli_import"` / null) | cli_inner_pretty.js:507916-507936 | function |
+| `FR5` | `probeLocalGhToken` (checks `gh auth status` + `gh auth token`) | cli_inner_pretty.js:507968-507982 | function |
+| `kk4` | `uploadGithubTokenForSync` (POSTs token to claude.ai sync endpoint) | cli_inner_pretty.js:507886-507914 | function |
+| `gR5` | `formatGithubSyncError` (maps error kind → user message) | cli_inner_pretty.js:507983-507994 | function |
+| `JP8` | `getClaudeOnWebOrigin` (`${CLAUDE_AI_ORIGIN}/code`) | cli_inner_pretty.js:507937-507939 | function |
+| `QF6` | `RedactedGhToken` (class that hides token in inspect/toString) | cli_inner_pretty.js:507947-507964 | class |
+| `tengu_remote_setup_started` | telemetry event for `/web-setup` entry | cli_inner_pretty.js:507999 | constant |
+| `tengu_remote_setup_result` | telemetry event for `/web-setup` outcome (`not_signed_in`/`success`/`cancelled`/`import_failed`/`gh_not_installed`/`gh_not_authenticated`) | cli_inner_pretty.js:508004, 508028, 508035, 508055 | constant |
+| `tengu_cobalt_lantern` | feature flag gating `/web-setup` | cli_inner_pretty.js:508127 | constant |
+| `allow_remote_sessions` | user-setting bit (enables `/web-setup` registration) | cli_inner_pretty.js:508127-508129 | constant |
+| `allow_quick_web_setup` | user-setting bit (enables `/web-setup` registration) | cli_inner_pretty.js:508127-508129 | constant |
