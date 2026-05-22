@@ -156,3 +156,7 @@ All file:line references are to `/lyz/codespace/claude-code-bomb/versions/2.1.14
 - **`dispatchHookOutputStream`** (aP) — async generator that yields control signals (preventContinuation, terminalSequence, updatedToolOutput, etc.) from the inner per-hook executors to the outer event consumer. Both "dispatcher" and "stream" emphasized.
 - **`createHookBaseInput`** (M_) — kept matching the v2.1.112 readable name; just extends the return type with `effort`.
 - **`applyMainThreadAgent`** (pJH) — orchestrates type+hooks installation. Not `setMainThreadAgent` because it has the admin-trust gate.
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work.

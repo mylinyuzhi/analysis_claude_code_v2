@@ -255,3 +255,7 @@ To merge into the appropriate `symbol_index_*.md` once unit work completes:
 | `tengu_cobalt_lantern` | feature flag gating `/web-setup` | cli_inner_pretty.js:508127 | constant |
 | `allow_remote_sessions` | user-setting bit (enables `/web-setup` registration) | cli_inner_pretty.js:508127-508129 | constant |
 | `allow_quick_web_setup` | user-setting bit (enables `/web-setup` registration) | cli_inner_pretty.js:508127-508129 | constant |
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work. (Thinking/effort portion routed to core_features; UI components for /scroll-speed, transcript nav, vim, theme editor remain consumable by `symbol_index_infra_integration.md`.)

@@ -255,3 +255,7 @@ All entries cross-validated against the v2.1.142 bundle. Locations are `cli_inne
 - Where the original is already a meaningful name (`disableAllHooks`, `extraKnownMarketplaces`), the "Readable" column uses the suffixed `Setting`/`Field` form for the *schema* and the unsuffixed form for the actual setting key.
 - Inline expressions without distinct function bindings are noted as `(inline)` in the obfuscated column.
 - This file is the unit-15 contribution; per CLAUDE.md, it is **not** merged into the canonical `00_overview/symbol_index_*.md` files automatically.
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work. (Core-feature portions — Fast Mode, Hook Effort/CLAUDE_PROJECT_DIR, /goal, terminalSequence, agents view setting, disableAllHooks/allowManagedHooksOnly — routed to core_features; remaining sandbox/MCP/plugins/auth portions are routed to the sibling indexes.)

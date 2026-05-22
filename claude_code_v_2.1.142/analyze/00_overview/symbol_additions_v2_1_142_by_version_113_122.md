@@ -294,3 +294,7 @@ Verified existing mappings used in by_version files (already documented in symbo
 - `bH` (parseBoolean) — used widely for env var parsing (DISABLE_UPDATES, CLAUDE_CODE_*, etc.)
 
 These are reused in v2.1.113-122 paths without semantic changes.
+
+---
+
+**Status**: Consolidated into symbol_index_core_features.md as of v2.1.142 deobfuscation work. (Core-feature portions — effort, hook duration, thinking spinner — routed to core_features; remaining sandbox/MCP/auth/plugins/themes portions are routed to the sibling indexes.)
