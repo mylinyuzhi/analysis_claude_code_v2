@@ -480,3 +480,226 @@ Key functions in this document:
 - `fastInteractiveCommand` (`Ev5`) — JSX picker entry (cli_inner_pretty.js:484225)
 - `fastNonInteractiveCommand` (`KP4`) — local on/off entry (cli_inner_pretty.js:484242)
 - `isImmediateModelCommandEnabled` (`IaH`) — A/B flag for picker bypass (cli_inner_pretty.js:483882)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+Fast Mode's promotion in v2.1.142 is the most subtle of the four features — there is **no GrowthBook gate flip**. The feature was already public in v2.1.88; the v2.1.142 changes are about (a) **default model flip** Opus 4.6 → 4.7, (b) **command surface split** local-jsx → local-jsx + local (non-interactive), and (c) **gate hoist** moving the first-party check from a deferred reason-message into the registry-level `isEnabled`.
+
+**v2.1.88 — Gate (line-for-line)**
+
+```typescript
+// src/utils/fastMode.ts:38-40
+export function isFastModeEnabled(): boolean {
+  return !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_FAST_MODE)
+}
+```
+
+Single check: only the env-var hard-disable. The first-party check lives in `getFastModeUnavailableReason()`, called *after* the command is already in the registry — so Bedrock users saw `/fast` grayed out with a "Fast mode is not available on Bedrock, Vertex, or Foundry" reason.
+
+**v2.1.142 — Gate (line-for-line)**
+
+```javascript
+// cli_inner_pretty.js:96854-96857
+function _9() {
+  if (vq() !== "firstParty") return !1;
+  return !bH(process.env.CLAUDE_CODE_DISABLE_FAST_MODE);
+}
+```
+
+Two checks composed. The first-party check now **gates registry visibility itself** (`isHidden: () => !_9()` at line 484236). Bedrock users no longer see `/fast` at all.
+
+**v2.1.88 — Model selection (line-for-line)**
+
+```typescript
+// src/utils/fastMode.ts:167-176
+export function isFastModeSupportedByModel(modelSetting: ModelSetting): boolean {
+  if (!isFastModeEnabled()) return false
+  const model = modelSetting ?? getDefaultMainLoopModelSetting()
+  const parsedModel = parseUserSpecifiedModel(model)
+  return parsedModel.toLowerCase().includes('opus-4-6')
+}
+export const FAST_MODE_MODEL_DISPLAY = 'Opus 4.6'
+export function getFastModeModel(): string {
+  return 'opus' + (isOpus1mMergeEnabled() ? '[1m]' : '')
+}
+```
+
+**v2.1.142 — Model selection (line-for-line)**
+
+```javascript
+// cli_inner_pretty.js:96905-96928
+function Cc() { return bH(process.env.CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE); }
+function Yu() { return Cc() ? "Opus 4.6" : "Opus 4.7"; }
+function VxH() { return (Cc() ? "claude-opus-4-6" : "opus") + (wL() ? "[1m]" : ""); }
+function Uw(H) {
+  if (!_9()) return !1;
+  let $ = H ?? UJ(), K = n7($).toLowerCase();
+  if (Cc()) return K.includes("opus-4-6");
+  return K.includes("opus-4-6") || K.includes("opus-4-7");
+}
+```
+
+Three new functions (`Cc`, `Yu`, `VxH`) and one expanded function (`Uw`). The expansion: `parsed.includes("opus-4-6")` became `parsed.includes("opus-4-6") || parsed.includes("opus-4-7")` — gated by the `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` escape hatch.
+
+### Why this promotion approach
+
+**Design rationale for the default model flip (4.6 → 4.7):**
+
+When Opus 4.7 launched, Anthropic had two options for fast mode users:
+
+1. **Keep fast mode on 4.6.** Stable cost, stable behavior. But users explicitly opted into "fast and premium" — staying on the older model is a step backward.
+2. **Flip default to 4.7.** Latest capability, but breaks any user who budgeted around 4.6 cost or has compatibility assumptions.
+
+Anthropic chose (2) + an env-var escape hatch (`CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1`). The rationale is observable in the code structure:
+
+- `Cc()` is a *pure env-var read* — zero config infrastructure, zero GB plumbing. Cheapest possible escape hatch.
+- The override sets *both* display name (`Yu`) **and** model ID (`VxH`) **and** support filter (`Uw`). All three flip together, so a user pinning to 4.6 gets a consistent experience.
+- The default-to-4.7 ships in the binary; only users who actively configure the env var get 4.6. This is the **"newer is default, older is opt-in"** pattern.
+
+**Alternatives considered:**
+
+| Alternative | Why rejected |
+|---|---|
+| GrowthBook flag `fast_mode_model: "opus-4-6" or "opus-4-7"` | Adds remote dependency to a hot-path model selection; cost of GB miss = wrong model used |
+| `settings.json` field `fastModeModel` | More config surface; users would have to discover and set it; not CI-friendly |
+| Both 4.6 and 4.7 supported, user picks at toggle time | Adds UX complexity to the picker; most users don't care |
+| Keep 4.6 default forever | Loses 4.7 capability for the premium audience; defeats the point of fast mode |
+
+**Why expose two slash command variants (`local-jsx` + `local`):**
+
+- `local-jsx` is **mandatory for the picker UI**. The picker is an Ink (terminal React) component — can't be invoked without a TTY + render loop.
+- `local` is **mandatory for `claude -p` / SDK / Remote Control**. Those contexts have no Ink. A `local-jsx` command invoked from `-p` would either error or no-op.
+- v2.1.88 had only `local-jsx` → `claude -p "/fast on"` silently rendered nothing. v2.1.142 splits into two registry entries; the dispatcher picks based on `supportsNonInteractive` metadata.
+
+This is **not** a runtime decision branch inside `call()` — it's two static command objects. The reason: `supportsNonInteractive: true` must appear in the metadata so the SDK's command resolver knows whether to allow the command in scripted contexts. Branching inside `call()` would be invisible to the resolver.
+
+**Trade-offs:**
+
+| Trade-off | Resolution |
+|---|---|
+| Default 4.7 may break 4.6-pinned users | `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` env var |
+| Hoist first-party check into gate | Bedrock users lose visibility into the feature; mitigated by docs |
+| Two command variants | More code; cleaner SDK semantics |
+| `tengu_immediate_model_command` GB A/B | Adds UX inconsistency between cohorts; lets data drive the decision |
+
+### Step-by-step runtime decision flow
+
+```
+User types  "/fast on"  in REPL
+─────────────────────────────────
+  Slash command resolver
+   │
+   ▼  Filter by isEnabled / isHidden
+  Look up "fast" in command registry
+   │  Two candidates: Ev5 (local-jsx) + KP4 (local)
+   │
+   ▼  Dispatch surface = "repl" → pick local-jsx (Ev5)
+   ▼  Ev5.isHidden() → !_9()
+  ┌────────────────────────────────────┐
+  │ _9() [96854]                       │
+  │  vq() === "firstParty" ?           │
+  │   ─ Bedrock/Vertex/Foundry: hidden │
+  │  CLAUDE_CODE_DISABLE_FAST_MODE !1? │
+  └────────────┬───────────────────────┘
+               │ visible
+               ▼  Ev5.immediate → IaH() reads
+               │  Z$("tengu_immediate_model_command", false)
+               │
+        ┌──────┴──────┐
+        │             │
+        ▼             ▼
+   immediate=true   immediate=false
+        │             │
+        ▼             ▼
+   Skip picker     Open FastModePicker dialog
+   call directly   user navigates Tab / Enter
+        │             │
+        └──────┬──────┘
+               │
+               ▼  parse arg "on"|"off"|undefined
+        ┌─────────────────────────────────────┐
+        │ handleFastModeShortcut(true, ...)   │
+        │   ─ clearFastModeCooldown()         │
+        │   ─ updateSettingsForSource(        │
+        │       "userSettings",               │
+        │       {fastMode:true})              │
+        │   ─ if !isFastModeSupportedByModel: │
+        │       switch mainLoopModel to       │
+        │       VxH() → "opus"|"opus-4-6"     │
+        │   ─ setAppState({fastMode:true})    │
+        │   ─ logEvent("tengu_fast_mode_      │
+        │              toggled", {source:...})│
+        └─────────────────────────────────────┘
+
+Branch 2: SDK / -p flag  "claude -p '/fast on'"
+─────────────────────────────────────────────
+   │  Non-interactive resolver
+   ▼  Filter commands by supportsNonInteractive===true
+   │  Picks KP4 (the local variant), NOT Ev5
+   │
+   ▼  KP4.call({args:"on"})
+   │  Returns a text result string
+   │  Process exits normally
+```
+
+### Model selection algorithm (the v2.1.142 default-flip in detail)
+
+The key algorithm is `Uw(H)` (`isFastModeSupportedByModel`):
+
+```
+function isFastModeSupportedByModel(modelOpt):
+  if not _9(): return false                       # gate
+  model = modelOpt ?? getDefaultMainLoopModelSetting()
+  parsed = parseUserSpecifiedModel(model).lowercase()
+  if isOpus46FastModeOverride():
+    return parsed.contains("opus-4-6")              # 4.6 ONLY when overridden
+  return parsed.contains("opus-4-6") OR parsed.contains("opus-4-7")
+```
+
+The crucial subtlety: when the user runs `/fast on`, the toggle calls `applyFastMode(true, setAppState)`, which checks `!isFastModeSupportedByModel(prev.mainLoopModel)` and **switches the model** if the current one doesn't support fast.
+
+The substitution target is `VxH()`:
+
+```
+function getFastModeModelId():
+  base = isOpus46FastModeOverride() ? "claude-opus-4-6" : "opus"
+  suffix = isOpus1mMergeEnabled() ? "[1m]" : ""
+  return base + suffix
+```
+
+So when a v2.1.88 user upgrades:
+- Default `mainLoopModel` is still `"opus"` (means "latest Opus")
+- `parseUserSpecifiedModel("opus")` resolves to e.g. `"claude-opus-4-7-..."`
+- `parsed.contains("opus-4-7")` → true → fast mode supported without model switch
+- User experiences fast mode on Opus 4.7 without doing anything
+
+A user with `mainLoopModel: "claude-opus-4-6-..."` set explicitly:
+- Falls into the 4.6 branch — already supported
+- No model switch happens
+- User stays on 4.6 even without the env override (because their pinned model already qualifies)
+
+A user with `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1`:
+- `VxH()` returns `"claude-opus-4-6"` — pinned model string
+- `Uw()` only accepts 4.6 — even if user manually sets `mainLoopModel` to 4.7, fast mode switches them back to 4.6
+- The override is sticky: it's a "I only want 4.6 fast" declaration
+
+### Key insight
+
+**Fast Mode's promotion is a model-default flip masquerading as a feature gate change.** The user-visible change is "fast mode now uses 4.7 by default," and the binary-visible change is "`/fast` is now properly invokable from `-p`." These two changes share a single release because they jointly complete the **user contract**: fast mode is a paid premium tier (4.7 model), accessible from any interface (interactive or scripted). The env-var escape hatch (`CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE`) is the smallest possible escape valve — no GB, no setting, no plumbing — for the small minority of users who specifically need 4.6.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|---|---|---|
+| Hoist first-party check into `_9()` | Bedrock users lose visibility into `/fast` entirely | Cleaner UX; one fewer error state to render in picker |
+| Default model 4.6 → 4.7 | Cost-shock risk for 4.6-budgeted users | Latest capability for the premium audience |
+| `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` escape hatch | One more env var to document | Trivial escape mechanism; no infra cost |
+| Two slash command variants (jsx + local) | More code, two registry entries | Works in both REPL and SDK; clean metadata-driven dispatch |
+| `tengu_immediate_model_command` A/B | Inconsistent UX between cohorts during the test | Data-driven decision on picker-vs-immediate default |
+| `thinClientDispatch: "control-request"` | Thin client needs control-request handler | `/fast` works correctly on phone/browser remote control |
+| Cleared cooldown on every apply | User can hammer-toggle into rate limit | User-respectful: respect explicit choice over passive rate-limit |
+| Keep "penguin" codename in telemetry | Legacy noise in dashboards | Backward-compat with v2.1.88 dashboards; no schema migration |

@@ -410,3 +410,232 @@ Key functions in this document:
 - `backgroundedJobHelpFooter` (`bP8`) — detach message that promotes the dashboard (cli_inner_pretty.js:510749)
 - `disableAgentView` setting (schema at cli_inner_pretty.js:50523)
 - `defaultToAgentsView` setting (cli_inner_pretty.js:140657)
+
+---
+
+## Deep Analysis: Promotion Mechanism
+
+### What changed at the gate
+
+`claude agents` is the most architecturally different of the four promotions. The other three swapped gates around an existing code path; agents-dashboard **replaced an internal multi-tenant server experience with a local terminal UI driven by an on-demand daemon**. The "promotion" is structural: a daemon-dispatcher-dashboard triarchy now ships externally.
+
+**v2.1.88 — Gate (line-for-line)**
+
+```typescript
+// src/commands.ts:48-52
+const agentsPlatform =
+  process.env.USER_TYPE === 'ant'
+    ? require('./commands/agents-platform/index.js').default
+    : null
+```
+
+Then included in `INTERNAL_ONLY_COMMANDS` (line 252). For external builds:
+- `USER_TYPE === 'ant'` is `false` at module-load time → `agentsPlatform = null`
+- The require path `./commands/agents-platform/index.js` is not bundled in external builds anyway (bundler exclusion list)
+- `.filter(Boolean)` strips the null from the array
+
+Net effect: external users see no `agents-platform` subcommand and have no dashboard.
+
+**v2.1.142 — Multiple coordinated changes (no single replacement)**
+
+1. **CLI route detection** (`Go6` at line 65, dispatched at 611270) — parses argv before bootstrap and routes "agents" positional to the dashboard.
+2. **Disable gate** (`rmH` at 139859) — opt-out by env var or managed setting.
+3. **Fleet gate** (`isAgentsFleetEnabled` / `Z` / `P` at 611301) — additional runtime gate that hydrates before mount.
+4. **Daemon orchestration** (KG$ at 509189) — installs/starts the daemon on demand.
+5. **React UI mount** (`ao5` at 569079, rendering `EQ4` at 567084) — Ink dashboard.
+6. **Flag preservation pipeline** (`$b5`/`Ab5`/`Pg6`/`Kb5` at 511141-511283) — strips resume/session flags when handing off to daemon, preserves model/permission flags via the `Pg6` known-flag set.
+
+Compared line-by-line, v2.1.88's `agentsPlatform` is **one line of dynamic require**. v2.1.142 has thousands of lines across argument parsing, daemon spawning, fleet UI, and flag forwarding — all unconditionally shipped to every external user.
+
+### Why this promotion approach
+
+**Design rationale for the daemon+dispatcher+dashboard triarchy:**
+
+The architectural shape is forced by the requirement that **background sessions outlive the local terminal**:
+
+- **Daemon** holds open background sessions across terminal closes. Without a persistent daemon, sessions die when the parent shell exits.
+- **Dispatcher** (the `claude --bg` / `/background` / `Tn6` parseDispatch path) translates user intent ("run this prompt in the background") into a session spawned under the daemon, not under the current shell.
+- **Dashboard** (`EQ4` FleetView) lets the user *see* what the daemon is running, attach to any session, dispatch new ones, and tear them down. Without the dashboard, the user has no UX to discover the n sessions that the daemon holds.
+
+Each piece is necessary; together they form the **complete agent-view contract**. v2.1.88's ant-only `agentsPlatform` had similar capabilities but as a *server-side* experience (the docs hint at "agents-platform.tsx" running on UTC-cron servers). The promotion is the rewrite into a local-daemon shape — fundamentally a different system, not a port.
+
+**Alternatives considered:**
+
+| Alternative | Why rejected |
+|---|---|
+| Keep `claude --bg` only, no dashboard | Users with N background sessions remembered N IDs; cognitive load grew O(N) |
+| Web-only dashboard (like ant's agents-platform) | Adds server dependency, requires network to manage local agents — wrong shape |
+| File-based dashboard (cat ~/.claude/agents/) | No interactivity, no real-time updates, terrible UX |
+| Single command `claude agents` does everything | Splits cleanly into "open dashboard" (this) and "dispatch from REPL" (`/background`) |
+
+**Why opt-OUT instead of opt-IN:**
+
+The feature **defaults to on** because:
+1. **Baseline value is high.** Users with 0 background sessions see "no sessions" and lose nothing. Users with N > 0 see them all listed — huge win.
+2. **Enterprise compliance is a tiny minority.** Anthropic decided that defaulting OFF would hide the feature from 99% of users to satisfy 1% of admins. Better to default ON and let admins disable.
+3. **The `disableAgentView` setting + env var disables FOUR things atomically** — `claude agents`, `--bg`, `/background`, the daemon. Admins who want "no daemon" don't have to enumerate; one knob nukes the stack.
+
+**Trade-offs:**
+
+- **Rollout control vs. simplicity:** No GrowthBook gate. The maintainers chose env + managed-setting opt-out because the feature is too structural to A/B test (a session that's running on a daemon can't be migrated to a non-daemon world if the flag flips). Once you ship daemons, you can't take them back without breaking sessions.
+- **Observability vs. user friction:** "Research Preview" label in docs is the observability mechanism. Tells users "this can change," lets Anthropic iterate. The CLI itself doesn't display the preview label — only the docs do.
+- **Daemon cold-start prompt:** offers four answers (yes/no/never/once). The "never" answer persists in config — this is the "respect the user's decision" pattern.
+
+### Step-by-step runtime decision flow
+
+```
+User runs:  claude agents --plugin-dir ./my-plugins
+─────────────────────────────────────────────────
+  process.argv parsed PRE-BOOTSTRAP
+   │
+   ▼  Go6(argv)  [line 65]
+  ┌──────────────────────────────────────┐
+  │ Parse known flags: --plugin-dir,     │
+  │   --add-dir, --cwd, --settings,      │
+  │   --mcp-config, --strict-mcp-config  │
+  │ Find "agents" positional             │
+  │ Returns {hasAgentsPositional: true,  │
+  │          cwdFilter, config, rest}     │
+  └────────────┬─────────────────────────┘
+               │
+               ▼  Has "agents" positional? + T89(_) returns true
+               │  (T89 is the "actually invocable as agents view" check)
+               │
+               ▼  Or: defaultToAgentsView setting === true
+  ┌──────────────────────────────────────┐
+  │ Hydrate settings + plugin dirs        │
+  │ loadFastPathPolicy                    │
+  │ Z() — ensureFleetGateHydrated         │
+  │ P() — isAgentsFleetEnabled            │
+  │   ─ if false: W() fleetGateRejected   │
+  │     prints reason, exits              │
+  └────────────┬─────────────────────────┘
+               │ enabled
+               ▼
+  ┌──────────────────────────────────────┐
+  │ Initialize sinks:                     │
+  │  • analytics sink                     │
+  │  • 1P event logging                   │
+  │  • graceful shutdown handler          │
+  │  • setIsInteractive(true)             │
+  │ logEvent("tengu_fleetview",           │
+  │   {defaultToAgentsView, relaunch})   │
+  └────────────┬─────────────────────────┘
+               │
+               ▼  mountFleetView (ao5) + createRoot (u)
+               │  consumeEarlyInput()  ─ flush keystrokes
+               │
+               ▼  ao5(root, opts) [line 569079]
+  ┌──────────────────────────────────────┐
+  │ stdin readable handler installed     │
+  │  ─ pre-emptive Ctrl+C detection      │
+  │ cwdFilter resolved                    │
+  │ dispatchDefaults parsed via gg4       │
+  │ Auto-relaunch on JN4 trigger          │
+  │ render():                             │
+  │   <App><Stack><EQ4 ...props /></App> │
+  └────────────┬─────────────────────────┘
+               │
+               ▼  EQ4 (FleetView)  [line 567084]
+  ┌──────────────────────────────────────┐
+  │ State: jobs (M), childJobs (j),       │
+  │         loopKicks (V), statuses (X),  │
+  │         prStatuses (P), filter (P→W) │
+  │ Renders job rows, accepts:            │
+  │   ─ Enter: attach to job              │
+  │   ─ x: stop                           │
+  │   ─ d: delete                         │
+  │   ─ /: dispatch new                   │
+  │   ─ q: quit                           │
+  │                                       │
+  │ onAction({type,...}) callback resolves│
+  │ the promise → ao5 loop continues     │
+  └────────────┬─────────────────────────┘
+               │ user picks "open" on a job
+               ▼
+  ┌──────────────────────────────────────┐
+  │ AG8(jobId) — respawn check            │
+  │  ─ ok|alive: attach                   │
+  │  ─ orphan: try force respawn          │
+  │  ─ recover or surface error           │
+  │ AN4(short, opts) — actually attach    │
+  │  ─ handoffAltScreen on POSIX          │
+  │  ─ handoffRawMode on Windows          │
+  │  ─ unmount fleet view                 │
+  │  ─ jump into the session's REPL      │
+  └────────────┬─────────────────────────┘
+               │ user detaches
+               ▼  Remount fleet view, repeat
+```
+
+The `--bg` flag preservation system is a separate sub-pipeline:
+
+```
+User runs:  claude --resume abc123 --bg "fix the build"
+──────────────────────────────────────────────────────
+  Bootstrap detects --bg in argv  [line 611220-265 region]
+   │
+   ▼  Strip resume/session flags via $b5  [line 511141]
+   │  $b5(argv):
+   │    drop --fork-session, -c, --continue
+   │    drop --resume=, -r=, --session-id=
+   │    drop value-bearing --resume/-r/--session-id
+   │
+   ▼  Strip session-id specifically via qb5 [line 511162]
+   │  (different scope — preserves "--" passthrough)
+   │
+   ▼  Validate via Kb5 [line 511179]
+   │  Block bypassPermissions with --bg unless accepted
+   │  Block auto-mode with --bg unless opted in
+   │
+   ▼  Filter known-flag set via Pg6 [line 511283]
+   │  Pg6 = Set of flags that take a value
+   │  Drives "argument follows the flag" handling in
+   │    Ab5, RN4, and the daemon argv reconstructor
+   │
+   ▼  Reconstruct child argv with Ab5  [line 511195]
+   │  Pulls out the first positional that isn't "$"
+   │  Returns the "what to run" for the daemon
+   │
+   ▼  Spawn detached child via xP8  [line 511336]
+   │  Resume args added back: ["--resume", D, "--fork-session"]
+   │  Effort, model, permission-mode propagated
+   │  Daemon now owns the session
+```
+
+### The `--bg` flag preservation pipeline
+
+`--bg` is non-trivial because the user's original argv contains flags that **must NOT propagate** to the spawned background session (e.g. `--resume`, since the bg session is a *new* session). Other flags **must propagate** (e.g. `--model`, since the user picked a specific model). The pipeline:
+
+| Function | Purpose | Line |
+|---|---|---|
+| `$b5(argv)` | Strip resume/session flags (kills "continue this session" semantics) | 511141 |
+| `qb5(argv)` | Strip session-id only, preserve `--` passthrough | 511162 |
+| `Kb5(argv)` | Validate bypassPermissions and auto-mode are allowed | 511179 |
+| `Ab5(argv, $)` | Find positional that isn't `$` (the prompt text) | 511195 |
+| `RN4(argv)` | Filter argv to known-flags + their values | 511207 |
+| `Pg6` | The set of flags-that-take-a-value (drives the above) | 511283 |
+| `xP8(...)` | Spawn the daemon child with the cleaned argv | 511336 |
+
+The data flow is essentially: **take the user's argv, strip the session-continuation flags, keep the model/permission/effort flags, append `--resume <new-id> --fork-session`, hand to daemon**. The complexity arises because flags can have values in different forms (`--foo=bar`, `--foo bar`) and the parser has to handle both.
+
+`Pg6` is the **single source of truth** for "this flag takes a value." Every parser (`Ab5`, `RN4`, the spawner) consults it. The set includes `--model`, `-m`, `--permission-mode`, `--agent`, `--routine`, `--effort`, `--add-dir`, `--mcp-config`, etc. — 35+ flags as of v2.1.142.
+
+### Key insight
+
+**The "promotion" of `claude agents` is the inverse of the other three.** Ultraplan, ultrareview, and fast mode promoted by adjusting gates around stable code. Agents-dashboard promoted by **replacing the entire approach** — ant's web/server experience died, a local daemon+dashboard was built from scratch, and the rename from `agents-platform` to `agents` reflects that this is a new product wearing the old name. The opt-out gate, daemon-install prompt, and `Pg6` flag-preservation table are not just polish — they're the load-bearing infrastructure that lets terminal-bound users get the same "fleet of agents" experience that ant employees had via the web.
+
+### Trade-offs analysis
+
+| Decision | Cost | Benefit |
+|---|---|---|
+| Rewrite as local daemon + dashboard (vs. port the web UI) | Massive engineering effort; new daemon protocol to maintain | Works offline; integrates with local terminal; survives without Anthropic infra |
+| Opt-OUT (default ON) | Users in locked-down environments may be surprised by daemon spawning | 99% of users get value immediately; admins can disable with one knob |
+| Single `disableAgentView` disables FOUR surfaces | Admins who only want to disable `--bg` can't keep `/agents` (the slash config) | Simple admin mental model; no edge cases about partial disable |
+| Rename `agents-platform` → `agents` | Collision with existing `/agents` slash command (config manager) | Cleaner external name; "platform" connoted multi-tenant infra users didn't have |
+| Daemon-install prompt with 4-way answer | More UX surface; "never" can lock users out of persistent sessions | Each user makes an informed choice once; "never" sticks via config |
+| `Pg6` central known-flag set | All parsers must stay in sync with this set | Adding a new flag = one Set update; eliminates flag-parsing drift |
+| `--bg` strips resume flags via `$b5` | Can't `--bg` continue an existing session (creates new one) | Sessions launched via `--bg` are clean — no ambiguity about which session they belong to |
+| Pre-bootstrap routing in `Go6` | Argument parsing has to be done before regular bootstrap | Dashboard mount is fast; no React init overhead if user just wanted `--help` |
+| "Research Preview" label (docs only) | Users may not realize the surface can change | Lets Anthropic iterate on daemon protocol without breaking-change angst |
+| `EQ4` is one giant React component | Hard to test in isolation; thousands of lines of useState/useEffect | All fleet state in one place; transitions are easy to reason about |
