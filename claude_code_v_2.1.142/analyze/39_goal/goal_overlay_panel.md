@@ -18,12 +18,12 @@ The overlay panel ticks once per second to update the elapsed time while active.
 
 ### 1. The dialog component
 
-The dialog logic lives at `cli_inner_pretty.js:507607` (the component rendered via `Xk4`):
+The dialog logic lives at `cli_inner_pretty.js:507612` as function `Xk4` (the default export of the lazily-loaded interactive module, surfaced through `WE4.default` as `Hx5` at line 514106):
 
 ```javascript
 // ============================================
 // GoalOverlayPanel - the /goal dialog
-// Location: cli_inner_pretty.js:507607-507741
+// Location: cli_inner_pretty.js:507612-507742
 // ============================================
 
 // The component:
@@ -113,12 +113,12 @@ if (activeGoal) {
 //   vR$  -> ICON_PULSE ("◎" U+25CE)
 ```
 
-### 2. The achieved-goal layout (line 507676-507728)
+### 2. The achieved-goal layout (line 507676-507729)
 
 ```javascript
 // ============================================
 // GoalOverlayPanel - achieved-goal layout
-// Location: cli_inner_pretty.js:507676-507728
+// Location: cli_inner_pretty.js:507676-507729
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -294,9 +294,11 @@ Used for `Goal: <condition>` and `Last check: <reason>` rows.
 
 ### 5. The status-bar badge
 
+The badge is the React component `Xx4` at `cli_inner_pretty.js:544426`. It uses `dg5` (the `setAt` selector) to read `appState.activeGoal?.setAt`, ticks a once-per-second/minute timer that calls `Qg5` (just `H + 1`), and on every animation frame advances a separate counter via `gg5` (`(H + 1) % V28`). The snippet below is the tail of the function (where the actual text/colour is built):
+
 ```javascript
 // ============================================
-// GoalActiveBadge - "◎ /goal active" in the main status bar
+// GoalActiveBadge tail - "◎ /goal active" rendering
 // Location: cli_inner_pretty.js:544479-544501
 // ============================================
 

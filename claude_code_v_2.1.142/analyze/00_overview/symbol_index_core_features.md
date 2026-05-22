@@ -118,23 +118,93 @@ Known new themes:
 
 ## Module: /goal Command
 
-The session-scoped Stop-hook-as-loop. Live elapsed/turns/tokens overlay (`active_goal` event type).
+The session-scoped Stop-hook-as-loop. `/goal <condition>` installs a Stop hook with the condition as its `prompt`. After every assistant turn the Stop-hook chain evaluates the hook; if it `hook_success`-es without a block, the goal auto-clears and emits `tengu_goal_achieved`; if it `blockingError`s, iterations++ and the model continues. Live elapsed/turns/tokens overlay panel (`Xk4`) plus a `◎ /goal active` status-bar badge (`Xx4`).
 
-*(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
+Detailed source-of-truth list is in [`symbol_additions_v2_1_142_skills_goal.md`](symbol_additions_v2_1_142_skills_goal.md) section "Module: /goal command".
 
-Known new symbols (preliminary):
+### Goal command surface
 
-- `Xk4` — goal-active overlay React component (cli_unpack_pretty/decls/functions/Xk4.js)
-- `Xx4` — goal-command helper (cli_unpack_pretty/decls/functions/Xx4.js)
-- `T6A` — `/goal` slash command definition (decl with `name: "goal"`)
-- `ov5` — `"/goal is only available in trusted workspaces..."` error string
-- (related) `"active_goal"` event-type discriminator string
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `BR5` | `goalCommand` (interactive `local-jsx` variant) | cli_inner_pretty.js:507850-507857 | object |
+| `pR5` | `goalNonInteractive` (non-interactive `local` variant, opts into Remote Control) | cli_inner_pretty.js:507858-507869 | object |
+| `UR5` | `goalDefaultExport` (= `BR5`) | cli_inner_pretty.js:507870 | object |
+| `uR5` | `interactiveGoalCall` (the `BR5.call` body) | cli_inner_pretty.js:507789-507806 | function |
+| `mR5` | `goalNonInteractiveCall` (the `pR5.call` body) | cli_inner_pretty.js:507815-507839 | function |
+| `Hx5` | `goalDefaultRef` (re-exported alias for `BR5`) | cli_inner_pretty.js:514106 | reference |
+| `Ng6` | `goalNonInteractiveRef` (re-exported alias for `pR5`) | cli_inner_pretty.js:514107 | reference |
 
-Known new themes:
+### Goal core (xaH module)
 
-- v2.1.139 introduction (`/goal <condition>`, interactive/`-p`/Remote Control coverage)
-- v2.1.140: clear error when `disableAllHooks`/`allowManagedHooksOnly` is set
-- Overlay shows elapsed/turns/tokens
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `CaH` | `registerGoal` (installs the Stop hook + records `activeGoal`) | cli_inner_pretty.js:486719-486732 | function |
+| `baH` | `clearGoal` (removes the Stop hook + clears `activeGoal`) | cli_inner_pretty.js:486734-486745 | function |
+| `Xp6` | `goalGateCheck` (hooks-disabled / trust-workspace precondition) | cli_inner_pretty.js:486714-486718 | function |
+| `gX8` | `getStopHookPrompts` (reads active Stop hooks with empty matcher) | cli_inner_pretty.js:486706-486713 | function |
+| `oP4` | `getLastGoalAttachment` (walks messages newest-first for last achieved goal_status) | cli_inner_pretty.js:486693-486702 | function |
+| `aP4` | `formatHookReason` (= `` `Last check: ${...}` ``) | cli_inner_pretty.js:486703-486705 | function |
+| `sP4` | `goalStatusAttachment` (factory; sentinel attachments for register/clear) | cli_inner_pretty.js:486747-486753 | function |
+| `UX8` | `isClearKeyword` (lower-cases and tests `rv5`) | cli_inner_pretty.js:486690-486692 | function |
+| `FX8` | `STOP_HOOK_GOAL_PROMPT` (priming meta-message factory) | cli_inner_pretty.js:486758-486759 | function |
+| `ov5` | `GOAL_TRUST_GATE_MSG` (`"/goal is only available in trusted workspaces..."`) | cli_inner_pretty.js:486760 | constant |
+| `av5` | `GOAL_HOOKS_GATE_MSG` (`"/goal can't run while hooks are disabled..."`) | cli_inner_pretty.js:486761-486762 | constant |
+| `rv5` | `GOAL_CLEAR_KEYWORDS` (`Set(["clear","stop","off","reset","none","cancel"])`) | cli_inner_pretty.js:486771 | constant |
+| `RaH` | `MAX_GOAL_CONDITION_CHARS` (= `4000`) | cli_inner_pretty.js:486756 | constant |
+
+### Goal precondition predicates
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `km` | `isAllHooksDisabled` (reads `policySettings.disableAllHooks`) | cli_inner_pretty.js:240936-240938 | function |
+| `rw` | `isAllowManagedHooksOnly` (reads policy OR user-tier `disableAllHooks`) | cli_inner_pretty.js:240930-240935 | function |
+| `T6` | `isTrustedWorkspace` (workspace trust check) | (settings module) | function |
+| `_5` | `isTrustImplicitlyAccepted` (sandbox/projects-map bypass) | cli_inner_pretty.js:140015-140017 | function |
+| `I6` | `isRemoteWorkspace` (= `caps.workspace === "remote"`) | cli_inner_pretty.js:3104-3106 | function |
+
+### Goal resume (Kn6 module)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Cr5` | `restoreGoalFromTranscript` (gated re-register at `--resume` time) | cli_inner_pretty.js:564153-564164 | function |
+| `Eg4` | `findGoalToRestore` (walks messages newest-first for unmet goal_status) | cli_inner_pretty.js:564144-564152 | function |
+
+### Goal UI (overlay + badge)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Xk4` | `GoalOverlayPanel` (active/achieved/none three-flavour dialog) | cli_inner_pretty.js:507612-507742 | function (React) |
+| `UF6` | `LabeledField` (the "Label: value" row used by the dialog) | cli_inner_pretty.js:507749-507768 | function (React) |
+| `xR5` | `activeGoalSelector` (= `H.activeGoal`) | cli_inner_pretty.js:507746-507748 | function |
+| `bR5` | `incrementHelper` (= `H + 1`; force-refresh helper for the dialog) | cli_inner_pretty.js:507743-507745 | function |
+| `Xx4` | `GoalActiveBadge` (status-bar `◎ /goal active` React component) | cli_inner_pretty.js:544426-544501 | function (React) |
+| `dg5` | `setAtSelector` (= `H.activeGoal?.setAt`; gate the badge's re-render) | cli_inner_pretty.js:544508-544510 | function |
+| `Ug5` | `BADGE_PULSE_PERIOD_MS` (= `4000`) | cli_inner_pretty.js:544514 | constant |
+| `Fg5` | `BADGE_DOT_INTERVAL_FRAC` (= `0.18`) | cli_inner_pretty.js:544515 | constant |
+| `V28` | `BADGE_DOTS` (= `20`) | cli_inner_pretty.js:544513 | constant |
+
+### Goal Stop-hook resolution loop (inline block in main chain)
+
+| Location | Behaviour |
+|----------|-----------|
+| cli_inner_pretty.js:391744-391769 | Stop-hook `hook_success` -> matches `activeGoal.condition` to `hook.prompt` -> remove hook, yield `active_goal`-undefined, yield `goal_status` met=true with stats, emit `tengu_goal_achieved` |
+| cli_inner_pretty.js:391778-391786 | Stop-hook `blockingError` matching activeGoal -> yield `active_goal` with iterations++ + lastReason, yield `goal_status` met=false |
+
+### Goal telemetry events
+
+| Event | Where |
+|-------|-------|
+| `tengu_stop_hook_added` (`via: "goal"`) | cli_inner_pretty.js:486729 |
+| `tengu_stop_hook_removed` (`via: "goal"`) | cli_inner_pretty.js:486743 |
+| `tengu_goal_achieved` | cli_inner_pretty.js:391761 |
+| `tengu_goal_restored_on_resume` | cli_inner_pretty.js:564163 |
+| `goal_set` failure metric (`code`: `hooks_gate` / `trust_gate` / `too_long`) | cli_inner_pretty.js:486721, 486756 callers |
+
+Known themes:
+
+- v2.1.139 introduction (`/goal <condition>`, interactive `local-jsx` + `-p`/SDK/Remote Control `local`)
+- v2.1.140: pre-gate `goalGateCheck` for `disableAllHooks`/`allowManagedHooksOnly`/trust, mirrored in resume path
+- Overlay shows elapsed/turns/tokens with 1-second tick; status-bar pulse over 4-second 20-step palette
 
 ---
 

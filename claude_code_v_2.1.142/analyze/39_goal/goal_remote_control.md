@@ -75,7 +75,7 @@ const init = lazyModule(() => {
     thinClientDispatch: "post-text",
     description: "Set a goal — keep working until the condition is met",
     get isHidden() { return !isTrustedWorkspace(); },
-    isEnabled: () => isTrustedWorkspace() || isHeadlessMode(),
+    isEnabled: () => isTrustedWorkspace() || isRemoteWorkspace(),
     load: () => Promise.resolve().then(() => (initNonInteractive(), nonInteractiveExports)),
   };
   goalDefaultExport = goalCommand;
@@ -84,7 +84,7 @@ const init = lazyModule(() => {
 // Mapping:
 //   BR5 -> goalCommand,                  pR5 -> goalNonInteractive,
 //   UR5 -> goalDefaultExport,            Vk4 -> exports,
-//   T6  -> isTrustedWorkspace,           I6  -> isHeadlessMode,
+//   T6  -> isTrustedWorkspace,           I6  -> isRemoteWorkspace,
 //   J$  -> exportNamed
 ```
 
@@ -170,9 +170,9 @@ isEnabled: () => T6() || I6(),
 ```
 
 - `isHidden: true` (when not trusted workspace) -> hide from `/`-autocomplete
-- `isEnabled: false` (when neither trusted nor headless) -> reject invocation entirely
+- `isEnabled: false` (when neither trusted nor remote-workspace) -> reject invocation entirely
 
-The remote client therefore won't see `/goal` in its slash-command list for untrusted workspaces, and even if a remote user manually types the command, the dispatch will fail with the same trust-gate message ([goal_hooks_interaction.md](./goal_hooks_interaction.md)).
+`I6` is the **remote-workspace** check (`U$.caps.workspace === "remote"` at `cli_inner_pretty.js:3104`). When the CLI was launched in a Remote Control bridge context, the trusted-workspace check is loosened because the remote workspace contract supersedes the local trust-dialog requirement. The remote client therefore won't see `/goal` in its slash-command list for untrusted workspaces, and even if a remote user manually types the command, the dispatch will fail with the same trust-gate message via `Xp6`/`goalGateCheck` ([goal_hooks_interaction.md](./goal_hooks_interaction.md)).
 
 ### 6. Status sync to remote
 

@@ -282,14 +282,27 @@ Known new themes for this window:
 
 ## Module: Slash Commands
 
-Slash command parser, command registry, /<command> typo suggestions, slash-cmd autocomplete, plugin commands, command/skill resolution.
+Slash command parser, command registry, /<command> typo suggestions, slash-cmd autocomplete, plugin commands, command/skill resolution, Remote Control thin-client dispatch.
 
 *(New symbols pending unit work — see symbol_additions_v2_1_142_*.md files when present.)*
 
-Known new symbols (preliminary):
+### Thin-client (Remote Control) dispatch
 
-- `T6A` — `/goal` slash command definition
-- `ov5` — `/goal` trusted-workspaces error string
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Yx5` | `getCommandRequirements` (returns `{ workspace, ink }` per command type) | cli_inner_pretty.js:513884-513894 | function |
+| `fx5` | `isThinClientDispatchable` (`!workspace` OR `thinClientDispatch !== undefined`) | cli_inner_pretty.js:513895-513897 | function |
+| `NE4` | `getRemoteControlSlashCommandList` (filters via `fx5`) | cli_inner_pretty.js:513898-513900 | function |
+| (string) | `"post-text"` dispatch mode (command result is text/query; thin client posts back) | cli_inner_pretty.js:507862 (used by `/goal`) | enum |
+| (string) | `"control-request"` dispatch mode (command result is a control signal e.g. `/exit`, `/clear`) | cli_inner_pretty.js:428542, 430469, 431907 | enum |
+
+### /goal slash command handler (full /goal symbol set lives in `symbol_index_core_features.md` Module: /goal Command)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `BR5` | `goalCommand` (the `local-jsx` registry entry with `name: "goal"`) | cli_inner_pretty.js:507850-507857 | object |
+| `pR5` | `goalNonInteractive` (the `local` registry entry with `thinClientDispatch: "post-text"`) | cli_inner_pretty.js:507858-507869 | object |
+| `ov5` | `GOAL_TRUST_GATE_MSG` | cli_inner_pretty.js:486760 | constant |
 
 Known new slash commands for this window:
 

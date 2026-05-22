@@ -190,8 +190,8 @@ Rule formats accepted:
 | `Gk4` | `nonInteractiveGoalModule` | cli_inner_pretty.js:507813-507843 | module |
 | `Vk4` | `goalCommandExports` | cli_inner_pretty.js:507845-507871 | module |
 | `Ng6` | `goalNonInteractive` (alias reference for non-interactive registration) | cli_inner_pretty.js:514107 | reference |
-| `Hx5` | `goalDefault` (= `BR5`; the default export) | cli_inner_pretty.js:514106 | reference |
-| `WE4` | `goalCommandModuleRef` | cli_inner_pretty.js:514105 | module reference |
+| `Hx5` | `goalDefaultRef` (= `WE4.default` = `BR5`; resolves to `goalCommand`) | cli_inner_pretty.js:514106 | reference |
+| `WE4` | `goalCommandModuleRef` (= `s6(Vk4)`; the lazy-loaded module record) | cli_inner_pretty.js:514105 | module reference |
 
 ### Goal core (xaH module)
 
@@ -223,7 +223,7 @@ Rule formats accepted:
 | `_5` | `isTrustBypassContext` | (settings module) | function |
 | `Oq` | `mergedSettings` (resolves the merged user/project/local/policy setting state) | (settings module) | function |
 | `v8` | `getSettings` (per-tier getter) | (settings module) | function |
-| `I6` | `isHeadlessMode` | (mode module) | function |
+| `I6` | `isRemoteWorkspace` (= `U$.caps.workspace === "remote"`; bridge-context bypass for trust gate) | cli_inner_pretty.js:3104-3106 | function |
 
 ### Goal resume
 
@@ -241,7 +241,7 @@ Rule formats accepted:
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `Lk4` | `goalOverlayPanelModule` | cli_inner_pretty.js:507771-507785 | module |
-| `Xk4` | `GoalOverlayPanel` (rendered for /goal dialog) | (referenced) | function |
+| `Xk4` | `GoalOverlayPanel` (active/achieved/none three-flavour dialog) | cli_inner_pretty.js:507612-507742 | function (React) |
 | `UF6` | `LabeledField` (the "Label: value" row) | cli_inner_pretty.js:507749-507768 | function (React) |
 | `xR5` | `activeGoalSelector` | cli_inner_pretty.js:507746-507748 | function |
 | `bR5` | `incrementHelper` (= `H + 1`) | cli_inner_pretty.js:507743-507745 | function |
@@ -252,7 +252,7 @@ Rule formats accepted:
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| (handler) | the badge component at the status bar | cli_inner_pretty.js:544479-544501 | function (React component) |
+| `Xx4` | `GoalActiveBadge` (the status-bar React component) | cli_inner_pretty.js:544426-544501 | function (React component) |
 | `gg5` | `tickHelperModulo` (= `(H + 1) % V28`) | cli_inner_pretty.js:544502-544504 | function |
 | `Qg5` | `tickHelperIncr` (= `H + 1`) | cli_inner_pretty.js:544505-544507 | function |
 | `dg5` | `setAtSelector` (= `H.activeGoal?.setAt`) | cli_inner_pretty.js:544508-544510 | function |
