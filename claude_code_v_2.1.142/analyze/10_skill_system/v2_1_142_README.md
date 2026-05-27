@@ -85,6 +85,11 @@ Key new symbols (v2.1.113 -> v2.1.142):
 | [skill_wildcard.md](./skill_wildcard.md) | v2.1.121/v2.1.139 `Skill(name *)` permission wildcard - prefix match (cross-link to 37_permission_policy) |
 | [regex_safe_args.md](./regex_safe_args.md) | v2.1.139 fix: argument names with regex metacharacters now escape via `Vx` |
 | [skill_overrides.md](./skill_overrides.md) | v2.1.129 `skillOverrides` setting (`off` / `user-invocable-only` / `name-only`) |
+| [skill_frontmatter.md](./skill_frontmatter.md) | **Skill definition** — YAML frontmatter schema, per-field runtime behavior (parser + consumer + edge cases for every field), the Skill tool's 4-gate runtime chain, author × operator precedence, and the `name-only` clarification |
+| [skill_substitutions.md](./skill_substitutions.md) | The **5-pass body render pipeline**: arg substitution (`$ARGUMENTS`, `$N`, `$name`), `${CLAUDE_SKILL_DIR}` / `${CLAUDE_SESSION_ID}` / `${CLAUDE_EFFORT}`, `!`-fence executor (`gHH`), `disableSkillShellExecution` rewriter (`_M8`) |
+| [skill_lifecycle.md](./skill_lifecycle.md) | Discovery (6 sources, walk-up + nested + `--add-dir` exception), conditional-paths activation (`snH` + `paths:` globs), chokidar live-change watcher, render-once-inject semantics, **compaction carry-forward** (5000-per-skill / 25000-combined token budget) |
+| [skill_listing_budget.md](./skill_listing_budget.md) | **Per-turn listing budget**: `l88` allocator's three modes (`fits` / `priority` / `truncate-or-names-only`), 1% context default, 1536-char per-skill cap, `SLASH_COMMAND_TOOL_CHAR_BUDGET` env override, bundled-skill protection, `/doctor` reporting |
+| [skills_dialog_ui.md](./skills_dialog_ui.md) | v2.1.88 → v2.1.142 `/skills` UI evolution: read-only viewer → interactive editor with Space/Enter/`/`/`t`/`Esc`, diff-against-baseline save to `.claude/settings.local.json`, lock visual, sort toggle |
 | [claude_effort_var.md](./claude_effort_var.md) | v2.1.120 `${CLAUDE_EFFORT}` placeholder in skill content + hook/Bash env var |
 | [filter_search.md](./filter_search.md) | v2.1.121 type-to-filter search box in the `/skills` dialog |
 | [plugin_skills_inheritance.md](./plugin_skills_inheritance.md) | v2.1.142 `skills: ["./"]` valid; v2.1.136 `plugin.json skills` shadowing default `skills/` warning + file-path error |

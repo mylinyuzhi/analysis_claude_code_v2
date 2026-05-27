@@ -10,12 +10,14 @@ Before v2.1.129 the only way to hide a skill from the model was to set `disable-
 
 v2.1.129 adds the `skillOverrides` setting - a map from skill name to override state - resolved across the four settings tiers (`policySettings`, `flagSettings`, `projectSettings`, `userSettings`, plus the local layer for the `/skills` dialog's writes). Each entry can take one of four values:
 
-| State | Meaning |
-|-------|---------|
-| `"on"` | Default - skill is listed for the model and `/`-typeable |
-| `"name-only"` | Skill name appears in the listing but with its description collapsed - the model sees less context but can still invoke via the Skill tool |
-| `"user-invocable-only"` | Skill is hidden from the model entirely; user can still type `/<name>` to invoke it directly |
-| `"off"` | Skill is hidden from both the model and the `/` autocomplete |
+| State | Listing to model | Listing in `/` autocomplete | Model can call via Skill tool? | Meaning |
+|-------|------------------|-----------------------------|--------------------------------|---------|
+| `"on"` | Full (`- name: description`) | Yes | ✅ Yes | Default |
+| `"name-only"` | Name only (`- name`) | Yes | ✅ **Yes — no user-trigger required** | Trade description tokens for context budget; model can still recognize the skill by name and invoke it |
+| `"user-invocable-only"` | Hidden | Yes | Only if user typed `/<name>` this turn | Disable automatic model invocation; manual `/` still works |
+| `"off"` | Hidden | Hidden | ❌ No | Full disable |
+
+> **`name-only` does NOT require a user trigger.** This is the most subtle state — see [skill_frontmatter.md#the-name-only-clarification-important](./skill_frontmatter.md) for the corrected truth table and the runtime gate chain that shows `name-only` is **absent** from the disjunction in `VE4`.
 
 The override is a per-tier setting key just like every other setting - admins can lock it via `policySettings`, the user dialog writes to `localSettings`, and the resolution layer picks the highest-precedence non-empty value.
 
@@ -263,19 +265,32 @@ const { error } = mergeIntoSettings("localSettings", { skillOverrides: changedOv
 
 **Why the `user-invocable-only` + mid-message bypass?** This pattern lets the user disable a skill for **automatic** model invocation (so it doesn't fire unexpectedly when the model thinks it should) while keeping it available for **manual** activation. The bypass mirrors the v2.1.110 `disable-model-invocation` bypass and reuses the same `Am7`/`isUserTypedSlashCommandInTurn` detector for consistency.
 
-**Key insight:** The four-state ladder maps directly to two binary axes:
+**Key insight:** The four-state ladder maps directly to two binary axes — what the model sees in the **listing**, and what gates apply at **runtime**:
 
-|              | Listed to model | Hidden from model |
-|--------------|-----------------|--------------------|
-| Listed to /  | `on`            | `user-invocable-only` |
-| Hidden from /| `name-only` (description only)* | `off` |
+|                       | Listed to model | Hidden from model |
+|-----------------------|-----------------|--------------------|
+| Listed in `/`         | `on` (full) / `name-only` (name only) | `user-invocable-only` |
+| Hidden from `/`       | (no state — would be inconsistent)    | `off` |
 
-\* `name-only` is actually "listed to model with a stub description and visible in /." It is not a full hide-from-anywhere state. The `off` state is the only one that hides from `/` autocomplete entirely (via `iP8`).
+**Important correction:** `name-only` is **not** a runtime restriction — it is a **listing collapse**. The model can still invoke a `name-only` skill via the Skill tool without any user trigger. The only place `name-only` is consumed is the listing builder `rM6` at `cli_inner_pretty.js:232389-232392`, which writes `- name` instead of `- name: description` for that one line. Compare with the gate `VE4` at `cli_inner_pretty.js:513851`:
+
+```javascript
+function VE4(H) {
+  let $ = st(H);
+  return $ === "user-invocable-only" || $ === "off";   // name-only is NOT here
+}
+```
+
+`name-only` is the right answer when: a skill name is self-explanatory, its description is long, and you trust the model to recognize the skill by name. The model retains the option to invoke; the description just stops eating context budget.
+
+The `off` state is the only one that hides from `/` autocomplete entirely (via `iP8`).
 
 ---
 
 ## Cross-references
 
+- [skill_frontmatter.md](./skill_frontmatter.md) - the **skill definition** (YAML frontmatter schema), the four-gate runtime chain, the author × operator interaction table, and the `name-only` clarification.
+- [skills_dialog_ui.md](./skills_dialog_ui.md) - the editor's full keystroke map, the diff-against-baseline save algorithm (`C` @476991), the persistence path (`.claude/settings.local.json`), the lock visual (`🔒`), the sort toggle, and the v2.1.88 read-only → v2.1.142 interactive evolution.
 - `Am7` / `isUserTypedSlashCommandInTurn` at `cli_inner_pretty.js:353362` - the mid-message detector shared with v2.1.110 `disable-model-invocation` bypass
 - `formatCommandsWithinBudget` (v2.1.105 listing cap) - the `name-only` state collapses descriptions inside this function
 - `/plugin` enable/disable - the upstream gate for plugin-sourced skills

@@ -773,12 +773,96 @@ Skill registry, frontmatter parsing, `${CLAUDE_EFFORT}` interpolation, model-inv
 | `WTH` | `resolvePluginPathRelative` | cli_inner_pretty.js:229990-229995 | function |
 | `Yn` | `INLINE_MARKETPLACE_SENTINEL` (= `"inline"`) | cli_inner_pretty.js:218311 | constant |
 
+### Skill Definition (Frontmatter Schema + Parser)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Am7` | `isUserTypedSlashCommandInTurn` (the mid-message bypass detector shared by gates 2 and 4) | cli_inner_pretty.js:353362 | function |
+| `Bq5` | `deriveCommandNameFromPath` (`<root>/.claude/skills/<sub>/<dir>/SKILL.md` → `<prefix>:<sub>:<dir>`) | cli_inner_pretty.js:398863-398878 | function |
+| `di$` | `parseShellChoice` (frontmatter `shell:` → `"bash"` \| `"powershell"`) | cli_inner_pretty.js:406190 (referenced) | function |
+| `HI6` | `parseSkillFrontmatterFields` (top-level parser building the normalized Skill record from YAML) | cli_inner_pretty.js:406160-406194 | function |
+| `iH8` | `parseArgumentNames` (split named-args list, space-separated or YAML list) | cli_inner_pretty.js:406180 (referenced) | function |
+| `k5_` | `formatSkillFull` (`"- name: description"` line builder for the skill listing) | cli_inner_pretty.js:232379-232383 | function |
+| `lM6` | `combineDescriptionAndWhenToUse` (joins `description + " - " + whenToUse` for listing) | cli_inner_pretty.js:232276-232278 | function |
+| `MBH` | `parseBoolean` (frontmatter boolean coercion: `true`/`"true"`/`1` → `true`) | cli_inner_pretty.js (used at 398954, 406184) | function |
+| `os1` | `COMMON_FRONTMATTER` (zod schema shared between skills and slash commands) | cli_inner_pretty.js:198647-198676 | function |
+| `rA6` | `SKILL_FRONTMATTER` (extends `os1` with skill-specific fields: `when_to_use`, `paths`, `hooks`, `context`, `agent`, `fallback`, @internal) | cli_inner_pretty.js:198678-198716 | function |
+| `rt` | `parseAllowedTools` (frontmatter `allowed-tools:` → string array) | cli_inner_pretty.js:406178 (referenced) | function |
+| `W45` | `parseSkillHooks` (zod-validates `hooks:` against `MR()` settings.json schema) | cli_inner_pretty.js:406141-406148 | function |
+| `WZH` | `parseFallbackBool` (frontmatter `fallback:` boolean parser) | cli_inner_pretty.js:406193 (referenced) | function |
+| `yE` | `descriptionOrFirstParagraph` (fallback to first markdown paragraph when `description:` absent) | cli_inner_pretty.js:406161 (referenced) | function |
+| `Z45` | `parseConditionalPaths` (frontmatter `paths:` → normalised glob list; strips `/**` suffix, drops empty/`**`-only) | cli_inner_pretty.js:406150-406158 | function |
+| `$I6` | `formatCommand` (builds the Skill record with `getPromptForCommand` render callback) | cli_inner_pretty.js:406196-406299 | function |
+| `n7` | `resolveModelString` (parses `model:` field; `"inherit"` → `undefined`) | cli_inner_pretty.js:406168 (referenced) | function |
+| `DC` | `validateEffortString` (parses `effort:` against `sF` enum) | cli_inner_pretty.js:406171 (referenced) | function |
+
+### Skill Body Substitution & Shell Expansion
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_M8` | `replaceShellFencesWithPlaceholder` (the `disableSkillShellExecution` rewriter) | cli_inner_pretty.js:398844-398851 | function |
+| `gHH` | `expandShellFences` (the `!`-fence executor; runs Bash/PowerShell, inlines stdout) | cli_inner_pretty.js:406026-406061 | function |
+| `gs7` | `SHELL_DISABLED_PLACEHOLDER` (`"[shell command execution disabled by policy]"`) | cli_inner_pretty.js:398854 | constant |
+| `j45` / `J45` | `SHELL_FENCE_REGEX_FENCED` / `SHELL_FENCE_REGEX_INLINE` (`/```!.../g` and `/(?<=^\|\s)!`...`/gm`) | cli_inner_pretty.js:406107-406108 | constant |
+| `KM8` | `shellExecutionIsDisabled` (checks policy/setting/env for the disable flag) | cli_inner_pretty.js:398840-398842 | function |
+| `L45` | `loadedFromIsShellable` (returns true for `skills`/`commands_DEPRECATED`/`plugin` from non-policy sources) | cli_inner_pretty.js:406110-406113 | function |
+| `Oq` | `getMergedSettings` (effective merged settings for `disableSkillShellExecution` check) | cli_inner_pretty.js | function |
+| `rH8` | `escapeBangsInArgValue` (escapes `!`-fence triggers in user-supplied arg values to prevent injection) | cli_inner_pretty.js:217510-217514 | function |
+| `uFH` | `substituteArgsInPrompt` (named args + indexed args + `$ARGUMENTS` + append-if-missing) | cli_inner_pretty.js:217479-217509 | function |
+| `uq5` / `mq5` | `SHELL_FENCE_REGEX_FENCED_NOCAPTURE` / `SHELL_FENCE_REGEX_INLINE_NOCAPTURE` (used by `_M8`) | cli_inner_pretty.js:398858 | constant |
+| `Vx` | `escapeRegex` (escapes regex metacharacters in arg names; v2.1.139 fix) | cli_inner_pretty.js:9491 | function |
+| `z36` | `shellQuoteAwareSplit` (splits `$ARGUMENTS` into `argv` honoring quoted phrases) | cli_inner_pretty.js (referenced by `uFH`) | function |
+| `v$` | `getCurrentSessionId` (returns the current session UUID for `${CLAUDE_SESSION_ID}` substitution) | cli_inner_pretty.js (referenced at 406268) | function |
+
+### Skill Lifecycle (Discovery, Watching, Compaction)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AG4` | `BUNDLED_SKILLS_ARRAY` (mutable array of bundled skill records, populated at module init) | cli_inner_pretty.js:494319, 494324 | variable |
+| `bn5` | `getSkillFingerprint` (hash over `name\x00description\x00whenToUse` joined) | cli_inner_pretty.js:557919-557922 | function |
+| `c45` | `truncateSkillForCompaction` (slices skill content to N tokens and appends truncation suffix) | cli_inner_pretty.js:408191-408195 | function |
+| `dHH` | `fullSkillReload` (invalidates everything incl. conditional skills, then re-loads) | cli_inner_pretty.js (referenced at 557992, 513827) | function |
+| `ee7` | `COMPACTION_TRUNCATION_SUFFIX` (`"\n\n[... skill content truncated for compaction; use Read on the skill path if you need the full text]"`) | cli_inner_pretty.js:408221-408223 | constant |
+| `F45` | `COMPACTION_COMBINED_SKILL_TOKEN_BUDGET` (= 25000) | cli_inner_pretty.js:408211 | constant |
+| `hX` | `skillRegistry` (in-memory skill state: `conditionalSkills`, `dynamicSkills`, `activatedConditionalSkillNames`, `dynamicSkillDirs`) | cli_inner_pretty.js:406440-406443, 406651 | object |
+| `iq8` | `buildInvokedSkillsBlock` (post-compaction skill carry-forward; sorts by `invokedAt` desc) | cli_inner_pretty.js:408125-408139 | function |
+| `MrH` | `announceSkillChange` (notifies the model loop that the skill list has changed) | cli_inner_pretty.js (referenced at 557996) | function |
+| `snH` | `activateConditionalSkillsForTouchedFiles` (promotes `paths:`-gated skills to active when file matches) | cli_inner_pretty.js:406510-406538 | function |
+| `U45` | `COMPACTION_PER_SKILL_TOKEN_CAP` (= 5000) | cli_inner_pretty.js:408210 | constant |
+| `un5` | `getWatchedSkillDirs` (resolves user+project `skills/` and `commands/` paths for chokidar) | cli_inner_pretty.js:558002-558025 | function |
+| `Uv8` | `collectInvokedSkillRecords` (gathers per-session skill invocation history for `iq8`) | cli_inner_pretty.js (referenced at 408126) | function |
+| `vE5` | `extractBundledSkillFiles` (writes bundled skill files to `<userDataDir>/bundled-skills/<name>/`) | cli_inner_pretty.js:494270-494280 | function |
+| `WP$` | `getSkillsTierPath` (tier name → `.claude/skills` or `.claude/commands` filesystem path) | cli_inner_pretty.js:406114-406127 | function |
+| `xe7` | `resetConditionalSkills` (clears `dynamicSkillDirs`, `dynamicSkills`, `conditionalSkills`, `activatedConditionalSkillNames`) | cli_inner_pretty.js:406543-406547 | function |
+| `xn5` | `setupSkillFileWatcher` (chokidar wrapper with debounced fingerprint-checked reload) | cli_inner_pretty.js:557923-558000 | function |
+| `zG4` | `getBundledSkills` (returns `[...AG4]` snapshot) | cli_inner_pretty.js:494264-494266 | function |
+
+### Skill Listing Budget (Per-Turn)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `cM6` | `getSkillListingBudgetFraction` (returns `m6().skillListingBudgetFraction ?? G5_`) | cli_inner_pretty.js:232267-232269 | function |
+| `e3$` | `getMaxSkillDescriptionChars` (returns `m6().skillListingMaxDescChars ?? V5_`) | cli_inner_pretty.js:232264-232266 | function |
+| `G5_` | `DEFAULT_LISTING_BUDGET_FRACTION` (= 0.01 = 1% of context) | cli_inner_pretty.js:232357 | constant |
+| `HO$` | `computeListingBudgetChars` (env > setting; `contextTokens × bytesPerToken × fraction`) | cli_inner_pretty.js:232270-232275 | function |
+| `iM6` | `truncateDescription` (slices combined description to per-skill cap with `…`) | cli_inner_pretty.js:232374-232378 | function |
+| `l88` | `computeSkillListingBudget` (the three-mode allocator: `fits`/`priority`/`truncate`/`names-only`) | cli_inner_pretty.js:232282-232356 | function |
+| `nM6` | `MIN_PER_SKILL_DESC_CHARS` (= 20; below this fall back to names-only) | cli_inner_pretty.js:232361 | constant |
+| `rM6` | `formatCommandsWithinBudget` (the renderer — consumes `name-only`, protects bundled, applies mode-specific truncation) | cli_inner_pretty.js:232385-232450 | function |
+| `T5_` | `DEFAULT_CONTEXT_FALLBACK` (= 200000; used when no model is set) | cli_inner_pretty.js:232359 | constant |
+| `v5_` | `isBundledSkill` (`type === "prompt" && source === "bundled"`; always protected from truncation) | cli_inner_pretty.js:232279-232281 | function |
+| `V5_` | `DEFAULT_MAX_SKILL_DESC_CHARS` (= 1536) | cli_inner_pretty.js:232360 | constant |
+| `w67` | `DEFAULT_BYTES_PER_TOKEN` (= 4) | cli_inner_pretty.js:232358 | constant |
+
 ### skillOverrides Setting (v2.1.129)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `aT5` | `resolveProjectSkillOverride` | cli_inner_pretty.js:476894-476896 | function |
+| `BJ4` | `SkillsDialogModule` (lazy-loaded ESM facade for `tT5`) | cli_inner_pretty.js:477216-477217 | object |
+| `eT5` / `UJ4` | `SKILLS_SLASH_COMMAND` (registers `/skills` as `local-jsx`, `immediate: true`) | cli_inner_pretty.js:477231-477240 | object |
 | `iP8` | `isSkillHiddenFromUser` | cli_inner_pretty.js:513855-513857 | function |
+| `O4H` | `invalidateSkillCaches` (clears `TE4`/`gZ`/`GTH` memos after `skillOverrides` write) | cli_inner_pretty.js:513823-513825 | function |
 | `kB6` | `SKILL_OVERRIDE_VALUES` (= `["on", "name-only", "user-invocable-only", "off"]`) | cli_inner_pretty.js:477208 | constant |
 | `oT5` | `resolveSkillOverrideLock` | cli_inner_pretty.js:476885-476893 | function |
 | `rT5` | `SKILL_OVERRIDE_STYLES` | cli_inner_pretty.js:477209-477214 | object |

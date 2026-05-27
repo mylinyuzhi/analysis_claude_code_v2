@@ -501,7 +501,9 @@ Permission rule schema, allow/deny rule matching, `auto`/`bypass`/`acceptEdits` 
 | `TMq` | `parseSettingSourcesFlag` | cli_inner_pretty.js | function |
 | `uI9` | `collectAllTiers` (also `collectPolicyTierList`) | cli_inner_pretty.js:52132-52137 | function |
 | `v8` | `getSettingsForTierCached` (cached read) | cli_inner_pretty.js | function |
+| `Vh` | `settingsRelativePath` (tier → relative path: `localSettings` → `.claude/settings.local.json`) | cli_inner_pretty.js:52029-52036 | function |
 | `Vm8` | `loadParentSettings` (also `getSettingsForTier`) | cli_inner_pretty.js:52149 | function |
+| `m6` | `mergedSettings` (merged-across-all-tiers effective view; the runtime read used by Skill tool's `skillOverrides` gate) | cli_inner_pretty.js:52341-52343 | function |
 | `Vv8` | `setEnabledSettingSources` | cli_inner_pretty.js | function |
 | `wDq` | `getEffectiveSettings` (also `resolvePolicySettings`) | cli_inner_pretty.js:52138-52148 | function |
 | `WPH` | `getAllPolicyTierSettings` | cli_inner_pretty.js:52338-52340 | function |
@@ -727,6 +729,9 @@ Permission rule schema, allow/deny rule matching, `auto`/`bypass`/`acceptEdits` 
 | `sandbox.network.deniedDomains` | cli_inner_pretty.js:48259-48263 | v2.1.113 |
 | `sandbox.socatPath` | cli_inner_pretty.js:48381-48388 | v2.1.133 |
 | `sandbox.tlsTerminate` | cli_inner_pretty.js:48298-48303 | top-level |
+| `disableSkillShellExecution` | cli_inner_pretty.js:50539 | top-level — when true, `!`-fences in user/project/local/plugin skills + custom commands are replaced with `[shell command execution disabled by policy]`. Bundled & MCP skills unaffected. Most useful in `policySettings`. |
+| `skillListingBudgetFraction` | cli_inner_pretty.js:50419-50426 | top-level — float (0,1]; default 0.01 = 1% of context. Fraction reserved for the model-facing skill listing. |
+| `skillListingMaxDescChars` | cli_inner_pretty.js:50411-50418 | top-level — positive int; default 1536. Per-skill cap for combined `description + " - " + when_to_use` in the listing. |
 | `skillOverrides` | top-level | v2.1.129 — `{ [skillName]: "on" \| "name-only" \| "user-invocable-only" \| "off" }` |
 | `skipAutoPermissionPrompt` | cli_inner_pretty.js:49982 | top-level |
 | `useAutoModeDuringPlan` | cli_inner_pretty.js (checked in `Rm8`) | top-level |
