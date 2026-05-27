@@ -64,6 +64,7 @@ release adds `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN` as a peer of
 | 2.1.141 | feat | `/feedback` includes recent sessions | [feedback_recent_sessions.md](./feedback_recent_sessions.md) |
 | 2.1.141 | fix  | AskUserQuestion popup hiding last line of preceding chat content (layout fix) | (covered in [slash_command_consistency.md](./slash_command_consistency.md)) |
 | 2.1.142 | feat | `/web-setup` warns before replacing an existing GitHub App connection | [web_setup_replace_warning.md](./web_setup_replace_warning.md) |
+| 2.1.142 | feat | `@` mention popup ranks agents above raw MCP resources (+0.15 penalty); MCP `uriTemplate` suggestions; CJK-aware `@` boundary | [at_mention_unified_suggestions.md](./at_mention_unified_suggestions.md) |
 
 The `/config` persistence (v2.1.119) is documented at
 [config_persist.md](./config_persist.md). It's a small change for the
@@ -190,3 +191,4 @@ Key components/objects in this module:
 13. [slash_command_consistency.md](./slash_command_consistency.md) — visual consistency + AskUserQuestion fix
 14. [multiline_input_ctrl_a_e.md](./multiline_input_ctrl_a_e.md) — Ctrl+A / Ctrl+E switched to logical-line motion (v2.1.113)
 15. [web_setup_replace_warning.md](./web_setup_replace_warning.md) — `/web-setup` pre-replace warning for existing GitHub App (v2.1.142)
+16. [at_mention_unified_suggestions.md](./at_mention_unified_suggestions.md) — `@` input popup unifies files + MCP + templates + agents; 0.15 penalty puts agents above raw MCP resources (v2.1.142)

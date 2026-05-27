@@ -140,6 +140,45 @@ React components, Ink rendering, fullscreen mode, alt-screen, autoscroll, focus 
 | `vR$` | `ICON_PULSE` (= `"◎"` U+25CE) | cli_inner_pretty.js:48414 | constant |
 | `xR5` | `activeGoalSelector` | cli_inner_pretty.js:507746-507748 | function |
 
+### Prompt Input `@` Mention Suggestions (v2.1.142)
+
+The unified file + MCP resource + MCP template + agent suggestion popup that pops under the `@`-trigger in the prompt input. See [02_ui/at_mention_unified_suggestions.md](../02_ui/at_mention_unified_suggestions.md).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$u4` | `createSuggestionFromSource` (id prefix `file-`/`mcp-resource-`/`mcp-template::`/`mcp-template-value::`/`agent-`, color attached for agents) | cli_inner_pretty.js:546033-546049 | function |
+| `B28` | `DM_NAME_AT_RE` (regex `(^|[\s。、？！])@([\w-]*)$` — CJK-aware leading boundary) | cli_inner_pretty.js:547045 | constant |
+| `F7H` | `getAgentColor` (palette lookup; `general-purpose` returns undefined) | cli_inner_pretty.js:231351-231356 | function |
+| `Ic6` | `formatReplacementValue` (adds `@` prefix, quotes for paths with spaces, trailing space when committed) | cli_inner_pretty.js:546227-546233 | function |
+| `K_H` | `getCompletionToken` (extracts `@…` token at cursor; CJK-aware boundary) | cli_inner_pretty.js:546267-546297 | function |
+| `Nc6` | `generateUnifiedSuggestions` (merge & rank files + MCP + templates + agents; 0.15 penalty on mcp_resource) | cli_inner_pretty.js:546070-546129 | function |
+| `P0$` | `MAX_UNIFIED_SUGGESTIONS` (= 15) | cli_inner_pretty.js:546189 | constant |
+| `QQ5` | `generateAgentSuggestions` (substring filter on `agentType`/`displayText`; `(agent)` suffix matches every short query that's a prefix of "agent") | cli_inner_pretty.js:546053-546069 | function |
+| `Ul1` | `getSuggestionIcon` (`+` file, `◇` mcp resource/template, `*` agent) | cli_inner_pretty.js:179731-179737 | function |
+| `_oH` | `generateFileSuggestions` (nucleo Rust fuzzy via `fileIndex`; remote RPC `cf5` when `I6()`) | cli_inner_pretty.js:430192-430229 | function |
+| `fu4` | `usePromptInputTypeahead` (the typeahead hook; orchestrates the three `@` branches) | cli_inner_pretty.js:546309-546993 | function (React hook) |
+| `gQ5` | `DESCRIPTION_MAX_LENGTH` (= 60) | cli_inner_pretty.js:546190 | constant |
+| `gl1` | `SuggestionItemRow` (renders one row, applies agent color, truncates description) | cli_inner_pretty.js:179949+ | component |
+| `hJH` | `getPreservedSelection` (keeps cursor on same item id across re-fetches) | cli_inner_pretty.js:546210-546216 | function |
+| `hc6` | `stripAtAndQuotes` (returns the search token without `@` / `"…"`) | cli_inner_pretty.js:546222-546226 | function |
+| `iQ5` | `HAS_AT_SYMBOL_RE` (path-like @ regex; CJK-aware leading boundary) | cli_inner_pretty.js:547041 | constant |
+| `kc6` | `formatAtMentionReplacement` (`@…`/`@"…"` for paths with spaces, `%20` for slash commands) | cli_inner_pretty.js:546183-546187 | function |
+| `u28` | `getMcpResourceTemplateSuggestions` (resolves `mcp-template::` picks into value completions) | cli_inner_pretty.js:546130-546182 | function |
+| `vnH` | `getReplacementMetadata` (extracts `metadata.replacement`/`partial` for `mcp-template-value::` commits) | cli_inner_pretty.js:352314-352325 | function |
+
+#### `@`-Mention Attachment Parsers (read at submit time, resolve popup picks into structured attachments)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Xq5` | `extractFileMentions` (parses `@"path"` / `@path`; excludes `@"X (agent)"`) | cli_inner_pretty.js:398367-398381 | function |
+| `Lq5` | `extractMcpResourceMentions` (requires `server:uri` colon) | cli_inner_pretty.js:398382-398386 | function |
+| `Bs7` | `extractAgentMentions` (matches `@"X (agent)"` popup form and `@agent-X` id form) | cli_inner_pretty.js:398387-398396 | function |
+| `Kq5` | `processFileMentions` (read file + emit `tengu_at_mention_*` telemetry) | cli_inner_pretty.js:397984+ | function |
+| `Aq5` | `processMcpResourceMentions` (reads MCP resource via client) | cli_inner_pretty.js:398052-398105 | function |
+| `_q5` | `processAgentMentions` (resolves agentType, emits `tengu_at_mention_agent_*`) | cli_inner_pretty.js:398036-398051 | function |
+| `Pq5` | `parseAtMentionedFileLines` (`#L10`, `#L10-20`, `#heading` fragments) | cli_inner_pretty.js:398397+ | function |
+| `Nk` | `emitAtMentionEvent` (OTel `at_mention` event with `mention_type`/`success`) | cli_inner_pretty.js:218482-218484 | function |
+
 ### Spinner + Thinking Hints (v2.1.116 / v2.1.141)
 
 | Obfuscated | Readable | File:Line | Type |
