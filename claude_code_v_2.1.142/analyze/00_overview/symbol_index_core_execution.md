@@ -270,6 +270,7 @@ Built-in tool definitions, parameter schemas, tool-result formatters, the tool f
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `CwH` | checkReadPermissionForTool / evaluatePermissionForFileTool (Read/Edit/Write/NotebookEdit) | cli_inner_pretty.js (referenced) | function |
+| `eH5` | dispatchToolCall (Stage 1–4 pre-call pipeline: schema → validateInput → hooks → permission → call) | cli_inner_pretty.js:387960-388549 | function |
 | `G38` | runPostToolUseHooksStream | cli_inner_pretty.js:379443 | function |
 | `Gv$` | recordToolDurationHistogram (telemetry hook) | cli_inner_pretty.js:388291 | function |
 | `Nq$` | isBinaryByMagic (detect binary by leading bytes) | cli_inner_pretty.js (referenced by `readTool.validateInput`) | function |
@@ -735,6 +736,36 @@ Built-in tool definitions, parameter schemas, tool-result formatters, the tool f
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `aY` | pushAttachment (queue an attachment for next system-reminder) | cli_inner_pretty.js:397569 | function |
+| `aO8` | REMINDER_THRESHOLDS (`{TURNS_SINCE_WRITE:10, TURNS_BETWEEN_REMINDERS:10}`) | cli_inner_pretty.js:398821 | constant |
+| `h2` | reminderWrap (wraps text in `<system-reminder>` envelope) | cli_inner_pretty.js:424714-424718 | function |
+| `kq5` | maybeEmitTaskReminder (threshold-gated TaskCreate/TaskUpdate nudge) | cli_inner_pretty.js:398596-398607 | function |
+| `o_` | wrapMessagesAsReminders (maps `h2` over a list of messages) | cli_inner_pretty.js:424748-424761 | function |
+| `Tq5` | countTurnsSinceTodoEvents (turn-counter for the reminder gate) | cli_inner_pretty.js:398533-398559 | function |
+| `Vq5` | maybeEmitTodoReminder (threshold-gated TodoWrite nudge) | cli_inner_pretty.js:398561-398572 | function |
+| `vq5` | countTurnsSinceTaskEvents (turn-counter for the task variant) | cli_inner_pretty.js:398573-398594 | function |
+| `Wq4` | unwrapReminder (strip envelope; used by compaction normaliser) | cli_inner_pretty.js:424719-424722 | function |
+| `Z38` | detectPostHookFileChange (emits `edited_text_file` after formatter runs) | cli_inner_pretty.js:378825-378847 | function |
+
+### Tools — Streaming Executor (Runtime Mechanism)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `NL$` | StreamingToolExecutor (streaming executor class — orchestrates batched tool calls) | cli_inner_pretty.js:388590-388860+ | class |
+| `pE6` | nameResolutionHints ("Did you mean …?" suggestions for unknown tool names) | cli_inner_pretty.js (referenced in `NL$.addTool`) | function |
+| `xm` | isBridgeEvent (remote-control bridge event predicate) | cli_inner_pretty.js (referenced in `NL$.executeTool`) | function |
+| `mE6` | TOOL_HOOK_SLOW_THRESHOLD_MS (`2000` — pre/post hook duration warn) | cli_inner_pretty.js:388551 | constant |
+| `FiH` | INTERRUPT_MESSAGE_FOR_TOOL_USE (user-rejected sentinel string) | cli_inner_pretty.js (referenced in `createSyntheticErrorMessage`) | constant |
+| `DkH` | REJECT_MESSAGE (raw reject message constant) | cli_inner_pretty.js (referenced in `createSyntheticErrorMessage`) | constant |
+
+### Tools — UI Rendering Pipeline
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `kQ_` | renderToolUseMessageSafe (try/catch wrapper around `tool.renderToolUseMessage`) | cli_inner_pretty.js:344781-344787 | function |
+| `EC7` | renderToolUseProgressMessage (splits hook progress from tool progress) | cli_inner_pretty.js:344788-344818 | function |
+| `NQ_` | renderToolUseQueuedMessage (try/catch wrapper around `tool.renderToolUseQueuedMessage`) | cli_inner_pretty.js:344819-344825 | function |
+| `KkH` | MessageResponse (Ink wrapper providing 1-line response container) | cli_inner_pretty.js (referenced in `renderToolUseProgressMessage`) | function |
+| `xz8` | HookProgressMessage (PreToolUse/PostToolUse hook progress UI) | cli_inner_pretty.js (referenced in `renderToolUseProgressMessage`) | function |
 
 Known new themes for this window:
 

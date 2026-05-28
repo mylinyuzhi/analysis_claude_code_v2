@@ -12,12 +12,17 @@ Tools are the only sanctioned side-channel between the model and the host: every
 
 ## File map
 
+### Architecture docs
+
 | File | Topic |
 |------|-------|
 | `registration.md` | The `createTool` (`XK`) factory, full property keys, name-via-identifier convention |
 | `schema_validation.md` | Zod input schema, `validateInput`, error envelope to the model |
 | `permission_pipeline.md` | `checkPermissions` contract and integration with allow/deny/ask flow |
 | `lifecycle.md` | The end-to-end call: validate → permission → invoke → render |
+| `runtime_mechanism.md` | The `StreamingToolExecutor` (`NL$`) state machine — queue, concurrency, abort tree, sibling-error cascade |
+| `ui_rendering.md` | Ink components, the five render hooks, transcript vs. progress vs. queued vs. rejected vs. error rendering |
+| `reminder_interaction.md` | Tool ↔ `<system-reminder>` interactions — TodoWrite nudges, Read wasted-call reminder, post-hook file-modified reminder, deferred-tools delta |
 | `deferred_tools.md` | Lazy loading via `shouldDefer`, the ToolSearch tool, system-reminder delta protocol |
 | `mcp_integration.md` | MCP tools as a separate factory class, `_meta` annotations, error envelopes |
 | `tool_inventory.md` | All 46 tools — one-line description, offset, capability flags |
@@ -230,6 +235,6 @@ Cross-checked against `extract/assets/tools/_index.json` (46 tools, of which 45 
 
 - All 45 named tools have a per-tool doc under `04_tools/` (45/45 coverage).
 - 4 supplementary docs (`brief.md`, `config.md`, `sleep.md`, `synthetic_output.md`) document tools present in the 2.1.88 TS baseline but removed/renamed/aliased in v2.1.142. These are kept as deobfuscation cross-references — not registered tools.
-- 9 architecture docs cover the pipeline (`registration.md`, `schema_validation.md`, `permission_pipeline.md`, `lifecycle.md`, `deferred_tools.md`, `mcp_integration.md`, `mcp_auth.md`, `tool_inventory.md`, `README.md`).
+- 12 architecture docs cover the pipeline (`registration.md`, `schema_validation.md`, `permission_pipeline.md`, `lifecycle.md`, `runtime_mechanism.md`, `ui_rendering.md`, `reminder_interaction.md`, `deferred_tools.md`, `mcp_integration.md`, `mcp_auth.md`, `tool_inventory.md`, `README.md`).
 - All v2.1.142-specific changes are documented in-place: `MCP_TOOL_TIMEOUT` (mcp.md, wait_for_mcp_servers.md), `alwaysLoad` MCP override added in 2.1.121 (mcp.md, mcp_integration.md, deferred_tools.md), PowerShell `tengu_cobalt_ridge` rollout gate (powershell.md), deferred-tool protocol (deferred_tools.md), subagent inheritance (agent.md), Monitor sleep guard added in 2.1.142 (bash.md, powershell.md), `SendUserFile` first-class addition (this README, send_user_file.md, deferred_tools.md).
 - Local markdown links: 58/58 clean. No empty stub docs (minimum doc size: 76 lines).

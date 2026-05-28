@@ -187,6 +187,42 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `aY` | `pushAttachment` (queue an attachment for next system-reminder) | cli_inner_pretty.js:397569 | function |
+| `h2` | `reminderWrap` (wraps text in `<system-reminder>` envelope) | cli_inner_pretty.js:424714-424718 | function |
+| `o_` | `wrapMessagesAsReminders` (maps `h2` over a list of messages) | cli_inner_pretty.js:424748-424761 | function |
+| `Wq4` | `unwrapReminder` (strip envelope; used by compaction normaliser) | cli_inner_pretty.js:424719-424722 | function |
+| `Vq5` | `maybeEmitTodoReminder` (threshold-gated TodoWrite nudge) | cli_inner_pretty.js:398561-398572 | function |
+| `kq5` | `maybeEmitTaskReminder` (threshold-gated TaskCreate/TaskUpdate nudge) | cli_inner_pretty.js:398596-398607 | function |
+| `Tq5` | `countTurnsSinceTodoEvents` (turn counter for reminder gate) | cli_inner_pretty.js:398533-398559 | function |
+| `vq5` | `countTurnsSinceTaskEvents` (task variant turn counter) | cli_inner_pretty.js:398573-398594 | function |
+| `aO8` | `REMINDER_THRESHOLDS` (`{TURNS_SINCE_WRITE:10, TURNS_BETWEEN_REMINDERS:10}`) | cli_inner_pretty.js:398821 | constant |
+| `Z38` | `detectPostHookFileChange` (emits `edited_text_file` after formatter modifies file) | cli_inner_pretty.js:378825-378847 | function |
+
+---
+
+## Module: Tools — Streaming Executor (Runtime Mechanism)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `NL$` | `StreamingToolExecutor` (streaming dispatcher class — queue, concurrency control, abort tree) | cli_inner_pretty.js:388590-388860+ | class |
+| `eH5` | `dispatchToolCall` (Stage 1–4 pre-call pipeline: schema → validateInput → hooks → permission → call) | cli_inner_pretty.js:387960-388549 | function |
+| `pE6` | `nameResolutionHints` ("Did you mean …?" for unknown tool names) | cli_inner_pretty.js (referenced in `NL$.addTool`) | function |
+| `xm` | `isBridgeEvent` (remote-control bridge event predicate) | cli_inner_pretty.js (referenced in `NL$.executeTool`) | function |
+| `mE6` | `TOOL_HOOK_SLOW_THRESHOLD_MS` (`2000`) | cli_inner_pretty.js:388551 | constant |
+| `QW` | `SIBLING_ABORTING_TOOLS` (`[BASH_TOOL_NAME, POWERSHELL_TOOL_NAME]`) | cli_inner_pretty.js:141680 | constant |
+| `FiH` | `INTERRUPT_MESSAGE_FOR_TOOL_USE` (user-rejected sentinel) | cli_inner_pretty.js (referenced in `createSyntheticErrorMessage`) | constant |
+| `DkH` | `REJECT_MESSAGE` | cli_inner_pretty.js (referenced in `createSyntheticErrorMessage`) | constant |
+
+---
+
+## Module: Tools — UI Rendering Pipeline
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `kQ_` | `renderToolUseMessageSafe` (try/catch wrapper around `tool.renderToolUseMessage`) | cli_inner_pretty.js:344781-344787 | function |
+| `EC7` | `renderToolUseProgressMessage` (splits hook progress from tool progress) | cli_inner_pretty.js:344788-344818 | function |
+| `NQ_` | `renderToolUseQueuedMessage` (try/catch wrapper around `tool.renderToolUseQueuedMessage`) | cli_inner_pretty.js:344819-344825 | function |
+| `KkH` | `MessageResponse` (Ink wrapper providing 1-line response container) | cli_inner_pretty.js (referenced in `renderToolUseProgressMessage`) | function |
+| `xz8` | `HookProgressMessage` (PreToolUse / PostToolUse hook progress UI) | cli_inner_pretty.js (referenced in `renderToolUseProgressMessage`) | function |
 
 ---
 
