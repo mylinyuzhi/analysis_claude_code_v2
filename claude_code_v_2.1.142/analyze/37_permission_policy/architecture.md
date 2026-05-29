@@ -303,9 +303,10 @@ async function checkRulesAndCallback(tool, input, ctx) {
 
 Each tool implements `async checkPermissions(parsedInput, ctx) → PermissionDecision`. Most tools return `{behavior: "passthrough"}` (defer to global rules). Bash, Edit, Write, NotebookEdit, Skill, Agent, and a few others return semantic verdicts:
 
-- **Bash** (line 207613): walks the parsed AST, runs the classifier (`yoloClassifier` family), returns `allow|ask|deny`. The Bash `checkPermissions` is the largest in the bundle — see `bash_classifier_hardening.md` for details.
-- **Edit/Write** (line 339085, 360020): checks `Edit(path)` allow rules via `yL` and dangerous-path safety check (`bY$`). Returns `allow|ask|deny`.
-- **Skill** (line 353604): walks `Skill(name)` and `Skill(name *)` allow/deny rules. See [`rule_grammar.md`](./rule_grammar.md) for the wildcard semantics.
+- **Bash** (line 419531): calls `XL$` (line 420831) which walks the parsed AST, runs the wrapper-stripper (`WdK`), the sandbox auto-allow (`v64`), the dangerous-pattern detector, and the classifier — returns `allow|ask|deny`. See [`tools_interaction.md`](./tools_interaction.md) §2.
+- **Edit/Write/NotebookEdit** (lines 415491, 360020, 361796): all route through `VkH` (cli_inner_pretty.js:518202) which checks `Edit(path)` allow rules via `yL` and dangerous-path safety check (`bY$`). Returns `allow|ask|deny`. See [`tools_interaction.md`](./tools_interaction.md) §4.
+- **Skill** (line 353604): walks `Skill(name)` and `Skill(name *)` allow/deny rules with an inline wildcard matcher (`O`). See [`rule_grammar.md`](./rule_grammar.md) for the wildcard semantics and [`tools_interaction.md`](./tools_interaction.md) §6.
+- For the full per-tool catalog (WebFetch, Agent, the always-allow trivial cases, etc.), see [`tools_interaction.md`](./tools_interaction.md).
 
 ### Step 5 — `jJ$` (auto-mode classifier)
 

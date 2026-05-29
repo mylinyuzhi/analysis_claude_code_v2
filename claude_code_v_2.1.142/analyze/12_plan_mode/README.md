@@ -65,6 +65,37 @@ Key functions in this module:
 - `isPlanModeFloorReason` (obfuscated: `d64`) - decision-reason classifier, `cli_inner_pretty.js:421723`
 - `restoreFromTranscriptPermissionMode` (obfuscated: `ur5`) - resume filter, `cli_inner_pretty.js:564219`
 
+### Runtime / Reminder Builders
+
+- `dispatchPlanModeReminder` (obfuscated: `Gz5`) - routes full/sparse/sub-agent, `cli_inner_pretty.js:424762`
+- `buildPlanModeFullReminder_5Phase` (obfuscated: `Vz5`) - default workflow, `cli_inner_pretty.js:424773`
+- `buildPlanModeFullReminder_Iterative` (obfuscated: `kz5`) - interview-phase workflow, `cli_inner_pretty.js:424867`
+- `buildPlanModeSparseReminder` (obfuscated: `Nz5`) - short anchor, `cli_inner_pretty.js:424918`
+- `buildPlanModeSubAgentReminder` (obfuscated: `Ez5`) - sub-agent variant, `cli_inner_pretty.js:424927`
+- `getEndOfTurnInstruction` (obfuscated: `Gq4`) - turn-end enforcement text, `cli_inner_pretty.js:424767`
+- `getReadOnlyToolsList` (obfuscated: `vz5`) - returns `Read`/`Glob`/`Grep` (vars `Bq`/`d1`/`v9`); aliased to `Read,` `` `find`/Glob, `` `` `grep`/Grep `` in shell-env mode, `cli_inner_pretty.js:424861`
+- `PLAN_MODE_PREAMBLE` (obfuscated: `Zq4`) - top-of-reminder text, `cli_inner_pretty.js:425992`
+- `PLAN_PHASE_4_PROMPT` (obfuscated: `Tz5`) - plan-structure bullets, `cli_inner_pretty.js:425984`
+- `PLAN_MODE` (obfuscated: `Is7`) - cadence config `{TURNS_BETWEEN_ATTACHMENTS:5, FULL_REMINDER_EVERY_N_ATTACHMENTS:5}`, `cli_inner_pretty.js:398822`
+- `attachmentRegistrar` (obfuscated: `aY`) - per-attachment telemetry wrapper, `cli_inner_pretty.js:397620`
+- `REJECTED_PLAN_TOOL_RESULT_SENTINEL` (obfuscated: `MV6`) - `cli_inner_pretty.js:425970`
+
+### UI Components
+
+- `ExitPlanModePermissionRequestComponent` (obfuscated: `Tb4`) - approval dialog, `cli_inner_pretty.js:540953`
+- `buildPlanApprovalOptions` (obfuscated: `_c6`) - option-list builder, `cli_inner_pretty.js:540869`
+- `mapApprovalChoiceToResult` (obfuscated: `M28`) - choice → permission decision, `cli_inner_pretty.js:540914`
+- `autoNameSessionFromPlan` (obfuscated: `Kc6`) - session-name fire-and-forget, `cli_inner_pretty.js:540852`
+- `RejectedPlanMessage` (obfuscated: `tz8`) - rejected-plan styled box, `cli_inner_pretty.js:349409`
+- `nextPermissionModeForCycle` (obfuscated: `DyH`) - Shift+Tab cycle order, `cli_inner_pretty.js:540813`
+- `computeCycleModeContext` (obfuscated: `Zb4`) - cycle + side effects, `cli_inner_pretty.js:540832`
+- `canCycleToAuto` (obfuscated: `Wb4`) - auto-availability check, `cli_inner_pretty.js:540797`
+- `transitionPermissionMode` (obfuscated: `tHH`) - mode-transition implementation, `cli_inner_pretty.js:422385`
+- `MODE_INDICATOR_LIST` (obfuscated: `mO4`) - welcome-screen mode chip array, `cli_inner_pretty.js:464983`
+- `ModeIndicatorTeaser` (obfuscated: `FO4`) - animated welcome mode preview, `cli_inner_pretty.js:464912`
+- `cycleModeIndex` (obfuscated: `P25`) - simple cyclic index helper, `cli_inner_pretty.js:464953`
+- `getModeColor` (obfuscated: `Cv`) - theme color resolver, `cli_inner_pretty.js:48491`
+
 ---
 
 ## Module Structure
@@ -72,6 +103,9 @@ Key functions in this module:
 | Document | Purpose |
 |----------|---------|
 | [implementation.md](./implementation.md) | End-to-end plan-mode lifecycle: enter → research → exit → approval. State machine, key data structures |
+| [runtime_mechanism.md](./runtime_mechanism.md) | **NEW** — Per-turn reminder injection cycle (`d65`/`c65`), full/sparse/sub-agent text variants, attachment cadence, exit-attachment one-shot semantics, rejected-plan sentinel |
+| [ui_components.md](./ui_components.md) | **NEW** — React/Ink UI: `ExitPlanModePermissionRequest` (`Tb4`) 5-option approval dialog, `EnterPlanModePermissionRequest`, tool-use pills (`rl7`/`lc7`/`nc7`), mode chip + Shift+Tab cycle, Ctrl+G external editor, `RejectedPlanMessage` (`tz8`) |
+| [tool_interaction_matrix.md](./tool_interaction_matrix.md) | **NEW** — Exhaustive matrix of which tools the model can use in plan mode, full 10-layer gating pipeline in `VkH`, internal-path exemption (`iUH`), Bash read-only subset, MCP/Agent/AskUserQuestion handling |
 | [enter_plan_mode_tool.md](./enter_plan_mode_tool.md) | Deep deobfuscation of `EnterPlanModeTool` (`Q38`) — schema, gating, call body, follow-up instructions |
 | [exit_plan_mode_tool.md](./exit_plan_mode_tool.md) | Deep deobfuscation of `ExitPlanModeV2Tool` (`V2`) — disk read, edited-plan write-back, teammate fork, auto-mode gate fallback |
 | [plan_file_naming.md](./plan_file_naming.md) | Plan-slug generation pipeline (`PDH`, `Sq6`, `nmH`); the prompt-seeded naming carried over from v2.1.111 |

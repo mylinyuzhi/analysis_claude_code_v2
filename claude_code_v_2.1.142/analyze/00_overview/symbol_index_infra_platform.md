@@ -782,6 +782,56 @@ Known new themes for this window:
 - `Bash(find:*)` no longer auto-approves `find -exec`/`-delete` (v2.1.113)
 - `autoAllowBashIfSandboxed` honors shell expansions (`$VAR`, `$(cmd)`) (v2.1.139 fix)
 
+### Permissions — Per-Tool checkPermissions Callbacks
+
+| Obfuscated | Readable | File:Line | Tool | Default behavior |
+|---|---|---|---|---|
+| `Sq.checkPermissions` | `bashCheckPermissions` (calls `XL$` classifier umbrella) | cli_inner_pretty.js:419531 | Bash | Full classifier (allow/ask/deny per command) |
+| `EK.checkPermissions` | `powerShellCheckPermissions` | cli_inner_pretty.js:405825 | PowerShell | Mirrors Bash |
+| `G7.checkPermissions` | `editCheckPermissions` (calls `VkH`) | cli_inner_pretty.js:415491 | Edit | Path safety + allow rules |
+| `o4.checkPermissions` | `writeCheckPermissions` (calls `VkH`) | cli_inner_pretty.js:360020 | Write | Same as Edit |
+| `VP.checkPermissions` | `notebookEditCheckPermissions` (calls `VkH`) | cli_inner_pretty.js:361796 | NotebookEdit | Same as Edit |
+| `Bq.checkPermissions` | `readCheckPermissions` (calls `CwH`) | cli_inner_pretty.js:407268 | Read | Read-side path check |
+| `v9.checkPermissions` | `grepCheckPermissions` (calls `CwH`) | cli_inner_pretty.js:339085 | Grep | Same as Read |
+| `fX.checkPermissions` | `skillCheckPermissions` (inline wildcard matcher) | cli_inner_pretty.js:353604 | Skill | Wildcard-aware deny/allow/ask walk |
+| `D7.checkPermissions` | `agentCheckPermissions` | cli_inner_pretty.js:351977 | Agent | Always allow (per-agent filter at resolve time) |
+| `FD.checkPermissions` | `webFetchCheckPermissions` | cli_inner_pretty.js:377370 | WebFetch | Preapproved hosts + domain rules |
+| `VI.checkPermissions` | `webSearchCheckPermissions` | cli_inner_pretty.js:381296 | WebSearch | Query-content rules |
+| `NZ.checkPermissions` | `exitPlanModeCheckPermissions` | cli_inner_pretty.js:381702 | ExitPlanMode | Mode-transition gate |
+| `Gz.checkPermissions` | `askUserQuestionCheckPermissions` | cli_inner_pretty.js:382131 | AskUserQuestion | Always allow |
+| `HV.checkPermissions` | `todoWriteCheckPermissions` | cli_inner_pretty.js:272197 | TodoWrite | Always allow |
+| `J0.checkPermissions` | `structuredOutputCheckPermissions` | cli_inner_pretty.js:207613 | StructuredOutput | Always allow |
+| `l3H.checkPermissions` | `waitForMcpServersCheckPermissions` | cli_inner_pretty.js:271591 | WaitForMcpServers | Always allow |
+| `nf.checkPermissions` | `scheduleWakeupCheckPermissions` | cli_inner_pretty.js:380652 | ScheduleWakeup | Always allow |
+| `mZ.checkPermissions` | `sendMessageCheckPermissions` | cli_inner_pretty.js:382997 | SendMessage | Always ask |
+| `m3.checkPermissions` | `replCheckPermissions` | cli_inner_pretty.js:380416 | REPL | Always ask |
+| `clH.checkPermissions` | `lspCheckPermissions` | cli_inner_pretty.js:387082 | LSP | Always ask |
+| `hL.checkPermissions` | `monitorCheckPermissions` | cli_inner_pretty.js:385746 | Monitor | Command filtering |
+| `XL$` | `bashClassifierUmbrella` (calls `WdK`, `v64`, runs AST analysis) | cli_inner_pretty.js:420831 | Bash internal | — |
+| `VkH` | `fileEditPermissionCheck` (shared by Edit/Write/NotebookEdit) | cli_inner_pretty.js:518202 | shared | Path safety + plan-mode floor + allow rules |
+| `CwH` | `fileReadPermissionCheck` (shared by Read/Grep/Glob) | cli_inner_pretty.js:518141 | shared | Read-side path safety |
+
+### Permissions — UI / Bridge Components
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| `epH` | `shouldShowAlwaysAllow` (consulted by dialog rendering for "Yes, always" variant) | cli_inner_pretty.js:180941-180943 | function |
+| `yz$` | `isAllowManagedRulesOnly` (`epH` checks `!yz$()`) | cli_inner_pretty.js | function |
+| `PD6` | `buildPermissionRequest` (SDK envelope; snake_case field names) | cli_inner_pretty.js:239298-239309 | function |
+| `ZD6` | `buildSandboxPermissionRequest` (sandbox envelope) | cli_inner_pretty.js:239339-239362 | function |
+| `lR6` | `forkSubagentSpawn` (`/fork` command's spawn; takes `canUseTool ?? tD`) | cli_inner_pretty.js:427943 | function |
+| `kL$` | `runPermissionDeniedHooks` (PermissionDenied async-generator hook chain; only auto-mode) | cli_inner_pretty.js:520217 (def); 388207 (call) | function |
+| `oiH` | `recheckRulesAfterHookRewrite` (v2.1.110 deny re-check after hook `updatedInput`) | cli_inner_pretty.js:421627-421634 | function |
+| `f64` | `isPlanModeFloorDecision` (predicate for plan-mode floor reason) | cli_inner_pretty.js:421723 | function |
+| `bV` | `isSupportedSandboxCommand` (sandbox safety) | cli_inner_pretty.js | function |
+| `permission_mode_changed` | Analytics event emitted on Shift+Tab cycle | cli_inner_pretty.js:218459 | event |
+| `Options.canUseTool` | SDK option field | cli_inner_pretty.js:498752, 498760 | property |
+| `Options.permissionPromptToolName` | Alternative SDK option | cli_inner_pretty.js:498375, 501129-501215 | property |
+| Mutual exclusion error | "canUseTool callback cannot be used with permissionPromptToolName..." | cli_inner_pretty.js:498428 | error string |
+| `can_use_tool` request | Control protocol subtype | cli_inner_pretty.js:498918-498922 | wire-protocol |
+| `permissionPromptTool` result type | Result-handling case in agent loop | cli_inner_pretty.js:387733-387737 | branch |
+| `decisionClassification` | `"user_temporary"|"user_permanent"|"user_reject"` | cli_inner_pretty.js:387735 | enum |
+
 ---
 
 ## Module: Sandbox

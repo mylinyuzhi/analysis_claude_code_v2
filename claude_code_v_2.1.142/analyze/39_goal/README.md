@@ -22,9 +22,10 @@ v2.1.140 adds a precondition check: if `disableAllHooks` or `allowManagedHooksOn
         v
    ┌────────────────────────────────────────────────────────────┐
    │  preGate checks (xaH.js / Xp6)                             │
-   │    - km() / disableAllHooks?              fail "hooks_gate"│
+   │    - km() / disableAllHooks (policy)?     fail "hooks_gate"│
    │    - rw() / allowManagedHooksOnly?        fail "hooks_gate"│
-   │    - T6() trusted workspace?              fail "trust_gate"│
+   │    - interactive && !trustGranted?        fail "trust_gate"│
+   │      (!T6() && !_5())                                       │
    └────────────────────────────────────────────────────────────┘
         │ pass
         v
@@ -164,8 +165,18 @@ Key symbols:
 - `isClearKeyword` (`UX8`) - cli_inner_pretty.js:486690 - tests against `rv5`
 - `isAllHooksDisabled` (`km`) - cli_inner_pretty.js:240936 - precondition source (reads `policySettings.disableAllHooks`)
 - `isAllowManagedHooksOnly` (`rw`) - cli_inner_pretty.js:240930 - precondition source (policy + user-tier `disableAllHooks`)
-- `isTrustedWorkspace` (`T6`) - module-wide - precondition source
+- `isNonInteractive` (`T6`) - cli_inner_pretty.js:2677 - `!U$.isInteractive`; the goal trust gate auto-bypasses for non-interactive callers
+- `isTrustGranted` (`_5`) - cli_inner_pretty.js:140015 - memoized; sandboxed env OR sessionTrustAccepted OR background-agent OR projectTree.hasTrustDialogAccepted
+- `computeTrust` (`eh1`) - cli_inner_pretty.js:140018 - the underlying trust evaluator that `_5` memoizes
+- `sessionTrustAccepted` (`YIH`) - cli_inner_pretty.js:2940 - per-session trust flag set by remote-bridge / flag launches
+- `isBackgroundAgent` (`N7`) - cli_inner_pretty.js:97906 - `bU() === "bg"`; one of the trust-grant sources
 - `isRemoteWorkspace` (`I6`) - cli_inner_pretty.js:3104 - remote bridge bypass for the `pR5.isEnabled` check
+- `runStopHookChain` (`Co7`) - cli_inner_pretty.js:391626 - the pre-stop-hook orchestrator that hosts the goal achievement/progress logic
+- `hookEquals` (`AY8`) - cli_inner_pretty.js:352528 - identity predicate (type + content) used to decide whether an incoming hook is session-owned
+- `getSessionHooksByEvent` (`rwH`) - cli_inner_pretty.js:352607 - returns the current session's hooks for a given event (used by Co7's isSessionRegisteredHook filter)
+- `attachmentMsg` (`fK`) - cli_inner_pretty.js:398535 - the attachment-message factory used by Co7 to yield non-sentinel goal_status messages
+- `registerSessionHookDirect` (`_X$`) - cli_inner_pretty.js:352560 - underlying session-hook add (used by resume path)
+- `attachmentRenderer` (`db7`) - cli_inner_pretty.js:346787 - the transcript attachment renderer; case `"goal_status"` at 347071-347110 produces the inline "Goal achieved" / "Goal not yet met... continuing" lines
 - `restoreGoalFromTranscript` (`Cr5`) - cli_inner_pretty.js:564153
 - `findGoalToRestore` (`Eg4`) - cli_inner_pretty.js:564144
 - `GoalOverlayPanel` (`Xk4`) - cli_inner_pretty.js:507612 - the React dialog component
@@ -182,10 +193,12 @@ Key symbols:
 
 | Document | Purpose |
 |----------|---------|
-| [goal_command.md](./goal_command.md) | The `/goal` command - syntax, completion-condition workflow, interactive/non-interactive variants |
-| [goal_hooks_interaction.md](./goal_hooks_interaction.md) | v2.1.140 gate: clear error when `disableAllHooks`/`allowManagedHooksOnly` is set |
-| [goal_overlay_panel.md](./goal_overlay_panel.md) | Live elapsed/turns/tokens overlay panel and the "/goal active" badge |
+| [goal_command.md](./goal_command.md) | The `/goal` command - syntax, completion-condition workflow, interactive/non-interactive variants, the registration core (`CaH`) and the clear core (`baH`) |
+| [goal_hooks_interaction.md](./goal_hooks_interaction.md) | v2.1.140 gate: clear error when `disableAllHooks`/`allowManagedHooksOnly` is set; also covers the trust gate and the corrected `T6` / `_5` semantics |
+| [goal_overlay_panel.md](./goal_overlay_panel.md) | Live elapsed/turns/tokens overlay panel and the "/goal active" badge, including the two-timer scheduling and the color-degradation fallback |
 | [goal_remote_control.md](./goal_remote_control.md) | Remote Control integration via `thinClientDispatch: "post-text"` |
+| [goal_stop_hook_consumer.md](./goal_stop_hook_consumer.md) | `Co7` — the Stop-hook chain orchestrator that drives `iterations++`, `lastReason`, achievement detection, and the `active_goal` state-write protocol with its three reducers |
+| [goal_status_rendering.md](./goal_status_rendering.md) | `db7` case `"goal_status"` — the inline transcript renderer that produces the "Goal achieved" and "Goal not yet met... continuing" lines |
 
 ---
 
@@ -197,3 +210,76 @@ Key symbols:
 - `setAppState` / app state machine - `06_state_management`
 - Resume / `--resume` and the transcript replay - `08_session_management`
 - Slash commands and `thinClientDispatch` - `28_cli_commands`
+- Trust gate (`_5` / `eh1`) and the workspace trust dialog - `12_permission_policy`
+
+---
+
+## End-to-end timeline
+
+For reference, here's the complete event sequence for a typical `/goal write a hello world` interaction in an interactive REPL:
+
+```
+t=0     user types:    /goal write a hello world
+        │
+        │  goalCommand.call (uR5) runs
+        │   1. Xp6() gate passes (hooks enabled, trust granted)
+        │   2. registerGoal (CaH):
+        │      - removes any existing stop-hook (gX8 finds none)
+        │      - sessionHooksRegistry.add(sid, "Stop", "", {type:"prompt", prompt:"write a hello world"})
+        │      - setAppState({activeGoal: {condition, iterations:0, setAt:t0, tokensAtStart:T0}})
+        │      - applyMessageOp(append sP4(false, condition))   ← sentinel attachment
+        │      - tengu_stop_hook_added telemetry
+        │   3. emit "Goal set: write a hello world" with shouldQuery=true and metaMessages=[FX8(condition)]
+        │
+        ├──> overlay panel doesn't render (no /goal bare yet); badge starts showing "◎ /goal active"
+        │
+t=0+    main loop fires next turn with the priming meta-message:
+        │  "A session-scoped Stop hook is now active with condition: ..."
+        │
+t=2     assistant responds: "I'll write a hello world program."
+        │  (creates hello.py with `print("hello world")`)
+        │  assistant turn ends — main loop calls Co7 (runStopHookChain)
+        │
+        │  Co7:
+        │   - iterates S9H Stop hook iterator
+        │   - yields the prompt-Stop hook subagent's result
+        │   - subagent reads transcript, sees hello.py was created, decides MET
+        │   - yields hook_success
+        │   - isSessionRegisteredHook filter: yes, matches
+        │   - sessionHooksRegistry.remove(sid, "Stop", hook)
+        │   - activeGoal.condition === hook.prompt: YES
+        │   - yield {type:"active_goal", value: undefined}   ← three reducers all clear it
+        │   - yield fK({type:"goal_status", met:true, condition, reason, iterations:1, durationMs:2000, tokens:T1-T0})
+        │   - tengu_goal_achieved telemetry; recordSuccess("goal_met")
+        │
+        ├──> overlay badge transitions to null; transcript shows: "✓ Goal achieved (2s · 1 turn · 250 tokens)"
+        │
+t=2+    main loop continues normally; model is free to stop on next consideration
+```
+
+For the "not yet met" branch, replace the `hook_success` step with `blockingError`:
+
+```
+t=2     assistant responds: "I'll start by listing the directory."
+        │  (calls ls)
+        │  assistant turn ends — main loop calls Co7
+        │
+        │  Co7:
+        │   - subagent decides: NOT MET (no hello.py created yet)
+        │   - yields blockingError with stopReason="No hello world program has been created yet."
+        │   - re-emit blockingError as isMeta user message → main loop will run another turn
+        │   - isSessionRegisteredHook: yes (still registered — block doesn't remove)
+        │   - activeGoal.condition === hook.prompt: YES
+        │   - yield {type:"active_goal", value: {condition, iterations:1, lastReason:"No hello..."}}
+        │   - yield fK({type:"goal_status", met:false, condition, reason:"No hello..."})
+        │
+        ├──> overlay panel (if opened) shows iterations=1, "Last check: No hello..."
+        ├──> badge stays active, elapsed time keeps ticking
+        ├──> transcript shows: "⏸ Goal not yet met... continuing"  (or with reason in verbose mode)
+        │
+t=3     main loop fires next turn — model sees the blockingError-derived meta-message
+        │  and continues working on the goal
+        │  ... (loop until subagent says MET)
+```
+
+The "not yet" cycle can repeat indefinitely until either the model satisfies the condition or the user types `/goal clear` (clearGoal / baH) or hits Esc on an active turn.

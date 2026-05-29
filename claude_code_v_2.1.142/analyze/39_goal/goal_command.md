@@ -311,6 +311,55 @@ function clearGoal(sessionState) {
 }
 ```
 
+### 4a. The hook-prompt scanner: `getStopHookPrompts` / `gX8`
+
+```javascript
+// ============================================
+// getStopHookPrompts - find session-owned, non-skill, no-matcher Stop hooks
+// Location: cli_inner_pretty.js:486706-486713
+// ============================================
+
+// ORIGINAL (for source lookup):
+function gX8(H, $) {
+  let q = [];
+  for (let K of rwH(H, $, "Stop").get("Stop") ?? []) {
+    if (K.matcher !== "" || K.skillRoot !== void 0) continue;
+    for (let _ of K.hooks) if (_.type === "prompt") q.push(_);
+  }
+  return q;
+}
+
+// READABLE (for understanding):
+function getStopHookPrompts(appState, sessionId) {
+  // Returns prompt-type Stop hooks registered in this session that:
+  //   1. Have an empty matcher (i.e., were registered via sessionHooksRegistry.add(..., ""))
+  //   2. Are NOT scoped to a Skill (skillRoot is undefined)
+  //   3. Are of type "prompt" (not command/agent/http/mcp_tool/function)
+  // This isolates "the /goal hook" from all other Stop hooks in the session.
+  const out = [];
+  const sessionStopGroups = getSessionHooksByEvent(appState, sessionId, "Stop").get("Stop") ?? [];
+  for (const group of sessionStopGroups) {
+    // Skip hooks that were registered with a matcher (those are for specific tool-filter use)
+    // and skip hooks that belong to a Skill (those are auto-managed by the skill system)
+    if (group.matcher !== "" || group.skillRoot !== undefined) continue;
+    for (const hook of group.hooks) {
+      if (hook.type === "prompt") out.push(hook);
+    }
+  }
+  return out;
+}
+
+// Mapping: gX8 -> getStopHookPrompts, rwH -> getSessionHooksByEvent
+```
+
+**Three filters in sequence:** matcher must be empty, hook group must not be skill-owned, hook type must be "prompt". These three together isolate `/goal`'s Stop hook from:
+
+- Stop hooks with non-empty matchers (e.g., a Stop hook scoped to "only fire after a Bash tool finishes")
+- Skill-injected Stop hooks (Skills can register their own Stop hooks via `_X$` with a non-undefined `skillRoot` — those should never be touched by `/goal`)
+- Command/agent/http/mcp_tool/function-type Stop hooks (e.g., a shell-command Stop hook from `settings.json`)
+
+This is a deliberate isolation contract: a user with `settings.json` Stop hooks defined, plus Skill-defined Stop hooks active, plus an active `/goal`, gets clean coexistence. `registerGoal` and `clearGoal` will only ever touch the prompt-type, empty-matcher, non-skill-owned hooks they create themselves.
+
 ### 5. The priming prompt
 
 ```javascript
@@ -373,6 +422,37 @@ case "goal_status": {
 ```
 
 The sentinel attachment exists purely as a transcript marker for `--resume`.
+
+### 6a. The reason formatter: `formatHookReason` / `aP4`
+
+```javascript
+// ============================================
+// formatHookReason - one-liner formatter for the "Last check" overlay/status
+// Location: cli_inner_pretty.js:486703-486705
+// ============================================
+
+// ORIGINAL (for source lookup):
+function aP4(H) {
+  return `Last check: ${e_(H.trim())}`;
+}
+
+// READABLE (for understanding):
+function formatHookReason(reason) {
+  // Returns: "Last check: <trimmed reason, multi-line trimmed via e_>"
+  // e_() is the trim-multiline helper at cli_inner_pretty.js:9557 — it normalizes
+  // internal newline whitespace.
+  return `Last check: ${trimMultiline(reason.trim())}`;
+}
+
+// Mapping: aP4 -> formatHookReason, e_ -> trimMultiline
+```
+
+Used in two places:
+
+- `mR5` (goalNonInteractive) appends `\n${formatHookReason(goal.lastReason)}` to its status text when there's a recent block reason.
+- `Xk4` (GoalOverlayPanel) renders `LabeledField label="Last check"` with `trimMultiline(activeGoal.lastReason.trim())` — note the overlay re-trims rather than calling `formatHookReason` because it controls the label separately via the React component.
+
+The asymmetry (`mR5` reuses `formatHookReason`, `Xk4` inlines the trim) is minor inconsistency — both produce the same visible output.
 
 ### 7. Clear keyword set
 

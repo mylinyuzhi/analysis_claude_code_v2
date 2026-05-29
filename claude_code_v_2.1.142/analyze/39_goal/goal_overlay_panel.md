@@ -208,6 +208,31 @@ function getLastGoalAttachment(messages) {
 
 This walks newest-first so the dialog always shows the **most recent** achieved goal, not the first ever.
 
+**Important:** `oP4` skips `sentinel: true` attachments AND skips `met: false` attachments. This means it surfaces *only* the achievement attachments yielded by the Stop-hook consumer (`Co7`) — never the registration sentinels (`sP4(false, ...)` from `registerGoal`) and never the in-flight progress messages (`Co7`'s `met: false` yields). The achieved-state overlay dialog therefore only shows when there's a genuine achievement in the transcript history. See [goal_status_rendering.md](./goal_status_rendering.md) for the full taxonomy of `goal_status` attachments.
+
+#### 2a. The achieved-state input guide
+
+The achieved dialog's input-guide line says **"/goal &lt;condition&gt; to set another"** (line 507702-507703 in `Xk4`), not "/goal clear to stop early". This is because there's no active goal to stop — the previous goal is done, and the natural next action is starting another one. The Esc binding still dismisses the dialog.
+
+```javascript
+// ORIGINAL (for source lookup):
+((X = fJ.default.createElement(
+  $8,
+  null,
+  fJ.default.createElement(k, null, "/goal <condition> to set another"),
+  fJ.default.createElement(eH, { chord: "escape", action: "dismiss" }),
+)),
+  ($[28] = X));
+
+// READABLE (for understanding):
+const achievedInputGuide = (
+  <KeyHints>
+    <KeyHint label="/goal <condition> to set another" />
+    <KeyHint chord="escape" action="dismiss" />
+  </KeyHints>
+);
+```
+
 ### 3. The no-goal-set layout (line 507730-507741)
 
 ```javascript
@@ -343,6 +368,77 @@ return (
 ```
 
 The badge pulses through a color palette over a 4-second period (`Ug5 = 4000`), advancing one of 20 steps (`V28`) per frame. This is what gives the "/goal active" indicator its subtle breathing animation while the goal is running.
+
+#### 5a. Badge double-timer: text-tick vs animation-tick
+
+The badge runs **two independent timers**:
+
+```javascript
+// ============================================
+// Badge text-tick scheduler (cli_inner_pretty.js:544434-544449)
+// ============================================
+// Re-render to update the "(N s)" elapsed-time text. Re-render frequency drops
+// from once-per-second to once-per-minute after the first 60 seconds — long-running
+// goals don't need second-by-second precision and re-rendering 60x as often would
+// waste CPU.
+let scheduleTextTick = () => {
+  if (setAt === undefined) return;
+  const elapsed = Date.now() - setAt;
+  const interval = elapsed < 60_000 ? 1_000 : 60_000;
+  const remaining = interval - (elapsed % interval);
+  return safeTimers.setTimeout(() => bumpTextTick(prev => prev + 1), remaining);
+};
+React.useEffect(scheduleTextTick, [setAt, textTick, safeTimers]);
+```
+
+```javascript
+// ============================================
+// Badge animation-tick scheduler (cli_inner_pretty.js:544479-544481)
+// ============================================
+// Advance the palette index once per 200ms (4000ms / 20 steps = 200ms per frame).
+// Only ticks when (a) a goal is active AND (b) the palette was successfully built.
+setIntervalHook(() => bumpAnimTick(prev => (prev + 1) % BADGE_DOTS),
+                activeGoal && palette ? BADGE_PULSE_PERIOD_MS / BADGE_DOTS : null);
+```
+
+The text-tick interval jump is a CPU optimization: a goal running for an hour would re-render the badge ~3600 times under a flat 1s interval, only ~60 times under the 1s/60s scheme. The animation-tick at 200ms is much cheaper (just a state increment + memo-cache palette index lookup; no time recomputation), so it can run at a fixed cadence indefinitely.
+
+#### 5b. Color-palette degradation when terminal lacks true-color
+
+```javascript
+// ============================================
+// Badge palette construction (cli_inner_pretty.js:544452-544475)
+// ============================================
+// If the terminal's color level is below 3 (i.e., no true-color RGB support),
+// the palette is null — the badge becomes a single-color static text instead of a
+// breathing animation.
+H: {
+  if (terminalColorLevel.level < 3) { palette = null; break H; }
+  let baseRgb = permissionColorRgb(permissionMode);            // e.g., {r, g, b}
+  if (!baseRgb) { palette = null; break H; }
+  // Build 20 colors by modulating intensity through one cosine cycle:
+  //   intensity(R) = 1 - 0.18 * (0.5 - 0.5 * cos(2π * R / 20))
+  // For R = 0..19, this ranges from 1.0 (full) to 0.82 (dimmed 18%).
+  palette = Array.from({ length: BADGE_DOTS }, (_, R) => {
+    const intensityMul = 1 - BADGE_DOT_INTERVAL_FRAC * (0.5 - 0.5 * Math.cos((2 * Math.PI * R) / BADGE_DOTS));
+    return rgbToInkColor({
+      r: Math.round(baseRgb.r * intensityMul),
+      g: Math.round(baseRgb.g * intensityMul),
+      b: Math.round(baseRgb.b * intensityMul),
+    });
+  });
+}
+const color = palette?.[animTick] ?? "permission";  // static "permission" color if no palette
+```
+
+So:
+
+- **True-color terminals (Level 3)**: 20-step breathing palette modulated 18% from full brightness — subtle smooth pulse.
+- **256-color and below (Level 0–2)**: static "permission" color, no animation. The badge still shows "/goal active" with elapsed time, just without the pulse.
+
+The 18% amplitude (`BADGE_DOT_INTERVAL_FRAC = 0.18`) was chosen to be visible-but-not-distracting; deeper modulation would make the badge "blink" rather than "breathe".
+
+**Note on the misleading variable name:** `Fg5` / `BADGE_DOT_INTERVAL_FRAC` doesn't represent a time interval. It's the **pulse depth amplitude** (peak-to-trough fraction of the base brightness). A clearer rename would be `BADGE_PULSE_AMPLITUDE`. The existing symbol_index keeps `BADGE_DOT_INTERVAL_FRAC` as the readable name for source-trace continuity, but the meaning is "how much to dim the color at the trough of the pulse".
 
 ### 6. The render-state selector
 

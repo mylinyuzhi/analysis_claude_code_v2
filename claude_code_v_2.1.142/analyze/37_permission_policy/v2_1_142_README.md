@@ -54,7 +54,25 @@ This is a single coherent *defense-in-depth pass*: every bypass closed has a cor
 
 ---
 
-## 2. The Thirteen Documents
+## 2. The Documents
+
+### 2a. Architectural / runtime mechanism docs
+
+| Doc | Topic |
+|-----|-------|
+| [`architecture.md`](./architecture.md) | Top-down map of where permission checks fire (validateInput → tD → UA5 → tool.checkPermissions → mode → UI → hooks) |
+| [`allow_deny_ask_precedence.md`](./allow_deny_ask_precedence.md) | Precedence ordering: deny-first, allow-last, hook layering, cross-tier merging, MCP ceiling |
+| [`mode_lifecycle.md`](./mode_lifecycle.md) | The six modes, state machine, transitions, `--permission-mode` resolution, mode-change re-eval |
+| [`rule_grammar.md`](./rule_grammar.md) | `Tool(content)` syntax for Bash, Edit, Skill, MCP, WebFetch, Agent |
+| [`settings_tier_hierarchy.md`](./settings_tier_hierarchy.md) | Eight tiers (userSettings → policySettings → cliArg → session) and union merging |
+| [`auto_mode_classifier.md`](./auto_mode_classifier.md) | The auto-mode classifier LLM, stage 1/2 prompts, circuit breaker |
+| [`sandbox_integration.md`](./sandbox_integration.md) | How the sandbox bridge sits over the policy chain |
+| [`canUseTool_flow.md`](./canUseTool_flow.md) | **NEW.** Three providers of `canUseTool` (interactive hook, SDK callback, headless fallback); SDK bridge protocol (`can_use_tool` request); `permissionPromptToolName` indirection; coordinator/swarm pre-handlers; speculative classifier; race architecture |
+| [`permission_dialog_ui.md`](./permission_dialog_ui.md) | **NEW.** From `tD`'s ask verdict to pixels — `PermissionDialog` shell, `permissionComponentForTool` dispatcher, per-tool component variants, classifier shimmer, `Select` choices ("Yes, always" / "No, tell Claude"), v2.1.141 auto-dismiss on mode change, the `?` explainer panel |
+| [`reminder_interaction.md`](./reminder_interaction.md) | **NEW.** Outbound side: how a denial becomes a `tool_result is_error: true`, `<system-reminder>` injection, `hook_blocking_error` attachment, SDK `permission_request` envelope, `PermissionDenied` retry-hook reminder, auto-mode denial notifications |
+| [`tools_interaction.md`](./tools_interaction.md) | **NEW.** Per-tool `checkPermissions` catalog: Bash (full classifier), Edit/Write/NotebookEdit (via VkH), Read/Grep/Glob (via CwH), Skill (wildcard matcher), Agent (always-allow + per-agent filter), WebFetch, the always-allow tools, the always-ask tools |
+
+### 2b. v2.1.113 → v2.1.142 deltas
 
 | Doc | Topic | Changelog version |
 |-----|-------|-------------------|

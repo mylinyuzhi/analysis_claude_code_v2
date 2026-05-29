@@ -94,17 +94,33 @@ The `/plan` command, `EnterPlanMode`/`ExitPlanMode` tools, plan-file naming and 
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| `aY` | `attachmentRegistrar` (per-builder telemetry wrapper) | cli_inner_pretty.js:397620 | async function |
 | `bs7` | `countTurnsSinceLastPlanAttachment` | cli_inner_pretty.js:397699 | function |
 | `c65` | `buildPlanModeExitAttachment` | cli_inner_pretty.js:397750 | async function |
 | `d65` | `buildPlanModeAttachment` | cli_inner_pretty.js:397726 | async function |
 | `i65` | `buildAutoModeExitAttachment` | cli_inner_pretty.js:397799+ | async function |
-| `Is7` | `PLAN_MODE` (config constants) | (referenced from `d65`) | object/constants |
+| `Is7` | `PLAN_MODE` (= `{TURNS_BETWEEN_ATTACHMENTS:5, FULL_REMINDER_EVERY_N_ATTACHMENTS:5}`) | cli_inner_pretty.js:398822 | object/constants |
 | `l65` | `countAutoModeAttachmentsSinceExit` | cli_inner_pretty.js:397772 | function |
 | `n65` | `buildAutoModeAttachment` | cli_inner_pretty.js:397783 | async function |
 | `Q65` | `countPlanModeAttachmentsSinceExit` | cli_inner_pretty.js:397715 | function |
-| `Ss7` | `AUTO_MODE` (config constants) | (parallel of `Is7`) | object/constants |
+| `Ss7` | `AUTO_MODE` (parallel of `Is7`) | cli_inner_pretty.js:398823 | object/constants |
 | `xs7` | `countTurnsSinceLastAutoAttachment` | cli_inner_pretty.js:397759 | function |
 | `planSlugSeed` | (slash-command option key) | cli_inner_pretty.js:353293 | option key |
+
+### Plan-mode Attachment Text Builders (System Reminders)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Ez5` | `buildPlanModeSubAgentReminder` | cli_inner_pretty.js:424927 | function |
+| `Gq4` | `getEndOfTurnInstruction` (AskUserQuestion / ExitPlanMode enforcement) | cli_inner_pretty.js:424767 | function |
+| `Gz5` | `dispatchPlanModeReminder` (routes to Vz5/Nz5/Ez5/kz5) | cli_inner_pretty.js:424762 | function |
+| `kz5` | `buildPlanModeFullReminder_Iterative` (interview-phase) | cli_inner_pretty.js:424867 | function |
+| `MV6` | `REJECTED_PLAN_TOOL_RESULT_SENTINEL` (= `PLAN_REJECTION_PREFIX`) | cli_inner_pretty.js:425970 | constant |
+| `Nz5` | `buildPlanModeSparseReminder` | cli_inner_pretty.js:424918 | function |
+| `Tz5` | `PLAN_PHASE_4_PROMPT` (Final-plan bullets) | cli_inner_pretty.js:425984 | constant |
+| `Vz5` | `buildPlanModeFullReminder_5Phase` (or customInstructions variant) | cli_inner_pretty.js:424773 | function |
+| `vz5` | `getReadOnlyToolsList` (returns `Read`/`Glob`/`Grep` = `Bq`/`d1`/`v9`; shell-env alias mode replaces `Glob`→`` `find`/Glob ``, `Grep`→`` `grep`/Grep ``) | cli_inner_pretty.js:424861 | function |
+| `Zq4` | `PLAN_MODE_PREAMBLE` (top-of-reminder boilerplate) | cli_inner_pretty.js:425992 | constant |
 
 ### Plan-mode Permission Helpers / Auto-Mode
 
@@ -152,6 +168,28 @@ The `/plan` command, `EnterPlanMode`/`ExitPlanMode` tools, plan-file naming and 
 | `UA5` | `checkPermissionsGate` (pre-dispatch) | cli_inner_pretty.js:421757 | async function |
 | `VkH` | `checkWritePermissionForTool` | cli_inner_pretty.js:518202 | function |
 
+### Plan-mode UI Components (Ink / React)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_c6` | `buildPlanApprovalOptions` (5-option ResponseValue list) | cli_inner_pretty.js:540869 | function |
+| `Cv` | `getModeColor` (theme color resolver for "plan") | cli_inner_pretty.js:48491 | function |
+| `DyH` | `nextPermissionModeForCycle` (Shift+Tab next-mode) | cli_inner_pretty.js:540813 | function |
+| `FO4` | `ModeIndicatorTeaser` (welcome-screen animated chip) | cli_inner_pretty.js:464912 | React component |
+| `Kc6` | `autoNameSessionFromPlan` (fire-and-forget session-name from plan) | cli_inner_pretty.js:540852 | function |
+| `lc7` | `renderExitPlanModeToolResultMessage` (3-variant pill: empty / awaiting-leader / approved) | cli_inner_pretty.js:381476 | function |
+| `M28` | `mapApprovalChoiceToResult` (ResponseValue → PermissionResult) | cli_inner_pretty.js:540914 | function |
+| `mO4` | `MODE_INDICATOR_LIST` (4-mode chip array) | cli_inner_pretty.js:464983 | constant |
+| `nc7` | `renderExitPlanModeToolUseRejectedMessage` (wraps `tz8`) | cli_inner_pretty.js:381534 | function |
+| `nx7` | `userToolResultMessageRouter` (detects `MV6`/`PnH` sentinels) | cli_inner_pretty.js:349459 | React component |
+| `ol7` | `renderEnterPlanModeToolUseRejectedMessage` (`● User declined to enter plan mode`) | cli_inner_pretty.js:383771 | function |
+| `P25` | `cycleModeIndex` (`(i+1) % mO4.length`) | cli_inner_pretty.js:464953 | function |
+| `rl7` | `renderEnterPlanModeToolResultMessage` (`● Entered plan mode`) | cli_inner_pretty.js:383754 | function |
+| `Tb4` | `ExitPlanModePermissionRequestComponent` (Tb4 = ~700-line component) | cli_inner_pretty.js:540953 | React component |
+| `tz8` | `RejectedPlanMessage` (rounded `planMode`-color box) | cli_inner_pretty.js:349409 | React component |
+| `Wb4` | `canCycleToAuto` (auto-availability gate for cycle) | cli_inner_pretty.js:540797 | function |
+| `Zb4` | `computeCycleModeContext` (wraps `DyH` + `tHH` side effects) | cli_inner_pretty.js:540832 | function |
+
 ### Plan-mode Ultraplan Integration
 
 | Obfuscated | Readable | File:Line | Type |
@@ -188,6 +226,102 @@ Known new themes for this window:
 - Plan acceptance dialog wording with `--dangerously-skip-permissions` (v2.1.118 fix)
 - Plan mode blocks file writes when matching `Edit(...)` allow rule exists (v2.1.136 fix)
 - Auto mode no longer overrides plan mode with "Execute immediately" (v2.1.119 fix)
+
+---
+
+## Module: Agent Team (in-process teammates & SendMessage)
+
+The in-process team-coordination feature: `TeamCreate` / `TeamDelete` /
+`SendMessage` tools, the in-process teammate runner (`X65`/`L65`), task
+taxonomy (the eight `type` discriminators), and shared task-state helpers.
+
+See `30_agent_team/{teammate_runner_loop,team_lifecycle_tools,task_taxonomy,fleet_view_ui,README}.md`
+for narrative analysis. The cross-cutting (mailbox, identity, permissions,
+worktree, daemon) is covered by sibling modules below and in
+`symbol_index_infra_platform.md`.
+
+### Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `JH5` | `TeamCreateTool` | cli_inner_pretty.js:386243-386345 | tool |
+| `LH5` | `TeamDeleteTool` | cli_inner_pretty.js:386387-386445 | tool |
+| `SH5` | `SendMessageTool` | cli_inner_pretty.js:387042-387199 | tool |
+| `Am` | `TEAM_CREATE_NAME` (= `"TeamCreate"`) | cli_inner_pretty.js (string constant) | constant |
+| `St` | `TEAM_DELETE_NAME` (= `"TeamDelete"`) | cli_inner_pretty.js (string constant) | constant |
+| `mZ` | `SEND_MESSAGE_NAME` (= `"SendMessage"`) | cli_inner_pretty.js (string constant) | constant |
+| `az` | `LEAD_NAME` (= `"team-lead"`) | cli_inner_pretty.js (string constant) | constant |
+| `IW` | `TEAMMATE_MESSAGE_TAG` (= `"teammate-message"`) | cli_inner_pretty.js (string constant) | constant |
+| `eK` | `isAgentTeamFeatureEnabled` | cli_inner_pretty.js | function |
+| `jH5` | `buildTeamCreateSchema` | cli_inner_pretty.js (getter) | function |
+| `VH5` | `buildSendMessageSchema` | cli_inner_pretty.js (getter) | function |
+| `XH5` | `buildTeamDeleteSchema` | cli_inner_pretty.js (getter) | function |
+| `Gi7` | `getTeamCreatePromptDoc` | cli_inner_pretty.js (prompt body) | function |
+| `ki7` | `getTeamDeletePromptDoc` | cli_inner_pretty.js:386347-386361 | function |
+| `Bi7` | `getSendMessagePromptDoc` | cli_inner_pretty.js (prompt body) | function |
+| `mi7` | `sendMessageDescriptionString` | cli_inner_pretty.js | constant |
+| `kH5` | `sendStringMessage` | cli_inner_pretty.js | function |
+| `NH5` | `sendShutdownRequest` | cli_inner_pretty.js | function |
+| `EH5` | `approveShutdown` | cli_inner_pretty.js | function |
+| `yH5` | `rejectShutdown` | cli_inner_pretty.js | function |
+| `hH5` | `approvePlan` | cli_inner_pretty.js | function |
+| `IH5` | `rejectPlan` | cli_inner_pretty.js | function |
+
+### In-Process Teammate Runtime
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `t68` | `spawnInProcessTeammate` | cli_inner_pretty.js:240335-240389 | function |
+| `X65` | `inProcessRunnerPollLoop` | cli_inner_pretty.js:395858-395934 | function |
+| `L65` | `inProcessAgentLoop` | cli_inner_pretty.js:395935-… | function |
+| `mi` | `mutateTeammateTask` | cli_inner_pretty.js:395804-395812 | function |
+| `D65` | `sendToLeader` | cli_inner_pretty.js:395813-395815 | function |
+| `Hs7` | `sendStructuredToLeader` | cli_inner_pretty.js:395816-395819 | function |
+| `j65` | `findFirstClaimableTask` | cli_inner_pretty.js:395820-395827 | function |
+| `J65` | `buildAutoTaskPrompt` | cli_inner_pretty.js:395828-395837 | function |
+| `$s7` | `maybeClaimNextTask` (clear-stale-claim + claim-next) | cli_inner_pretty.js:395838-… | async function |
+| `ly6` | `formatTeammateMessageXml` | cli_inner_pretty.js:395797-395803 | function |
+| `M65` | `permissionPromptMailboxPollMs` | cli_inner_pretty.js (~395780) | constant |
+| `t38` | `queuePendingLocalAgentMessage` | cli_inner_pretty.js (called from SH5) | function |
+| `uiH` | `resumeAgentInBackground` | cli_inner_pretty.js (called from SH5) | function |
+| `rO$` | `killInProcessTeammate` | cli_inner_pretty.js:240390-… | function |
+| `v67` | `claimTaskInList` | cli_inner_pretty.js (cousin of $s7) | function |
+| `d7H` | `markTaskInProgress` | cli_inner_pretty.js (claim success step) | function |
+| `cy6` | `teamContextSystemPrompt` | cli_inner_pretty.js (referenced in L65) | constant |
+| `Cz1` | `isSubagentContext` | cli_inner_pretty.js:97626-97628 | function |
+
+### Task Taxonomy
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_2` | `createTaskStateBase` | cli_inner_pretty.js:518764-518776 | function |
+| `Du5` | `TASK_ID_PREFIX_BY_TYPE` | cli_inner_pretty.js:518785-518794 | constant |
+| `wu5` | `AGENT_TYPED_TASK_KINDS` | cli_inner_pretty.js:518784 | constant |
+| `Ly4` | `BASE36_ALPHABET` (= `"0123456789abcdefghijklmnopqrstuvwxyz"`) | cli_inner_pretty.js:518780 | constant |
+| `xI` | `generateTaskId` | cli_inner_pretty.js (factory) | function |
+| `LnH` | `pillLabelFromBackgroundTasks` | cli_inner_pretty.js:348780-348822 | function |
+| `bx7` | `pillNeedsCta` | cli_inner_pretty.js:348823-348827 | function |
+| `Pq7` | `TEAMMATE_MESSAGES_UI_CAP` (= `50`) | cli_inner_pretty.js:234265 | constant |
+| `ETH` | `appendCappedMessage` | cli_inner_pretty.js:234257-234265 | function |
+| `lD` / `Wq7` | `isInProcessTeammateTask` (predicate) | cli_inner_pretty.js:234254-234256 | function |
+| `q68` | `getViewedAgentTask` | cli_inner_pretty.js:234274-234283 | function |
+| `Nn` | `viewedAgentTaskRecord` | cli_inner_pretty.js:234266-234273 | function |
+| `Sv` | `DIAMOND_FILLED` (`◆`) | cli_inner_pretty.js (figure) | constant |
+| `HL` | `DIAMOND_OPEN` (`◇`) | cli_inner_pretty.js (figure) | constant |
+
+### FleetView Wrapper (Layer-1 mount loop helpers; main mappings in Background Agents section)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `oo5` | `InputHandoffWrapper` | cli_inner_pretty.js:569065-569078 | function |
+| `Qg4` | `dispatchDefaultsChips` | cli_inner_pretty.js:565479-565503 | function |
+| `Fg4` | `chipCacheRef` | cli_inner_pretty.js:565512 | variable |
+| `wPH` | `getPermissionModeGlyph` | cli_inner_pretty.js | function |
+| `zAH` | `getPermissionModeLabel` | cli_inner_pretty.js | function |
+| `Cv` | `getPermissionModeColor` | cli_inner_pretty.js | function |
+| `xn6` | `lazyLoadFleetView` | cli_inner_pretty.js (~569375) | async function |
+| `jo5` | `seedLastJobs` | cli_inner_pretty.js (MG8 module) | function |
+| `MG8` | `fleetViewModule` | cli_inner_pretty.js:565597-565639 | module-namespace |
 
 ---
 
@@ -345,17 +479,20 @@ The session-scoped Stop-hook-as-loop. Live elapsed/turns/tokens overlay (`active
 | `xaH` | `goalCoreModule` (the `xaH = T(() => { ... })` block) | cli_inner_pretty.js:486763-486772 | module |
 | `Xp6` | `goalGateCheck` | cli_inner_pretty.js:486714-486718 | function |
 
-### Goal hook-disable detection
+### Goal hook-disable + trust detection
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `I6` | `isHeadlessMode` (also `isMainProcess` alias) | (mode module) | function |
-| `km` | `isAllHooksDisabled` | cli_inner_pretty.js:240936-240938 | function |
+| `eh1` | `computeTrust` (underlying evaluator memoized by `_5`) | cli_inner_pretty.js:140018-140033 | function |
+| `I6` | `isRemoteWorkspace` (= `U$.caps.workspace === "remote"`) | cli_inner_pretty.js:3104-3106 | function |
+| `km` | `isAllHooksDisabled` (policySettings.disableAllHooks only) | cli_inner_pretty.js:240936-240938 | function |
+| `N7` | `isBackgroundAgent` (= `bU() === "bg"`; one of the trust-grant sources) | cli_inner_pretty.js:97906-97908 | function |
 | `Oq` | `mergedSettings` / `getCurrentSettings` | cli_inner_pretty.js:198253, 555246 | function |
 | `rw` | `isAllowManagedHooksOnly` | cli_inner_pretty.js:240930-240935 | function |
-| `T6` | `isTrustedWorkspace` | (settings module) | function |
-| `_5` | `isTrustBypassContext` | (settings module) | function |
+| `T6` | `isNonInteractive` (= `!U$.isInteractive`) — NOT a trust check; the goal gate auto-bypasses trust for non-interactive callers | cli_inner_pretty.js:2677-2679 | function |
+| `_5` | `isTrustGranted` (memoized cache of `eh1()`) | cli_inner_pretty.js:140015-140017 | function |
 | `v8` | `getSettingsBySource` (per-tier getter) | cli_inner_pretty.js:555234 | function |
+| `YIH` | `sessionTrustAccepted` (one of the trust-grant sources) | cli_inner_pretty.js:2940-2942 | function |
 
 ### Goal resume
 
@@ -403,9 +540,25 @@ The session-scoped Stop-hook-as-loop. Live elapsed/turns/tokens overlay (`active
 | `Yx5` | `getCommandRequirements` (returns `{ workspace, ink }`) | cli_inner_pretty.js:513884-513894 | function |
 | `tengu_goal_achieved` | (telemetry event) | cli_inner_pretty.js:391761 | event |
 | `tengu_goal_restored_on_resume` | (telemetry event) | cli_inner_pretty.js:564163 | event |
+| `tengu_pre_stop_hooks_cancelled` | (telemetry event, fires when Esc aborts Co7 mid-iteration) | cli_inner_pretty.js:391800 | event |
 | `tengu_stop_hook_added` | (telemetry event, via: "goal") | cli_inner_pretty.js:486729 | event |
 | `tengu_stop_hook_removed` | (telemetry event, via: "goal") | cli_inner_pretty.js:486743 | event |
 | `thinClientDispatch: "post-text"` | (value on goalNonInteractive) | cli_inner_pretty.js:507862 | string literal |
+
+### Goal Stop-hook consumer + state-write protocol
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AY8` | `hookEquals` (type + content identity predicate; used by Co7 isSessionRegisteredHook filter and by sessionHooksRegistry.remove) | cli_inner_pretty.js:352528-352559 | function |
+| `Co7` | `runStopHookChain` (the pre-stop-hook orchestrator; hosts the goal-achievement and goal-progress branches) | cli_inner_pretty.js:391626 | async generator function |
+| `db7` | `attachmentRenderer` (the transcript inline-attachment renderer; case `"goal_status"` at 347071-347110 is the goal status branch) | cli_inner_pretty.js:346787 | React function |
+| `Dy6` | `formatBlockingErrorForModel` (formats Stop-hook blockingError into the meta-message that becomes a user prompt) | (helper module) | function |
+| `fK` | `attachmentMsg` (general attachment-message factory; used by Co7 to yield non-sentinel goal_status messages) | cli_inner_pretty.js:398535-398537 | function |
+| `_X$` | `registerSessionHookDirect` (underlying hook-registry add; used by restoreGoalFromTranscript) | cli_inner_pretty.js:352560-352562 | function |
+| `rwH` | `getSessionHooksByEvent` (returns the session's currently-registered hooks for a given event; powers Co7's session-hook filter) | cli_inner_pretty.js:352607-352621 | function |
+| `S9H` | `stopHookIterator` (the async iterator that Co7 consumes; yields hook results from all tiers) | (hooks module) | async generator function |
+| `w8` | `userMessage` (factory for user-typed/isMeta messages; used by Co7 to wrap blockingError text) | (message module) | function |
+| `active_goal` | (state-write event type; yielded by Co7 to update appState.activeGoal in all three reducers) | cli_inner_pretty.js:386552, 424603, 600352 | string literal / event |
 
 Promoted dual-export symbols (see `40_ant_promoted/10_promoted_goal.md`):
 
@@ -1150,6 +1303,106 @@ Known new themes for this window:
 - `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` (v2.1.132)
 - `CLAUDE_CODE_SESSION_ID` (v2.1.132)
 - `DISABLE_UPDATES` (v2.1.118)
+
+---
+
+---
+
+## Module: System Reminder
+
+The `<system-reminder>` cross-cutting subsystem: wrap/strip primitives, attachment normalization dispatch, per-turn reminder generators, threshold constants, UI suppression machinery. Detailed analysis in `../41_system_reminder/`.
+
+### Wrap / Strip Primitives
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `h2` | `reminderWrap` (string → `<system-reminder>…</system-reminder>`) | cli_inner_pretty.js:424714-424718 | function |
+| `o_` | `wrapMessagesAsReminders` (list wrapper) | cli_inner_pretty.js:424748-424761 | function |
+| `Az5` | `ensureSystemReminderWrap` (idempotent; gated by `tengu_chair_sermon`) | cli_inner_pretty.js:423911-423923 | function |
+| `mq4` | `smooshSystemReminderSiblings` (fold SR into adjacent tool_result) | cli_inner_pretty.js:423924-423943 | function |
+| `Nq4` | `stripLeadingReminders` (peel leading SR) | cli_inner_pretty.js:423281-423289 | function |
+| `vQ4` | `stripAllReminders` (regex-strip any SR/task-notification) | cli_inner_pretty.js:566114-566116 | function |
+| `Wq4` | `extractSystemReminderContent` (compaction variant) | cli_inner_pretty.js:424719-424722 | function |
+| `nD6` | `extractSystemReminderContent` (telemetry variant) | cli_inner_pretty.js:241477-241479 | function |
+| `sM4` | `REMINDER_CLOSE_TAG` constant | cli_inner_pretty.js:467574 | constant |
+
+### Threshold Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aO8` | `REMINDER_THRESHOLDS` (`{TURNS_SINCE_WRITE:10, TURNS_BETWEEN_REMINDERS:10}`) | cli_inner_pretty.js:398821 | object |
+| `Is7` | `PLAN_REMINDER_THRESHOLDS` (`{TURNS_BETWEEN_ATTACHMENTS:5, FULL_REMINDER_EVERY_N_ATTACHMENTS:5}`) | cli_inner_pretty.js:398822 | object |
+| `Ss7` | `AUTO_REMINDER_THRESHOLDS` (same shape) | cli_inner_pretty.js:398823 | object |
+| `B65` | `MEMORY_REMINDER_THRESHOLD` (`{TURNS_BETWEEN_REMINDERS:10}`) | cli_inner_pretty.js:398825 | object |
+
+### Attachment Normalisation Dispatcher
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `CI6` | `normalizeAttachmentForAPI` (main dispatcher) | cli_inner_pretty.js:424960-425332 | function |
+| `Tq4` | `PER_TOOL_RENDERERS` (per-tool result-renderer registry) | (lookup map) | object |
+| `Wz5` | `makeApiSystemMessage` (`type:"api_system"`) | cli_inner_pretty.js:424723-424729 | function |
+| `Zz5` | `extractAllSystemReminderText` (compaction unwrap) | cli_inner_pretty.js:424731-424746 | function |
+| `Gz5` | `getPlanModeInstructions` (full/sparse/subagent selector) | cli_inner_pretty.js:424762-424766 | function |
+| `yz5` | `getAutoModeInstructions` (full/sparse/once selector) | cli_inner_pretty.js:424936-424940 | function |
+| `EO8` | `prependCachedContextReminder` (session-start CLAUDE.md prepend) | cli_inner_pretty.js:524243-524262 | function |
+
+### Per-turn Reminder Generators
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `p65` | `collectAttachments` (parallel runner) | cli_inner_pretty.js:397549-397619 | function |
+| `aY` | `runGeneratorWithTelemetry` | cli_inner_pretty.js:397620-397642 | function |
+| `Vq5` | `maybeEmitTodoReminder` | cli_inner_pretty.js:398561-398572 | function |
+| `kq5` | `maybeEmitTaskReminder` | cli_inner_pretty.js:398596-398606 | function |
+| `Tq5` | `countTurnsSinceTodoEvents` | cli_inner_pretty.js:398538-398559 | function |
+| `vq5` | `countTurnsSinceTaskEvents` | cli_inner_pretty.js:398573-398594 | function |
+| `d65` | `maybeEmitPlanModeReminder` | cli_inner_pretty.js:397726-397748 | function |
+| `c65` | `maybeEmitPlanModeExitReminder` | cli_inner_pretty.js:397750-397758 | function |
+| `n65` | `maybeEmitAutoModeReminder` | cli_inner_pretty.js:397783-397797 | function |
+| `i65` | `maybeEmitAutoModeExitReminder` | cli_inner_pretty.js:397799-397803 | function |
+| `r65` | `maybeEmitDateChange` | cli_inner_pretty.js:397805-397815 | function |
+| `o65` | `maybeEmitUltrathinkEffort` | cli_inner_pretty.js:397816-397819 | function |
+| `a65` | `maybeEmitThinkingReminder` | cli_inner_pretty.js:397820-397830 | function |
+| `Eq5` | `emitMemoryUpdate` | cli_inner_pretty.js:398623-398635 | function |
+| `Nq5` | `emitTaskStatus` | cli_inner_pretty.js:398608-398621 | function |
+| `yq5` | `emitAsyncHookResponses` | cli_inner_pretty.js:398637-398660+ | function |
+| `AMH` | `emitDeferredToolsDelta` | cli_inner_pretty.js:397831-397838 | function |
+| `mQH` | `emitAgentListingDelta` | cli_inner_pretty.js:397839-397874 | function |
+| `BQH` | `emitMcpInstructionsDelta` | cli_inner_pretty.js:397876-397883 | function |
+| `s65` | `emitCriticalSystemReminder` | cli_inner_pretty.js:397884-397887 | function |
+| `t65` | `emitOutputStyleReminder` | cli_inner_pretty.js:397889-397894 | function |
+| `Z38` | `detectPostHookFileChange` (edited_text_file) | cli_inner_pretty.js:378825+ | function |
+| `Tl4` | `emitContainerRestartReminder` | cli_inner_pretty.js:575292-575298 | function |
+| `iiK` | `getMemoryAgeMarker` | cli_inner_pretty.js:217456-217460 | function |
+
+### UI / Filter Predicates
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `w8` | `makeUserMessage` (factory with `isMeta` flag) | cli_inner_pretty.js:423394-423429 | function |
+| `oq4` | `shouldKeepInTranscript` (per-surface keep-predicate) | cli_inner_pretty.js:425556-425564 | function |
+| `s9H` | `isChannelOrigin` (agent-team channel carve-out) | cli_inner_pretty.js:425552-425555 | function |
+| `br` | `buildReadablePreview` | cli_inner_pretty.js:566117-566122 | function |
+| `zy6` | `getUserPromptForBridge` (strips leading SR for /remote-control) | cli_inner_pretty.js:390867-390869 | function |
+
+### Side Question / Inline Reminder Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$D8` | `runSideQuestion` (lightweight forked agent) | cli_inner_pretty.js:427848-427903 | function |
+| `KVK` | `WASTED_READ_REMINDER` | cli_inner_pretty.js:141545 | constant |
+| `gH9` | `SHUTDOWN_TEAM_PROMPT` | cli_inner_pretty.js:604170-604182 | constant |
+| `oj4` / `aj4` / `sj4` | `REMOTE_PLAN_{LIGHT,DIAGRAM,ULTRA}_PROMPT` | cli_inner_pretty.js:475352-475427 | module |
+
+### Telemetry
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `rf_` | `formatMessagesForTelemetry` | cli_inner_pretty.js:241480-241514 | function |
+| `f47` | `setSystemPromptAndToolsOnSpan` (tracks reminder counts) | cli_inner_pretty.js:241521-241614 | function |
+
+See `../41_system_reminder/` for the full subsystem analysis and `symbol_additions_v2_1_142_system_reminder.md` for the complete additions log.
 
 ---
 

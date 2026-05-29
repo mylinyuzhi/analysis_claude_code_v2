@@ -41,9 +41,11 @@ The **consumer side** — how the snapshot is sourced into the Bash tool's comma
 | [env_snapshot.md](./env_snapshot.md) | `subprocessEnv` (`XI`) and provider overrides — including v2.1.128 OTEL strip, v2.1.132 `CLAUDE_CODE_SESSION_ID` injection, and the background-session env scrub list |
 | [command_assembly.md](./command_assembly.md) | How the snapshot is sourced at command execution time; NUL substitution, pipe safety, eval wrapping, session-env hooks, extglob disable |
 | [bash_tool_integration.md](./bash_tool_integration.md) | Integration with Bash tool's command builder `$U7` (createBashShellProvider) and `tY8` (exec) |
-| [cross_validation.md](./cross_validation.md) | v2.1.88 source ↔ v2.1.142 obfuscated cross-reference and v2.1.112→v2.1.142 delta |
+| [cross_validation.md](./cross_validation.md) | v2.1.88 source ↔ v2.1.142 obfuscated cross-reference and v2.1.112→v2.1.142 delta (symbol-by-symbol audit) |
+| [version_diff_2_1_88_to_2_1_142.md](./version_diff_2_1_88_to_2_1_142.md) | Compact behavioural diff: the 11 architectural shifts between the v2.1.88 readable source and the v2.1.142 obfuscated bundle, plus the 13 load-bearing invariants that didn't change |
 | [retention_cleanup.md](./retention_cleanup.md) | **NEW for v2.1.142**: v2.1.117 `cleanupPeriodDays` sweep extension to `shell-snapshots/`, with the `al5` flow and the shared `Rr` directory walker |
 | [embedded_search_tools.md](./embedded_search_tools.md) | **NEW for v2.1.142**: v2.1.117 embedded `bfs`/`ugrep` replacing `Glob`/`Grep` on native macOS/Linux builds; v2.1.121 fallback when running binary is deleted mid-session |
+| [ui_and_observability.md](./ui_and_observability.md) | The (minimal) user-visible UI surface — only the `claude project purge` warning — plus the full operator-facing observability matrix: debug log, OTEL spans, Tengu events, and what is *not* surfaced (Doctor / status line / banners) |
 
 Plus shared symbol additions: [../00_overview/symbol_additions_v2_1_142_shell_snapshot.md](../00_overview/symbol_additions_v2_1_142_shell_snapshot.md)
 
@@ -207,6 +209,7 @@ PATH_END_<random16>
 | Embedded tools (`dM()`) | `Ai_` checks this gate before emitting bfs/ugrep shadow functions |
 | Retention sweep (`aB4`) | Periodically calls `al5()` to delete stale `.sh` snapshot files older than `cleanupPeriodDays` |
 | Session ID (`v$`) | Injected as `CLAUDE_CODE_SESSION_ID` into every Bash tool subprocess env (v2.1.132) |
+| CLI `claude project purge` (`dqA`) | Emits the only end-user-visible reference to `shell-snapshots/` — a yellow stderr warning explaining the directory is per-session and won't be purged (see [ui_and_observability.md](./ui_and_observability.md)) |
 
 ---
 

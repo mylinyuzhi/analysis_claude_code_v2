@@ -182,3 +182,194 @@ Cross-validated against:
 ---
 
 **Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.
+
+---
+
+## Module: ALS Agent-Context Propagation & UI Palette (cli_inner_pretty.js)
+
+Added while writing [34_subagent/runtime_execution.md](../34_subagent/runtime_execution.md), [als_propagation.md](../34_subagent/als_propagation.md), and [subagent_ui_rendering.md](../34_subagent/subagent_ui_rendering.md). These cover the runtime-time identity propagation and the parent-REPL rendering surfaces.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Atq` | `agentContextAsyncStorage` (`AsyncLocalStorage<AgentContext>` instance) | cli_inner_pretty.js:97641 | variable |
+| `RD` | `getAgentContext` (`Atq.getStore()`) | cli_inner_pretty.js:97620-97622 | function |
+| `RU` | `runWithAgentContext` (`Atq.run(ctx, fn)`) | cli_inner_pretty.js:97623-97625 | function |
+| `Cz1` | `isSubagentContext` (`ctx?.agentType === "subagent"`) | cli_inner_pretty.js:97626-97628 | function |
+| `ztq` | `getSubagentLogName` (returns built-in name or literal `"user-defined"`) | cli_inner_pretty.js:97629-97633 | function |
+| `Ni8` | `consumeInvokingRequestId` (one-shot spawn/resume edge emitter) | cli_inner_pretty.js:97634-97638 | function |
+| `_tq` | `async_hooks` module reference | cli_inner_pretty.js:97640 | variable |
+| `cJ6` | `dropDanglingToolUses` (strips assistant messages whose `tool_use` block has no matching `tool_result` — used both by `runAgent` and `startAgentSummarization`) | cli_inner_pretty.js:393435-393451 | function |
+| `d85` | `buildSubagentSystemPrompt` (composes subagent prompt; falls back to `Ka7` on throw) | cli_inner_pretty.js:393452-393460 | function |
+| `c85` | `resolveAgentSkill` (tries `name`, `agentType:name`, `*:name` suffix) | cli_inner_pretty.js:393461-393472 | function |
+| `Q85` | `isPersistableMessage` (predicate filtering `stream_event`/etc. out of sidechain writes) | cli_inner_pretty.js (called from 393357) | function |
+| `S9H` | `executeSubagentStopHook` (post-loop hook runner; 5 s budget when called from interrupted-loop finally) | cli_inner_pretty.js (called from 393377) | function |
+| `qa7` | `registerKeepalive` (mark agent as kept-alive in `taskRegistry`; skips shellTasks/mcpMonitors cleanup) | cli_inner_pretty.js (called from 393370) | function |
+| `en7` | `clearShellTasks` (per-agent shell-task cleanup) | cli_inner_pretty.js (called from 393427) | function |
+| `nTH` | `unregisterPerfettoAgent` (perfetto-tracing cleanup) | cli_inner_pretty.js (called from 393416) | function |
+| `$a7` | `clearSentSkillNames` (per-agent skill-listing cleanup) | cli_inner_pretty.js (called from 393397) | function |
+| `vnK` | `clearPromptCacheTracking` (per-agent cache stats cleanup) | cli_inner_pretty.js (called from 393393) | function |
+| `Ag` | `isPromptCacheTrackingEnabled` | cli_inner_pretty.js (called from 393393) | function |
+| `rj` | `isSyntheticAgent` (true for FORK_AGENT and similar built-ins with a `callback`) | cli_inner_pretty.js (called from 393368) | function |
+| `kwH` | `resolveAgentModel` (`agentDef.model > runtimeOverride > permission-mode override > mainLoopModel`) | cli_inner_pretty.js (called from 393129) | function |
+| `Li` | `resolveAgentTools` (filter the parent's tool pool by agent frontmatter `tools:`/`disallowedTools:`) | cli_inner_pretty.js (called from 393177) | function |
+| `rS7` | `isInProcessTeammate` (gate for stricter tool-pool filter in teammate path) | cli_inner_pretty.js (called from 393178) | function |
+| `iS7` | `TEAMMATE_BLOCKED_TOOLS` (set of tool names removed for in-process teammates: Goal/SpawnTeammate/etc.) | cli_inner_pretty.js (used in 393178) | constant |
+| `B7H` | `isSourceAdminTrusted` (admin-trusted source bypass for hook/mcp gates) | cli_inner_pretty.js (called from 393199) | function |
+| `eo7` | `registerFrontmatterHooks` (register agent.hooks into sessionHooksRegistry under agentId) | cli_inner_pretty.js (called from 393200) | function |
+| `g85` | `initializeAgentMcpServers` (connect agent's frontmatter mcpServers, return clients/tools/cleanup) | cli_inner_pretty.js (called from 393232) | function |
+| `Mm` / `V7H` | `cloneReadFileState` (clone for subagent; fork path uses parent's directly) | cli_inner_pretty.js (called from 393139) | function |
+| `Yg` | `EMPTY_READ_FILE_STATE` (constant initial state for non-fork subagents) | cli_inner_pretty.js (used at 393139) | constant |
+| `zj6` | `createSubagentContext` (forks the parent's `ToolUseContext` with new agentId/messages/appState) | cli_inner_pretty.js (called from 393263) | function |
+| `Ty6` | `computeSkillListingAttachment` (skill catalog attachment shown to subagent) | cli_inner_pretty.js (called from 393281) | function |
+| `Gy6` | `crypto` module alias used in `runAgent` for `randomUUID()` | cli_inner_pretty.js:393473 | variable |
+| `AMH` | `attachContextAttachments` (compose attachment list from MCP/tool pool) | cli_inner_pretty.js (called from 393234) | function |
+| `Nf` | `AGENT_COLOR_PALETTE` (`["red","blue","green","yellow","purple","orange","pink","cyan"]`) | cli_inner_pretty.js:231368 | constant |
+| `UP` | `SUBAGENT_THEME_KEYS` (`{red:"red_FOR_SUBAGENTS_ONLY", ...}` — segregated from role tokens) | cli_inner_pretty.js:231369-231378 | constant |
+| `red_FOR_SUBAGENTS_ONLY` (and 7 siblings) | theme tokens for subagent palette; resolved against active theme | cli_inner_pretty.js:145287-145294 (light RGB), 145357-145364 (ANSI) | theme-token |
+| `CM$` | `startAgentSummarization` (per-async-subagent 30 s timer producing `<task-notification>` summaries; skips when transcript unchanged) | cli_inner_pretty.js:271869-271941 | function |
+| `AP_` | `AGENT_SUMMARY_DEFAULT_INTERVAL` (30000 ms) | cli_inner_pretty.js:271942 | constant |
+| `zP_` | `buildAgentSummaryPrompt` (the user-msg template fed to the summarization fork) | cli_inner_pretty.js:271850-271867 | function |
+| `JV` | `forkAndQueryOnce` (cache-safe, transcript-skipping query used by background summarization) | cli_inner_pretty.js (called from 271902) | function |
+| `lO7` | `emitTaskNotification` (push `<task-notification>` into the parent's main loop queue) | cli_inner_pretty.js (called from 271922) | function |
+| `Oz` | `TASK_NOTIFICATION_MODE` (`"task-notification"`) | cli_inner_pretty.js:41076 | constant |
+| `tengu_agent_summary_skipped` | telemetry — summarization tick skipped (`reason: "unchanged"`) | cli_inner_pretty.js:271891 | event-name |
+
+---
+
+## Module: Sidechain Transcript & Fork Pointer (cli_inner_pretty.js)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Me` | `recordSidechainTranscript` (write subagent message chain into `~/.claude/sidechains/<agentId>.jsonl`) | cli_inner_pretty.js:515274-515276 | function |
+| `Vy6` | `recordForkContextRef` (persist `fork-context-ref` record with `parentSessionId`/`parentLastUuid`/`contextLength`) | cli_inner_pretty.js:515277-515279 | function |
+| `Zx5` | `loadForkContextPrefix` (read parent transcript starting at `parentLastUuid`; LRU cache via `iEH`) | cli_inner_pretty.js:515280-515301 | function |
+| `iEH` | `forkContextRefCache` (LRU map; cap `Wx5`) | cli_inner_pretty.js:515282-515301 | variable |
+| `tJ$` | `writeAgentMetadata` (write `~/.claude/sidechains/<agentId>.json` — agentType/cwd/worktreePath/description/name) | cli_inner_pretty.js (called from 393305) | function |
+| `jVK` | `setAgentTranscriptSubdir` (override per-agent transcript subdir) | cli_inner_pretty.js:141615-141617 | function |
+| `JVK` | `clearAgentTranscriptSubdir` (cleanup counterpart, called in finally) | cli_inner_pretty.js:141618-141620 | function |
+| `wK6` | `agentTranscriptSubdirMap` | cli_inner_pretty.js:141647 | variable |
+| `_0` | `getSidechainPath` (resolves `~/.claude/<session>/subagents[/<subdir>]/agent-<agentId>.jsonl`) | cli_inner_pretty.js:141621-141627 | function |
+| `Ui$` | `listSidechainAgentIds` (enumerate agent ids from filenames) | cli_inner_pretty.js:141628-141639 | function |
+| `XVK` | `extractTeammateMessageQueues` | cli_inner_pretty.js:141640-141646 | function |
+
+---
+
+## Module: Built-in Agent Definitions (cli_inner_pretty.js)
+
+Added while writing [34_subagent/builtin_agents.md](../34_subagent/builtin_agents.md). The built-in agents are static `AgentDefinition` constants registered at startup via `xgH`.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `xgH` | `assembleBuiltInAgents` (registration list assembler; conditionally includes by SDK entrypoint / coordinator mode / remote-MCP) | cli_inner_pretty.js:231898-231913 | function |
+| `bC` | `getActiveAgentsFromList` (precedence merge: built-in → plugin → user → project → flag → policy, last-write-wins) | cli_inner_pretty.js:231970-231981 | function |
+| `at` | `GENERAL_PURPOSE_AGENT` (the `general-purpose` built-in; `tools: ["*"]`, no model — inherits parent) | cli_inner_pretty.js:231625-231633 | constant |
+| `ot` | `EXPLORE_AGENT` (the `Explore` built-in; read-only with `disallowedTools`, `model: haiku` external / `inherit` ant, `omitClaudeMd: true`) | cli_inner_pretty.js:231595-231605 | constant |
+| `d88` | `PLAN_AGENT` (the `Plan` built-in; read-only architect, `model: "inherit"`, `omitClaudeMd: true`, reuses Explore's tools) | cli_inner_pretty.js:231700-231711 | constant |
+| `q67` | `STATUSLINE_SETUP_AGENT` (the `statusline-setup` built-in; `tools: ["Read", "Edit"]`, `model: "sonnet"`, `color: "orange"`) | cli_inner_pretty.js:231715-231860 | constant |
+| `H67` | `CLAUDE_CODE_GUIDE_AGENT` (the `claude-code-guide` built-in; dynamic prompt that embeds user's config; `permissionMode: "dontAsk"`, `model: "haiku"`) | cli_inner_pretty.js:231470-231538 | constant |
+| `BM6` | `CLAUDE_CODE_GUIDE_AGENT_TYPE` (`"claude-code-guide"`) | cli_inner_pretty.js:231457 | constant |
+| `FM6` | `CLAUDE_FLEETVIEW_AGENT` (the `claude` built-in for FleetView background jobs; `isolation: "worktree"`, `permissionMode: "auto"`, `appendSystemPrompt: true`) | cli_inner_pretty.js:231865-231893 | constant |
+| `J5_` | `getGeneralPurposeSystemPrompt` (the static prompt body for the general-purpose agent) | cli_inner_pretty.js:231607-231621 | function |
+| `w5_` | `getExploreSystemPrompt` (the Explore agent's prompt with read-only mode boilerplate; selects search-tool guidance based on `hasEmbeddedSearchTools`) | cli_inner_pretty.js:231540-231581 | function |
+| `X5_` | `getPlanSystemPrompt` (the Plan agent's prompt with read-only mode boilerplate) | cli_inner_pretty.js:231635-231688 | function |
+| `O5_` | `getClaudeCodeGuideBasePrompt` (the dynamic base for claude-code-guide; spliced with user-config sections by `H67.getSystemPrompt`) | cli_inner_pretty.js:231390-231448 | function |
+| `M5_` | `getFeedbackGuideline` (3P vs internal: feedback URL or `/feedback` command) | cli_inner_pretty.js:231450-231453 | function |
+| `f5_` | `CLAUDE_CODE_DOCS_MAP_URL` (`"https://code.claude.com/docs/en/claude_code_docs_map.md"`) | cli_inner_pretty.js:231455 | constant |
+| `e87` | `CDP_DOCS_MAP_URL` (`"https://platform.claude.com/llms.txt"`) | cli_inner_pretty.js:231456 | constant |
+| `D5_` | `EXPLORE_WHEN_TO_USE_FULL` (full description for system-prompt enumeration) | cli_inner_pretty.js:231583-231584 | constant |
+| `j5_` | `EXPLORE_WHEN_TO_USE_LEAN` (lean description for agent_listing_delta — shorter) | cli_inner_pretty.js:231585 | constant |
+| `$67` | `EXPLORE_AGENT_MIN_QUERIES` (`3`) | cli_inner_pretty.js:231582 | constant |
+| `rj` | `isBuiltInAgent` (`H.source === "built-in"`) | cli_inner_pretty.js:231961-231963 | function |
+| `g7H` | `isPluginAgent` (`H.source === "plugin"`) | cli_inner_pretty.js:231967-231969 | function |
+| `ZTH` | `isCustomAgent` (neither built-in nor plugin) | cli_inner_pretty.js:231964-231966 | function |
+| `c88` | `hasRequiredMcpServers` (substring/case-insensitive match against the MCP server list) | cli_inner_pretty.js:231982-231985 | function |
+| `s3$` | `filterAgentsByMcpRequirements` (drop agents whose `requiredMcpServers` aren't satisfied) | cli_inner_pretty.js:231986-231988 | function |
+| `o3$` | `areExplorePlanAgentsEnabled` (currently always returns true; gate placeholder for Explore + Plan) | cli_inner_pretty.js:231895-231897 | function |
+
+---
+
+## Module: Agent Tool Dispatch (cli_inner_pretty.js)
+
+Added while writing [34_subagent/agent_tool_dispatch.md](../34_subagent/agent_tool_dispatch.md). These cover the Agent tool's `call()` handler.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Gu7` | `AgentTool` (the Agent tool definition object) | cli_inner_pretty.js:351269 | constant |
+| `eq7` | `buildAgentToolPrompt` (the Agent tool's prompt builder; emits 'When to fork', examples, agent listings) | cli_inner_pretty.js:235536-235727 | function |
+| `Fw6` | `renderAgentForListing` (`- name: whenToUse (Tools: ...)` line) | cli_inner_pretty.js:235526-235530 | function |
+| `lA_` | `formatAgentTools` (renders tool subset: "All tools" / "All tools except X" / explicit list) | cli_inner_pretty.js:235513-235525 | function |
+| `gw6` | `isAgentListAttachEnabled` (env CLAUDE_CODE_AGENT_LIST_IN_MESSAGES + `tengu_agent_list_attach` flag) | cli_inner_pretty.js:235531-235535 | function |
+| `XV6` | `buildAgentToolInputSchema` (schema builder; conditionally adds team/name/mode/isolation/cwd fields) | cli_inner_pretty.js:351242-351267 | function |
+| `xc_` | `agentToolOutputSchema` | cli_inner_pretty.js (called from 351292) | function |
+| `TnH` | `registerBackgroundAsyncTask` (async-path task registration in taskRegistry) | cli_inner_pretty.js:351577 | function |
+| `Tu7` | `registerForegroundAsyncTask` (sync-path with auto-background watchdog) | cli_inner_pretty.js:351672 | function |
+| `tI7` | `spawnTeammate` (multi-agent-teams spawn entry point) | cli_inner_pretty.js:351340 | function |
+| `eJ$` | `createAgentWorktree` (worktree setup via `git worktree add`) | cli_inner_pretty.js:351528 | function |
+| `nwH` | `removeAgentWorktree` | cli_inner_pretty.js (called from 351563) | function |
+| `GV6` | `hasWorktreeChanges` (cleanup gate — keep worktree if it has diffs) | cli_inner_pretty.js (called from 351561) | function |
+| `ZV6` | `getAgentWorktreeName` (`agent-<shortId>` slug) | cli_inner_pretty.js (called from 351528) | function |
+| `Zz` | `toAgentId` (type-brand UUID → typed AgentId) | cli_inner_pretty.js (called from 351528, 351586) | function |
+| `Jq$` | `runWithCwdOverride` (wraps an async closure with cwd-override scope) | cli_inner_pretty.js (called from 351599, 351649) | function |
+| `BOH` | `rememberAgentColor` (cache requested→color for spinner UI) | cli_inner_pretty.js (called from 351339, 351393, 351462) | function |
+| `kwH` | `resolveAgentModel` (precedence: agent.model > runtime override > permission-mode default > parent) | cli_inner_pretty.js (called from 351463) | function |
+| `vHH` | `filterToolPoolByPermission` (apply permission-mode filter to tool pool) | cli_inner_pretty.js (called from 351524) | function |
+| `n7H` | `getMcpServerNameFromTool` (extract server from `mcp__<server>__<tool>`) | cli_inner_pretty.js:235745-235747 | function |
+| `k0` | `isMcpTool` (`name?.startsWith("mcp__") || isMcp === true`) | cli_inner_pretty.js:235742-235744 | function |
+| `WV6` | `findDenyingPermissionRule` (locate rule blocking matched agent for error messages) | cli_inner_pretty.js (called from 351397) | function |
+| `Rc_` | `getAutoBackgroundMs` (returns 120000 if `CLAUDE_AUTO_BACKGROUND_TASKS` env or `tengu_auto_background_agents` flag) | cli_inner_pretty.js (called from 351679) | function |
+| `ZnH` | `isBackgroundTasksDisabled` (env `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`) | cli_inner_pretty.js (read at 351521, 351671, etc.) | variable |
+| `Sc_` | `BACKGROUND_HINT_DELAY_MS` (sync-path progress threshold) | cli_inner_pretty.js (read at 351708) | constant |
+| `Ko` | `isSummarizationEnabled` (gate for `startAgentSummarization`) | cli_inner_pretty.js (read at 351615, 351694) | function |
+| `bwH` | `accumulateAgentStats` (per-message stats accumulator) | cli_inner_pretty.js (called from 351737, 351749) | function |
+| `avH` | `createToolStatsAccumulator` | cli_inner_pretty.js (called from 351652) | function |
+| `svH` | `getToolNameRegistry` | cli_inner_pretty.js (called from 351653) | function |
+| `H9H` | `getCurrentStats` | cli_inner_pretty.js (called from 351749) | function |
+| `Yz8` | `extractAssistantTextBlock` (per-block text extractor for progress events) | cli_inner_pretty.js (called from 351750) | function |
+| `fz8` | `emitAssistantBlockProgress` (per-block progress event emitter) | cli_inner_pretty.js (called from 351751) | function |
+| `zz8` | `buildAgentResultEnvelope` (sync-path result aggregator) | cli_inner_pretty.js (called from 351753) | function |
+| `Mz8` | `recordAgentCompletion` (`taskRegistry.update` for sync completion) | cli_inner_pretty.js (called from 351754) | function |
+| `Oz8` | `classifyHandoffIfNeeded` (subagent → main-thread handoff hint extraction) | cli_inner_pretty.js (called from 351761) | function |
+| `e4H` | `completeAsyncAgent` (taskRegistry update for async completion) | cli_inner_pretty.js (called from 351775) | function |
+| `$9H` | `failAsyncAgent` (taskRegistry update for async failure) | cli_inner_pretty.js (called from 351792) | function |
+| `Mq` (alias on `g7H` callees) | `getPluginMetadata` (returns pluginId/marketplace for telemetry) | cli_inner_pretty.js (called from 351466) | function |
+| `RH` | `recordSuccess` (success counter for `subagent_launch`) | cli_inner_pretty.js (called from 351355, 351622, 351701) | function |
+| `uH` | `bumpErr` (error counter for `subagent_launch:<reason>`) | cli_inner_pretty.js (throughout error paths) | function |
+| `at.agentType` | the constant `"general-purpose"` | cli_inner_pretty.js (used at 351357) | constant |
+| `LZH` | `MAIN_AGENT_REPL_KEY` (sentinel key for main-thread REPL context map) | cli_inner_pretty.js (read at 351543) | constant |
+| `HdH` | `deriveQuerySource` (`agent:builtin:X` / `agent:user:X` / etc. for telemetry) | cli_inner_pretty.js (called from 351537) | function |
+
+---
+
+## Module: Reminder Interactions / Attachment Channels (cli_inner_pretty.js)
+
+Added while writing [34_subagent/reminder_interaction.md](../34_subagent/reminder_interaction.md). These cover the attachment + system-reminder injection path.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AMH` | `computeAttachmentsForSubagent` (orchestrator at runAgent setup; calls individual delta-computers) | cli_inner_pretty.js (called from 393234) | function |
+| `Tt_` | `normalizeAttachmentForAPI` (converts attachment object → user message; per-attachment renderer dispatch table at 425165+) | cli_inner_pretty.js:425165+ | function |
+| `fK` | `createAttachmentMessage` (low-level attachment-message builder) | cli_inner_pretty.js (called from 393190, 393197, 393234, 393284) | function |
+| `mQH` | `computeAgentListingDelta` (diff against prior `agent_listing_delta`s; emit added/removed types) | cli_inner_pretty.js:397839-397875 | function |
+| `Ty6` | `computeSkillListingAttachment` (per-agent skill dedup via `tO8` map; main-loop seed via `eO8`) | cli_inner_pretty.js:398336-398366 | function |
+| `s65` | `computeCriticalSystemReminder` (per-turn re-injection of `criticalSystemReminder_EXPERIMENTAL`) | cli_inner_pretty.js:397884-397888 | function |
+| `BQH` | `computeMcpInstructionsDelta` (per-server instruction publication; delta against prior) | cli_inner_pretty.js:397876-397882 | function |
+| `t65` | `computeOutputStyleReminder` (output-style turn reminder) | cli_inner_pretty.js:397889-397894 | function |
+| `e65` | `computeSelectedLinesInIdeAttachment` (IDE-selected lines injection) | cli_inner_pretty.js:397895-397911 | function |
+| `a65` | `computeThinkingReminder` (thinking-mode reminder for user prompts) | cli_inner_pretty.js:397820-397830 | function |
+| `tO8` | `perAgentSkillSentSet` (Map<agentId, Set<skillName>> for dedup) | cli_inner_pretty.js (read at 398345-398354) | variable |
+| `eO8` | `mainLoopSkillSeedFlag` (one-shot: seeds without sending on first main-loop call) | cli_inner_pretty.js (read at 398347-398351) | variable |
+| `rM6` | `renderSkillListContent` (formats skill catalog as text; usage-weighted ordering via `l7H`) | cli_inner_pretty.js:232385 | function |
+| `qM8` | `getMcpSkillCommands` (skills published by MCP servers) | cli_inner_pretty.js (called from 398341) | function |
+| `D9H` | `dedupSkillCommands` (dedup by name, plugin-aware) | cli_inner_pretty.js (called from 398342) | function |
+| `cw` | `uniqBy` (lodash-style dedup helper) | cli_inner_pretty.js (called from 393233, 398342) | function |
+| `Q7H` | `applySkillOverlay` (main-loop only: append session-skill overlay) | cli_inner_pretty.js (called from 398343) | function |
+| `Np` | `getSessionSkillOverlay` | cli_inner_pretty.js (called from 398343) | function |
+| `gZ` | `loadSkillsFromDisk` (project + user dirs, plugin dirs, bundled) | cli_inner_pretty.js (called from 393203, 398340) | function |
+| `R9` | `getProjectRoot` | cli_inner_pretty.js (called from 393203, 398339) | function |
+| `o_` | `wrapInArray` (`[H]` — used by attachment renderers) | cli_inner_pretty.js (used throughout 425*) | function |
+| `w8` | `createUserMessage` (`{type: "user", message: {role: "user", content: ...}, isMeta?, uuid, ...}`) | cli_inner_pretty.js (used throughout) | function |
+| `Z$` | `getFeatureValue_CACHED_MAY_BE_STALE` (GrowthBook flag reader) | cli_inner_pretty.js (used throughout) | function |
+| `bH` | `parseEnvTruthy` (env var truthiness with "1"/"true" matches) | cli_inner_pretty.js (used throughout) | function |
+| `E4` | `parseEnvFalsy` (env var explicit-false check) | cli_inner_pretty.js (used at 235533) | function |
+| `Ka7` | `DEFAULT_SUBAGENT_SYSTEM_PROMPT` (fallback when agent.getSystemPrompt throws) | cli_inner_pretty.js (used in `d85` fallback path) | constant |
+| `criticalSystemReminder_EXPERIMENTAL` | per-agent definition field; injected each turn | cli_inner_pretty.js:238250, 242698, 393275, 397885 | string |

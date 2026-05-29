@@ -9,7 +9,7 @@ v2.1.140 adds a **precondition gate** that catches this before the hook is regis
 - If `disableAllHooks` is set in `settings.json` or by policy, the host rejects `/goal` with a clear message: "/goal can't run while hooks are disabled (disableAllHooks or allowManagedHooksOnly is set in settings or by policy)."
 - If `allowManagedHooksOnly` is set, same message - because `/goal` registers a session-scoped (non-managed) hook, the managed-only filter would silently drop it.
 
-Plus a related gate: `/goal` requires a trusted workspace. If not trusted, the host shows: "/goal is only available in trusted workspaces. Restart, accept the trust dialog, and try again."
+Plus a related gate: `/goal` in an **interactive** session requires the user to have accepted the workspace trust dialog. If not, the host shows: "/goal is only available in trusted workspaces. Restart, accept the trust dialog, and try again." Non-interactive sessions (`-p`/SDK/background) auto-bypass the trust check — see [§ T6 and \_5 in context](#correction-t6-is-isnoninteractive-_5-is-istrustgranted) below.
 
 The same gate is applied at session-resume time by `restoreGoalFromTranscript` - if the gate fails at resume, the active goal is dropped rather than re-registered into a doomed state.
 
@@ -38,8 +38,12 @@ function goalGateCheck() {
   if (isAllHooksDisabled() || isAllowManagedHooksOnly()) {
     return { message: GOAL_HOOKS_GATE_MSG, code: "hooks_gate" };
   }
-  // Workspace not trusted (and not running in a context that bypasses trust)
-  if (!isTrustedWorkspace() && !isTrustBypassContext()) {
+  // Trust gate. T6 = isNonInteractive (true for -p/SDK/bg). _5 = isTrustGranted (sandboxed,
+  // session-trust flag set, bg-agent context, OR project-tree hasTrustDialogAccepted).
+  // Reads as: "if we're interactive AND trust hasn't been granted -> reject".
+  // Non-interactive contexts auto-pass (no dialog can be shown there); interactive contexts
+  // require an accepted trust dialog or one of the bypass conditions in eh1().
+  if (!isNonInteractive() && !isTrustGranted()) {
     return { message: GOAL_TRUST_GATE_MSG, code: "trust_gate" };
   }
   return null;          // OK
@@ -48,9 +52,108 @@ function goalGateCheck() {
 // Mapping:
 //   Xp6 -> goalGateCheck,
 //   km  -> isAllHooksDisabled,         rw  -> isAllowManagedHooksOnly,
-//   T6  -> isTrustedWorkspace,         _5  -> isTrustBypassContext,
+//   T6  -> isNonInteractive,           _5  -> isTrustGranted,
 //   av5 -> GOAL_HOOKS_GATE_MSG,        ov5 -> GOAL_TRUST_GATE_MSG
 ```
+
+### 1a. Correction: `T6` is `isNonInteractive`, `_5` is `isTrustGranted`
+
+The literal definitions in cli_inner_pretty.js:
+
+```javascript
+// ============================================
+// T6 - isNonInteractive
+// Location: cli_inner_pretty.js:2677-2679
+// ============================================
+
+// ORIGINAL (for source lookup):
+function T6() {
+  return !U$.isInteractive;
+}
+
+// READABLE (for understanding):
+function isNonInteractive() {
+  // True for -p mode, SDK callers, background agents — anything where the Ink renderer
+  // is not in control and the user cannot be shown a dialog.
+  return !sessionGlobals.isInteractive;
+}
+```
+
+```javascript
+// ============================================
+// _5 - isTrustGranted (memoized)
+// Location: cli_inner_pretty.js:140013-140033
+// ============================================
+
+// ORIGINAL (for source lookup):
+function _5() {
+  return (hTK ||= eh1());
+}
+function eh1() {
+  if (bH(process.env.CLAUDE_CODE_SANDBOXED)) return !0;
+  if (YIH()) return !0;
+  if (N7()) return !0;
+  let H = h$(), $ = HBH();
+  if (H.projects?.[$]?.hasTrustDialogAccepted) return !0;
+  let K = ep(I$());
+  while (!0) {
+    if (H.projects?.[K]?.hasTrustDialogAccepted) return !0;
+    let A = ep(QM.resolve(K, ".."));
+    if (A === K) break;
+    K = A;
+  }
+  return !1;
+}
+
+// READABLE (for understanding):
+let trustCache = false;
+function isTrustGranted() {
+  // Memoized — once true, stays true for the rest of the process lifetime.
+  return (trustCache ||= computeTrust());
+}
+function computeTrust() {
+  // Trust is granted if any of:
+  // 1. The CLAUDE_CODE_SANDBOXED env var is truthy (running inside Anthropic's sandbox).
+  if (parseBoolean(process.env.CLAUDE_CODE_SANDBOXED)) return true;
+  // 2. The session-trust flag was set (e.g., by the remote-bridge bootstrap or by an
+  //    --dangerously-skip-permissions / similar invocation that set sessionTrustAccepted).
+  if (sessionTrustAccepted()) return true;
+  // 3. Running as a background agent (bU() === "bg").
+  if (isBackgroundAgent()) return true;
+  // 4. The user has previously accepted the trust dialog for this project OR any ancestor.
+  const cfg = getGlobalConfig();
+  const projectKey = currentProjectKey();
+  if (cfg.projects?.[projectKey]?.hasTrustDialogAccepted) return true;
+  let dir = absolutePath(currentDir());
+  while (true) {
+    if (cfg.projects?.[dir]?.hasTrustDialogAccepted) return true;
+    const parent = absolutePath(pathJoin(dir, ".."));
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return false;
+}
+
+// Mapping:
+//   _5  -> isTrustGranted (memoized),    eh1 -> computeTrust,
+//   YIH -> sessionTrustAccepted,         N7  -> isBackgroundAgent,
+//   bH  -> parseBoolean,                 hTK -> trustCache
+```
+
+**Why this distinction matters:** earlier drafts of this analysis treated `T6` as "isTrustedWorkspace" and `_5` as "isTrustBypassContext". Both names were wrong. `T6` has nothing to do with trust — it's a pure "are we in interactive mode" probe used in ~50 places across the codebase for things like "should this command show a TUI dialog or return text". `_5` is the actual trust check, and it accepts trust from any of four sources (sandbox env, session flag, background-agent context, or accepted dialog) — calling it a "bypass" understates how much real trust evaluation it does.
+
+**The gate's effective truth table:**
+
+| Mode | `T6()` | `_5()` | `!T6() && !_5()` | Trust gate result |
+|------|--------|--------|-------------------|-------------------|
+| Interactive REPL, dialog accepted | false | true | false | pass |
+| Interactive REPL, dialog NOT accepted | false | false | **true** | reject — show trust message |
+| `-p` / SDK | true | * | false | pass (interactive check satisfied) |
+| Background agent | true (via interactive=false at session bootstrap) | true (via `N7()`) | false | pass |
+| Sandboxed CI container | depends | true (via `CLAUDE_CODE_SANDBOXED`) | false | pass |
+| Remote-bridge with `sessionTrustAccepted` | false | true (via `YIH()`) | false | pass |
+
+So the gate rejects exactly one case: an interactive session whose project (and ancestor projects) haven't had the trust dialog accepted, *and* which isn't running in a sandbox/bg/remote-trusted context. Resolution path: accept the trust dialog (Claude Code re-prompts on next launch in an untrusted project).
 
 ### 2. The hook-disable predicates
 
@@ -245,6 +348,8 @@ The pre-gate intercepts at step 1 and surfaces the failure to the user immediate
 
 **Why include the trust gate alongside the hook gate?** `/goal` relies on a Stop hook that runs a model subagent to evaluate the condition. In an untrusted workspace, the hook system itself is gated (no project-level hooks, no plugin hooks, no user `.claude/skills/` shell fences). Letting `/goal` proceed would either silently fail at the hook layer (same as disableAllHooks) or run unconfigured. The trust gate makes the requirement explicit.
 
+**Why does the gate bypass trust in non-interactive mode?** Because non-interactive callers (`-p`, SDK, background agents) cannot see or respond to a trust dialog. The trust contract for those callers is established at launch time via flag (`--dangerously-skip-permissions`), env (`CLAUDE_CODE_SANDBOXED`), or context (the bridge that set `sessionTrustAccepted`). At the point `/goal` is invoked, the trust decision has already been made — `T6()` true means "we wouldn't have started without trust being implicit". So gating again would either be redundant or block a legitimate caller.
+
 **Why does the resume-time gate drop the goal instead of leaving it pending?** Two reasons:
 
 1. The overlay panel would tick the elapsed-time clock against a goal that cannot ever resolve. The user has no way to know the goal is broken without checking settings.
@@ -252,7 +357,7 @@ The pre-gate intercepts at step 1 and surfaces the failure to the user immediate
 
 Dropping the goal is the conservative path - the user can run `/goal <cond>` again to re-establish it.
 
-**Why is the trust check `T6() || _5()` (trusted OR bypass)?** `_5` is the bypass for SDK / `-p` contexts where the trust dialog cannot be shown but the user has explicitly opted in via flag or env. This lets headless mode with `--dangerously-skip-permissions` (or equivalent) bypass the trust gate while interactive sessions still require the dialog.
+**Why is the trust check `!T6() && !_5()` (interactive AND not-trust-granted)?** The check is `if (interactive && !trustGranted) reject`. Interactive contexts must have trust, because they're the contexts where a dialog *could* be shown. Non-interactive contexts auto-pass because they got trust through some other channel at launch (flag/env/bridge) or they don't need it (background agent runs under the parent session's trust). This split keeps headless callers usable while preserving the interactive trust-dialog as the single point of user consent.
 
 **Key insight:** The gate is **pure detection** - it does not try to fix the configuration or prompt the user to change settings. It returns the failure to the caller verbatim, who emits it via the same `display: "system"` channel any other error message would use. This keeps the failure indistinguishable from any other `/goal` failure (length cap, etc.) from the caller's perspective. The "how to fix" hint is baked into the message itself.
 

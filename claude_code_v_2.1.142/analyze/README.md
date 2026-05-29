@@ -86,9 +86,10 @@ by_version/v2.1.142.md        (claude agents dispatch flags, Fast Mode Opus 4.7,
 37_permission_policy/   autoMode.hard_deny, $defaults merge, Skill(name *) wildcard
 38_shell_snapshot/      bash startup snapshotting, SESSION_ID env, find descriptor budget
 39_goal/                /goal command, active_goal event, Stop-hook-as-loop (NEW module v2.1.142)
+41_system_reminder/     <system-reminder> cross-cutting subsystem (wrap/strip/dispatch, UI, telemetry, catalogue)
 ```
 
-Four modules are new in this window vs the v2.1.112 baseline tree: `04_tools/`, `34_subagent/`, `36_background_agents/`, `39_goal/`.
+Five modules are new in this window vs the v2.1.112 baseline tree: `04_tools/`, `34_subagent/`, `36_background_agents/`, `39_goal/`, `41_system_reminder/`.
 
 ### `40_ant_promoted/` (planned cross-cutting pool)
 

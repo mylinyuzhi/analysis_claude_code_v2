@@ -2,6 +2,8 @@
 
 > Many tool results carry — or trigger downstream — `<system-reminder>…</system-reminder>` blocks that the model treats as ambient harness instructions rather than user input. This document catalogues every reminder that flows through (or alongside) a tool call: which tool emits it, in which stage, the exact text, and why the reminder exists.
 
+> **See also**: `../41_system_reminder/` for the cross-cutting analysis of the `<system-reminder>` subsystem itself — wrap/strip primitives, the message-stream normalisation pipeline, UI suppression mechanism, telemetry split, and the full attachment-type catalogue. This file covers *only* the tool-adjacent slice.
+
 > **Cross-validation**: the obfuscated bundle (`cli_inner_pretty.js` v2.1.142) and the 2.1.88 TypeScript reference (`/lyz/codespace/3rd/claude-code/src/`) match line-for-line on the reminder generators below. The TS file paths are given inline so each readable name can be confirmed in source.
 
 ## The two reminder-emitting primitives

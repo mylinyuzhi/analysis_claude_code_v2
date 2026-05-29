@@ -196,6 +196,50 @@ Note: v2.1.142 obfuscated identifiers DIFFER from v2.1.112 identifiers. The bund
 
 ---
 
+## Module: Plan Mode — Reminder Text Builders (discovered in runtime_mechanism.md)
+
+These functions render the per-turn system reminder text. They are pure functions (string concat) invoked by the attachment renderer when `d65` emits a `plan_mode`/`plan_mode_reentry` attachment.
+
+| Obfuscated (v2.1.142) | Readable | v2.1.142 File:Line | v2.1.88 Source | Type |
+|------------------------|----------|--------------------|----------------|------|
+| `Gz5` | `dispatchPlanModeReminder` (router: isSubAgent → Ez5; sparse → Nz5; else → Vz5) | cli_inner_pretty.js:424762 | `attachments.ts` (parallel dispatcher) | function |
+| `Vz5` | `buildPlanModeFullReminder_5Phase` (default workflow OR customInstructions variant) | cli_inner_pretty.js:424773 | `attachments.ts` getPlanPhase*Section composition | function |
+| `kz5` | `buildPlanModeFullReminder_Iterative` (interview-phase, when `bf()`) | cli_inner_pretty.js:424867 | `attachments.ts` getInterviewPhasePlanModeReminder | function |
+| `Nz5` | `buildPlanModeSparseReminder` (~75 tokens) | cli_inner_pretty.js:424918 | `attachments.ts` getPlanModeSparseReminder | function |
+| `Ez5` | `buildPlanModeSubAgentReminder` (~10 lines) | cli_inner_pretty.js:424927 | `attachments.ts` getPlanModeSubAgentReminder | function |
+| `Gq4` | `getEndOfTurnInstruction` (AskUserQuestion OR ExitPlanMode enforcement) | cli_inner_pretty.js:424767 | `attachments.ts` getEndOfTurnInstruction | function |
+| `vz5` | `getReadOnlyToolsList` (returns `Read`/`Glob`/`Grep` = `Bq`/`d1`/`v9`; shell-env mode aliases as `` `find`/Glob ``, `` `grep`/Grep ``) | cli_inner_pretty.js:424861 | `attachments.ts` getReadOnlyToolsList | function |
+| `Zq4` | `PLAN_MODE_PREAMBLE` ("Plan mode is active. The user indicated…") | cli_inner_pretty.js:425992 | `attachments.ts` PLAN_MODE_PREAMBLE | constant |
+| `Tz5` | `PLAN_PHASE_4_PROMPT` (Final-plan structure bullets; pewter_ledger control arm) | cli_inner_pretty.js:425984 | `attachments.ts` getPlanPhase4Section default | constant |
+| `MV6` | `REJECTED_PLAN_TOOL_RESULT_SENTINEL` (= `PLAN_REJECTION_PREFIX`) | cli_inner_pretty.js:425970 | `messages.ts:220` PLAN_REJECTION_PREFIX | constant |
+| `aY` | `attachmentRegistrar` (per-builder telemetry + error-swallow wrapper) | cli_inner_pretty.js:397620 | `attachments.ts` maybe() helper | async function |
+
+---
+
+## Module: Plan Mode — UI Components (discovered in ui_components.md)
+
+React/Ink components for the user-facing plan-mode UI. Cross-validated with `src/components/permissions/ExitPlanModePermissionRequest/`, `src/components/permissions/EnterPlanModePermissionRequest/`, `src/components/messages/UserToolResultMessage/RejectedPlanMessage.tsx`, `src/tools/EnterPlanModeTool/UI.tsx`, `src/tools/ExitPlanModeTool/UI.tsx`.
+
+| Obfuscated (v2.1.142) | Readable | v2.1.142 File:Line | v2.1.88 Source | Type |
+|------------------------|----------|--------------------|----------------|------|
+| `Tb4` | `ExitPlanModePermissionRequestComponent` (~700-line approval dialog) | cli_inner_pretty.js:540953 | `components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.tsx:118` | React component |
+| `_c6` | `buildPlanApprovalOptions` (5-option list with bypass>auto>edits priority) | cli_inner_pretty.js:540869 | `ExitPlanModePermissionRequest.tsx:674` (exported) | function |
+| `M28` | `mapApprovalChoiceToResult` (ResponseValue → PermissionResult) | cli_inner_pretty.js:540914 | `ExitPlanModePermissionRequest.tsx` (inlined as handleResponse logic) | function |
+| `Kc6` | `autoNameSessionFromPlan` (fire-and-forget kebab-case session name via generateSessionName) | cli_inner_pretty.js:540852 | `ExitPlanModePermissionRequest.tsx:83` (exported) | function |
+| `tz8` | `RejectedPlanMessage` (rounded planMode-color box + Markdown plan) | cli_inner_pretty.js:349409 | `components/messages/UserToolResultMessage/RejectedPlanMessage.tsx` | React component |
+| `nx7` | `userToolResultMessageRouter` (detects MV6/PnH sentinels) | cli_inner_pretty.js:349459 | `components/messages/UserToolResultMessage/UserToolResultMessage.tsx` | React component |
+| `dx7` | `genericRejectionPill` (one-line "Tool use rejected") | cli_inner_pretty.js:349444 | (same module) | React component |
+| `DyH` | `nextPermissionModeForCycle` (Shift+Tab cycle order: default→acceptEdits→plan→[bypass/auto]→default) | cli_inner_pretty.js:540813 | `utils/permissions/PermissionMode.ts` (or PermissionUpdate.ts) `getNextPermissionMode` | function |
+| `Wb4` | `canCycleToAuto` (gates auto step in DyH; checks gate + dismissed) | cli_inner_pretty.js:540797 | parallel helper | function |
+| `Zb4` | `computeCycleModeContext` (wraps DyH + tHH side effects) | cli_inner_pretty.js:540832 | parallel helper | function |
+| `mO4` | `MODE_INDICATOR_LIST` (4-mode chip array) | cli_inner_pretty.js:464983 | `components/ModeIndicator.tsx` (approx) | constant |
+| `FO4` | `ModeIndicatorTeaser` (welcome-screen 3s rotating chip) | cli_inner_pretty.js:464912 | parallel component | React component |
+| `P25` | `cycleModeIndex` (= `(i+1) % mO4.length`) | cli_inner_pretty.js:464953 | parallel helper | function |
+| `Cv` | `getModeColor` (theme color resolver: 'plan' → 'planMode') | cli_inner_pretty.js:48491 | `utils/permissions/PermissionMode.ts` getModeColor | function |
+| `CS` (local lambda) | `handleCycleMode` (Shift+Tab handler in REPL useCallback) | cli_inner_pretty.js:553047 | `screens/REPL.tsx` handleCycleMode useCallback | inline lambda |
+
+---
+
 ## v2.1.142-Only Additions (Net New vs v2.1.112)
 
 These symbols/behaviors exist in v2.1.142 but **not** in v2.1.112:

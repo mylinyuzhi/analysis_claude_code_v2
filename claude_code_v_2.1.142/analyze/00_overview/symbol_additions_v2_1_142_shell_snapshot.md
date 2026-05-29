@@ -187,6 +187,30 @@
 
 ---
 
+## Module: Project Purge UI (mentions shell-snapshots/)
+
+The only end-user-visible surface that references the shell-snapshots directory. See [ui_and_observability.md](../38_shell_snapshot/ui_and_observability.md) for the full deobfuscation.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `dqA` | `purgeProjectHandler` | cli_inner_pretty.js:604708-604760 | function |
+| `gqA` | `planProjectPurge` | cli_inner_pretty.js:604585-604639 | function |
+| `QqA` | `planAllPurge` | cli_inner_pretty.js:604640-604666 | function |
+| `j$9` | `printPurgePlan` | cli_inner_pretty.js:604698-604707 | function |
+| `Nr6` | `printLine` (stdout) | cli_inner_pretty.js:604438-604441 | function |
+| `kr` | `printWarning` (yellow stderr) | cli_inner_pretty.js:530206-530212 | function |
+| `j_H` | `directoryExists` (stat-or-false) | cli_inner_pretty.js:604457-604463 | function |
+| `Er6` | `executePurgeItem` (dispatcher) | cli_inner_pretty.js:604667-604682 | function |
+| `P$9` | `formatPurgeItem` (display formatter) | cli_inner_pretty.js (referenced via 604702) | function |
+| `D$9` | `promptYesNo` (readline confirm) | cli_inner_pretty.js:604442-604456 | function |
+| `BqA` | `pickProjectInteractive` | cli_inner_pretty.js (referenced at 604726) | function |
+| `J$9` | `selectFromList` (interactive picker) | cli_inner_pretty.js:604464+ | function |
+| `hr6` | `scanHistoryFile` | cli_inner_pretty.js:604437 (export) | function |
+| `_v` | `require("path")` (purge scope) | cli_inner_pretty.js:604781 | variable |
+| `J_H` | `require("fs/promises")` (purge scope) | cli_inner_pretty.js:604780 | variable |
+
+---
+
 ## v2.1.142-Only Additions (Not Present in v2.1.112)
 
 | Symbol | Readable | Significance |
@@ -229,6 +253,7 @@ For deep behavioural deobfuscation of each symbol, see the module docs:
 - [retention_cleanup.md](../38_shell_snapshot/retention_cleanup.md) — `al5`, `Rr`, `aB4`
 - [embedded_search_tools.md](../38_shell_snapshot/embedded_search_tools.md) — `dM` simplification + v2.1.121 fallback
 - [cross_validation.md](../38_shell_snapshot/cross_validation.md) — v2.1.88 ↔ v2.1.112 ↔ v2.1.142 audit
+- [ui_and_observability.md](../38_shell_snapshot/ui_and_observability.md) — `claude project purge` warning + debug/OTEL/Tengu observability matrix
 
 ---
 

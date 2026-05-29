@@ -108,6 +108,61 @@ The unit treats these as **non-breaking but observable refactors**: every v2.1.1
 
 The architectural insight is unchanged: **the entrypoint is a single Markdown file**, not a database. The hard cap (200 lines, 25 KB) keeps the system prompt budget bounded; everything beyond the index lives in topic `.md` files that the model loads on demand with the Read tool. The truncation warning still explicitly tells the model to "move detail into topic files," teaching it the index-vs-detail discipline.
 
+### Three writer paths converge on the same directory
+
+What the above diagram doesn't show: in v2.1.142 there are **three independent writers** that produce content for the same `~/.claude/projects/<slug>/memory/` directory. Understanding the system requires holding all three in mind simultaneously:
+
+```
+                    [user/main agent]            [extraction subagent]              [dream subagent]
+                          │                              │                                 │
+                          │ user types "remember X"      │ post-turn (fires every          │ per-turn check; fires when
+                          │ OR # direct-save             │ qualifying turn while           │ tengu_onyx_plover.{minHours,
+                          │ OR types /memory             │ tengu_passport_quail is on)     │ minSessions} pass + lock acquired
+                          │ to edit MEMORY.md directly   │                                 │
+                          v                              v                                 v
+                  ┌────────────────┐            ┌────────────────┐                 ┌────────────────┐
+                  │  Main agent    │            │ Forked agent   │                 │ Forked agent   │
+                  │  writes via    │            │ (per-turn)     │                 │ (across-       │
+                  │  Edit/Write    │            │ b85.execute    │                 │ sessions)      │
+                  │  tools.        │            │ ExtractMemo-   │                 │ nr7→cr7→lr7    │
+                  │                │            │ ries           │                 │                │
+                  │  Mutex: tells  │            │  - cursor      │                 │  - hours+lock  │
+                  │  the           │            │    based       │                 │    gating      │
+                  │  extraction    │            │  - allow-list  │                 │  - same DO8    │
+                  │  to skip       │            │    DO8(dir)    │                 │    allow-list  │
+                  │  (A$5)         │            │  - notif:      │                 │  - notif:      │
+                  │                │            │    "Saved N"   │                 │    "Improved N"│
+                  └────────────────┘            └────────────────┘                 └────────────────┘
+                          │                              │                                 │
+                          └──────────────┬───────────────┴─────────────────────────────────┘
+                                         │
+                                         v
+                              ┌─────────────────────────┐
+                              │ ~/.claude/projects/     │
+                              │   <slug>/memory/         │
+                              │     MEMORY.md           │ ← index, 200L/25KB-capped
+                              │     user.md             │ ← topic files (any topic name)
+                              │     feedback_x.md       │
+                              │     project_y.md        │
+                              │     team/...            │ ← optional team subdir
+                              │     logs/YYYY/MM/...    │ ← session activity logs (dream input)
+                              └─────────────────────────┘
+                                         │
+                                         │ next session start / next loadMemoryPrompt
+                                         v
+                                  loaded into system prompt
+                                  (with optional truncation
+                                   warning if over caps)
+```
+
+**Mutual-exclusion contract:** main agent and extraction are mutually exclusive *per turn* (extraction's `hasMemoryWritesSince` detector). Dreaming and extraction can in principle overlap (different timing horizons) but in practice dream's lock + minHours throttle make collisions vanishingly rare.
+
+**Sandbox:** extraction and dream both use the same `DO8(memoryDir)` allow-list (read/grep/glob unrestricted; bash/powershell read-only or `rm`/`Remove-Item` for `*.md` in dir; edit/write only for memoryDir paths; tiny mode adds Edit-deny for immutability). Main agent has no such sandbox — it can write anywhere the user permits.
+
+**Notification verbs:** extraction emits "Saved", dream emits "Improved", main-agent inline writes don't auto-emit (the model says what it did in its turn response).
+
+See [extract_memories_runtime.md](./extract_memories_runtime.md) and [auto_dream_runtime.md](./auto_dream_runtime.md) for the per-writer details.
+
 What changed in v2.1.142 is the **degree of variation** in the prompt text the model sees on session start:
 
 - Five dispatch branches in `loadMemoryPrompt` (was three in v2.1.112): cowork-verbatim, simple-system-prompt, tiny-memory, team-memory, single-auto.
@@ -133,6 +188,10 @@ These all coexist in **one binary** chosen at runtime by feature flags and envir
 | [messages_integration.md](./messages_integration.md) | How memory section wires into system prompt builder, end-to-end pipeline |
 | [team_memory.md](./team_memory.md) | Team-shared memory variant, cross-session sync, prompt assembly |
 | [team_paths.md](./team_paths.md) | `~/.claude/projects/<slug>/memory/team/` path resolution, traversal defenses |
+| [extract_memories_runtime.md](./extract_memories_runtime.md) | **NEW** — `b85.executeExtractMemories` and the entire `Co7`-triggered background extraction flow: trigger gate (`Wi$`), closure-scoped state (`M$5`), cursor tracking, throttling, coalescing, fork harness, `canUseTool` restrictions (`DO8`), prompt builder (`hr7`), draining for `-p` mode |
+| [auto_dream_runtime.md](./auto_dream_runtime.md) | **NEW** — `/dream` slash command (gated on `tengu_kairos_dream`, default false) + auto-dream background scheduler (`nr7` / `cr7` / `lr7`, gated on `tengu_onyx_plover.enabled`/`available` or `tengu_herring_clock`, default disabled), the 4-phase consolidation prompt (`SL$` / `SVK`), thresholds via `tengu_onyx_plover.{minHours,minSessions}`, filesystem locking, `pendingMemoryUpdates` queue + `memory_update` attachment for next-turn ambient context, and a clarification that `memory_20250818` is the Anthropic managed-agent memory tool (NOT Claude Code auto-memory) |
+| [memory_ui.md](./memory_ui.md) | **NEW** — `/memory` Dialog (`sj5` / `oj5` / `R54`), `/toggle-memory` (`ej5` / `tj5`), `MemoryUpdateNotification` (`Oc_`), `UserMemoryInputMessage` (`Pb7`), status-bar suggestions (`cw5` token budget, `GG5` large-file warning), and the end-to-end UI lifecycle |
+| [memory_save_survey.md](./memory_save_survey.md) | **NEW** — `gY$` (capture), `PcK` (reject/undo) — the v2.1.142-only feedback subsystem with content-change guard, structured-patch display, and `memory_save_capture` / `memory_save_reject` telemetry |
 | [cross_validation.md](./cross_validation.md) | v2.1.88 TypeScript ↔ v2.1.142 obfuscated cross-reference + full v2.1.112 ↔ v2.1.142 delta table |
 
 Plus index-side additions live in:
@@ -195,6 +254,8 @@ Key insight: the system prompt is still built **synchronously**, but the telemet
 > - [symbol_additions_v2_1_142_auto_memory.md](../00_overview/symbol_additions_v2_1_142_auto_memory.md) - New symbols added by this unit
 
 Key core-feature symbols in v2.1.142:
+
+**memdir core (`c5$` dispatcher region, lines 141432–143000):**
 - `ENTRYPOINT_NAME` (`xj`, `nh1`) - String constant `"MEMORY.md"` (cli_inner_pretty.js:141682, 139836)
 - `MAX_ENTRYPOINT_LINES` (`jKH`) - Integer 200 (cli_inner_pretty.js:141683)
 - `MAX_ENTRYPOINT_BYTES` (`d5$`) - Integer 25000 (cli_inner_pretty.js:142953)
@@ -220,6 +281,121 @@ Key core-feature symbols in v2.1.142:
 - `MEMORY_TYPES` (`JK6`) - The closed 4-element array (cli_inner_pretty.js:141990)
 - `TINY_MEMORY_TYPES` (`WK6`) - 3-element array for tiny variant (cli_inner_pretty.js:142352)
 - `validateMemoryPath` (`VTK`) - Override-path security validator (cli_inner_pretty.js:139783-139803)
+
+**Runtime extraction (`b85` namespace, lines 388989–389351; see [extract_memories_runtime.md](./extract_memories_runtime.md)):**
+- `isExtractModeActive` (`Wi$`) - Master gate; reads `tengu_passport_quail` + `tengu_slate_thimble` (cli_inner_pretty.js:139769-139772)
+- `autoMemExtractionModule` (`jO8`, referenced as `b85` elsewhere) - Namespace exporting `init`/`execute`/`drain`/`createAutoMemCanUseTool` (cli_inner_pretty.js:389043-389049)
+- `initExtractMemories` (`M$5`) - Closure factory, called once at startup (cli_inner_pretty.js:389216-389339)
+- `executeExtractMemories` (`w$5`) - The public entry called by Co7 each turn (cli_inner_pretty.js:389341-389343)
+- `drainPendingExtraction` (`D$5`) - Awaits all in-flight extractions; called from `-p` print path (cli_inner_pretty.js:389344-389346)
+- `createAutoMemCanUseTool` (`DO8`) - Strict tool allow-list for the forked agent (cli_inner_pretty.js:389161-389193)
+- `runExtraction` (`z`, inner) - The core extraction loop (cli_inner_pretty.js:389223-389312)
+- `executeExtractMemoriesImpl` (`Y`, inner) - The gate-checked dispatcher with in-progress coalescing (cli_inner_pretty.js:389314-389325)
+- `buildExtractionPrompt` (`hr7`) - The prompt template; merged auto+team builder (cli_inner_pretty.js:388989-389034)
+- `denyAutoMemTool` (`wO8`) - The deny-result factory; emits `tengu_auto_mem_tool_denied` (cli_inner_pretty.js:389106-389112)
+- `validatePosixMemoryRm` (`f$5`) - Allows `rm <flag>... path.md` only inside memoryDir (cli_inner_pretty.js:389130-389160)
+- `validatePowerShellRemoveItem` (`Y$5`) - Allows `Remove-Item path.md` aliases only inside memoryDir (cli_inner_pretty.js:389113-389129)
+- `isUserProseMessage` (`br7`) - Filter: type=user, !meta, ≥3 whitespace-separated tokens (cli_inner_pretty.js:389087-389093)
+- `MIN_USER_PROSE_TOKENS` (`Rr7`) - 3 (cli_inner_pretty.js:389349)
+- `hasMemoryWritesSince` (`A$5`) - Mutual-exclusion detector (cli_inner_pretty.js:389067-389083)
+- `countModelVisibleMessagesSince` (`_$5`) - Cursor-based message counter with compaction fallback (cli_inner_pretty.js:389053-389066)
+- `hasUserProseSince` (`z$5`) - Cursor-based prose-presence check with compaction fallback (cli_inner_pretty.js:389094-389105)
+- `extractWrittenPaths` (`O$5`) - Pulls unique file paths from forked-agent tool calls (cli_inner_pretty.js:389203-389215)
+- `getWrittenFilePath` (`ur7`) - Edit/Write tool_use → file_path extractor (cli_inner_pretty.js:389194-389202)
+- `isModelVisibleMessage` (`cE6`) - type=user or type=assistant (cli_inner_pretty.js:389050-389052)
+- `extractor` (`mr7`, closure-scoped) - The wired extractor function (cli_inner_pretty.js:389327-389335)
+- `drainer` (`Br7`, closure-scoped) - The wired drainer function (cli_inner_pretty.js:389336-389339)
+- `createMemorySavedMessage` (`JO8`) - System message factory (cli_inner_pretty.js:425477-425486)
+
+**UI surfaces (see [memory_ui.md](./memory_ui.md)):**
+- `memoryCommand` (`sj5`, exported as `g54`) - `/memory` slash command (cli_inner_pretty.js:446024-446031)
+- `memoryCommandCall` (`aj5`) - The /memory call function that primes caches and returns React element (cli_inner_pretty.js:446006-446008)
+- `MemoryCommandDialog` (`oj5`) - Dialog wrapper around MemoryFileSelector (cli_inner_pretty.js:445~980)
+- `MemoryFileSelector` (`R54`) - Picker for memory files + toggles (cli_inner_pretty.js:445399-445685)
+- `MemoryUpdateNotification` (`Oc_`) - Renderer for `memory_saved` system messages (cli_inner_pretty.js:349234-349287)
+- `MemoryFileLink` (`wc_`) - Clickable filename row (cli_inner_pretty.js:349291)
+- `UserMemoryInputMessage` (`Pb7`) - Renders the `# <text>` direct-save block (cli_inner_pretty.js:346068-346108)
+- `randomAckMessage` (`oQ_`) - Picks one of ("Got it.", "Good to know.", "Noted.") (cli_inner_pretty.js:346065-346067)
+- `toggleMemoryCommand` (`ej5`, exported as `wx6`) - `/toggle-memory` slash command (cli_inner_pretty.js:446058-446071)
+- `toggleMemoryCall` (`tj5`) - Toggle handler; updates `U$.memoryToggledOff` and emits `tengu_memory_toggled` (cli_inner_pretty.js:446035-446048)
+- `isMemoryToggledOff` (`Rd`) - Session-scoped toggle accessor (cli_inner_pretty.js:2734-2736)
+- `setMemoryToggledOff` (`Kv8`) - Session-scoped toggle setter (cli_inner_pretty.js:2737-2739)
+- `pushMemoryTokenSuggestion` (`cw5`) - "Memory files using X tokens (Y%)" suggestion (cli_inner_pretty.js:440856-440874)
+- `MIN_MEMORY_PCT_THRESHOLD` (`pw5`) - 5 (cli_inner_pretty.js:440888)
+- `MIN_MEMORY_TOKEN_THRESHOLD` (`Uw5`) - 5000 (cli_inner_pretty.js:440889)
+- `largeMemoryFilesWarning` (`GG5`) - Per-file size warning (cli_inner_pretty.js:469962-469989)
+- `OPEN_FOLDER_SENTINEL` (`sW$`) - `"__open_folder__"` (cli_inner_pretty.js:445716)
+- `OS_HEAD_KEYBOARD_HOOK` / editor launcher (`Lj8`, `AS`) - Spawn `$EDITOR`/`$VISUAL`, alternate-screen for terminal editors (cli_inner_pretty.js:445773-445888)
+- `getRelativeMemoryPath` (`u54`) - `~/` and `./` rewriting for display (cli_inner_pretty.js:445746-445753)
+
+**Memory-save survey (v2.1.142 NEW, see [memory_save_survey.md](./memory_save_survey.md)):**
+- `isMemorySurveyEnabled` (`KY6`) - 4-condition gate (cli_inner_pretty.js:207765-207767)
+- `getMemorySurveyConfig` (`qY6`) - Schema-validated Growthbook config reader (cli_inner_pretty.js:207756-207761)
+- `captureMemorySave` (`gY$`) - Capture entry; 5 skip conditions (cli_inner_pretty.js:207768-207789)
+- `rejectMemorySave` (`PcK`) - Undo path with content-change guard (cli_inner_pretty.js:207901-207923)
+- `formatCaptureForSurvey` (`LcK`) - Unified-diff vs full-content formatter (cli_inner_pretty.js:207888-207900)
+- `cleanupEmptyParentDirs` (`XH_`) - Post-delete dir cleanup (cli_inner_pretty.js:207925-...)
+- `removeCaptureById` (`McK`) - Filter-by-id helper (cli_inner_pretty.js:207790-207794)
+- Row-counting helpers (`wcK`, `DcK`, `jcK`, `JcK`, `XcK`, `JH_`, `I3H`) - Survey UI text-wrapping math (cli_inner_pretty.js:207795-207887)
+
+**Stop-hook integration:**
+- `Co7` (runStopHookChain) - Calls **both** memory writers per turn:
+  - `b85.executeExtractMemories(M, A.appendSystemMessage)` at line 391666 when `Wi$()` && `!agentId` — per-turn extraction subagent ([extract_memories_runtime.md](./extract_memories_runtime.md))
+  - `nr7(M, A.appendSystemMessage)` at line 391667 when `!agentId` — auto-dream gate check; fires the dream subagent if `k$5()` AND threshold-since-last + lock all pass ([auto_dream_runtime.md](./auto_dream_runtime.md))
+  - (See also [`../39_goal/goal_stop_hook_consumer.md`](../39_goal/goal_stop_hook_consumer.md) for the same orchestrator from the goal-feature perspective)
+
+**Auto-dream (`nr7` / `cr7` / `lr7`, lines 389406-389677; see [auto_dream_runtime.md](./auto_dream_runtime.md)):**
+- `initAutoDream` (`lr7`) - Closure factory for the auto-dream extractor (cli_inner_pretty.js:389509-389637)
+- `runAutoDreamCheck` (`nr7`) - Public entry called by Co7 (cli_inner_pretty.js:389669-389671)
+- `autoDreamExtractor` (`cr7`, closure-scoped) - The wired auto-dream function (cli_inner_pretty.js:389511-389636)
+- `isAutoDreamEnabled` (`k$5`) - Gate combining `!CN`, `!I6`, `x9`, `hL$` (cli_inner_pretty.js:389500-389504)
+- `isAutoDreamFeatureToggleable` (`hL$`) - User-toggle-respecting wrapper around `OO8`; precedence: `OO8` precondition → user setting → `tengu_onyx_plover.enabled` → `ii$()` fallback (cli_inner_pretty.js:388970-388976)
+- `isAutoDreamServerSideOptIn` (`OO8`) - The precondition: `tengu_onyx_plover.enabled` OR `tengu_onyx_plover.available` OR `ii$()` (cli_inner_pretty.js:388965-388969)
+- `getDreamConfig` (`yr7`) - Reads `tengu_onyx_plover` Growthbook flag (default `null`) (cli_inner_pretty.js:388962-388964)
+- `isTeamMemServerHasContent` (`ii$`) - The team-memory-server fallback: `g5$()` AND `_v8() === "has-content"` (cli_inner_pretty.js:142518-142521)
+- `isHerringClockEnabled` (`g5$`) - `x9() && tengu_herring_clock` (default `false`) (cli_inner_pretty.js:142511-142514)
+- `getTeamMemoryServerStatus` (`_v8`) - Reads `U$.teamMemoryServerStatus` (cli_inner_pretty.js:2740)
+- `getDreamThresholds` (`v$5`) - Reads `tengu_onyx_plover` for `minHours`/`minSessions`, falls back to `gr7` defaults (cli_inner_pretty.js:389489-389498)
+- `isAutoDreamForcedRun` (`N$5`) - Returns false in v2.1.142 (kill switch placeholder) (cli_inner_pretty.js:389506-389508)
+- `AUTO_DREAM_SCAN_THROTTLE_MS` (`V$5`) - 10-minute scan throttle between gate-check attempts (= 600000) (cli_inner_pretty.js:389675)
+- `AUTO_DREAM_THRESHOLD_DEFAULTS` (`gr7`) - Compile-time `{minHours, minSessions}` defaults (cli_inner_pretty.js:389676)
+- `buildDreamPrompt` (`SL$`) - The 4-phase dream prompt (Orient/Gather/Consolidate/Prune) for non-tiny mode (cli_inner_pretty.js:389406-389472)
+- `buildDreamPromptTiny` (`SVK`) - The tiny-mode dream prompt with immutability rules (cli_inner_pretty.js:142313-142340; see memdir_core.md)
+- `TEAM_DREAM_PHASE_GUIDANCE` (`Z$5`) - Inserted when teamMem enabled (cli_inner_pretty.js:389474)
+- `RECONCILE_AGAINST_CLAUDEMD` (`G$5`) - Inserted in Phase 4 of every dream (cli_inner_pretty.js:389476-389484)
+- `trackDreamFilesTouched` (`E$5`) - onMessage callback aggregating Edit/Write file_paths + rm/Remove-Item paths from the dream subagent (cli_inner_pretty.js:389638-389659)
+- `aggregateDreamProgress` (`Pd7`) - Stores per-message tracking on the task registry
+- `acquireDreamLock` (`jd7`) - Atomic mtime touch on lastConsolidatedAt; null on contention
+- `releaseDreamLock` (`tf8`) - Rollback on dream failure
+- `readLastConsolidatedAt` (`sf8`) - Read consolidatedAt mtime
+- `listSessionsTouchedSince` (`Jd7`) - List session UUIDs with activity since the given mtime
+- `registerDreamTask` (`Ld7`) - Add a task record to the registry for tracking
+- `finalizeDreamTask` (`Wd7`) - Mark the task complete
+- `rollbackDreamTask` (`Zd7`) - Mark the task failed
+- `isDreamTaskRecord` (`kN6`) - Type guard for the dream task variant
+- `countDailyLogs` (`y$5`) - Count .md files under `<memoryDir>/logs/` recursively, used in completion telemetry
+- `tengu_auto_dream_skipped` - Telemetry (with reasons "sessions" or "lock")
+- `tengu_auto_dream_fired` - Telemetry on successful gate pass
+- `tengu_auto_dream_completed` - Telemetry on successful completion (with cache stats, files_touched_count)
+- `tengu_auto_dream_failed` - Telemetry on exception (with phase: "fork" or "completion", error_class)
+- `tengu_dream_invoked` - Telemetry on user `/dream` invocation (with mode: "consolidate" or "schedule")
+
+**`/dream` slash command (see [auto_dream_runtime.md](./auto_dream_runtime.md)):**
+- `registerDreamSkill` (`z8A`) - Slash command registration; called once from `bt4` (cli_inner_pretty.js:597558-597561), itself triggered during bundled-skills init (cli_inner_pretty.js:588290-588339)
+- `isDreamSkillEnabled` (`K8A`) - Skill enable gate: `!CN() && x9() && tengu_kairos_dream`; default false in v2.1.142 (cli_inner_pretty.js:588247-588249)
+- `tengu_kairos_dream` Growthbook flag (default `false`) — must be opted in per cohort for `/dream` to appear in the slash command list
+- `getDreamCronSchedule` (`_8A`) - Returns default cron schedule (cli_inner_pretty.js:588250)
+- `buildDreamSchedulePrompt` (`A8A`) - Prompt for `/dream nightly` (cli_inner_pretty.js:588254)
+- `SCHEDULE_MODE_REGEX` (`H8A`) - `/^(nightly|schedule|overnight)\b/i` (cli_inner_pretty.js:588355)
+- `touchLastConsolidatedAt` (`Xd7`) - Updates the mtime that auto-dream uses for throttle (cli_inner_pretty.js:377722)
+- `pendingMemoryUpdates` - appState queue holding `{source: "dream", summary, paths}` items (default `[]` at cli_inner_pretty.js:278774)
+- `drainPendingMemoryUpdates` (`Eq5`) - Drains the queue and emits `memory_update` attachments (cli_inner_pretty.js:398623-398636)
+- `memory_update` attachment renderer at cli_inner_pretty.js:425292-425311 - Produces the next-turn ambient context message
+- `MEMORY_UPDATE_SOURCE_LABELS` (`Cz5`) - `{dream: "Background memory consolidation"}` (cli_inner_pretty.js:426254)
+
+**API surface (NOT part of Claude Code auto-memory — clarification):**
+- `memory_20250818` (string literal at cli_inner_pretty.js:592878, 597192) — The Anthropic Managed Agents memory tool. Documentation strings only. Independent of Claude Code's local auto-memory.
+- `client.beta.memory_stores.*` (text fragment at cli_inner_pretty.js:594173) — Anthropic SDK docs for Managed Agents memory stores, bundled for the model to reference when answering customer questions about the API. No call sites; not used by Claude Code itself.
 
 ## Version Notes (v2.1.112 vs v2.1.142)
 
@@ -261,3 +437,56 @@ The summary table below captures the major v2.1.112 → v2.1.142 differences in 
 | `SVK` dream-pruning prompt | not present | new offline-pruning prompt builder | **New** |
 
 The v2.1.142 changes are best understood as **prompt-engineering refinements**, not algorithm changes. Everything that touched disk in v2.1.112 still works the same way in v2.1.142 (same paths, same caps, same validators). What shifted is what the prompt looks like and which feature flags route memory through which prompt — all in service of the tiny-memory experiment that lets each fact live in its own atomic file and gets rid of the manually-maintained `MEMORY.md` index.
+
+## Runtime + UI Additions vs v2.1.88
+
+The above table only covers the memdir prompt-builder layer. v2.1.142 also adds (or in many cases preserves from v2.1.88) **runtime** and **UI** subsystems that were previously undocumented in this unit. The full delta:
+
+| Concern | v2.1.88 (TS) | v2.1.142 (obfuscated) | Change |
+|---|---|---|---|
+| `executeExtractMemories` entry | `src/services/extractMemories/extractMemories.ts:598` | `w$5` at cli_inner_pretty.js:389341 | Preserved (1:1 mapping) |
+| `initExtractMemories` closure factory | line 296 | `M$5` at 389216 | Preserved |
+| `drainPendingExtraction` | line 611 | `D$5` at 389344 | Preserved |
+| `createAutoMemCanUseTool` validator | line 171 | `DO8` at 389161 | Preserved + extended (Rd/Toggle short-circuit, gM/Tiny edit-deny, rm/Remove-Item allow-list) |
+| `buildExtractAutoOnlyPrompt` + `buildExtractCombinedPrompt` | `src/services/extractMemories/prompts.ts:29–94` (two functions) | `hr7` at 388989 (one merged function with `teamMemoryEnabled` param) | **Merged** into single function |
+| `runForkedAgent` wrapper | called with `skipTranscript`, `maxTurns:5`, `forkLabel:"extract_memories"` | identical: `JV()` at 389254 with same params | Preserved |
+| `tengu_passport_quail` master gate | line 536 | `Wi$` at 139769 | Preserved + nested non-interactive override `tengu_slate_thimble` |
+| `tengu_bramble_lintel` throttle | line 381 (default 1) | line 389242 (default 1) | Preserved |
+| `pendingContext` trailing-run coalescing | line 320 | closure var `A` at 389222 | Preserved |
+| `lastMemoryMessageUuid` cursor | line 307 | closure var `$` at 389218 | Preserved with same compaction-fallback semantics |
+| `hasMemoryWritesSince` mutual-exclusion | line 121 | `A$5` at 389067 | Preserved |
+| `tengu_extract_memories_*` telemetry events | 5 events | 5 events: same names, same payloads | Preserved |
+| `tengu_auto_mem_tool_denied` telemetry | line 156 | line 389109 | Preserved |
+| /memory slash command | `src/commands/memory/memory.tsx` | `sj5`+`aj5`+`oj5` at 446024 / 446006 / ~445980 | Preserved (1:1 mapping) |
+| `MemoryFileSelector` | `src/components/memory/MemoryFileSelector.tsx` | `R54` at 445399 | Preserved + extended (Auto-memory toggle, Auto-dream toggle, CCR sentinel disabled message, per-agent memory folder shortcuts) |
+| `MemoryUpdateNotification` | `src/components/memory/MemoryUpdateNotification.tsx` (line 21, "Memory updated in {path} · /memory to edit") | `Oc_` at 349234 (count-summary "Saved N memories" + file-list + overflow collapse) | **Rewritten** — v2.1.142 shows N-saves summary with collapsible file list, v2.1.88 showed a single-path "Memory updated" |
+| `createMemorySavedMessage` | `src/utils/messages.ts:4460-4471` | `JO8` at 425477 | Preserved + `teamCount` field |
+| `/toggle-memory` command | not present | `ej5`+`tj5` at 446058 / 446035 | **New** (gated rollout — `isEnabled: () => !1` by default) |
+| Memory toggle session state | not present | `U$.memoryToggledOff` accessed via `Rd`/`Kv8` at 2734-2739 | **New** |
+| Status-bar token suggestion | not present | `cw5` at 440856 (≥5% AND ≥5000 tokens → suggestion) | **New** |
+| Status-bar large-file warning | not present | `GG5` at 469962 (per-file size warning, `/memory to edit` hint) | **New** |
+| Memory-save survey capture | not present | `gY$` at 207768 + `PcK` at 207901 + survey UI plumbing | **New** in v2.1.142 |
+| `# direct save` UI | `UserMemoryInputMessage` (75 lines compiled) — wraps `<user-memory-input>` tag, shows `# {content}` with "Got it." ack | `Pb7` at 346068, `oQ_` at 346065 (same wrapper detection + random ack) | Preserved |
+| Editor launcher | `editFileInEditor` | `AS` at 445838 + `Lj8` at 445773 | Preserved + extended (GUI editor list: code, cursor, windsurf, codium, subl, atom, gedit, notepad++, notepad) |
+
+### What's gone from v2.1.88 to v2.1.142
+
+- v2.1.88's `MemoryUpdateNotification` was a single-line "Memory updated in {path}" notification for a single saved file. v2.1.142 replaced this with `Oc_` which shows aggregate counts across multiple files. This change reflects the actual extraction pattern: a single extraction often writes 2-4 files at once, and the old single-path message would have flooded the transcript.
+
+### v2.1.88 vs v2.1.142 — what to know
+
+If you're cross-referencing v2.1.88 TypeScript code against v2.1.142 obfuscated:
+
+1. **The runtime extraction is functionally identical.** `executeExtractMemories`, the closure-scoped state, the canUseTool allow-list, the cursor-with-compaction-fallback — all preserved verbatim. The only meaningful changes are: (a) `/toggle-memory` short-circuit added to the validator, (b) tiny-mode adds an Edit-deny clause, (c) `rm`/`Remove-Item` allow-list added to the validator for tiny mode's delete-and-recreate pattern.
+
+2. **The two prompt builders were merged into one.** v2.1.88's `buildExtractAutoOnlyPrompt` and `buildExtractCombinedPrompt` are one function (`hr7`) in v2.1.142. The merged form has three branches: OS (POSIX vs Windows), tiny vs full memory, and team vs auto-only.
+
+3. **The MemoryUpdateNotification was rewritten.** v2.1.88 showed a single-path "Memory updated" string; v2.1.142 shows "Saved N memories" with a collapsible file list. The system message subtype (`memory_saved`) and its `writtenPaths` field are identical.
+
+4. **The memory-save survey is new in v2.1.142.** No analog exists in v2.1.88. Survey is feature-gated (default off) and exists for the team to evaluate the tiny-memory experiment's prompt quality.
+
+5. **`/toggle-memory` is new in v2.1.142** (gated rollout). The toggle exists in the in-memory session state but its command is hidden by default.
+
+6. **Token-budget and large-file warnings are new in v2.1.142.** Both surface via the suggestion engine; both point at `/memory` as the action.
+
+7. **`T6` is `isNonInteractive`, not `isTrustedWorkspace`** — see [the corrected analysis in 39_goal/goal_hooks_interaction.md](../39_goal/goal_hooks_interaction.md#1a-correction-t6-is-isnoninteractive-_5-is-istrustgranted). This affects readings of `Wi$` (the extraction gate) too: `Wi$` returns true in interactive sessions OR in non-interactive sessions where `tengu_slate_thimble` is also on.

@@ -22,7 +22,7 @@ Tools are the only sanctioned side-channel between the model and the host: every
 | `lifecycle.md` | The end-to-end call: validate → permission → invoke → render |
 | `runtime_mechanism.md` | The `StreamingToolExecutor` (`NL$`) state machine — queue, concurrency, abort tree, sibling-error cascade |
 | `ui_rendering.md` | Ink components, the five render hooks, transcript vs. progress vs. queued vs. rejected vs. error rendering |
-| `reminder_interaction.md` | Tool ↔ `<system-reminder>` interactions — TodoWrite nudges, Read wasted-call reminder, post-hook file-modified reminder, deferred-tools delta |
+| `reminder_interaction.md` | Tool ↔ `<system-reminder>` interactions — TodoWrite nudges, Read wasted-call reminder, post-hook file-modified reminder, deferred-tools delta. See `../41_system_reminder/` for the broader cross-cutting analysis. |
 | `deferred_tools.md` | Lazy loading via `shouldDefer`, the ToolSearch tool, system-reminder delta protocol |
 | `mcp_integration.md` | MCP tools as a separate factory class, `_meta` annotations, error envelopes |
 | `tool_inventory.md` | All 46 tools — one-line description, offset, capability flags |

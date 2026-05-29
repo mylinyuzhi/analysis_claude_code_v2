@@ -129,14 +129,22 @@ States are not free-form — they're an explicit phase machine in `BgWorkerHandl
 
 ## Retire Grace Constants
 
-| Constant | Value | Meaning |
-|----------|-------|---------|
-| `BB5` (`BG_RECENT_ADOPT_GRACE_MS`) | 120 s | Don't retire workers adopted in the last 2 min. |
-| `pB5` (`BG_EMPTY_IDLE_GRACE_MS`) | **5 min** | Auto-retire empty idle bg sessions (v2.1.141). |
-| `gKA` (`BG_RETIRE_GRACE_DEFAULT_MS`) | 1 h | Default grace for settled (non-routine) workers. |
-| `i$9` (`BG_RETIRE_LOW_MEM_GRACE_MS`) | 60 s | Aggressive grace under memory pressure. |
-| `Ur6` (`BG_RETIRE_TICK_MS`) | 60 s | The retire-loop's setInterval period. |
-| `mB5` (`BG_REATTACH_TIMEOUT_MS`) | 120 s | How long the supervisor waits during a daemon restart for workers to re-attach. |
+| Constant | Value | Meaning | Location |
+|----------|-------|---------|----------|
+| `BB5` (`BG_RECENT_ADOPT_GRACE_MS`) | 120 s | Don't retire workers adopted in the last 2 min. | cli_inner_pretty.js:528605 |
+| `pB5` (`BG_EMPTY_IDLE_GRACE_MS`) | **5 min** | Auto-retire empty idle bg sessions (v2.1.141). | cli_inner_pretty.js:528606 |
+| `gKA` (`BG_RETIRE_GRACE_DEFAULT_MS`) | 1 h | Default grace for settled (non-routine) workers. | cli_inner_pretty.js:609576 |
+| `i$9` (`BG_RETIRE_LOW_MEM_GRACE_MS`) | 60 s | Aggressive grace under memory pressure. | cli_inner_pretty.js:609577 |
+| `Ur6` (`BG_RETIRE_TICK_MS`) | 60 s | The retire-loop's setInterval period. | cli_inner_pretty.js:609578 |
+| `mB5` (`BG_HEARTBEAT_STALL_MS`) | 120 s | Heartbeat-stall threshold for `tengu_bg_worker_stalled` warning (also serves as reattach budget during daemon restart). | cli_inner_pretty.js:528604 |
+| `sKA` (`BG_DAEMON_IDLE_EXIT_MS`) | 5 s | Daemon idle-exit grace (transient daemon only). | cli_inner_pretty.js:610189 |
+| `aKA` (`BG_DAEMON_STALE_CHECK_INTERVAL`) | 60 s | How often the daemon polls for binary-identity changes. | cli_inner_pretty.js:610188 |
+| `uB5` (`BG_RESPAWN_BACKOFF_MS`) | 10 s | Backoff between worker respawn attempts. | cli_inner_pretty.js:528599 |
+| `bI4` (`BG_RESPAWN_MAX_ATTEMPTS`) | 20 | Worker respawn attempt cap. | cli_inner_pretty.js:528600 |
+| `xI4` (`BG_FAST_CRASH_THRESHOLD_MS`) | 5 s | Window for fast-crash classification. | cli_inner_pretty.js:528601 |
+| `mI4` (`BG_PID_POLL_INTERVAL_MS`) | 5 s | Period of the pid-liveness backstop poll. | cli_inner_pretty.js:528603 |
+| `II4` (`BG_RV_CONNECT_MAX_ATTEMPTS`) | 30 | Max rv-socket connect retries before giving up. | cli_inner_pretty.js:527693 |
+| `hI4` (`BG_RV_CONNECT_BACKOFF`) | `[100,250,500,1000,2000]` ms | Backoff steps for rv-socket connect. | cli_inner_pretty.js:527700 |
 
 ## Why On-Demand Daemon?
 
@@ -164,6 +172,9 @@ The cost: one daemon process per machine. To minimize that, the daemon exits its
 | `completed_vs_working.md` | v2.1.141 finished-with-shells-running classification. |
 | `pre_warm_worker.md` | v2.1.141 pre-warmed worker (spare) claim & cold-dispatch fallback. |
 | `keep_dangerous_skip.md` | v2.1.142 `--dangerously-skip-permissions` persistence across retire/wake. |
+| [rv_socket_protocol.md](./rv_socket_protocol.md) | The four sockets (control, rv, pty, msg); `createRvClient` (`RI4`) connect + backoff; daemon→worker messages (`shutdown`/`repaint`/`attacher-caps`/`reply`); worker→daemon messages (`heartbeat`/`done`/`state`/`detach-request`/`repaint-done`); control-socket ops (`dispatch`/`attach`/`subscribe`/etc.); PTY-host process and `--bg-pty-host` framing |
+| [worker_state_machine.md](./worker_state_machine.md) | `BgWorkerHandle` (`aB`) phase enum (`spawning`/`running`/`upgrading`/`retiring`/`retired`); transition guard `UB5`; `retireIfSettled` precedence cascade; `respawnIfIdleStale` for binary upgrade; `onExit` outcome decision (fast-crash, same-cause, pre-init); static factories `spawn`/`claim`/`adopt`/`unverified`; `shiftGraceClocksForward` sleep/wake adjustment |
+| [fleet_view_component_tree.md](./fleet_view_component_tree.md) | `mountFleetView` (`ao5`) outer attach-loop; `FleetViewDashboard` (`EQ4`) state hooks (jobs/peers/PR-batch/loop-kicks); polling loop `p9` with identity-stable setState; sub-component rendering (`JobRow` `Fo5`, `ExpandedJobPanel` `bo5`, `HelpFooter` `co5`); keyboard dispatch (voice→dashboard→input); grouping/sorting; persistence to `~/.claude/fleet-view-state/`; auto-relaunch on upgrade |
 
 ## Related Symbols
 
@@ -172,20 +183,34 @@ The cost: one daemon process per machine. To minimize that, the daemon exits its
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) — Background Agents module pointer (delegates to the additions file pending consolidation)
 
 Key functions/types:
-- `mountFleetView` (`ao5`) — Agent-view loop; renders + re-attaches.
-- `FleetViewDashboard` (`EQ4`) — React component for the dashboard.
-- `runDaemonSupervisor` (`O89`) — Top-level daemon entry; the persistent process.
-- `BgWorkerHandle` (`aB`) — Class wrapping a single worker; tracks phase, retire grace, attach count.
-- `BgWorkerHandle.retireIfSettled` — Per-tick predicate that drives retirement.
-- `BgWorkerHandle.shiftGraceClocksForward` — v2.1.142 sleep/wake adjustment.
-- `getBinaryIdentity` (`f89`) / `binaryIdentityChanged` (`tKA`) — Upgrade detection.
-- `parseAgentsDispatchFlags` (`Go6`) — Pre-Commander scanner.
-- `coerceDispatchDefaults` (`gg4`) — Validates `--model`/`--effort`/`--permission-mode`.
-- `claimSpareOrColdDispatch` (`jN4`) — Pre-warmed worker claim with fallback.
+- `mountFleetView` (`ao5`) — Agent-view loop; renders + re-attaches (cli_inner_pretty.js:569079-569207). See [fleet_view_component_tree.md](./fleet_view_component_tree.md).
+- `FleetViewDashboard` (`EQ4`) — React component for the dashboard (cli_inner_pretty.js:567084-568873). See [fleet_view_component_tree.md](./fleet_view_component_tree.md).
+- `runDaemonSupervisor` (`O89`) — Top-level daemon entry; the persistent process (cli_inner_pretty.js:609952-610186). See [daemon_lifecycle.md](./daemon_lifecycle.md).
+- `BgWorkerHandle` (`aB`) — Class wrapping a single worker; tracks phase, retire grace, attach count (cli_inner_pretty.js:527781-528596). See [worker_state_machine.md](./worker_state_machine.md).
+- `BgWorkerHandle.retireIfSettled` — Per-tick predicate that drives retirement (cli_inner_pretty.js:527901-527964).
+- `BgWorkerHandle.shiftGraceClocksForward` — v2.1.142 sleep/wake adjustment (cli_inner_pretty.js:528143-528147).
+- `createRvClient` (`RI4`) — Daemon-side socket connector with retry backoff (cli_inner_pretty.js:527606-527689). See [rv_socket_protocol.md](./rv_socket_protocol.md).
+- `getBinaryIdentity` (`f89`) — `{ target, mtimeMs }` realpath+stat probe (cli_inner_pretty.js:609938-609947).
+- `binaryIdentityChanged` (`tKA`) — Compares identities, skipping mtime on Windows (cli_inner_pretty.js:609948-609951).
+- `parseAgentsDispatchFlags` (`Go6`) — Pre-Commander scanner (cli_inner_pretty.js:65-103).
+- `coerceDispatchDefaults` (`gg4`) — Validates `--model`/`--effort`/`--permission-mode` (cli_inner_pretty.js:565469-565478).
+- `claimSpareOrColdDispatch` (`jN4`) — Pre-warmed worker claim with fallback (cli_inner_pretty.js:509877-509921).
+- `attachJob` (`AN4`) — Foreground-terminal attach with reconnect/orphan handling (cli_inner_pretty.js:509564-509634).
 - `normalizeAgentTypeSlug` (`Zu7`) — v2.1.140 subagent_type normalization (see also `30_agent_team/v2_1_142_subagent_matching.md`).
-- `getAttacherCaps` (`vJ`) / `setAttacherCaps` (`aV8`) — Capability forwarding from attaching terminal.
-- `STATE_LABELS` (`og4`) — `{review:"Ready for review", blocked:"Needs input", working:"Working", done:"Completed"}`.
+- `getAttacherCaps` (`vJ`) / `setAttacherCaps` (`aV8`) — Capability forwarding from attaching terminal (cli_inner_pretty.js:2686-2691).
+- `STATE_LABELS` (`og4`) — `{review:"Ready for review", blocked:"Needs input", working:"Working", done:"Completed"}` (cli_inner_pretty.js:569354-569355).
+- `STATE_ORDER` (`rg4`) — `["review","blocked","working","done"]` group ordering (cli_inner_pretty.js:569354).
+- `classifyState` (`byH`) — Maps job state → bucket; powers grouping and counts (cli_inner_pretty.js:565759).
 
 ## Reading Order
 
-Start with **README.md** (this file) and **agent_view.md** for the surface. Then read **daemon_lifecycle.md** to understand the supervisor. The remaining documents are independent feature deep-dives — read whichever you're investigating.
+Start with **README.md** (this file) and **agent_view.md** for the surface. Then:
+
+1. **Architecture deep-dives** (in order of system layer):
+   - [worker_state_machine.md](./worker_state_machine.md) — what one worker's lifecycle looks like
+   - [rv_socket_protocol.md](./rv_socket_protocol.md) — how the daemon talks to the worker
+   - [daemon_lifecycle.md](./daemon_lifecycle.md) — how the supervisor manages all workers
+   - [fleet_view_component_tree.md](./fleet_view_component_tree.md) — how the user-facing dashboard renders
+
+2. **Feature deep-dives** (independent — read whichever you're investigating):
+   - [worktree_recognition.md](./worktree_recognition.md), [editor_resolution.md](./editor_resolution.md), [chrome_extension_isolation.md](./chrome_extension_isolation.md), [cwd_filter.md](./cwd_filter.md), [completed_vs_working.md](./completed_vs_working.md), [pre_warm_worker.md](./pre_warm_worker.md), [keep_dangerous_skip.md](./keep_dangerous_skip.md), [dispatch_flags.md](./dispatch_flags.md)

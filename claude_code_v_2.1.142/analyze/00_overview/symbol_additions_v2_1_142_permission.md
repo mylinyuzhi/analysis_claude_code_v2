@@ -341,6 +341,101 @@ These are `decisionReason.type` discriminants used in permission decisions (cons
 
 ---
 
+## Module: Per-Tool checkPermissions Entries
+
+Added while writing [`tools_interaction.md`](../37_permission_policy/tools_interaction.md). Each line is the `checkPermissions: async ...` definition inside a tool's module-level object.
+
+| Obfuscated | Readable | File:Line | Tool |
+|---|---|---|---|
+| `Sq.checkPermissions` | `bashCheckPermissions` | cli_inner_pretty.js:419531 | Bash |
+| `EK.checkPermissions` | `powerShellCheckPermissions` | cli_inner_pretty.js:405825 | PowerShell |
+| `G7.checkPermissions` | `editCheckPermissions` | cli_inner_pretty.js:415491 | Edit |
+| `o4.checkPermissions` | `writeCheckPermissions` | cli_inner_pretty.js:360020 | Write |
+| `VP.checkPermissions` | `notebookEditCheckPermissions` | cli_inner_pretty.js:361796 | NotebookEdit |
+| `Bq.checkPermissions` | `readCheckPermissions` | cli_inner_pretty.js:407268 | Read |
+| `v9.checkPermissions` | `grepCheckPermissions` | cli_inner_pretty.js:339085 | Grep |
+| `fX.checkPermissions` | `skillCheckPermissions` | cli_inner_pretty.js:353604 | Skill |
+| `D7.checkPermissions` | `agentCheckPermissions` | cli_inner_pretty.js:351977 | Agent |
+| `FD.checkPermissions` | `webFetchCheckPermissions` | cli_inner_pretty.js:377370 | WebFetch |
+| `VI.checkPermissions` | `webSearchCheckPermissions` | cli_inner_pretty.js:381296 | WebSearch |
+| `NZ.checkPermissions` | `exitPlanModeCheckPermissions` | cli_inner_pretty.js:381702 | ExitPlanMode |
+| `Gz.checkPermissions` | `askUserQuestionCheckPermissions` | cli_inner_pretty.js:382131 | AskUserQuestion |
+| `HV.checkPermissions` | `todoWriteCheckPermissions` | cli_inner_pretty.js:272197 | TodoWrite |
+| `J0.checkPermissions` | `structuredOutputCheckPermissions` | cli_inner_pretty.js:207613 | StructuredOutput |
+| `l3H.checkPermissions` | `waitForMcpServersCheckPermissions` | cli_inner_pretty.js:271591 | WaitForMcpServers |
+| `nf.checkPermissions` | `scheduleWakeupCheckPermissions` | cli_inner_pretty.js:380652 | ScheduleWakeup |
+| `mZ.checkPermissions` | `sendMessageCheckPermissions` | cli_inner_pretty.js:382997 | SendMessage |
+| `m3.checkPermissions` | `replCheckPermissions` | cli_inner_pretty.js:380416 | REPL |
+| `clH.checkPermissions` | `lspCheckPermissions` | cli_inner_pretty.js:387082 | LSP |
+| `hL.checkPermissions` | `monitorCheckPermissions` | cli_inner_pretty.js:385746 | Monitor |
+| `XL$` | `bashClassifierUmbrella` | cli_inner_pretty.js:420831 | Bash classifier orchestrator |
+
+---
+
+## Module: UI / Bridge Components
+
+Added while writing [`permission_dialog_ui.md`](../37_permission_policy/permission_dialog_ui.md) and [`canUseTool_flow.md`](../37_permission_policy/canUseTool_flow.md).
+
+| Obfuscated | Readable | File:Line | Type |
+|---|---|---|---|
+| `epH` | `shouldShowAlwaysAllow` (gate for "Yes, always" variants) | cli_inner_pretty.js:180941-180943 | function |
+| `yz$` | `isAllowManagedRulesOnly` (consulted by `epH`) | cli_inner_pretty.js | function |
+| `PD6` | `buildPermissionRequest` (SDK permission_request envelope) | cli_inner_pretty.js:239298-239309 | function |
+| `ZD6` | `buildSandboxPermissionRequest` (sandbox permission_request envelope) | cli_inner_pretty.js:239339-239362 | function |
+| `lR6` | `dispatchToolWithPermissionCheck` (`canUseTool ?? tD` fallback) | cli_inner_pretty.js:511639 | function |
+| `kL$` | `runPermissionDeniedHooks` (PermissionDenied async-generator hook chain — only for auto-mode denials) | cli_inner_pretty.js:520217 (def); 388207 (call) | function |
+| `oiH` | `recheckRulesAfterHookRewrite` (v2.1.110 deny re-check after hook updatedInput) | cli_inner_pretty.js:421627-421634 | function |
+| `f64` | `isPlanModeFloorDecision` (predicate for plan-mode floor reason) | cli_inner_pretty.js:421723 | function |
+| `bV` | `isSupportedSandboxCommand` | cli_inner_pretty.js | function |
+
+---
+
+## Module: SDK Bridge & permissionPromptToolName
+
+| Symbol | Meaning | File:Line |
+|---|---|---|
+| `Options.canUseTool` | SDK callback for per-call permission decisions | cli_inner_pretty.js:498752, 498760 |
+| `Options.permissionPromptToolName` | Alternative SDK option — tool name handling permission prompts | cli_inner_pretty.js:498375, 501129-501215 |
+| Mutual exclusion error | "canUseTool callback cannot be used with permissionPromptToolName..." | cli_inner_pretty.js:498428 |
+| `can_use_tool` request subtype | Control protocol request type for SDK callback | cli_inner_pretty.js:498918-498922 |
+| `permissionPromptTool` result case | Translates SDK tool result into PermissionDecision | cli_inner_pretty.js:387733-387737, 575203, 575322 |
+| `decisionClassification` discriminant | `"user_temporary" | "user_permanent" | "user_reject"` | cli_inner_pretty.js:387735 |
+| `permission_mode_changed` analytics | Emitted on Shift+Tab mode cycle | cli_inner_pretty.js:218459 |
+
+---
+
+## Module: Permission Dialog UI (v2.1.88 references)
+
+Most of the dialog code is in `src/components/permissions/` (v2.1.88 TypeScript source) and `src/hooks/useCanUseTool.tsx`. v2.1.142 bundle mirrors this structure.
+
+| TS source | Purpose |
+|---|---|
+| `src/components/permissions/PermissionDialog.tsx` | Outer shell (border + title + Select) |
+| `src/components/permissions/PermissionRequest.tsx` | `permissionComponentForTool` dispatcher |
+| `src/components/permissions/PermissionRequestTitle.tsx` | Title + subtitle + workerBadge |
+| `src/components/permissions/PermissionExplanation.tsx` | `?` toggle explainer panel |
+| `src/components/permissions/BashPermissionRequest/BashPermissionRequest.tsx` | Bash-specific options + shimmer |
+| `src/components/permissions/BashPermissionRequest/bashToolUseOptions.tsx` | `BashToolUseOption` choices |
+| `src/components/permissions/FileEditPermissionRequest/` | Edit with diff preview |
+| `src/components/permissions/FilesystemPermissionRequest/` | Read/Glob/Grep dialog |
+| `src/components/permissions/SkillPermissionRequest/` | Skill with `(name *)` prefix variant |
+| `src/components/permissions/WebFetchPermissionRequest/` | WebFetch with domain highlight |
+| `src/components/permissions/ExitPlanModePermissionRequest/` | Plan summary review |
+| `src/components/permissions/AskUserQuestionPermissionRequest/` | User question prompt |
+| `src/components/permissions/FallbackPermissionRequest.tsx` | Catch-all (MCP / plugin tools) |
+| `src/components/permissions/WorkerBadge.tsx` | Background-agent indicator |
+| `src/components/permissions/PermissionDecisionDebugInfo.tsx` | Debug info toggle (`?`) |
+| `src/hooks/useCanUseTool.tsx` | The hook that pushes onto confirm queue |
+| `src/hooks/toolPermission/handlers/coordinatorHandler.ts` | Coordinator pre-handler |
+| `src/hooks/toolPermission/handlers/swarmWorkerHandler.ts` | Swarm worker pre-handler |
+| `src/hooks/toolPermission/handlers/interactiveHandler.ts` | Interactive prompt handler |
+| `src/hooks/toolPermission/PermissionContext.ts` | Permission context + queue ops + `createResolveOnce` |
+| `src/hooks/toolPermission/permissionLogging.ts` | Decision logging |
+| `src/tools/BashTool/bashPermissions.ts` | `peekSpeculativeClassifierCheck` / `consumeSpeculativeClassifierCheck` |
+| `src/utils/permissions/permissions.ts` | `hasPermissionsToUseTool` (TS form of `tD`) |
+
+---
+
 ## Changes vs v2.1.112 Symbol Index
 
 **Newly tracked** (introduced or expanded scope in this window):
