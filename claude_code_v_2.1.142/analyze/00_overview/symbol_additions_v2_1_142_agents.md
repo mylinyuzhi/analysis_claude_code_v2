@@ -242,3 +242,147 @@ Cross-validated against:
 ---
 
 **Status**: Consolidated into symbol_index_core_execution.md as of v2.1.142 deobfuscation work.
+
+---
+
+## Module: RV-Socket Protocol & PTY Plumbing (cli_inner_pretty.js)
+
+Added while writing [36_background_agents/rv_socket_protocol.md](../36_background_agents/rv_socket_protocol.md), [worker_state_machine.md](../36_background_agents/worker_state_machine.md), and [fleet_view_component_tree.md](../36_background_agents/fleet_view_component_tree.md). These map the daemon-internal control-plane.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `RI4` | `createRvClient` (supervisor-side rv-socket connector with backoff + reconnect; sends `{proto, role:"supervisor", supervisorPid}` handshake) | cli_inner_pretty.js:527606-527689 | function |
+| `Hj8` | `readLineByLine` (newline-framed stream reader used by rv + control sockets) | cli_inner_pretty.js:443290-… | function |
+| `hI4` | `BG_RV_CONNECT_BACKOFF` (`[100,250,500,1000,2000]` ms) | cli_inner_pretty.js:527700 | constant |
+| `II4` | `BG_RV_CONNECT_MAX_ATTEMPTS` (30) | cli_inner_pretty.js:527693 | constant |
+| `r1` | `RV_PROTO_VERSION` (the proto handshake field) | cli_inner_pretty.js (used 390665, 527630) | constant |
+| `aB.shutdownWorker` | `BgWorkerHandle.shutdownWorker` (send rv `{type:"shutdown"}`; SIGTERM after 5s if no exit) | cli_inner_pretty.js:527854-527868 | function |
+| `aB.sendAttacherCaps` | `BgWorkerHandle.sendAttacherCaps` (forward `{type:"attacher-caps", caps}` to worker) | cli_inner_pretty.js:528260-528262 | function |
+| `aB.connectRv` | `BgWorkerHandle.connectRv` (wire `RI4` callbacks: heartbeat/done/state/detach-request/repaint-done) | cli_inner_pretty.js:528520-528542 | function |
+| `aB.doSpawn` | `BgWorkerHandle.doSpawn` (PTY-host spawn with constructed env + argv) | cli_inner_pretty.js:528293-528394 | function |
+| `aB.wirePty` | `BgWorkerHandle.wirePty` (attaches PTY data/exit listeners) | cli_inner_pretty.js:528395-528411 | function |
+| `aB.respawnIfIdleStale` | `BgWorkerHandle.respawnIfIdleStale` (transition to `upgrading` when version mismatch + idle + unattended) | cli_inner_pretty.js:527869-527900 | function |
+| `aB.onExit` | `BgWorkerHandle.onExit` (exit-code → outcome decision: fast-crash, same-cause, pre-init error) | cli_inner_pretty.js:528423-528481 | function |
+| `aB.scheduleRespawn` | `BgWorkerHandle.scheduleRespawn` (10s backoff; cap at `bI4=20`) | cli_inner_pretty.js:528487-528506 | function |
+| `aB.settle` | `BgWorkerHandle.settle` (terminal transition; idempotent) | cli_inner_pretty.js:528507-528519 | function |
+| `aB.kill` | `BgWorkerHandle.kill` (SIGTERM/SIGKILL fallback; phase → retiring:reap) | cli_inner_pretty.js:528263-528285 | function |
+| `aB.stop` | `BgWorkerHandle.stop` (orderly detach; phase → retiring:stop) | cli_inner_pretty.js:528286-528292 | function |
+| `aB.reply` | `BgWorkerHandle.reply` (paste bracketed text to PTY, or send rv `reply` to blocked-state worker) | cli_inner_pretty.js:528234-528259 | function |
+| `aB.unverified` | `BgWorkerHandle.unverified` (factory — adopt without pid verification, track via pty.sock liveness) | cli_inner_pretty.js:528093-528125 | function |
+| `aB.checkPid` | `BgWorkerHandle.checkPid` (pid-poll liveness backstop) | cli_inner_pretty.js:528558-528582 | function |
+| `aB.shiftGraceClocksForward` | `BgWorkerHandle.shiftGraceClocksForward` (sleep/wake correction) | cli_inner_pretty.js:528143-528147 | function |
+| `aB.resizeForRepaint` | `BgWorkerHandle.resizeForRepaint` (resize-shimmy repaint trick) | cli_inner_pretty.js:528172-528204 | function |
+| `UB5` | `isLegalPhaseTransition` (the phase-machine guard) | cli_inner_pretty.js:527766-527780 | function |
+| `FI4` | `formatPhase` (renders `phase.kind[:reason\|outcome]` for logs) | cli_inner_pretty.js:527763-527765 | function |
+| `cQ6` | `spawnPtyHost` (returns a closure that `Bun.spawn`s `claude --bg-pty-host …`) | cli_inner_pretty.js:527702-527714 | function |
+| `pI4` | `buildWorkerArgv` (argv composer: `--bg-internal`/`--resume`/`--fork-session`) | cli_inner_pretty.js:527715-527725 | function |
+| `UI4` | `buildWorkerEnv` (worker env composer: `CLAUDE_CODE_SESSION_KIND=bg`, `CLAUDE_BG_RENDEZVOUS_SOCK`, etc.) | cli_inner_pretty.js:527726-527748 | function |
+| `lQ6` | `writeAuthSnapshot` (macOS-only: stash OAuth snapshot to `CLAUDE_BG_AUTH_SNAPSHOT_PATH`) | cli_inner_pretty.js:527749-527762 | function |
+| `nQ6` | `CLAUDE_BG_ENV_STRIPLIST` (env vars to strip from inherited env when spawning a worker) | cli_inner_pretty.js:528630-528676 | constant |
+| `K85` | `startBgRvServer` (worker side: listen on `CLAUDE_BG_RENDEZVOUS_SOCK`) | cli_inner_pretty.js:390600-390634 | function |
+| `A85` | `dispatchRvMessage` (worker side: handles `shutdown`/`repaint`/`attacher-caps`/`reply` from supervisor) | cli_inner_pretty.js:390655-390705 | function |
+| `xi` | `sendRvMessage` (worker side: writes newline-JSON to the connected supervisor socket) | cli_inner_pretty.js:390640-390654 | function |
+| `_85` | `stopBgRvServer` (worker side: clears heartbeat timer + closes socket + closes server) | cli_inner_pretty.js:390636-390639 | function |
+| `_d` | `connectToControlSocketWithOp` (control-socket-op client; used by `attachJob`/`subscribe`/`dispatch`) | cli_inner_pretty.js (called from 509571) | function |
+| `AN4` | `attachJob` (foreground-terminal attach handler; reconnects on `ENOENT`/`ECONNREFUSED`; orphan-detect via `ENOJOB`) | cli_inner_pretty.js:509564-509634 | function |
+| `BT$` | `sendFrame` (writes newline-JSON to a control-socket subscriber) | cli_inner_pretty.js (called from 609030-609040) | function |
+| `Nz` | `sendOpResponse` (control-socket op response writer) | cli_inner_pretty.js (called from 609022, 609048) | function |
+| `eF6` | `RECAP_TRIGGER_FILENAME` (`"recap.trigger"`) | cli_inner_pretty.js:509693 | constant |
+| `nNH` | `WORKER_READY_SENTINEL` (worker-emitted byte sequence stripped from PTY ring) | cli_inner_pretty.js (used 528404) | constant |
+| `mB5` | `BG_HEARTBEAT_STALL_MS` (120 s; threshold for `tengu_bg_worker_stalled`) | cli_inner_pretty.js:528604 | constant |
+| `uB5` | `BG_RESPAWN_BACKOFF_MS` (10 s) | cli_inner_pretty.js:528599 | constant |
+| `bI4` | `BG_RESPAWN_MAX_ATTEMPTS` (20) | cli_inner_pretty.js:528600 | constant |
+| `xI4` | `BG_FAST_CRASH_THRESHOLD_MS` (5000) | cli_inner_pretty.js:528601 | constant |
+| `mI4` | `BG_PID_POLL_INTERVAL_MS` (5000) | cli_inner_pretty.js:528603 | constant |
+| `uI4` | `BG_PRE_INIT_ERROR_TAIL_MAX` (200) | cli_inner_pretty.js:528602 | constant |
+| `BI4` | `BG_DISPATCH_FIELD_TRUNC` (4096; per-string cap in `cappedDispatch()`) | cli_inner_pretty.js:528607 | constant |
+| `tengu_bg_rv_connect_exhausted` | telemetry — rv-socket connect retries hit `II4` cap | cli_inner_pretty.js:527653 | event-name |
+| `tengu_bg_worker_stalled` | telemetry — `lastRvHeartbeat` stale during `tempo:active` | cli_inner_pretty.js:528574 | event-name |
+| `tengu_bg_phase_illegal` | telemetry — `transitionTo` refused an illegal `phase` transition | cli_inner_pretty.js:527849 | event-name |
+| `tengu_bg_worker_spawn` / `tengu_bg_worker_exit` / `tengu_bg_settle` | per-worker spawn/exit/settle events | cli_inner_pretty.js:528389, 528443, 528509 | event-name |
+| `tengu_bg_adopt_unverified` | telemetry — adopt fell back to socket-only verification | cli_inner_pretty.js:528122 | event-name |
+
+---
+
+## Module: FleetView Dashboard Internals (cli_inner_pretty.js)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Fo5` | `JobRow` (per-worker row React component) | cli_inner_pretty.js:~568656 | function |
+| `bo5` | `ExpandedJobPanel` (full-screen overlay for focused job, with reply input) | cli_inner_pretty.js:~568815 | function |
+| `co5` | `HelpFooter` (the `?`-toggled shortcut cheatsheet) | cli_inner_pretty.js:568882-568912 | function |
+| `do5` | `RecordingCursor` (voice-recording cursor animation) | cli_inner_pretty.js:568874-568881 | function |
+| `lo5` | `HelpFooterColumn` (paired-shortcut layout for `co5`) | cli_inner_pretty.js (called from 568896) | function |
+| `AG` | `useTextInput` (controlled-input hook reused across REPL/dashboard) | cli_inner_pretty.js (used in 567220, 567288) | function |
+| `T1` | `useInterval` (project's `setInterval` hook with cleanup) | cli_inner_pretty.js (used in 567394, 567604, 567638, 567599) | function |
+| `lM` | `useDebounce` (debounced effect; persistence + analytics) | cli_inner_pretty.js (used in 567262, 567443) | function |
+| `Dc` | `runOnIdle` (defer until ink frame settles) | cli_inner_pretty.js (used 567273) | function |
+| `EB` | `ScrollView` (Ink `<Box>` with `stickyScroll`) | cli_inner_pretty.js (used 568555) | function |
+| `rB4` | `readPersistedFleetState` (load `~/.claude/fleet-view-state/<cwdHash>.json`) | cli_inner_pretty.js:555178-… | function |
+| `lB4` | `writePersistedFleetState` (write debounced) | cli_inner_pretty.js (called 567276) | function |
+| `ZZ8` | `enqueuePersistedFleetState` (300 ms debounce trigger) | cli_inner_pretty.js:555165-… | function |
+| `nB4` | `clearPersistedFleetState` (when query and collapsed both empty) | cli_inner_pretty.js (called 567266) | function |
+| `byH` | `classifyJobState` (resolves bucket → `working` \| `blocked` \| `review` \| `completed`) | cli_inner_pretty.js:565759 | function |
+| `eZ8` | `groupKeyForState` (state-mode bucket key) | cli_inner_pretty.js:565768 | function |
+| `En6` | `groupByCwd` (cwd-mode bucket key) | cli_inner_pretty.js:566060 | function |
+| `Zn6` | `jobMatchesPrUrl` (PR-url filter predicate) | cli_inner_pretty.js:565817 | function |
+| `Gn6` | `jobMatchesFrame` (frame-id filter predicate) | cli_inner_pretty.js:565826 | function |
+| `HG8` | `jobMatchesCwd` (cwd filter predicate; share with `--cwd <path>`) | cli_inner_pretty.js:565822 | function |
+| `HT$` | `isLoopJob` (intent or first-prompt starts with `/loop`) | cli_inner_pretty.js:566146-566149 | function |
+| `kQ4` | `outputSnapshotPath` (path under bg-sessions for output dump) | cli_inner_pretty.js (called 567488) | function |
+| `qG8` | `computeActivity` (per-job activity badge synthesized from PR statuses) | cli_inner_pretty.js (called 567451) | function |
+| `Mx7` / `zV6` | `fetchPrStatusBatch` / `fetchPrStatus` (single-PR vs batched fetcher; gated by `tengu_fleetview_pr_batch`) | cli_inner_pretty.js (called 567537-567539) | function |
+| `Ug4` | `prFetchRateLimitMs` (computes rate-limit based on `freshness/foreground use age`) | cli_inner_pretty.js (called 567530) | function |
+| `NBH` / `fT` | `lastForegroundUseAt` / `lastForegroundDuration` helpers | cli_inner_pretty.js (called 567530) | function |
+| `IfH` | `setActiveScreenLabel` (`"claude agents"`) | cli_inner_pretty.js (called 567194) | function |
+| `t0$` | `sortJobs` (composite sort: pinned, group, sortKey, createdAt) | cli_inner_pretty.js (called 567459, 567746) | function |
+| `Wn6` | `omitMissingIds` (clean stale entries from Map by id-set) | cli_inner_pretty.js (called 567568) | function |
+| `tengu_fleetview_fold_expand` | telemetry — user expanded a folded group | cli_inner_pretty.js:568417, 568632 | event-name |
+| `tengu_fleetview_pr_batch` | feature flag — batch PR-status fetcher | cli_inner_pretty.js:567533 | flag-name |
+
+---
+
+## Module: Agent-Management UI (`/agents` menu) (cli_inner_pretty.js)
+
+Backs [agent_management_ui.md](../30_agent_team/agent_management_ui.md). This is
+the **definition-management** UI (create/edit/delete agent `.md` files), distinct
+from the FleetView dashboard above — though v2.1.142 now embeds FleetView (`V24`)
+inside this menu's list view as the "Running (N)" section. The whole subsystem is
+a contiguous block ~487008-491400. Cross-validated with v2.1.88
+`src/components/agents/` and `src/commands/agents/`.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `zN5` / `S24` | `agentsCommand` (the `/agents` `local-jsx` slash command: `{name:"agents", description:"Manage agent configurations"}`) | cli_inner_pretty.js:491384-491390 | object |
+| `AN5` | `agentsCommandCall` (resolves tools from `toolPermissionContext`, renders `E24`) | cli_inner_pretty.js:491371-491375 | function |
+| `E24` | `AgentsMenu` (top-level state machine: `list-agents`/`agent-menu`/`view-agent`/`edit-agent`/`delete-confirm`/`create-agent`) | cli_inner_pretty.js:490587-491290 | function |
+| `V24` | `FleetViewEmbedded` (the FleetView dashboard mounted inside the `/agents` "Running (N)" section) | cli_inner_pretty.js (mounted 490796) | function |
+| `bW4` | `AgentsList` (the "Library" list; v2.1.142 props add `runningByType`, `usedThisSession`) | cli_inner_pretty.js:488096-488473 | function |
+| `vW4` | `AgentDetail` (read-only detail: description/tools/model/permissionMode/memory/hooks/skills/color/prompt) | cli_inner_pretty.js:487161-487345 | function |
+| `IW4` | `AgentEditor` (inline edit menu: tools/model/color + "Open in editor") | cli_inner_pretty.js:487954-488070 | function |
+| `rX8` | `ModelSelector` (`{initialModel, onComplete, onCancel}`; default sonnet) | cli_inner_pretty.js:487497-487548 | function |
+| `oX8` | `ToolSelector` (bucketed: all/readonly/edit/execution/mcp/other; "N of M tools selected") | cli_inner_pretty.js:487592-487896 | function |
+| `iX8` | `ColorPicker` (`{agentName, currentColor, onConfirm}`; "Preview: @name") | cli_inner_pretty.js:487400-487481 | function |
+| `G24` | `CreateAgentWizard` (WizardProvider-wrapped step sequence; title "Create new agent") | cli_inner_pretty.js:490198-490241 | function |
+| `rW4` | `generateAgent` (LLM config generation; `querySource:"agent_creation"`, thinking disabled, JSON+regex-fallback parse) | cli_inner_pretty.js:489317-489365 | function |
+| `iW4` | `AGENT_CREATION_SYSTEM_PROMPT` ("You are an elite AI agent architect…"; verbatim from v2.1.88) | cli_inner_pretty.js:489398-… | constant |
+| `Rk5` | `AGENT_MEMORY_INSTRUCTIONS` (appended to `iW4` when auto-memory enabled) | cli_inner_pretty.js:489367-489387 | constant |
+| `pW4` | `validateAgent` (errors `K` + warnings `_`; reuses `resolveAgentTools` for invalid/unavailable-tool checks) | cli_inner_pretty.js:488757-488782 | function |
+| `yp6` | `validateAgentType` (regex `^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$`, length 3-50) | cli_inner_pretty.js:488749-488756 | function |
+| `zk5` | `formatAgentAsMarkdown` (frontmatter: name/description/tools/model/effort/color/memory + body; `name` quoted, tools omitted for `['*']`) | cli_inner_pretty.js:487008-487045 | function |
+| `ZW4` | `saveAgentToFile` (mkdir + write `<dir>/<type>.md`, `wx` flag fail-if-exists) | cli_inner_pretty.js:487097-487108 | function |
+| `GW4` | `updateAgentFile` (v2.1.142 frontmatter-preserving partial merge of tools/color/model) | cli_inner_pretty.js:487109-487131 | function |
+| `TW4` | `deleteAgentFromFile` (unlink, ignore ENOENT) | cli_inner_pretty.js:487133-487140 | function |
+| `nX8` | `getActualAgentFilePath` (v2.1.142 honors `agent.baseDir`) | cli_inner_pretty.js:487072-487079 | function |
+| `eW4` | `LocationStep` (Project vs Personal) | cli_inner_pretty.js:489614-489670 | function |
+| `A24` | `MethodStep` ("Generate with Claude" vs "Manual configuration") | cli_inner_pretty.js:489789-489859 | function |
+| `aW4` | `GenerateStep` ("Please describe what the agent should do") | cli_inner_pretty.js:489471-489596 | function |
+| `P24` | `TypeStep` ("Agent type (identifier)") | cli_inner_pretty.js:490097-490197 | function |
+| `w24` | `PromptStep` ("System prompt") | cli_inner_pretty.js:489913-490036 | function |
+| `lW4` | `DescriptionStep` ("When should Claude use this agent?") | cli_inner_pretty.js:489197-489303 | function |
+| `J24` | `ToolsStep` ("Select tools") | cli_inner_pretty.js:490037-490096 | function |
+| `f24` | `ModelStep` ("Select model") | cli_inner_pretty.js:489860-489912 | function |
+| `mW4` | `ColorStep` ("Choose background color") | cli_inner_pretty.js:488659-488748 | function |
+| `q24` | `MemoryStep` (None/Project/User/Local scope) | cli_inner_pretty.js:489682-489788 | function |
+| `FW4` | `ConfirmStep` ("Confirm and save"; Errors/Warnings) | cli_inner_pretty.js:488788-489097 | function |
+| `tengu_agent_definition_generated` | telemetry — `generateAgent` produced a config | cli_inner_pretty.js:489362 | event-name |

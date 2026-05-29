@@ -703,7 +703,7 @@ Built-in tool definitions, parameter schemas, tool-result formatters, the tool f
 | `R9` | getProjectDir / getProjectRoot | cli_inner_pretty.js:2342 | function |
 | `RH` | finishTelemetrySpan / clearCompactFailureCounter / markPerfBoundary | cli_inner_pretty.js | function |
 | `SH` | serialize (message serializer) | cli_inner_pretty.js | function |
-| `T6` | isNonInteractive / isInteractiveTtyEnvironment | cli_inner_pretty.js:2677-2679 | function |
+| `T6` | getIsNonInteractiveSession / isNonInteractive (`!U$.isInteractive`; complement of `Xv`) | cli_inner_pretty.js:2677-2679 | function |
 | `T8` | UIWrapper (UI wrapper component) | cli_inner_pretty.js | function |
 | `Tk` | matchWildcardPattern (permission matcher) | cli_inner_pretty.js | function |
 | `Wb` | extractText (text extractor; last-user-message text) | cli_inner_pretty.js | function |
@@ -1133,6 +1133,77 @@ The subagent runner: in-process spawn, transcript bridging, cwd preservation, to
 | `agentColorIndex` | rotating index for auto-assigning next palette color | cli_inner_pretty.js:2251 | variable |
 | `agentColorMap` | session-state map of agentId → color | cli_inner_pretty.js:2250 | variable |
 
+### Subagent — Built-in Agent Definitions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `at` | GENERAL_PURPOSE_AGENT (tools `["*"]`, no model) | cli_inner_pretty.js:231625-231633 | constant |
+| `ot` | EXPLORE_AGENT (`model: "haiku"` external, `disallowedTools`, `omitClaudeMd: !0`) | cli_inner_pretty.js:231595-231605 | constant |
+| `d88` | PLAN_AGENT (`model: "inherit"`, read-only architect, `omitClaudeMd: !0`) | cli_inner_pretty.js:231700-231711 | constant |
+| `q67` | STATUSLINE_SETUP_AGENT (`tools: ["Read","Edit"]`, `model: "sonnet"`, `color: "orange"`) | cli_inner_pretty.js:231715-231860 | constant |
+| `H67` | CLAUDE_CODE_GUIDE_AGENT (`permissionMode: "dontAsk"`, dynamic prompt, `model: "haiku"`) | cli_inner_pretty.js:231470-231538 | constant |
+| `FM6` | CLAUDE_FLEETVIEW_AGENT (`"claude"`; `isolation: "worktree"`, `permissionMode: "auto"`, `appendSystemPrompt: !0`) | cli_inner_pretty.js:231865-231893 | constant |
+| `BM6` | CLAUDE_CODE_GUIDE_AGENT_TYPE (`"claude-code-guide"`) | cli_inner_pretty.js:231457 | constant |
+| `xgH` | assembleBuiltInAgents (gated by SDK entrypoint / coordinator / remote-MCP modes) | cli_inner_pretty.js:231898-231913 | function |
+| `bC` | getActiveAgentsFromList (precedence merge: built-in→plugin→user→project→flag→policy) | cli_inner_pretty.js:231970-231981 | function |
+| `o3$` | areExplorePlanAgentsEnabled (currently always `true`) | cli_inner_pretty.js:231895-231897 | function |
+| `J5_` | getGeneralPurposeSystemPrompt | cli_inner_pretty.js:231607-231621 | function |
+| `w5_` | getExploreSystemPrompt | cli_inner_pretty.js:231540-231581 | function |
+| `X5_` | getPlanSystemPrompt | cli_inner_pretty.js:231635-231688 | function |
+| `O5_` | getClaudeCodeGuideBasePrompt | cli_inner_pretty.js:231390-231448 | function |
+| `D5_` | EXPLORE_WHEN_TO_USE_FULL | cli_inner_pretty.js:231583-231584 | constant |
+| `j5_` | EXPLORE_WHEN_TO_USE_LEAN (shorter description for agent_listing_delta) | cli_inner_pretty.js:231585 | constant |
+| `rj` | isBuiltInAgent (`source === "built-in"`) | cli_inner_pretty.js:231961-231963 | function |
+| `g7H` | isPluginAgent | cli_inner_pretty.js:231967-231969 | function |
+| `ZTH` | isCustomAgent | cli_inner_pretty.js:231964-231966 | function |
+| `c88` | hasRequiredMcpServers | cli_inner_pretty.js:231982-231985 | function |
+| `s3$` | filterAgentsByMcpRequirements | cli_inner_pretty.js:231986-231988 | function |
+
+### Subagent — Reminder Interactions
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AMH` | computeAttachmentsForSubagent (called at runAgent setup) | cli_inner_pretty.js (called from 393234) | function |
+| `Tt_` | normalizeAttachmentForAPI (attachment → user message dispatcher) | cli_inner_pretty.js:425165+ | function |
+| `fK` | createAttachmentMessage | cli_inner_pretty.js (called throughout) | function |
+| `mQH` | computeAgentListingDelta (incremental added/removed types) | cli_inner_pretty.js:397839-397875 | function |
+| `Ty6` | computeSkillListingAttachment (per-agent dedup via `tO8`) | cli_inner_pretty.js:398336-398366 | function |
+| `s65` | computeCriticalSystemReminder (per-turn re-injection) | cli_inner_pretty.js:397884-397888 | function |
+| `BQH` | computeMcpInstructionsDelta | cli_inner_pretty.js:397876-397882 | function |
+| `gw6` | isAgentListAttachEnabled (CLAUDE_CODE_AGENT_LIST_IN_MESSAGES / tengu_agent_list_attach) | cli_inner_pretty.js:235531-235535 | function |
+| `tO8` | perAgentSkillSentSet (Map<agentId, Set<skillName>>) | cli_inner_pretty.js (read at 398345) | variable |
+| `eO8` | mainLoopSkillSeedFlag (one-shot seed without sending) | cli_inner_pretty.js (read at 398347) | variable |
+| `Fw6` | renderAgentForListing (`- name: whenToUse (Tools: ...)`) | cli_inner_pretty.js:235526-235530 | function |
+| `lA_` | formatAgentTools ("All tools" / "All tools except X" / list) | cli_inner_pretty.js:235513-235525 | function |
+| `criticalSystemReminder_EXPERIMENTAL` | per-agent definition field; threaded into createSubagentContext | cli_inner_pretty.js:238250, 242698, 393275, 397885 | string |
+
+### Subagent — Agent Tool Dispatch (call() handler)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Gu7` | AgentTool (the tool definition object) | cli_inner_pretty.js:351269 | constant |
+| `eq7` | buildAgentToolPrompt (fork/no-fork variants, examples, listings) | cli_inner_pretty.js:235536-235727 | function |
+| `TnH` | registerBackgroundAsyncTask | cli_inner_pretty.js:351577 | function |
+| `Tu7` | registerForegroundAsyncTask (with auto-background watchdog) | cli_inner_pretty.js:351672 | function |
+| `tI7` | spawnTeammate (multi-agent-teams entry point) | cli_inner_pretty.js:351340 | function |
+| `eJ$` | createAgentWorktree | cli_inner_pretty.js:351528 | function |
+| `Jq$` | runWithCwdOverride | cli_inner_pretty.js (called from 351599) | function |
+| `BOH` | rememberAgentColor | cli_inner_pretty.js (called from 351339, 351393, 351462) | function |
+| `kwH` | resolveAgentModel | cli_inner_pretty.js (called from 351463) | function |
+| `vHH` | filterToolPoolByPermission | cli_inner_pretty.js (called from 351524) | function |
+| `Rc_` | getAutoBackgroundMs | cli_inner_pretty.js (called from 351679) | function |
+| `Ko` | isSummarizationEnabled | cli_inner_pretty.js (read at 351615, 351694) | function |
+| `bwH` | accumulateAgentStats | cli_inner_pretty.js (called from 351737, 351749) | function |
+| `Yz8` | extractAssistantTextBlock | cli_inner_pretty.js (called from 351750) | function |
+| `fz8` | emitAssistantBlockProgress | cli_inner_pretty.js (called from 351751) | function |
+| `zz8` | buildAgentResultEnvelope | cli_inner_pretty.js (called from 351753) | function |
+| `Mz8` | recordAgentCompletion | cli_inner_pretty.js (called from 351754) | function |
+| `e4H` | completeAsyncAgent | cli_inner_pretty.js (called from 351775) | function |
+| `$9H` | failAsyncAgent | cli_inner_pretty.js (called from 351792) | function |
+| `Oz8` | classifyHandoffIfNeeded | cli_inner_pretty.js (called from 351761) | function |
+| `LZH` | MAIN_AGENT_REPL_KEY (sentinel) | cli_inner_pretty.js (read at 351543) | constant |
+| `HdH` | deriveQuerySource (`agent:builtin:X` / `agent:user:X`) | cli_inner_pretty.js (called from 351537) | function |
+
 Known new themes for this window:
 
 - Subagents resumed via `SendMessage` not restoring spawn cwd (v2.1.118 fix)
@@ -1141,8 +1212,11 @@ Known new themes for this window:
 - `x-claude-code-agent-id` / `x-claude-code-parent-agent-id` headers (v2.1.139)
 - OTel `agent_id`/`parent_agent_id` span attributes (v2.1.139)
 - Sub-agent progress summaries cache-miss fix (v2.1.128 — ~3× cache_creation reduction)
-- Built-in agents: `Plan` (`d88`, cli_inner_pretty.js:231700), `statusline-setup` (`q67`, cli_inner_pretty.js:231715), `Explore`, `general-purpose`
+- Built-in agents: `Plan` (`d88`, cli_inner_pretty.js:231700), `statusline-setup` (`q67`, cli_inner_pretty.js:231715), `Explore` (`ot`, 231595), `general-purpose` (`at`, 231625), `claude-code-guide` (`H67`, 231470), `claude`/FleetView (`FM6`, 231865); `verification` removed from v2.1.142 external bundle
 - Frontmatter `omitClaudeMd: !0` (e.g. `Plan` line 231709) controls CLAUDE.md hierarchy inclusion
+- Agent listing as `agent_listing_delta` attachment (v2.1.140; gated by `gw6`) — keeps system prompt cache stable
+- Per-agent `skill_listing` dedup via `tO8` map (v2.1.133+)
+- `criticalSystemReminder_EXPERIMENTAL` re-injected each turn via `s65`
 
 ---
 

@@ -72,26 +72,35 @@ function S$_() {
 
 // READABLE (for understanding):
 function resolveForkSubagentSource() {
-  if (isMasterKillSwitch()) return "disabled";
+  if (deadCoordinatorGate()) return "disabled";   // i3H — always false in v2.1.142
   if (parseEnvTruthy(process.env.CLAUDE_CODE_FORK_SUBAGENT)) return "env";
-  if (isCoordinatorMode()) return "disabled";
+  if (getIsNonInteractiveSession()) return "disabled";   // T6 — !isInteractive
   if (parseEnvTruthy(undefined)) return "ant";   // dead branch in external builds — ant gate
   if (getGrowthBookFlag(FORK_FEATURE_FLAG_KEY, false)) return "gb_rollout";
   return "disabled";
 }
 
-// Mapping: S$_→resolveForkSubagentSource, i3H→isMasterKillSwitch,
-//          bH→parseEnvTruthy, T6→isCoordinatorMode, Z$→getGrowthBookFlag,
+// Mapping: S$_→resolveForkSubagentSource, i3H→deadCoordinatorGate (return false stub, line 211707-211709),
+//          bH→parseEnvTruthy, T6→getIsNonInteractiveSession (!isInteractive, line 2677-2679), Z$→getGrowthBookFlag,
 //          h$_→FORK_FEATURE_FLAG_KEY ("tengu_copper_fox")
 ```
 
+> ⚠️ **Correction.** Earlier drafts mapped `T6 → isCoordinatorMode` and built a
+> "coordinator-mode exclusion" story around it. Re-verified against the v2.1.142
+> bundle: `T6()` = `return !U$.isInteractive` (`getIsNonInteractiveSession`,
+> cli_inner_pretty.js:2677-2679), and `i3H()` = `return !1` (a dead stub,
+> 211707-211709) — `i3H` is the *constant-folded remnant* of v2.1.88's
+> `isCoordinatorMode()` first-check, now that coordinator mode is stripped from
+> the build (zero hits for `CLAUDE_CODE_COORDINATOR_MODE`). So the real gate is
+> **interactivity**, not coordinator mode.
+
 The branch order matters:
 
-1. **Master kill switch** (`i3H`/`isMasterKillSwitch`) — returns `false` in 2.1.142 (`function i3H() { return !1; }`). Reserved for future emergency disables.
-2. **Env var** (`CLAUDE_CODE_FORK_SUBAGENT=1`) — explicit user opt-in. Returns `"env"` source string.
-3. **Coordinator mode** — fork is *mutually exclusive* with coordinator mode (`isCoordinatorMode()`). Coordinator already owns the delegation role and has its own subagent dispatch model.
+1. **Dead coordinator gate** (`i3H`) — `function i3H() { return !1; }`. In v2.1.88 this position held `isCoordinatorMode()` (fork was disabled inside coordinator mode). v2.1.142 removed coordinator mode entirely, so the Bun bundler folded the check to a constant `false`. It never disables fork now.
+2. **Env var** (`CLAUDE_CODE_FORK_SUBAGENT=1`) — explicit opt-in. Returns `"env"`. **Checked before the interactivity gate**, so SDK / `-p` callers that set this env var get fork even though they are non-interactive (this is how v2.1.121 extended fork to headless/SDK).
+3. **Non-interactive session** (`T6`/`getIsNonInteractiveSession`) — the *automatic* (rollout/ant) fork paths are disabled in headless sessions that did **not** set the env var. Rationale: silent prompt-cache-sharing fork is an interactive-REPL optimization; a headless caller should opt in explicitly.
 4. **Internal `ant`** gate — placeholder in external builds (`bH(void 0)` is always `false`).
-5. **GrowthBook rollout** (`tengu_copper_fox`) — silent gradual rollout for users not setting the env var.
+5. **GrowthBook rollout** (`tengu_copper_fox`) — silent gradual rollout for *interactive* users not setting the env var.
 6. **Default** — disabled.
 
 ### Memoization
@@ -124,16 +133,16 @@ function GHH() {
 }
 ```
 
-Same logic, simpler return type (`boolean`). Two gates exist because `nlK` is called in the Agent-tool path that wants the *source* string for telemetry, and `GHH` is called in tight code paths that want a fast yes/no.
+Here `T6` is again `getIsNonInteractiveSession`. Note the **ordering difference** from `S$_`: `GHH` checks `T6()` *first* (returns `false` immediately when non-interactive), whereas `S$_` checks the env var first. So `GHH` is the stricter gate — it treats fork as off in any non-interactive session, while `S$_` lets an explicit `CLAUDE_CODE_FORK_SUBAGENT=1` override interactivity. Two gates exist because `nlK`/`S$_` is the Agent-tool path that wants the *source* string for telemetry (and must honor the env override), and `GHH` is a fast yes/no used in tighter runtime code.
 
-### Coordinator-Mode Exclusion: Why?
+### Non-Interactive Exclusion: Why?
 
-Coordinator mode (the multi-agent-teams subsystem) already has its own delegation model with named teammates. If you spawned a fork *inside* coordinator mode, the fork would:
-- Live in the coordinator's address space (same Node process)
-- Have a `forkContextMessages` payload that includes coordinator's setup messages (which name teammates, set the team file path, etc.) — meaningless or harmful for a forked worker
-- Confuse the coordinator's task-dispatch UI (where does this fork show up in the team view?)
+The *automatic* fork paths (`gb_rollout`, `ant`) are gated off in non-interactive sessions (`getIsNonInteractiveSession`). Fork-subagent is fundamentally a **prompt-cache-sharing optimization for the interactive REPL**: parallel forks reuse one cache prefix. In a headless/`-p`/SDK run the caller controls the message flow directly and may not benefit from (or may be surprised by) implicit forking, so the silent rollout stays off unless the operator explicitly sets `CLAUDE_CODE_FORK_SUBAGENT=1` (which short-circuits to `"env"` before the interactivity check in `S$_`).
 
-Rather than try to reconcile, the gate just disables fork when in coordinator mode. Users wanting "spawn many parallel workers" in coordinator mode should use `spawnTeammate` instead.
+> This section previously described a "coordinator-mode exclusion." That was an
+> artifact of the `T6 → isCoordinatorMode` mis-mapping. v2.1.142 has no
+> coordinator mode; the first-position coordinator check survives only as the
+> dead `i3H` stub (`return false`). The live gate is interactivity.
 
 ## The Synthetic `FORK_AGENT` Definition
 

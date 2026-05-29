@@ -35,7 +35,132 @@ Key functions in this document:
 
 ## Built-in Tools
 
-By default, an agent (lead or subagent) sees the full built-in tool set: `Read`, `Edit`, `Write`, `MultiEdit`, `Bash`, `Agent`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `Monitor`, `NotebookEdit`, `Skill`, `EnterWorktree`, `ExitWorktree`, `SendMessage`, `Task*`, `TodoWrite`, `Cron*`, etc.
+By default, an agent (lead or subagent) sees the full built-in tool set: `Read`, `Edit`, `Write`, `MultiEdit`, `Bash`, `Agent`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `Monitor`, `NotebookEdit`, `Skill`, `EnterWorktree`, `ExitWorktree`, `SendMessage`, `Task*`, `TodoWrite`, `Cron*`, etc. — **minus an always-stripped set** (next subsection).
+
+### The Resolver: `filterToolsForAgent` (`JT6`) + `resolveAgentTools` (`Li`)
+
+Two functions turn an `AgentDefinition`'s `tools`/`disallowedTools` fields plus
+the parent pool into the agent's final tool list. They run for *every* agent —
+built-in, custom, teammate, or fleet worker — so they're the ground truth for
+"what can this agent actually call."
+
+```javascript
+// ============================================
+// filterToolsForAgent - the always-applied baseline filter (independent of frontmatter)
+// Location: cli_inner_pretty.js:339460-339475
+// ============================================
+
+// ORIGINAL (for source lookup):
+function JT6({ tools: H, isBuiltIn: $, isAsync: q = !1, permissionMode: K }) {
+  return H.filter((_) => {
+    if (k0(_)) return !0;
+    if (G1(_, NZ) && K === "plan") return !0;
+    if (n3H.has(_.name)) return !1;
+    if (!$ && Af6.has(_.name)) return !1;
+    if (q && !hH8.has(_.name)) {
+      if (eK() && DZ()) {
+        if (G1(_, D7)) return !0;
+        if (dlK.has(_.name)) return !0;
+      }
+      return !1;
+    }
+    return !0;
+  });
+}
+
+// READABLE (for understanding):
+function filterToolsForAgent({ tools, isBuiltIn, isAsync = false, permissionMode }) {
+  return tools.filter((tool) => {
+    if (isAlwaysAllowed(tool)) return true;                       // k0 — e.g. SyntheticOutput
+    if (isTool(tool, ExitPlanMode) && permissionMode === "plan") return true;  // keep ExitPlanMode in plan mode
+    if (ALL_AGENT_DISALLOWED_TOOLS.has(tool.name)) return false;  // n3H — stripped from EVERY agent
+    if (!isBuiltIn && CUSTOM_AGENT_DISALLOWED_TOOLS.has(tool.name)) return false; // Af6 — custom only
+    if (isAsync && !ASYNC_AGENT_ALLOWED_TOOLS.has(tool.name)) {   // hH8 — async/background allowlist
+      if (isAnt() && isAntAgentToolsEnabled()) {                  // ant builds: extra async allowances
+        if (isTool(tool, Agent)) return true;                     // async Agent allowed for ant
+        if (IN_PROCESS_TEAMMATE_ALLOWED_TOOLS.has(tool.name)) return true; // dlK
+      }
+      return false;
+    }
+    return true;
+  });
+}
+
+// Mapping: JT6→filterToolsForAgent, k0→isAlwaysAllowed, G1→isTool, NZ→ExitPlanMode,
+//          n3H→ALL_AGENT_DISALLOWED_TOOLS, Af6→CUSTOM_AGENT_DISALLOWED_TOOLS,
+//          hH8→ASYNC_AGENT_ALLOWED_TOOLS, dlK→IN_PROCESS_TEAMMATE_ALLOWED_TOOLS,
+//          D7→Agent, eK→isAnt, DZ→isAntAgentToolsEnabled
+```
+
+The constant sets (cli_inner_pretty.js:211699-211703):
+
+- **`ALL_AGENT_DISALLOWED_TOOLS` (`n3H`)** = `{ TaskOutput (`$n`), ExitPlanMode (`NZ`), EnterPlanMode (`Q3H`), Agent (`D7`), AskUserQuestion (`Gz`), WaitForMcpServers (`l3H`), ScheduleWakeup (`nf`) }`. **Stripped from every agent, regardless of `tools: ["*"]`.** This is why even a full-pool `general-purpose` or `claude` worker cannot re-dispatch `Agent`, force `EnterPlanMode`, or block the loop on `AskUserQuestion`/`WaitForMcpServers` — those are leader-only orchestration verbs. (The `ExitPlanMode`-in-plan-mode early-return at line 339463 is the one re-admission: a plan-mode agent keeps `ExitPlanMode` so it can finish planning.)
+- **`CUSTOM_AGENT_DISALLOWED_TOOLS` (`Af6`)** = `new Set([...n3H])` — currently identical content to `n3H`, applied only to non-built-in agents. The separate set exists so the custom-agent denylist can diverge from the universal one in future without touching built-ins; today it's a structural no-op (the `n3H` check already fired).
+- **`ASYNC_AGENT_ALLOWED_TOOLS` (`hH8`)** — when an agent runs `isAsync` (a backgrounded subagent / `run_in_background`), *only* these survive (read/search/edit tools, Skill, etc.). The exception: ant builds with the ant-agent-tools flag re-admit `Agent` and the `IN_PROCESS_TEAMMATE_ALLOWED_TOOLS` (`dlK`) set, so an ant async agent can still spawn teammates.
+
+```javascript
+// ============================================
+// resolveAgentTools - apply ["*"] wildcard / explicit allowlist / disallowedTools
+// Location: cli_inner_pretty.js:339476-339541
+// ============================================
+
+// ORIGINAL (for source lookup — key wildcard/disallow branch, 339476-339490):
+function Li(H, $, q = !1, K = !1) {
+  let { tools: _, disallowedTools: A, source: z, permissionMode: Y } = H,
+    f = K ? $ : JT6({ tools: $, isBuiltIn: z === "built-in", isAsync: q, permissionMode: Y }),
+    O = new Set(), M = new Set();
+  for (let v of A ?? []) { let { toolName: E, ruleContent: I } = jO(v); if ((O.add(E), !I)) M.add(E); }
+  let w = f.filter((v) => !O.has(v.name));
+  if (_ === void 0 || (_.length === 1 && _[0] === "*"))
+    return { hasWildcard: !0, validTools: [], invalidTools: [], unavailableTools: [], resolvedTools: w };
+  /* ...allowlist resolution into validTools/invalidTools/unavailableTools (339491-339532)... */
+}
+
+// READABLE (for understanding — control flow):
+function resolveAgentTools(agentDef, parentPool, isAsync = false, skipBaselineFilter = false) {
+  const { tools, disallowedTools, source, permissionMode } = agentDef;
+
+  // (1) baseline filter (unless caller opts out)
+  const filtered = skipBaselineFilter ? parentPool
+    : filterToolsForAgent({ tools: parentPool, isBuiltIn: source === "built-in", isAsync, permissionMode });
+
+  // (2) subtract disallowedTools (parsed via permissionRuleValueFromString → {toolName, ruleContent})
+  const disallowedNames = new Set(), contentlessDisallowed = new Set();
+  for (const rule of disallowedTools ?? []) {
+    const { toolName, ruleContent } = permissionRuleValueFromString(rule);  // jO
+    disallowedNames.add(toolName);
+    if (!ruleContent) contentlessDisallowed.add(toolName);
+  }
+  const afterDisallow = filtered.filter((t) => !disallowedNames.has(t.name));
+
+  // (3) WILDCARD: tools undefined or ["*"] → the whole (filtered, disallow-subtracted) pool
+  if (tools === undefined || (tools.length === 1 && tools[0] === "*"))
+    return { hasWildcard: true, resolvedTools: afterDisallow, validTools: [], invalidTools: [], unavailableTools: [] };
+
+  // (4) ALLOWLIST: resolve each requested name → valid / invalid / unavailable buckets
+  //     (unavailable = present in the full pool but removed by the baseline filter — surfaced
+  //      so the UI can say "(unavailable)" instead of "(invalid)"). Special Agent handling
+  //      parses allowedAgentTypes from the rule content (e.g. Agent(code-reviewer)).
+  //     ... + an embedded-search substitution: when hasEmbeddedSearchTools() and the agent
+  //         asked for Glob/Grep but has no Bash, swap in the embedded find/grep tools.
+}
+
+// Mapping: Li→resolveAgentTools, jO→permissionRuleValueFromString, dM→hasEmbeddedSearchTools,
+//          D7→Agent, Sq→Bash, d1→Glob, v9→Grep
+```
+
+**Three resolution outcomes** the allowlist branch distinguishes (returned to
+the `/agents` validator and the dispatcher):
+- `validTools` / `resolvedTools` — requested and available.
+- `invalidTools` — requested but no such tool exists (typo / removed tool).
+- `unavailableTools` — the tool exists in the pool but the baseline filter
+  removed it for this agent (e.g. a custom agent listing `Agent`). Surfaced
+  separately so the UI shows "(unavailable)" rather than "(invalid)".
+
+This is the same `resolveAgentTools` the `/agents` UI's `validateAgent` calls
+to flag bad tool names (see the *Validation* section of
+[agent_management_ui.md](./agent_management_ui.md)) — UI and runtime can't
+disagree on what's a valid tool.
 
 ### Allowlisting via Frontmatter
 

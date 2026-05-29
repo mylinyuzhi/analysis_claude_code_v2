@@ -27,12 +27,13 @@ In short: **a subagent is a worker, a teammate is a peer.** Subagents return a r
 > - [symbol_index_core_features.md](../00_overview/symbol_index_core_features.md) - Core features (Hooks, Skills, Compact)
 
 Key functions in this README:
-- `runAgent` (`Vb`) - the streaming generator that runs a subagent turn (cli_inner_pretty.js:393099-393434)
+- `runAgent` (`Vb`) - the streaming generator that runs a subagent turn (cli_inner_pretty.js:393099-393434) — see [runtime_execution.md](./runtime_execution.md)
 - `runResumedSubagent` (`uiH`) - resume entrypoint that threads `resumePersistedCount` (cli_inner_pretty.js:386626-386766)
 - `isForkSubagentEnabled` (`W0`) - the env/feature-flag gate for the implicit `Agent`-without-`subagent_type` fork path (cli_inner_pretty.js:211750-211752)
-- `normalizeAgentTypeSlug` (`Zu7`) - the case- and separator-insensitive matcher (cli_inner_pretty.js:351139-351143)
-- `executeSubagentStartHooks` (`QL$`) - fires `SubagentStart` hooks and injects additional_context (cli_inner_pretty.js:520054-520057)
-- `startAgentSummarization` (`CM$`) - the per-subagent 30s timer loop that produces task-notification summaries (cli_inner_pretty.js:271869-271941)
+- `normalizeAgentTypeSlug` (`Zu7`) - the case- and separator-insensitive matcher (cli_inner_pretty.js:351139-352068)
+- `getAgentContext` (`RD`) / `runWithAgentContext` (`RU`) - ALS-backed agent context propagation (cli_inner_pretty.js:97620-97625) — see [als_propagation.md](./als_propagation.md)
+- `startAgentSummarization` (`CM$`) - the per-subagent 30s timer loop that produces task-notification summaries (cli_inner_pretty.js:271869-271941) — see [subagent_ui_rendering.md](./subagent_ui_rendering.md)
+- `AGENT_COLOR_PALETTE` (`Nf`) / `SUBAGENT_THEME_KEYS` (`UP`) - 8-color palette with `_FOR_SUBAGENTS_ONLY` theme-key segregation (cli_inner_pretty.js:231368-231378)
 
 ## Three Entry Points
 
@@ -115,7 +116,7 @@ The fork path's purpose is prompt-cache efficiency: each fork child sends the sa
 
 Three preconditions:
 - `CLAUDE_CODE_FORK_SUBAGENT=1` env var OR `tengu_copper_fox` GrowthBook flag.
-- Not coordinator mode (`isCoordinatorMode()` returns false).
+- For the *automatic* (rollout) path: an interactive session — `getIsNonInteractiveSession()` (`T6`) must be false. The explicit env var bypasses this. (The first-position `i3H` check is a dead `return false` stub — the constant-folded remnant of v2.1.88's `isCoordinatorMode()` gate, since coordinator mode is removed from v2.1.142.)
 - v2.1.117 enabled this in `claude` external builds; v2.1.121 extended it to `claude -p` and the SDK.
 
 Source `resolveForkSubagentSource` (`S$_`): cli_inner_pretty.js:211733-211740 returns one of `"env" | "ant" | "gb_rollout"` or `"disabled"`.
@@ -183,6 +184,9 @@ Source `resolveForkSubagentSource` (`S$_`): cli_inner_pretty.js:211733-211740 re
 | Document | Purpose |
 |----------|---------|
 | [definition_schema.md](./definition_schema.md) | Agent frontmatter: `name`, `description`, `tools`/`disallowedTools`, `mcpServers`, `hooks`, `permissionMode`, `model`, `effort`, `color`, `initialPrompt`, `disable-model-invocation`, `omitClaudeMd`; agent-team-leader vs teammate frontmatter; v2.1.140 color palette |
+| [builtin_agents.md](./builtin_agents.md) | Catalog of all v2.1.142 built-in agents (`general-purpose`, `Explore`, `Plan`, `statusline-setup`, `claude-code-guide`, `claude`/FleetView); per-agent frontmatter walk; assembly function `xgH`/`getBuiltInAgents` and conditional inclusion (`getIsNonInteractiveSession`=`T6`, `isAgentViewDisabled`=`rmH`, SDK-entrypoint check; NO coordinator branch — stripped in v2.1.142); precedence merge via `bC`; cross-validation with v2.1.88 (notes the removal of `verification` and coordinator-mode from external bundle) |
+| [agent_tool_dispatch.md](./agent_tool_dispatch.md) | Deep dive into the Agent tool's `call()` handler (`Gu7.call`): precondition gates (teammate/background), routing decision (teammate / fork / normal), MCP required-server wait (30s + 500ms poll), system prompt + messages build (fork inherits `renderedSystemPrompt`), invocation building, sync vs async dispatch with auto-background race, error telemetry taxonomy |
+| [reminder_interaction.md](./reminder_interaction.md) | Subagent attachment & system-reminder injection channels: `hook_additional_context` (SubagentStart), `agent_listing_delta` (CLAUDE_CODE_AGENT_LIST_IN_MESSAGES path), `skill_listing` (per-agent dedup `Ty6`), `critical_system_reminder` (per-turn re-injection), `mcp_instructions_delta`, `agent_mention`, `output_style`; how the fork path skips most reminders to preserve cache prefix |
 | [fork_lifecycle.md](./fork_lifecycle.md) | `CLAUDE_CODE_FORK_SUBAGENT` rollout history (v2.1.117 interactive, v2.1.121 `-p`/SDK); `FORK_AGENT` synthetic definition; cache-prefix structure of `buildForkedMessages`; coordinator-mode exclusion; `--agent` vs Agent-tool spawn comparison |
 | [resume_state.md](./resume_state.md) | Fork-pointer hydrate (`recordForkContextRef`/`Vy6`, v2.1.118); transcript-line gating; `resumePersistedCount` dedup (v2.1.132); SDK `mcp_authenticate` `redirectUri` (v2.1.121); v2.1.118 `cwd` restore fix for resumed subagents |
 | [transcript_isolation.md](./transcript_isolation.md) | Sidechain JSONL writes (`Me`/`recordSidechainTranscript`); transcript subdir override (`jVK`); v2.1.110 retention sweep over `~/.claude/tasks/`, `~/.claude/sidechains/`; peer-process gating; v2.1.105 PTL retry duplicate-write fix |
@@ -191,6 +195,9 @@ Source `resolveForkSubagentSource` (`S$_`): cli_inner_pretty.js:211733-211740 re
 | [mcpserver_inheritance.md](./mcpserver_inheritance.md) | v2.1.117 agent `mcpServers:` loaded for `--agent`; v2.1.101 dynamic-MCP propagation fix; admin-trust gate (`isSourceAdminTrusted`) under `strictPluginOnlyCustomization`; per-agent server cleanup |
 | [agent_type_matching.md](./agent_type_matching.md) | v2.1.140 case-/separator-insensitive `subagent_type` (`Zu7`-normalized); two-pass exact-then-normalized lookup; ambiguity error with `(unavailable)` annotation; deny-rule precedence and source attribution |
 | [result_passing.md](./result_passing.md) | Parent observation of subagent result; error propagation; v2.1.128 progress-summary cache fix (~3× `cache_creation` reduction); v2.1.101 partial-progress reporting on subagent errors; idle subagent summary cap (`tengu_agent_summary_skipped: "unchanged"`) |
+| [runtime_execution.md](./runtime_execution.md) | Deep dive into `runAgent` (`Vb`): setup phase (agentId/permission context/tools/MCP), LLM loop body (yield filtering, sidechain writes, parent-uuid chain), stop-attach signal, cleanup pipeline with `keepaliveGated` two-state model, sync-vs-async permission decision tree |
+| [als_propagation.md](./als_propagation.md) | `AsyncLocalStorage`-backed agent context (`Atq`/`RU`/`RD`): why ALS not AppState, store shape for subagent vs teammate, `invokingRequestId` sparse-edge protocol, nested-spawn shadowing, consumer surfaces (HTTP/OTel/hooks/tools) |
+| [subagent_ui_rendering.md](./subagent_ui_rendering.md) | How parent's REPL renders subagent activity: color palette segregation (`_FOR_SUBAGENTS_ONLY` tokens), streaming output path, `<task-notification>` envelopes, 30s `startAgentSummarization` (`CM$`) timer with unchanged-skip + skipCacheWrite, final `tool_result` envelope, error/abort envelopes |
 
 ## Quick Reference
 
@@ -201,3 +208,37 @@ Source `resolveForkSubagentSource` (`S$_`): cli_inner_pretty.js:211733-211740 re
 - **Identity headers**: `x-claude-code-agent-id`, `x-claude-code-parent-agent-id` (cli_inner_pretty.js:128061-128062, since v2.1.139)
 - **OTel attributes**: `agent_id`, `parent_agent_id` on `claude_code.llm_request` spans (cli_inner_pretty.js:241778-241779, since v2.1.139)
 - **Agent context store**: `AsyncLocalStorage`-backed; `getAgentContext` (`RD`, cli_inner_pretty.js:97620-97622) reads the current `{ agentId, agentType, parentAgentId, ... }`; spawn wraps the child generator via `runWithAgentContext` (`RU`, cli_inner_pretty.js:97623-97625). All HTTP / OTel / hook code reads identity via `RD()` rather than threading params through every call.
+
+## v2.1.88 → v2.1.142 Evolution
+
+A consolidated view of what changed in the subagent subsystem between the v2.1.88 TS source (`/lyz/codespace/3rd/claude-code/src/tools/AgentTool/`) and the v2.1.142 build (`/lyz/codespace/claude-code-bomb/versions/2.1.142/`).
+
+| Area | v2.1.88 | v2.1.142 | Details |
+|------|---------|----------|---------|
+| **Built-in agents** | `general-purpose`, `Explore`, `Plan`, `statusline-setup`, `claude-code-guide` always; `verification` doubly-gated by `feature('VERIFICATION_AGENT')` + `tengu_hive_evidence` GrowthBook (default false) (5–6) | `general-purpose`, `Explore`, `Plan`, `statusline-setup`, `claude-code-guide`, `claude` (FleetView) — no `verification` in bundle (6) | `claude` is new (post-v2.1.130 FleetView). `verification` either dead-code-eliminated by Bun bundler or removed; not present in v2.1.142 bundle. v2.1.88's `areExplorePlanAgentsEnabled` was gated by `feature('BUILTIN_EXPLORE_PLAN_AGENTS')` + `tengu_amber_stoat` (default true); v2.1.142's `o3$()` is unconditional. See [builtin_agents.md](./builtin_agents.md). |
+| **Fork-subagent path** | Internal-only (USER_TYPE=ant) | External + SDK (v2.1.117 + v2.1.121) | Gated by `CLAUDE_CODE_FORK_SUBAGENT` env or `tengu_copper_fox` GrowthBook. See [fork_lifecycle.md](./fork_lifecycle.md). |
+| **Agent listing in messages** | Attachment mechanism + gate already present | Same mechanism + `whenToUseLean` (v2.1.140) shorter description for the attachment path | Both versions gate via `tengu_agent_list_attach` / `CLAUDE_CODE_AGENT_LIST_IN_MESSAGES`. v2.1.140 added the lean variant consulted by `Fw6` when rendering for attachments. See [reminder_interaction.md](./reminder_interaction.md). |
+| **Fork-pointer persistence** | Copied parent transcript per fork (~10MB) | Records `fork-context-ref` pointer (~200B) (v2.1.118) | Hydrates on resume by walking parent transcript to `parentLastUuid`. See [resume_state.md](./resume_state.md). |
+| **Resume dedup** | None — PTL retries duplicate-wrote prefix | `resumePersistedCount` (v2.1.132) | Slice off persisted head; anchor `parentUuid` to last persisted UUID. |
+| **Cwd persistence** | Not in sidecar metadata | Persisted in `~/.claude/sidechains/<id>.json` (v2.1.118) | Resumed subagents restore their original cwd. |
+| **Summary cache sharing** | Independent cache per fork — ~3× cache_creation cost | Shared cache via `cacheSafeParams` + `skipCacheWrite` (v2.1.128) | Summary fork reads existing cache, doesn't create new entry. See [result_passing.md](./result_passing.md). |
+| **Summary idle skip** | Fires every 30s regardless | Skipped when transcript unchanged (v2.1.128) | Once-per-streak `tengu_agent_summary_skipped: "unchanged"` telemetry. |
+| **Skill discovery** | Two parallel paths (main / fork) — fork missed project skills | Unified `getSkillsFromAllSources` (v2.1.133) | Same catalog for all callers. See [skill_discovery_in_subagent.md](./skill_discovery_in_subagent.md). |
+| **MCP frontmatter for --agent** | Ignored on main thread | Loaded (v2.1.117) | Main-thread agent sees its own MCP servers. See [mcpserver_inheritance.md](./mcpserver_inheritance.md). |
+| **MCP parallel connect** | Sequential — startup ~N × 200ms | `Promise.all` (v2.1.119) | Drops startup to slowest single connect. |
+| **Dynamic MCP propagation** | Lost in subagent | Threaded via live `mcpClients` (v2.1.101) | Skills' runtime-registered MCP visible to subagents. |
+| **Hooks frontmatter for --agent** | Ignored on main thread | Fires (v2.1.116) | Set via `mainThreadAgentHooks` slot. See [hook_inheritance.md](./hook_inheritance.md). |
+| **Agent-type hooks for non-Stop** | "Messages required" error | Works (v2.1.118) | Builder accepts empty-messages for non-Stop events. |
+| **Hook validation for context-less events** | Silent fail / generic error | Clear "use command-type hook instead" (v2.1.142) | `SessionStart`/`Setup`/`SubagentStart` only accept command-type hooks. |
+| **Agent type matching** | Exact, case-sensitive | Two-pass: exact → NFKC+lowercase+stripped (v2.1.140) | `"Code Reviewer"` resolves to `code-reviewer`. See [agent_type_matching.md](./agent_type_matching.md). |
+| **Partial progress on error** | Just the error string | Includes last assistant text + recent tools (v2.1.101) | Parent can continue with knowledge of what was tried. |
+| **Identity headers** | Not sent | `x-claude-code-agent-id` + `parent` (v2.1.139) | OTel spans also tagged. |
+| **Color palette segregation** | Direct theme tokens | `_FOR_SUBAGENTS_ONLY` suffixed (v2.1.140) | Theme contrast tuned independently of role tokens. See [subagent_ui_rendering.md](./subagent_ui_rendering.md). |
+| **Retention sweep coverage** | `~/.claude/projects/` only | Adds `tasks/`, `sidechains/`, `shell-snapshots/`, `backups/` (v2.1.110) | Subagent transcripts bounded in disk. See [transcript_isolation.md](./transcript_isolation.md). |
+| **Cleanup keepalive gating** | All cleanups run unconditionally | `mcpMonitors` + `shellTasks` skip if backgrounded | Background subagents keep their MCP/shell surface alive after stream exits. See [runtime_execution.md](./runtime_execution.md). |
+| **Teammate background guard** | Single check | Two checks: explicit `run_in_background=true` + agent's `background: true` | Both paths covered. See [agent_tool_dispatch.md](./agent_tool_dispatch.md). |
+| **Required MCP wait** | 30s + 500ms poll | Same | No change. Early exit on `failed` or no-more-pending. |
+| **SDK redirectUri for MCP auth** | localhost-only | Custom scheme + localhost fallback (v2.1.121) | Supports mobile/extension SDK consumers. |
+| **`omitClaudeMd` kill switch** | Hard-coded behavior | GrowthBook `tengu_slim_subagent_claudemd` (default true) | Can be reverted if regression found. |
+
+The dominant theme: **incremental cost reduction without losing capability**. Almost every v2.1.x change is either (a) closing a token/disk/network leak, (b) increasing the surface where the same mechanism works (fork in SDK, hooks in main-thread), or (c) tightening validation so silent failures become loud errors.

@@ -300,9 +300,42 @@ Cross-validated against:
 
 ---
 
+## Module: Built-in Roster, Model/Tool Resolution & Fleet Dispatch
+
+Symbols backing [builtin_agents.md](../30_agent_team/builtin_agents.md) and the
+tool-resolver section of [tool_inheritance.md](../30_agent_team/tool_inheritance.md).
+(`T6`/`getIsNonInteractiveSession` lives in `symbol_additions_v2_1_142_tools_meta.md`;
+tool-name constants `D7`/`kZ`/`G7`/`o4`/`VP` are in the tools index.)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `xgH` | `getBuiltInAgents` (roster assembly; gates `T6`/`rmH`/`o3$` + SDK-entrypoint; **no coordinator branch**) | cli_inner_pretty.js:231898-231913 | function |
+| `FM6` | `CLAUDE_AGENT` (the `claude` FleetView worker definition; `isolation:"worktree"`, `permissionMode:"auto"`, `appendSystemPrompt:true`) | cli_inner_pretty.js:231865-231893 | object |
+| `o3$` | `areExplorePlanAgentsEnabled` (hardcoded `return true`; v2.1.88's `tengu_amber_stoat` gate removed) | cli_inner_pretty.js:231895-231897 | function |
+| `rmH` | `isAgentViewDisabled` (`CLAUDE_CODE_DISABLE_AGENT_VIEW` \|\| `settings.disableAgentView`; gates `FM6` registration **and** `claude daemon` at 610651) | cli_inner_pretty.js:139859-139861 | function |
+| `i3H` | `deadCoordinatorGate` (`return false` stub; constant-folded remnant of v2.1.88 `isCoordinatorMode`, used as fork-resolver first gate) | cli_inner_pretty.js:211707-211709 | function |
+| `jb` | `mainThreadSystemPromptBuilder` (implements `appendSystemPrompt` append-vs-replace for the dispatched main-session agent) | cli_inner_pretty.js:336064-336078 | function |
+| `u06` | `getDefaultSubagentModel` (returns the literal `"inherit"`) | cli_inner_pretty.js:335993-335995 | function |
+| `kwH` | `getAgentModel` (resolves `"inherit"`/tier-aliases vs parent model; `CLAUDE_CODE_SUBAGENT_MODEL` + tool-specified override) | cli_inner_pretty.js:335996-336022 | function |
+| `Li` | `resolveAgentTools` (`["*"]` wildcard / allowlist / `disallowedTools`; returns valid/invalid/unavailable buckets + embedded-search substitution) | cli_inner_pretty.js:339476-339541 | function |
+| `JT6` | `filterToolsForAgent` (baseline filter applied to every agent; `n3H`/`Af6`/`hH8`/`dlK` sets, plan-mode `ExitPlanMode` re-admit) | cli_inner_pretty.js:339460-339475 | function |
+| `n3H` | `ALL_AGENT_DISALLOWED_TOOLS` (`{TaskOutput, ExitPlanMode, EnterPlanMode, Agent, AskUserQuestion, WaitForMcpServers, ScheduleWakeup}` — stripped from every agent) | cli_inner_pretty.js:211699 | constant |
+| `Af6` | `CUSTOM_AGENT_DISALLOWED_TOOLS` (`new Set([...n3H])`; applied to non-built-in agents) | cli_inner_pretty.js:211700 | constant |
+| `hH8` | `ASYNC_AGENT_ALLOWED_TOOLS` (sole survivors for backgrounded/async subagents) | cli_inner_pretty.js:211701 | constant |
+| `dlK` | `IN_PROCESS_TEAMMATE_ALLOWED_TOOLS` (extra async allowances for ant builds) | cli_inner_pretty.js:211702 | constant |
+| `zN4` | `wrapAgentAsDispatchTemplate` (`AgentDefinition` → `{name, description, initialPrompt}`; `c1H = zN4(FM6)` is the default fleet template at 510037) | cli_inner_pretty.js:509722-509724 | function |
+| `yP8` | `coldDispatchBackgroundJob` (writes job state, spawns `claude --agent <name>` via `I$H` source `"fleet"`, retry-once on ack-timeout) | cli_inner_pretty.js:509781-509835 | function |
+| `qg6` | `dispatchDefaultsToCliFlags` (`{model,effort,permissionMode}` → `--model`/`--effort`/`--permission-mode`) | cli_inner_pretty.js:509773-509780 | function |
+| `MN4` | `setBaseDispatchFlags` (`OG$` setter; seeded from `dispatchExtraArgs` at 569080) | cli_inner_pretty.js:509767-509769 | function |
+| `wN4` | `getBaseDispatchFlags` (`OG$` getter) | cli_inner_pretty.js:509770-509772 | function |
+
+---
+
 ## Cross-References
 
 For details on **how** these symbols compose, see:
+- [builtin_agents.md](../30_agent_team/builtin_agents.md) — `xgH` roster, `FM6` worker, `jb` appendSystemPrompt, the dispatch chain, coordinator-mode removal
+- [agent_management_ui.md](../30_agent_team/agent_management_ui.md) — the `/agents` management UI (its symbols are in `symbol_additions_v2_1_142_agents.md`)
 - [coordinator_process_model.md](../30_agent_team/coordinator_process_model.md) — daemon loop, 60s tick, clock-jump, brew-upgrade
 - [mailbox_protocol.md](../30_agent_team/mailbox_protocol.md) — File IPC envelope, lock semantics, message types
 - [team_mailbox_v_personal.md](../30_agent_team/team_mailbox_v_personal.md) — Per-recipient files, broadcast removal, channels, bridge

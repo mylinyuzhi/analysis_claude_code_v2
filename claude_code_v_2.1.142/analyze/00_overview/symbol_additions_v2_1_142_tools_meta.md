@@ -342,7 +342,7 @@
 | AA | isTeammate | cli_inner_pretty.js:(teammate context check) | function |
 | DZ | isInProcessTeammate | cli_inner_pretty.js:(in-process teammate check) | function |
 | jj | getOpenInteractivePrompts | cli_inner_pretty.js:(active prompts accessor) | function |
-| T6 | isInteractiveTtyEnvironment | cli_inner_pretty.js:(TTY env check) | function |
+| T6 | getIsNonInteractiveSession | cli_inner_pretty.js:2677-2679 | function |
 | GQ | getRulesForTool | cli_inner_pretty.js:(permission rule getter) | function |
 | RH | finishTelemetrySpan | cli_inner_pretty.js:(telemetry helper) | function |
 | uH | finishErrorTelemetry | cli_inner_pretty.js:(error telemetry helper) | function |
