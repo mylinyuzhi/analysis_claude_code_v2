@@ -1,0 +1,614 @@
+# Symbol Index — Core Features (v2.1.143 → v2.1.156)
+
+This index catalogs obfuscated → readable mappings for the **core feature** symbols introduced or changed between v2.1.143 and v2.1.156. Scope: Dynamic Workflows (the flagship 2.1.154 feature — gate, keyword/consent, caps, journal/respawn, lifecycle, VM, `/workflows`, ultracode, coordinator clause), Background Agents (`--exec` / `! command`), Hooks (MessageDisplay, Stop-hook deltas), Skills (reload, disallowed-tools, fork-recursion guard, effort frontmatter, bundled bodies), Compact, Thinking / Effort levels, Model-selection feature (effort/ultracode/fast-label), Plan, Todo, Steering, CLI.
+
+For other categories see:
+
+- [`symbol_index_core_execution.md`](symbol_index_core_execution.md) — Agent Loop, Tools, LLM API, Agents, Subagent, State
+- [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) — MCP, Permissions, Sandbox, Auth, Model resolution/pricing/fast-mode, Prompt, Telemetry
+- [`symbol_index_infra_integration.md`](symbol_index_infra_integration.md) — LSP, Chrome, IDE, UI Components, Plugin, Code Indexing, Shell Parser, Slash Commands
+
+## File:Line Format
+
+For v2.1.156, the canonical source citation is `cli_inner_pretty.js:<line>` — the single pretty-printed bundle at `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js`. (The older multi-`chunks.NN.mjs` split is long gone.) Where per-decl isolated files are useful, the `cli_unpack_pretty/decls/{functions,vars,classes}/<obfuscated>.js` path can be used instead.
+
+---
+
+## Module: Dynamic Workflows
+
+The flagship 2.1.154 feature (GA of an internal-only 2.1.88 `WORKFLOW_SCRIPTS` prototype). Covers the `Workflow` tool object + lazy Zod schemas, the four-layer enablement gate, the per-turn keyword opt-in + first-use consent warning, the runtime resource caps (agent count / token budget / concurrency / stall), the append-only resume journal + snapshot, the launch → 16ms-batched-flush → completion lifecycle + telemetry, the VM executor, the `/workflows` save/command/viewer, the `ultracode` standing-orchestration mode, and the coordinator-prompt Workflow clause.
+
+See `42_workflow/{workflow_tool_definition,gate_caps_lifecycle_relations}.md` for narrative analysis. (Generic tool-runtime helpers `yK`/`P45` live in `symbol_index_core_execution.md`; the shared `tm` UNC detector and `d6H` permission-rule lookup live in `symbol_index_infra_platform.md`.)
+
+### Gate / Enablement
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$48` | `workflowAvailabilityCache` (module memo for `SL5()`; populated by `KP6`) | cli_inner_pretty.js:184789 | variable |
+| `H48` | `isWorkflowsManagedDisabled` (env `CLAUDE_CODE_DISABLE_WORKFLOWS` true or managed `disableWorkflows === true`) | cli_inner_pretty.js:184750 | function |
+| `hL5` | `getUserWorkflowSetting` / `getWorkflowUserToggle` (read managed/user `enableWorkflows`; overrides tier default) | cli_inner_pretty.js:184773 | function |
+| `i$7` | `isWorkflowsLaunchable` (`r$7() && !CLAUDE_CODE_DISABLE_WORKFLOWS && KP6().available`) | cli_inner_pretty.js:184767 | function |
+| `KP6` | `resolveWorkflowAvailabilityCached` / `getWorkflowAvailabilityCached` (memoize `SL5()` into `$48`) | cli_inner_pretty.js:184776 | function |
+| `mx` | `WORKFLOW_TOOL_NAME` (the string `"Workflow"`) | cli_inner_pretty.js:216291 | constant |
+| `m57` | `workflowExports` (namespace exposing the lazy `WORKFLOW_TOOL_NAME` getter) | cli_inner_pretty.js:216289 | object |
+| `NZ` | `isWorkflowsEnabled` / `workflowsEnabled` (four-layer master gate: `!H48() && r$7() && KP6().available && (hL5() ?? defaultOn)`) | cli_inner_pretty.js:184757 | function |
+| `qP6` | `getWorkflowDefaultOn` (`KP6().defaultOn`) | cli_inner_pretty.js:184764 | function |
+| `r$7` | `isWorkflowsPolicyAllowed` / `getWorkflowGateRaw` (Statsig/managed `allow_workflows` capability gate) | cli_inner_pretty.js:184770 | function |
+| `SL5` | `resolveWorkflowAvailability` (`{available, defaultOn}` from `CLAUDE_CODE_WORKFLOWS` env + `tengu_workflows_enabled` gate + tier; `defaultOn = tier !== "pro"`) | cli_inner_pretty.js:184780 | function |
+
+### Keyword Opt-In
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Bg6` | `matchKeyword` (generic keyword matcher with code-span/path/flag masking; shared with ultraplan/ultrareview) | cli_inner_pretty.js:412125 | function |
+| `KR_` | `makeWorkflowKeywordReminder` (emits `tengu_workflow_keyword` + `workflow_keyword_request` reminder) | cli_inner_pretty.js:412916 | function |
+| `lj4` | `hasWorkflowKeyword` (`pg6(text).length > 0`) | cli_inner_pretty.js:412178 | function |
+| `pg6` | `findWorkflowKeyword` (`Bg6(text, "workflows?")` — match prose keyword outside code spans) | cli_inner_pretty.js:412172 | function |
+
+### Consent / Usage Warning
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `o0_` | `recordWorkflowUsageConsent` (persists `skipWorkflowUsageWarning`, emits `tengu_workflow_usage_warning_accepted`) | cli_inner_pretty.js:378654 | function |
+| `r0_` | `workflowNeedsUsageConsentPrompt` (gate for the one-time usage warning; ultracode short-circuits via `ar`) | cli_inner_pretty.js:378645 | function |
+| `sF$` | `hasWorkflowUsageConsent` (checks `skipWorkflowUsageWarning` across settings scopes) | cli_inner_pretty.js:53591 | function |
+
+### Resource Caps
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `cG_` | `WORKFLOW_PARALLEL_DEFAULT` (concurrency limit seeded from CPU count via `dG_`) | cli_inner_pretty.js:375676 | variable |
+| `dG_` | `computeWorkflowConcurrency` (`min(16, max(2, cores-2))`) | cli_inner_pretty.js:374930 | function |
+| `F74` | `WORKFLOW_AGENT_CAP` (`1000` agent-call ceiling) | cli_inner_pretty.js:375678 | constant |
+| `fW8` | `WorkflowBudgetExceededError` (thrown when the output-token budget is spent) | cli_inner_pretty.js:375746 | class |
+| `lG_` | `WORKFLOW_PIPELINE_DEFAULT` (`50` default pipeline concurrency) | cli_inner_pretty.js:375677 | constant |
+| `nG_` | `agentCapErrorMessage` (diagnostic text for `Q74` — the `budget.remaining()` infinite-loop hint) | cli_inner_pretty.js:375736 | constant |
+| `Q74` | `WorkflowAgentCapError` (thrown at the `F74` agent cap) | cli_inner_pretty.js:375740 | class |
+| `tG_` | `WORKFLOW_STALL_MS_DEFAULT` (`180000` = 3 min per-agent stall timeout) | cli_inner_pretty.js:375699 | constant |
+
+### Journal / Respawn / Snapshot (Resume)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `b74` | `listWorkflowSnapshots` (read + sort run snapshots for `/workflows`) | cli_inner_pretty.js:374781 | function |
+| `bp6` | `LocalFileJournal` (append-only `journal.jsonl` per run) | cli_inner_pretty.js:374871 | class |
+| `C74` | `writeWorkflowSnapshot` (write the run snapshot JSON for `/workflows` history) | cli_inner_pretty.js:374771 | function |
+| `gG_` | `canonicalizeAgentOpts` (stable JSON of cache-relevant opts: schema/model/isolation/agentType) | cli_inner_pretty.js:374847 | function |
+| `gtH` | `registerSessionHook` (generic session-hook registrar; powers the StructuredOutput nudge) | cli_inner_pretty.js:372079 | function |
+| `m74` | `journalKey` (SHA-256 cache key `v2:<hash>` of phase + prompt + canonical opts) | cli_inner_pretty.js:374867 | function |
+| `QG_` | `JOURNAL_KEY_VERSION` (`"v2"` cache-key prefix; bump invalidates all journals) | cli_inner_pretty.js:374910 | constant |
+| `x74` | `indexJournal` (fold journal lines into `{results, started}` maps) | cli_inner_pretty.js:374835 | function |
+
+### Tool Object / Schemas / Meta Parser
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `b44` | `resolveWorkflowSource` (resolve `scriptPath` > `name` > `script` to script + telemetry source) | cli_inner_pretty.js:378081 | function |
+| `BP8` | `compileWorkflowScript` (wrap the body in `async () => {}` and compile to a VM script) | cli_inner_pretty.js:367468 | function |
+| `bZ_` | `validateMetaFields` (require non-empty `name`/`description`; optional `title`/`whenToUse`; normalize `phases`) | cli_inner_pretty.js:371832 | function |
+| `c0_` | `WORKFLOW_DESC_TELEMETRY_CAP` (`200` — char cap on the workflow description in telemetry) | cli_inner_pretty.js:378111 | constant |
+| `CZ_` | `metaPropertyKey` (resolve a `meta` object-literal property key, rejecting computed/reserved keys) | cli_inner_pretty.js:371824 | function |
+| `d0_` | `workflowNameForTelemetry` (built-in name verbatim, else `"custom"`) | cli_inner_pretty.js:378099 | function |
+| `d9H` | `slugifyWorkflowName` (lowercase to `[a-z0-9-]`, fall back to `"workflow"`) | cli_inner_pretty.js:145267 | function |
+| `Fp6` | `WORKFLOW_DESCRIPTION` (the long opt-in policy + scripting-DSL reference returned by `prompt()`/`description()`) | cli_inner_pretty.js:376077 | variable |
+| `FZ` | `parseWorkflowMeta` (Acorn-parse, assert first statement is `export const meta = <literal>`, eval it, split body) | cli_inner_pretty.js:371746 | function |
+| `g0_` | `workflowOutputSchema` (lazy Zod object for the tool result: `status`/`taskId`/`runId`/`scriptPath`/…) | cli_inner_pretty.js:378186 | variable |
+| `IZ_` | `isMetaExport` (assert an `ExportNamedDeclaration` is `const meta = <ObjectExpression>`) | cli_inner_pretty.js:371779 | function |
+| `l0_` | `workflowDescriptionForTelemetry` (built-in description truncated to `c0_`, else empty) | cli_inner_pretty.js:378103 | function |
+| `n0_` | `workflowTool` (the tool object built by `yK`; `aliases:["RunWorkflow"]`, searchHint, schemas, gate, validate, permissions, call) | cli_inner_pretty.js:378217 | object |
+| `pK4` | `evalLiteralNode` (recursively evaluate only pure-literal AST nodes; throw on non-literal node types) | cli_inner_pretty.js:371786 | function |
+| `Q0_` | `workflowInputSchema` (lazy Zod strictObject: `script`/`name`/`scriptPath`/`args`/`resumeFromRunId`/…) | cli_inner_pretty.js:378140 | variable |
+| `RZ_` | `RESERVED_META_KEYS` (`Set(["__proto__","constructor","prototype"])` — prototype-pollution guard) | cli_inner_pretty.js:371853 | constant |
+| `UK4` | `evalObjectLiteral` (statically evaluate the `meta` object literal; ban computed keys, methods, reserved keys) | cli_inner_pretty.js:371813 | function |
+| `xZ_` | `normalizeMetaPhases` (coerce `meta.phases` to `{title, detail?, model?}[]`, dropping entries without a string `title`) | cli_inner_pretty.js:371842 | function |
+
+### Script Persistence / Path Security
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Hj$` | `readWorkflowScriptFile` (read a `scriptPath` from disk, rejecting UNC paths, bounded at `jI + 1` bytes) | cli_inner_pretty.js:145294 | function |
+| `jI` | `WORKFLOW_SCRIPT_MAX_BYTES` (`524288` = 512 KiB script-size cap) | cli_inner_pretty.js:145308 | constant |
+| `O68` | `workflowScriptsDir` (`<sessionRoot>/<sessionId>/workflows/scripts/` + sep) | cli_inner_pretty.js:145274 | function |
+| `xFK` | `persistWorkflowScript` (fire-and-forget write to the session dir at mode `0o600`; return path synchronously) | cli_inner_pretty.js:145280 | function |
+| `Y95` | `workflowScriptPath` (`${workflowScriptsDir()}${slug}-${runId}.js`) | cli_inner_pretty.js:145277 | function |
+
+### Lifecycle / Telemetry / VM Executor
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `H0_` | `WORKFLOW_LOG_CAP` (`1000` — max log lines kept by `q44`) | cli_inner_pretty.js:376011 | constant |
+| `q44` | `runWorkflowScript` (executes the VM script, returns `{result, agentCount, logs, failures, durationMs, error?}`) | cli_inner_pretty.js:376007 | function |
+| `TrH` | `emitTaskProgress` (flush a `task_progress` system message to the UI progress tree) | cli_inner_pretty.js:278050 | function |
+
+### `/workflows` Save & UI
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$Q4` | `saveWorkflow` (persist a named workflow, refuse-clobber-unless-overwrite, emits `tengu_workflow_saved`) | cli_inner_pretty.js:507621 | function |
+| `_1z` | `getProjectWorkflowsDir` (project-scope `<project>/.claude/workflows/` path for save) | cli_inner_pretty.js:507616 | function |
+| `Djz` | `isLocalWorkflowTask` (`task.type === "local_workflow"` — app-state task filter for the viewer's live runs) | cli_inner_pretty.js:538819 | function |
+| `gt4` | `WorkflowHistoryDialog` (`/workflows` viewer component; merges live + snapshot runs, list/detail modes) | cli_inner_pretty.js:538403 | React component |
+| `o74` | `getBuiltinWorkflows` (returns the built-in workflow list `r74`, empty in this build) | cli_inner_pretty.js:375876 | function |
+| `Pjz` | `workflowsCommand` (`/workflows` local-jsx slash command, gated on `NZ()`) | cli_inner_pretty.js:538934 | object |
+| `r74` | `BUILTIN_WORKFLOWS` (the built-in workflow array; assigned `[]` in this build) | cli_inner_pretty.js:375880 | variable |
+| `wjz` | `getWorkflowRunId` (`task.workflowRunId` accessor; keys the live + snapshot de-dup in the viewer's merge effect at 538436) | cli_inner_pretty.js:538816 | function |
+
+### Coordinator Integration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Dk5` | `getCoordinatorSystemPrompt` (coordinator system prompt with the `NZ()`-gated Workflow tool clause) | cli_inner_pretty.js:216506 | function |
+
+Known new themes:
+
+- v2.1.154 GA of dynamic workflows: ask Claude to create a workflow, it orchestrates tens-to-hundreds of background agents; `/workflows` views runs
+- Deterministic scripts → longest-unchanged-prefix journal cache (`resumeFromRunId` = 100% hit on same script + args)
+- Four resource caps (agent count 1000 / token budget / concurrency `min(16,cores-2)` / 3-min stall) bound buggy infinite-loop scripts
+- v2.1.152 simplified inline progress display (16ms-batched `task_progress`); v2.1.156 fixed the stray unselectable "main" task-panel row
+- `ultracode` standing-orchestration mode (xhigh effort + Workflow-on-every-task) — flag-only, gated on `NZ()` + xhigh-capable model
+
+---
+
+## Module: Background Agents (`--exec` / `! command` + 2.1.143–156 fixes)
+
+Shell-exec background sessions (`claude --bg --exec`, the agents-view `! <command>`), the unified background dispatcher `ol`/`ywz`, the four-state background-session classifier (working/blocked/done/failed), worker retire/respawn reliability fixes inside `BgWorkerHandle` (`SF`), the subagent worktree-isolation guard, the `--bg-pty-host` orphan watchdog, and daemon stale-exec / binary-takeover / `/bg`-handoff lifecycle deltas.
+
+See `36_background_agents/{shell_exec_sessions,unified_dispatcher_ol,...}.md` for narrative analysis. (Platform telemetry helpers and the dispatch gate route to `symbol_index_infra_platform.md`; the agents-view input parser `q5q` routes to `symbol_index_infra_integration.md`.)
+
+### Shell-Exec Sessions & Unified Dispatch
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `al` | `extractFlagValue` (generic `--flag=value` / `--flag value` argv reader, stops at `--`) | cli_inner_pretty.js:541547 | function |
+| `Bwz` | `bgDispatchGate` (block bypass/auto bg dispatch unless previously opted in; parses pre-`--` argv) | cli_inner_pretty.js:542514 | function |
+| `Ce4` | `buildTemplateFromAgent` (agent-def → `{name,description,initialPrompt,color}` template adapter) | cli_inner_pretty.js:540913 | function |
+| `ee4` | `BG_FLAG_ALIASES` (`["--bg","--background"]` stripped before re-parse) | cli_inner_pretty.js:542622 | variable |
+| `Ewz` | `resolveShellLaunch` / `shellLaunchSpec` (pick `$SHELL -c` / `COMSPEC /d /s /c` / `/bin/sh -c`) | cli_inner_pretty.js:541727 | function |
+| `Fe4` | `claimSpareOrColdDispatch` (claim a pre-warmed spare worker, else cold dispatch) | cli_inner_pretty.js:541102 | function |
+| `gy$` | `shellExecGate` (kill-switch for the shell-exec bang command; returns `true` in 2.1.156) | cli_inner_pretty.js:541028 | function |
+| `hwz` | `bgFlagExecHandler` (`claude --bg --exec` CLI handler; `--exec`/`--exec=` parse, `--name` compose, dispatch) | cli_inner_pretty.js:541956 | function |
+| `IV6` | `CLAUDE_AGENT_DEF` (built-in catch-all `claude` agent; teaches narrate/restate/`result:`/`needs input:`/`failed:`) | cli_inner_pretty.js:236184 | object |
+| `kd` | `interpolateMentions` (substitute `@file`/`@image` placeholders into intent/exec text, right-to-left) | cli_inner_pretty.js:177847 | function |
+| `kqq` | `idlePlaceholderDetail` (`"(idle — send a prompt to start)"`) | cli_inner_pretty.js:542585 | constant |
+| `Nqq` | `seedBgState` (standalone bg seed-state writer for the non-`ywz` seed path) | cli_inner_pretty.js:541737 | function |
+| `Nwz` | `VALUED_FLAGS` (set of value-bearing flags whose value `extractFlagValue` skips) | cli_inner_pretty.js:541547 | variable |
+| `ol` | `unifiedBgDispatch` / `dispatchBgSession` (single bg-dispatch seam: gate, identity, delegate to `ywz`) | cli_inner_pretty.js:541769 | function |
+| `pe4` | `fleetDispatchExec` (agents-view shell-exec dispatch; pre-seed `Xwz` state, then `ol(..,"fleet",..)`) | cli_inner_pretty.js:541031 | function |
+| `qKH` | `claudeAgentTemplate` (`Ce4(IV6)` built-in catch-all template; placeholder in exec parse result) | cli_inner_pretty.js:541290 | variable |
+| `Tqq` | `sendDispatch` (daemon dispatch send + nonce; shell→`my$`, else→`EF({forceTransient})`) | cli_inner_pretty.js:541571 | function |
+| `Xwz` | `EXEC_TEMPLATE` / `execTemplate` (`{ name: "exec", description: "" }` shell-session marker) | cli_inner_pretty.js:541292 | object |
+| `ywz` | `dispatchWorker` / `seedBgSessionState` (parse argv → launch mode → seed state → send → rescue) | cli_inner_pretty.js:541789 | function |
+
+### `/bg` Handoff & Respawn Replay
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_H9` | `extractResumeSessionId` (pull the resume target session id from `--resume`/`-r` argv) | cli_inner_pretty.js:542463 | function |
+| `Ah8` | `deriveBackgroundSeed` (derive intent/name/detail seed from the transcript for the `/bg` handoff) | cli_inner_pretty.js:542733 | function |
+| `BL$` | `setActiveWorktreeSession` / `clearForegroundWorktree` (set/clear the module-global `mL$` worktree-session record) | cli_inner_pretty.js:542723 | function |
+| `gwz` | `BackgroundForkPrompt` (React component: confirm `/bg`, call `zh8`, emit fork telemetry, banner) | cli_inner_pretty.js:542763 | function |
+| `mwz` | `stripSessionIdArgs` (drop user `--session-id` from prompt-mode argv tail; pass post-`--` verbatim) | cli_inner_pretty.js:542497 | function |
+| `ny$` | `formatBgHints` ("backgrounded · <short>" banner with attach/logs/stop hints) | cli_inner_pretty.js:542079 | function |
+| `pwz` | `RESPAWN_BOOLEAN_FLAGS` (boolean keep-set for respawn replay: `--dangerously-skip-permissions`, `--reply-on-resume`, …) | cli_inner_pretty.js:542669 | variable |
+| `sY` | `getActiveWorktreeSession` (returns the active bg worktree-session record `mL$`) | cli_inner_pretty.js:239369 | function |
+| `Swz` | `dispatchFailureLabel` (dispatch-failure reason → human label: "not running" / "timed out" / …) | cli_inner_pretty.js:542063 | function |
+| `Uwz` | `firstPositionalAsIntent` (derive intent from last non-flag positional that isn't the resume id) | cli_inner_pretty.js:542530 | function |
+| `uwz` | `stripLaunchFlags` (drop resume/fork/session-id flags for resume-mode `flagArgs`) | cli_inner_pretty.js:542476 | function |
+| `zh8` | `backgroundCurrentSession` (resume the live session in a bg worker via `--resume --fork-session`; worktree handoff) | cli_inner_pretty.js:542680 | function |
+| `zH9` | `collectRespawnFlags` (keep-list flag collector for respawn replay: value-bearing `hqq` + boolean `pwz`) | cli_inner_pretty.js:542542 | function |
+
+### Four-State Classifier (working/blocked/done/failed)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `a04` | `parseClassifierJson` (strip code fence, slice first `{`…last `}`, JSON.parse, zod-validate) | cli_inner_pretty.js:449308 | function |
+| `Bd_` | `createClassifierJobState` (per-session classifier scratch state: prevState, latestAsk, accumulatedOutputs, …) | cli_inner_pretty.js:449816 | function |
+| `ci6` | `summarizeToolCallsDeterministic` (frequency-sorted top-5 tool-name tally for classifier context) | cli_inner_pretty.js:449322 | function |
+| `Dd_` | `MARKER_FAILED` (regex `failed: …` explicit marker) | cli_inner_pretty.js:449563 | constant |
+| `dd_` | `findLatestRealUserAsk` (last non-meta string user turn → classifier `latestAsk`) | cli_inner_pretty.js:449875 | function |
+| `Ed_` | `RX_VERDICT` (tail "VERDICT: PASS\|FAIL" → done) | cli_inner_pretty.js:449567 | constant |
+| `fd_` | `STATE_DEFINITIONS` (long-form working/blocked/done/failed defs; reconciler allow-list) | cli_inner_pretty.js:449552 | object |
+| `Gd_` | `RX_AGENTS_STATUS` (tail "N agents in flight" / "Loop active" → working/idle) | cli_inner_pretty.js:449567 | constant |
+| `Hc_` | `EXCLUDED_TOOLS` (`Set([df, rP, MJ])` — tools omitted from the classifier tool tally) | cli_inner_pretty.js:450512 | constant |
+| `hd_` | `RX_STOPPING_HERE` (tail "Stopping here" / "Parked the branch" → blocked) | cli_inner_pretty.js:449567 | constant |
+| `i04` | `fastPathClassify` (regex fast-path battery; tagged branch or null; code-fence aware) | cli_inner_pretty.js:449166 | function |
+| `Jd_` | `MARKER_NEEDS_INPUT` (regex `needs input: …` explicit marker) | cli_inner_pretty.js:449563 | constant |
+| `jd_` | `isTerminalState` (`Md_.has(state)` predicate; classifier-side) | cli_inner_pretty.js:449075 | function |
+| `JT4` | `classifyState` (classifier dispatcher: fast-path → heuristic → LLM; emits `tengu_bg_classify`) | cli_inner_pretty.js:450335 | function |
+| `kd_` | `RX_PUSHED_COMMITTED` (tail "Pushed to" / "Committed as" / "Opened PR" → done) | cli_inner_pretty.js:449567 | constant |
+| `KPH` | `isInsideCodeFence` (fenced-region detector voiding markers inside ``` blocks) | cli_inner_pretty.js:449087 | function |
+| `Ld_` | `MARKER_IM_BLOCKED` (regex `I'm blocked: …` explicit marker) | cli_inner_pretty.js:449563 | constant |
+| `Md_` | `TERMINAL_STATES` (`Set(["done","failed","stopped"])`) | cli_inner_pretty.js:449562 | constant |
+| `n04` | `closingTailShape` (classify the closing shape — empty/code-fence/result-line/trailing-q/… — for telemetry) | cli_inner_pretty.js:449153 | function |
+| `Nd_` | `RX_READY_FOR` (tail "Ready for review / to merge / ship" → done) | cli_inner_pretty.js:449567 | constant |
+| `o04` | `buildClassifierUserMsg` (assemble `Current state / Tool calls / User's ask / tail` user message) | cli_inner_pretty.js:449295 | function |
+| `Od_` | `OUTPUT_FIELDS` (`{ result: "…" }` allow-list for `output.*` keys) | cli_inner_pretty.js:449561 | object |
+| `Pd_` | `scanExplicitMarkers` (find last `failed:`/`needs input:`/`blocked:` marker outside code fences) | cli_inner_pretty.js:449139 | function |
+| `Qi6` | `heuristicLastLine` (last-non-empty-line "working" fallback classifier) | cli_inner_pretty.js:449286 | function |
+| `r04` | `classifierPrompt` (the full four-state working/blocked/done/failed classifier system prompt) | cli_inner_pretty.js:449361 | variable |
+| `sZ` | `truncateWithEllipsis` (surrogate-safe one-line truncator, cap `iL`=800) | cli_inner_pretty.js:449078 | function |
+| `Td_` | `RX_WILL_CHECK_BACK` (tail "I'll check back/re-check (not your…)" → working/idle) | cli_inner_pretty.js:449567 | constant |
+| `Vd_` | `RX_CANT_PROCEED` (tail "I can't/cannot proceed/continue" → blocked) | cli_inner_pretty.js:449567 | constant |
+| `vd_` | `RX_GIVING_UP` (tail "Giving up" / "not actionable" → failed) | cli_inner_pretty.js:449567 | constant |
+| `Wd_` | `RX_FORWARD_INTENT` (active-verb opener with negative look-aheads → working) | cli_inner_pretty.js:449567 | constant |
+| `Xd_` | `MARKER_BLOCKED` (regex `blocked: …` explicit marker) | cli_inner_pretty.js:449563 | constant |
+| `yd_` | `RX_PLEASE_DO_X` (tail "Please start/run/provide/export `ENV_VAR`" → blocked) | cli_inner_pretty.js:449567 | constant |
+| `yk$` | `reconcileClassifierResult` (validate/fill `{state,detail,tempo,needs,output}` against prior state) | cli_inner_pretty.js:449325 | function |
+| `Zd_` | `RX_PASSIVE_WAIT` (temporal/conditional clause meaning "not the agent's own next step") | cli_inner_pretty.js:449570 | constant |
+| `z04` | `generateToolUseSummary` (LLM "git-commit-subject" tool-call → ≤30-char progress label) | cli_inner_pretty.js:447331 | function |
+| `Zg_` | `TOOL_SUMMARY_PROMPT` (label-writing system prompt for `generateToolUseSummary`) | cli_inner_pretty.js:447393 | variable |
+
+### Worker State Machine / Worktree Isolation / PTY Host
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_J` | `isSettledState` (`isTerminalState(state) && tempo !== "active"`) | cli_inner_pretty.js:184283 | function |
+| `$q9` | `writePtyLog` (append a timestamped line to the pty-host log) | cli_inner_pretty.js:559334 | function |
+| `esH` | `worktreeIsolationGuard` (path-block predicate run before writes; 2.1.156 `$.agentId` subagent branch) | cli_inner_pretty.js:346660 | function |
+| `Eu6` | `resolveBgIsolation` (env `CLAUDE_BG_ISOLATION` then `settings.worktree.bgIsolation`; `"none"` opts out) | cli_inner_pretty.js:346655 | function |
+| `evH` | `terminalStateToOutcome` (done→success / failed→failure / stopped→stopped / else null) | cli_inner_pretty.js:184274 | function |
+| `jPz` | `runPtyHost` (`claude --bg-pty-host` entry; `Bun.Terminal` + REPL child + orphan watchdog) | cli_inner_pretty.js:559067 | function |
+| `m9H` | `getWorktreeCreateHook` (true when a `WorktreeCreate` hook is configured) | cli_inner_pretty.js:143815 | function |
+| `n1H` | `ENTER_WORKTREE_TOOL_NAME` (`"EnterWorktree"`, named in the isolation-guard block message) | cli_inner_pretty.js:216098 | constant |
+| `nJ` | `recordJobExitCause` (write the `exit-cause` marker file in `CLAUDE_JOB_DIR`) | cli_inner_pretty.js:9546 | function |
+| `Nv` | `isTerminalState` (worker-side: `terminalStateToOutcome(state) !== null`) | cli_inner_pretty.js:184280 | function |
+| `SF` | `BgWorkerHandle` (worker-handle class, renamed from v2.1.142 `aB`; phase machine + retire/respawn) | cli_inner_pretty.js:559938 | class |
+| `T_$` | `isPathTrackedDirty` (path is git-tracked and modified-vs-HEAD) | cli_inner_pretty.js:46920 | function |
+| `ujH` | `isExecSession` (`template === "exec" && respawnFlags.length === 0`; on-disk record predicate) | cli_inner_pretty.js:184286 | function |
+| `VPz` | `isLegalPhaseTransition` (phase-transition guard, renamed from v2.1.142 `UB5`; logic unchanged) | cli_inner_pretty.js:559923 | function |
+| `wh$` | `failPtyHost` (log + `process.exit(1)` for the pty-host) | cli_inner_pretty.js:559345 | function |
+| `x6$` | `idleNeedsHint` (`"send a prompt to start"`) | cli_inner_pretty.js:542584 | constant |
+| `y1` | `gitTrackedSha` (cached git-blob-sha lookup; non-null ⇒ path inside a git repo) | cli_inner_pretty.js:46913 | function |
+| `yq9` | `formatPhase` (phase → log string, renamed from v2.1.142 `FI4`) | cli_inner_pretty.js:559920 | function |
+
+### Daemon Lifecycle Deltas (stale-exec / binary takeover / supervisor)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `a69` | `tccDisclaimRespawn` (macOS responsibility-disclaim self re-exec via `posix_spawn` SETEXEC) | cli_inner_pretty.js:559016 | function |
+| `Bpz` | `EMPTY_PIN_SET` (`new Set()` passed to bypass the pinned guard during low-mem escalation) | cli_inner_pretty.js:648202 | constant |
+| `By$` | `isLowMemory` (free-memory under threshold; always false on macOS) | cli_inner_pretty.js:540459 | function |
+| `C6$` | `respawnJob` (explicit-respawn path; exec branch re-runs the command with zero flags) | cli_inner_pretty.js:541152 | function |
+| `EF` | `ensureDaemonRunning` (ensure a daemon is reachable; stale-exec fallback to transient) | cli_inner_pretty.js:540124 | function |
+| `fCH` | `waitDaemonReachable` (poll `ping` op until reachable or timeout) | cli_inner_pretty.js:540078 | function |
+| `fwz` | `currentLaunchTarget` (the launcher's own exec path / prefix arg) | cli_inner_pretty.js:540216 | function |
+| `GPz` | `POST_ADOPT_GRACE_MS` (120000) | cli_inner_pretty.js:560836 | constant |
+| `iy8` | `lowMemThresholdBytes` (`tengu_bg_low_mem_mb` ×1 GiB; 0 on macOS) | cli_inner_pretty.js:540455 | function |
+| `jwz` | `daemonLabelForArgs` ("claude agents" / "claude --bg" / "claude" `--spawned-by` label) | cli_inner_pretty.js:540332 | function |
+| `Le4` | `realpathMtimeMs` (resolve realpath then mtimeMs; null on ENOENT) | cli_inner_pretty.js:540209 | function |
+| `LL5` | `rebuildPinnedFromMarkers` (fallback: scan per-dir `pinned` marker files, persist `pins.json`) | cli_inner_pretty.js:184023 | function |
+| `mpz` | `NORMAL_RETIRE_GRACE_MS` (3600000) | cli_inner_pretty.js:648199 | constant |
+| `Mwz` | `takeoverStaleDaemon` (gated SIGKILL of a stale transient daemon; emits `tengu_bg_daemon_binary_takeover`) | cli_inner_pretty.js:540233 | function |
+| `OPz` | `ensureAppBundleExec` (materialize `ClaudeCode.app` exec + Info.plist for stable macOS TCC identity) | cli_inner_pretty.js:558989 | function |
+| `Owz` | `isDaemonStaleVsClient` (transient-origin + (version-gt OR mtime-newer) staleness comparator) | cli_inner_pretty.js:540220 | function |
+| `Qw$` | `loadPinnedSet` (read `pins.json` into a Set each tick; ENOENT → `rebuildPinnedFromMarkers`) | cli_inner_pretty.js:184012 | function |
+| `TPz` | `EMPTY_IDLE_GRACE_MS` (300000) | cli_inner_pretty.js:560837 | constant |
+| `Ve4` | `bridgedRetireGraceMs` (`tengu_bg_retire_grace_bridged_min` ×60000; default 480 min) | cli_inner_pretty.js:540463 | function |
+| `vzq` | `TICK_INTERVAL_MS` (60000 — supervisor tick cadence) | cli_inner_pretty.js:648201 | constant |
+| `Vzq` | `LOW_MEM_GRACE_MS` (60000) | cli_inner_pretty.js:648200 | constant |
+| `We4` | `isServiceDaemonInstalled` (true if a service unit is registered, not transient) | cli_inner_pretty.js:540328 | function |
+| `Ywz` | `nudgeDaemonUntilConverged` (`nudge`-loop; invokes binary-takeover before declaring "up") | cli_inner_pretty.js:540086 | function |
+
+### `/goal` Stop-Hook (background-adjacent)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `j$$` | `addGoalStopHook` (`/goal`: register session Stop hook + stamp `activeGoal`) | cli_inner_pretty.js:447943 | function |
+| `L04` | `goalSentinelMessage` (emit a `goal_status` sentinel attachment) | cli_inner_pretty.js:447971 | function |
+| `nS$` | `SessionStateTracker` (session state + goal snapshot class; `hasTerminalGoalSnapshot`, goal-clear-on-running) | cli_inner_pretty.js:623957 | class |
+| `Rf9` | `findGoalToRestore` (walk transcript for last non-sentinel `goal_status` to restore on resume) | cli_inner_pretty.js:598861 | function |
+| `w$$` | `clearGoalStopHook` (`/goal clear`: remove Stop hook + clear `activeGoal`) | cli_inner_pretty.js:447958 | function |
+| `Zyz` | `restoreGoalFromTranscript` (resume-time goal recovery; re-stamp `activeGoal` if not met/failed) | cli_inner_pretty.js:598870 | function |
+
+### Feature-Telemetry Emit Helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Bn8` | `emitFeatureBadAsync` (awaited `tengu_feature_bad` flush — one-shot CLI exec path) | cli_inner_pretty.js:41599 | function |
+| `mn8` | `emitFeatureOkAsync` (awaited `tengu_feature_ok` flush — CLI exec path) | cli_inner_pretty.js:41599 | function |
+| `pn8` | `emitFeatureSadAsync` (awaited `tengu_feature_sad` flush) | cli_inner_pretty.js:41605 | function |
+| `SH` | `emitFeatureOk` (sync fire-and-forget `tengu_feature_ok` — agents-view path) | cli_inner_pretty.js:41590 | function |
+| `t$` | `emitFeatureSad` (sync `tengu_feature_sad` — agents-view path; benign races) | cli_inner_pretty.js:41596 | function |
+| `uH` | `emitFeatureBad` (sync `tengu_feature_bad` — agents-view path) | cli_inner_pretty.js:41593 | function |
+
+Known new themes:
+
+- v2.1.153/154: `! command` shell-exec sessions; `/logout` signs out instead of backgrounding; `←←` agents view on Bedrock/Vertex/Foundry
+- v2.1.156 fixes: premature "out of context" on 1M models from bg completion; bg classifier losing goal on scheduled `/command`; pinned bg sessions respawning every minute after update; idle bg sessions not retiring; subagents in bg bypassing worktree isolation; orphaned `--bg-pty-host` at 100% CPU after daemon exit (macOS)
+- `f6` (`getOriginalCwd`) is a shared launch-cwd util cited here but belongs to State (`symbol_index_core_execution.md`)
+
+---
+
+## Module: Hooks (2.1.143–156 delta)
+
+The NEW **MessageDisplay** display-only hook event (transform/hide streaming assistant text without touching transcript or model-visible context): its parallel event-name arrays, lazy Zod input/output schemas, the `forceSyncExecution` executor, the per-message streaming engine (`OW9`) and constants, the completed-message rewrite path (`MW9`), and the state-prune helper. Plus the Stop/SubagentStop `background_tasks` + `session_crons` inputs (2.1.145) and the stop-hook block cap (2.1.143).
+
+See `11_hooks/{message_display_event,message_display_streaming_engine,session_start_title_and_reload_skills,stop_hook_background_tasks_and_block_cap}.md`. (The renderer-side UI identifiers `Vd4`/`ky`/`Ln`/`displayedMessageContent` route to `symbol_index_infra_integration.md`.)
+
+### MessageDisplay Event — Schemas & Constants
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AW9` | `MESSAGE_DISPLAY_DEBOUNCE_MS` (`1000 / Xxz` = 100ms flush debounce; declared 627130, assigned 627139) | cli_inner_pretty.js:627130 | constant |
+| `cM` | `baseHookInput` (lazy Zod base envelope: `session_id`/`transcript_path`/`cwd`/`permission_mode`/`agent_id`/`agent_type`/`effort`) | cli_inner_pretty.js:336641 | object |
+| `c6$` | `hookJSONOutputSchema` (unified `HookJSONOutput` discriminated union; includes the `MessageDisplay`/`displayContent` variant) | cli_inner_pretty.js:550780 | object |
+| `do7` | `hookInputUnion` (the giant per-event hook-input discriminated union; `lj_`/MessageDisplay is a member) | cli_inner_pretty.js:337054 | object |
+| `Fo7` | `hookEventNameEnum` (`y.enum(wj_)` — Zod enum built from the source event-name array) | cli_inner_pretty.js:336640 | object |
+| `fW9` | `MESSAGE_DISPLAY_TIMEOUT_MS` (`1e4` = 10s per-flush hook budget) | cli_inner_pretty.js:627132 | constant |
+| `HR$` | `cryptoModule` (lazily-required `crypto` for the engine's local `messageId`/`turnId`; declared 627128, assigned 627139) | cli_inner_pretty.js:627128 | variable |
+| `jN` | `HOOK_EVENT_NAMES` (canonical runtime event-name array; `"MessageDisplay"` last entry at 49289) | cli_inner_pretty.js:49259 | constant |
+| `lj_` | `messageDisplayInputSchema` (MessageDisplay input: `turn_id`/`message_id`/`index`/`final`/`delta` intersected onto `cM`) | cli_inner_pretty.js:337023 | object |
+| `Mw_` | `messageDisplayOutputSchema` (the `hookSpecificOutput` schema carrying the single optional `displayContent`) | cli_inner_pretty.js:337161 | object |
+| `wj_` | `hookEventNameEnumSource` (parallel event-name source array fed into `Fo7`; `"MessageDisplay"` member at 336638) | cli_inner_pretty.js:336608 | constant |
+| `Xxz` | `MESSAGE_DISPLAY_FLUSH_FPS` (`10` — flush-rate divisor; `AW9 = 1000/Xxz` → 100ms) | cli_inner_pretty.js:627129 | constant |
+| `YW9` | `MESSAGE_DISPLAY_INFLIGHT_CAP` (`3` — max concurrent in-flight flush hook passes; back-pressure) | cli_inner_pretty.js:627131 | constant |
+
+### MessageDisplay Engine & Executor
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `l6$` | `executeMessageDisplayHooks` (typed executor for one MessageDisplay flush; delegates to `QL` with `forceSyncExecution`, 10s timeout) | cli_inner_pretty.js:551726 | function |
+| `MW9` | `applyMessageDisplayToCompletedMessage` / `rewriteCompletedMessage` (one-shot transform for non-streamed/replayed messages, fail-open) | cli_inner_pretty.js:627097 | function |
+| `OW9` | `createMessageDisplayEngine` / `messageDisplayStreamEngine` (factory returning the per-message streaming flush/debounce/in-flight-cap state machine) | cli_inner_pretty.js:626930 | function |
+| `t5q` | `pruneDisplayedMessageContent` (GC of `displayedMessageContent`: drop overrides whose assistant `message.id` left the live list) | cli_inner_pretty.js:627085 | function |
+
+### Stop / SubagentStop Inputs & Block Cap (2.1.145 / 2.1.143)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `er6` | `TASK_TYPE_LABELS` (registry discriminant → hook-facing label: `local_bash→shell`, `local_agent→subagent`, `local_workflow→workflow`, …) | cli_inner_pretty.js:457418 | object |
+| `fzH` | `executeStopHooks` (Stop/SubagentStop dispatcher; builds `background_tasks`/`session_crons` payload when a `toolUseContext` is present) | cli_inner_pretty.js:551871 | function |
+| `go7` | `sessionCronElementSchema` (per-element Zod schema for a scheduled wakeup: `id`/`schedule`/`recurring`/`prompt`) | cli_inner_pretty.js:336823 | object |
+| `hj_` | `subagentStopHookInputSchema` (SubagentStop input; same two arrays as Stop, plus `agent_id`/`agent_transcript_path`/`agent_type`) | cli_inner_pretty.js:336879 | object |
+| `hKq` | `HOOK_FIELD_CHAR_CAP` (`1000` — char cap for a Stop-hook task `description`/`command` and cron `prompt`) | cli_inner_pretty.js:551845 | constant |
+| `k89` | `mapSessionCronsForHook` (map session cron list → hook cron elements; `cron→schedule`, default `recurring→false`, truncate `prompt`) | cli_inner_pretty.js:551842 | function |
+| `kT4` | `dispatchStopHookErrors` (inner Stop-hook executor returning `{blockingErrors, preventContinuation}`; the block-cap branch inspects it) | cli_inner_pretty.js:450658 | function |
+| `Nj_` | `stopHookInputSchema` (Stop input; gains `background_tasks` + `session_crons` in 2.1.145) | cli_inner_pretty.js:336840 | object |
+| `Qo7` | `backgroundTaskElementSchema` (per-element Zod schema for one in-flight task: `id`/`type`/`status`/`description` + type-conditional fields) | cli_inner_pretty.js:336795 | object |
+| `ub$` | `truncateWithMarker` (truncate-to-budget then append `… [+N chars]`; used on Stop-hook `description`/`command`/`prompt`) | cli_inner_pretty.js:9798 | function |
+| `uL` | `isInFlightTask` (Stop-hook task filter: keep only `running`/`pending` tasks not explicitly `isBackgrounded:false`) | cli_inner_pretty.js:336125 | function |
+| `v89` | `mapBackgroundTasksForHook` (map the live task registry → hook task elements; filter in-flight, label type, truncate) | cli_inner_pretty.js:551812 | function |
+| `WG` | `getSessionCronTasks` (session cron-task list accessor; `mapSessionCronsForHook`'s default argument) | cli_inner_pretty.js:2994 | function |
+
+### Shared Platform Touch Points (pre-2.1.88, plumbed by this delta)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ah8` | `applyHookJSONOutput` (folds each event's `hookSpecificOutput`; `MessageDisplay`/`SessionStart`/`UserPromptSubmit` cases copy `displayContent`/`sessionTitle`/`reloadSkills`) | cli_inner_pretty.js:552419 | function |
+| `p89` | `parseHookJSONOutput` (`c6$().safeParse(...)` of a hook's stdout JSON) | cli_inner_pretty.js:552329 | function |
+| `q_` | `DEFAULT_HOOK_TIMEOUT_MS` (`600000` = 10min default; overridden by `fW9` for MessageDisplay) | cli_inner_pretty.js:395687 | constant |
+| `QL` | `executeHooks` (generic hook-execution generator every typed executor delegates to) | cli_inner_pretty.js:553174 | function |
+| `th8` | `runShellHook` (shell-hook subprocess runner; honors `forceSyncExecution` by blocking on an "async" response) | cli_inner_pretty.js:553613 | function |
+| `w5` | `buildBaseHookInput` (runtime builder of the common `session_id`/`transcript_path`/`cwd`/`agent_*`/`effort` envelope) | cli_inner_pretty.js:552312 | function |
+| `wk` | `hasHookForEvent` / `hasHooksForEvent` (cheap gate; true iff any policy/user/plugin/session hook configured for an event; guards the MessageDisplay pipeline) | cli_inner_pretty.js:552979 | function |
+
+Known new themes:
+
+- `MessageDisplay` display-only hook event (2.1.143+) — transform/hide assistant text without touching the transcript or model context
+- Stop/SubagentStop input gains `background_tasks` + `session_crons` arrays (2.1.145)
+- `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` env (default 8, `0` disables) caps consecutive Stop-hook blocks (2.1.143)
+- Telemetry: `tengu_message_display_hooks`, `tengu_stop_hook_block_count`, `hook_session_start_reload_skills`
+
+---
+
+## Module: Skills (2.1.143–156 delta)
+
+The two mid-session skill-reload entrypoints (`/reload-skills` command + SessionStart `reloadSkills` hook field) and the shared cache-invalidation chain; the `disallowed-tools` skill/slash-command frontmatter field; the `context: fork` self-reinvoke recursion guard; the `effort:` frontmatter delta (`xhigh` level, status-bar fix); and the three bundled skill bodies (`/simplify`, `/code-review`, `/claude-api`) plus the bundled-skill registrar.
+
+See `10_skill_system/{skill_reload_midsession,skill_disallowed_tools,skill_fork_recursion_guard,skill_effort_frontmatter,bundled_skill_bodies}.md`. (Tool/memoize/subagent helpers `ZX`/`sq`/`TL5`/`X$`/`v8`/`cx8`/`C$`/`N8`/`y7` route to `symbol_index_core_execution.md`; permission/telemetry helpers `fc`/`tZ4`/`IS`/`c28`/`fI8`/`fV8`/`YV8`/`tT4`/`D0$`/`T6`/`k3`/`dN`/`vx`/`KkH`/`or`/`Ev`/`q48`/`ycH` cross-reference the Effort section below and `symbol_index_infra_platform.md`; the plugin-command parser `cV$` routes to `symbol_index_infra_integration.md`.)
+
+### Reload Command + Cache Invalidation Chain
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$U` | `runSessionStartHooks` (collect hook deltas; on any `reloadSkills` fires `_C()`+`Bo()`+`Xc.emit()`+telemetry) | cli_inner_pretty.js:270637 | function |
+| `_C` | `clearSkillListingCaches` (reload primitive's outer clear: `wu()`, `vG8()`, `Cw4()`, `DRH()`) | cli_inner_pretty.js:545345 | function |
+| `_RH` | `cachedAnnouncedSkillSet` (lazily-built announce/dedup Set; nulled by `Bo`, rebuilt in `Tp6`) | cli_inner_pretty.js:413923 | variable |
+| `Bo` | `resetConditionalSkillState` (reload primitive's state reset: `LG8.clear()`, `PG8=false`, `_RH=null`) | cli_inner_pretty.js:413487 | function |
+| `Cw4` | `clearBundledSkillCache` (`Kd6.cache?.clear?.()`) | cli_inner_pretty.js:414290 | function |
+| `dDz` | `invalidateWorkflowCache` (workflow-command cache buster; bound from the workflow module) | cli_inner_pretty.js:545804 | function |
+| `DRH` | `clearDynamicSkillCachesAndState` (`nd6`/`tx` cache clear + conditional-skill state clear) | cli_inner_pretty.js:421850 | function |
+| `Gp6` | `markSkillDirsScanned` (sets `PG8 = true`) | cli_inner_pretty.js:413493 | function |
+| `Gzz` | `RELOAD_SKILLS_COMMAND` (`/reload-skills` descriptor: `type:"local"`, `supportsNonInteractive:true`, `thinClientDispatch:"post-text"`) | cli_inner_pretty.js:521262 | object |
+| `LG8` | `dynamicSkillCommandMap` (Map of discovered dynamic/conditional skills + commands; cleared by `Bo`) | cli_inner_pretty.js:414021 | variable |
+| `OP$` | `sessionStartHookGenerator` (the `async function*` streaming SessionStart hook output; yields `reloadSkills`/`sessionTitle`/`watchPaths`/…) | cli_inner_pretty.js:551757 | function |
+| `PG8` | `hasScannedSkillDirsFlag` ("dynamic skill dirs already scanned this pass" guard; reset by `Bo`, set by `Gp6`) | cli_inner_pretty.js:413922 | variable |
+| `wu` | `clearMemoizedSkillCommandCaches` (clears `sH9`/`L2`/`RDH`, calls `dDz`, async-clears the skill-index module) | cli_inner_pretty.js:545333 | function |
+| `Xc` | `skillReloadEmitter` (signal re-announcing skill changes to UI subscribers; `Xc = y7()`) | cli_inner_pretty.js:270624 | variable |
+| `Zzz` | `reloadSkillsCommandHandler` (`/reload-skills` `call()`: snapshot names before/after, run cache-clear chain, return `N added, M removed`) | cli_inner_pretty.js:521237 | function |
+
+### Skill Loaders & Conditional State
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `BL` | `aggregateAllSkillCommands` (async disk-walk aggregator delegating to `sH9`; skill-dir + plugin + bundled + builtin-plugin) | cli_inner_pretty.js:545320 | function |
+| `gDz` | `loadSkillDirCommands` (loads skill-dir + plugin + bundled + builtin-plugin skills; calls disk-reading `nd6`) | cli_inner_pretty.js:545264 | function |
+| `Kd6` | `bundledSkillsLoaderMemo` (memoized bundled-skill loader; cleared by `Cw4`) | cli_inner_pretty.js:414435 | function |
+| `L2` | `loadSkillsForList` (memoized user-facing skill list; cache-miss re-reads disk via `BL`→`sH9`→`gDz`→`nd6`) | cli_inner_pretty.js:545823 | function |
+| `nd6` | `skillDirLoaderMemo` (memoized skill-dir loader; reads `<dir>/<name>/SKILL.md`; cleared by `DRH`) | cli_inner_pretty.js:421999 | function |
+| `RDH` | `bundledSkillsAsyncLoader` (memoized async loader for model-invocable bundled/plugin skills; cleared by `wu`) | cli_inner_pretty.js:545827 | function |
+| `sH9` | `skillCommandAggregatorMemo` (memoized master aggregator `BL` delegates to; cleared by `wu`) | cli_inner_pretty.js:545805 | function |
+| `tx` | `pairedSkillLoaderMemo` (memoized paired skill loader; cleared by `DRH`) | cli_inner_pretty.js:443338 | function |
+| `vG8` | `clearPluginSkillCache` (`zRH.cache?.clear?.()`) | cli_inner_pretty.js:414228 | function |
+| `zRH` | `pluginSkillsLoaderMemo` (memoized plugin-skills loader; cleared by `vG8`) | cli_inner_pretty.js:414317 | function |
+
+### Frontmatter Schemas & Parsers (disallowed-tools / effort)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aL6` | `SKILL_FRONTMATTER_SCHEMA` (zod skill schema; `GL5().extend({...})`) | cli_inner_pretty.js:184517 | variable |
+| `cd6` | `parseSkillFrontmatter` (`.claude` SKILL.md frontmatter → record; normalizes `disallowed-tools`/`effort` via `fc`/`vx`) | cli_inner_pretty.js:421555 | function |
+| `GL5` | `COMMON_FRONTMATTER_SCHEMA` (shared skill/slash-command zod schema; holds `disallowed-tools` + canonical `disallowedTools` alias) | cli_inner_pretty.js:184480 | variable |
+| `Ov$` | `buildSkillCommandObject` (skill record → command object; carries `disallowedTools`/`effort` through) | cli_inner_pretty.js:421592 | function |
+
+### Bundled Skill Bodies & Registrars (/simplify, /code-review, /claude-api)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aSz` | `CLAUDE_API_SKILL_DESCRIPTION_BASE` (base `/claude-api` description; mentions migrating between model versions) | cli_inner_pretty.js:612051 | variable |
+| `bA` | `registerBundledSkill` (definition → `type:"prompt"`, `source/loadedFrom:"bundled"` record; merges extracted `files`, passes through `disallowedTools`/`getEffort`) | cli_inner_pretty.js:524187 | function |
+| `c1q` | `SKILL_FILES` (map of relative path → bundled markdown string; includes `shared/model-migration.md`) | cli_inner_pretty.js:611884 | variable |
+| `cSz` | `buildClaudeApiFiles` (materialize `SKILL_FILES` with `{{OPUS_ID}}`/`{{OPUS_NAME}}` substituted) | cli_inner_pretty.js:611935 | function |
+| `d1q` | `SKILL_MODEL_VARS` (`{{OPUS_ID}}=claude-opus-4-8`, `{{OPUS_NAME}}=Claude Opus 4.8`, … substituted into bundled docs) | cli_inner_pretty.js:611874 | variable |
+| `Ehz` | `SIMPLIFY_SKILL_BODY` (the `/simplify` body: cleanup-only, 4 parallel cleanup agents via the Agent tool, then apply) | cli_inner_pretty.js:601378 | variable |
+| `eyz` | `codeReviewDescription` (function-typed; appends the `ultra` clause only when cloud review `WF()` is enabled) | cli_inner_pretty.js:600558 | function |
+| `mAz` | `prependBaseDir` (prefix prompt blocks with `Base directory for this skill: <dir>` so the model can Read/Grep extracted refs) | cli_inner_pretty.js:524283 | function |
+| `nSz` | `detectProjectLanguage` (scan cwd for `.py`/`package.json`/… markers and return the detected language) | cli_inner_pretty.js:611940 | function |
+| `nwH` | `installLazyStringGetter` (install an enumerable getter only for function-typed `description`/`argumentHint`/`whenToUse`) | cli_inner_pretty.js:222231 | function |
+| `oSz` | `buildClaudeApiPrompt` (assemble base prompt + Quick Task Reference + inlined `<doc>` blocks) | cli_inner_pretty.js:611986 | function |
+| `Qyz` | `skillToolCodeReviewGuidance` (coordinator post-implementation prompt instructing the worker to invoke `skill:"code-review"`) | cli_inner_pretty.js:600237 | variable |
+| `RAz` | `extractAndGetSkillRoot` (extract a bundled skill's `files` map to a per-skill dir; returns the dir or null) | cli_inner_pretty.js:524241 | function |
+| `rSz` | `CLAUDE_API_QUICK_TASK_REFERENCE` (Quick Task Reference block; routes "Migrating to a newer model…" to `shared/model-migration.md`) | cli_inner_pretty.js:612049 | variable |
+| `tSz` | `registerClaudeApiSkill` (registers `/claude-api`: `allowedTools` Read/Grep/Glob/WebFetch, `files: cSz()`, emits `tengu_claude_api_skill_loaded`) | cli_inner_pretty.js:612027 | function |
+| `uj9` | `claudeApiSkillDescription` (full `/claude-api` description = `aSz` + TRIGGER/SKIP clauses) | cli_inner_pretty.js:612071 | variable |
+| `vO9` | `registerSimplifySkill` (registers the cleanup-only `/simplify` via `bA`) | cli_inner_pretty.js:601350 | function |
+| `wj9` | `MODEL_MIGRATION_DOC` (bundled `shared/model-migration.md` body; the "Migrating to Opus 4.8" prose) | cli_inner_pretty.js:608931 | variable |
+| `zO9` | `registerCodeReviewSkill` (registers `/code-review` via `bA`; `subcommands:{ultra:"ultrareview"}` + `getEffort`) | cli_inner_pretty.js:600612 | function |
+
+Known new themes:
+
+- `/reload-skills` command + SessionStart `reloadSkills` hook field (2.1.152) for mid-session skill reload
+- `disallowed-tools` skill/slash-command frontmatter field (removes tools), cleared on next user message
+- `context: fork` self-reinvoke recursion guard (`spawnedBySkill` breadcrumb, errorCode 9)
+- `effort:` frontmatter gains `xhigh`; status bar shows the layered effort
+- `/code-review` becomes a bundled skill; `/simplify` is cleanup-only; `/claude-api` (Opus 4.8 + 4.7→4.8 migration)
+
+---
+
+## Module: Compact
+
+Autocompact dispatcher, microcompact stub, context-collapse persistence, summarize-up-to-here, prompt-cache interaction.
+
+*(No net-new symbols specific to this index in the v2.1.143 → v2.1.156 window beyond what is recorded in `symbol_index_core_execution.md` and `symbol_index_infra_platform.md` for prompt-cache helpers. Skill-compaction truncation helpers continue to live in the Skills sections of the prior tree.)*
+
+Known new themes:
+
+- v2.1.156: thinking-block stripping interacts with compaction on Opus 4.8 (see Thinking/Effort section: `cG4`/`dG4`/`HF6`/`pQ_`)
+
+---
+
+## Module: Thinking / Effort Levels
+
+The matured effort-level system: the `xhigh` enum addition, per-model `high`/`xhigh` launch defaults, the dual launch-pin latch, the `A2`-gated effort-param injection (the fix for Opus 4.8 400 errors), the effort resolver, `ultracode` standing-orchestration, the `/effort` slider Faster/Smarter relabel + geometry + `ultracode` rail, and the v2.1.156 thinking-signature 400 hotfix.
+
+See `43_model_opus48/{effort_levels_and_defaults,opus48_model_mapping}.md`. (Model-resolution/pricing/fast-mode/1M-context rows live in `symbol_index_infra_platform.md`; the pure slider-render UI components `kF`/`lYz`/`Ur4` live in `symbol_index_infra_integration.md`.)
+
+### Effort Capability Gates & Enum
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_P6` | `XHIGH_CAPABILITY_TAG` (`"Opus 4.8/4.7 only"`) | cli_inner_pretty.js:184993 | constant |
+| `a$7` | `MAX_EFFORT_CAPABILITY_TAG` (`"Opus 4.6+, Sonnet 4.6"`) | cli_inner_pretty.js:184994 | constant |
+| `A2` | `modelSupportsEffort` (effort-param capability gate; allow 4-8/4-7/4-6/sonnet-4-6, deny others — the gate that prevents 400s) | cli_inner_pretty.js:184798 | function |
+| `dN` | `EFFORT_LEVELS` / `EFFORT_LEVELS_WITH_MAX` (`["low","medium","high","xhigh","max"]` — `xhigh` added 2.1.154) | cli_inner_pretty.js:185009 | constant |
+| `KkH` | `isEffortLevel` / `isResolvableEffortLevel` (`dN.includes(value)` enum membership; admits `max` at runtime) | cli_inner_pretty.js:184859 | function |
+| `ow$` | `modelSupportsMaxEffort` (gate for `max`; allow 4-8/4-7/4-6/sonnet-4-6) | cli_inner_pretty.js:184816 | function |
+| `s$7` | `EFFORT_ALIASES` (`{ med: "medium" }`) | cli_inner_pretty.js:185010 | variable |
+| `ycH` | `modelSupportsXhighEffort` (gate for `xhigh`; allow **Opus 4.8/4.7 only** or 3P override) | cli_inner_pretty.js:184834 | function |
+
+### Effort Resolution & Launch Latch
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AkH` | `isOpusLaunchDefaultActive` (per-model launch pin still engaged? reads `unpinOpus47/48LaunchEffort`) | cli_inner_pretty.js:184896 | function |
+| `E1H` | `normalizeEffortLabel` (coerce any non-`dN` string to `"high"`) | cli_inner_pretty.js:184960 | function |
+| `e$7` | `effortValueFromContext` (CLI `--effort` ?? ultracode→xhigh ?? persisted level) | cli_inner_pretty.js:185012 | function |
+| `Ev` | `getDisplayedEffortLevel` / `computeDisplayEffortLevel` (`normalizeEffortLabel(or(model,app) ?? "high")` — status-bar/slider source of truth) | cli_inner_pretty.js:184944 | function |
+| `or` | `resolveAppliedEffort` / `resolveModelEffort` (final effort: env ?? launch-default-if-pinned ?? app-state ?? model-default; clamps max/xhigh→high) | cli_inner_pretty.js:184909 | function |
+| `pjH` | `toPersistableEffort` / `coerceStringLevel` (admit only low/medium/high/xhigh — never `max`) | cli_inner_pretty.js:184880 | function |
+| `q0` | `getAppliedEffortForRequest` (`A2(model) ? Ev(model,app) : undefined`) | cli_inner_pretty.js:184948 | function |
+| `q48` | `getDefaultEffortForModel` (per-model launch default: Opus 4.8 → `high`, Opus 4.7 → `xhigh`, else `high`) | cli_inner_pretty.js:184987 | function |
+| `RL5` | `getEffortDescription` (per-level prose; `xhigh` interpolates `_P6`) | cli_inner_pretty.js:184964 | function |
+| `SI` | `unpinOpusLaunchEffortLatch` (release BOTH 4.7 and 4.8 launch pins together via locked config writer) | cli_inner_pretty.js:184902 | function |
+| `vx` | `parseEffortValue` (lowercase + `med→medium` alias + level/parseInt fallback) | cli_inner_pretty.js:184870 | function |
+| `YP6` | `getEffortDescriptionWithBurnHint` (append "burns fastest — medium handles most tasks" on high+Pro+`tengu_slate_finch`) | cli_inner_pretty.js:184978 | function |
+| `zkH` | `readEnvEffortLevel` (`CLAUDE_CODE_EFFORT_LEVEL`; `unset`/`auto`→null tri-state) | cli_inner_pretty.js:184892 | function |
+
+### Ultracode (Standing Orchestration)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ar` | `isUltracodeActive` / `isWorkflowKeywordOrUltracodeEffort` (`q && NZ() && resolveEffort()==="xhigh"`; slider-rail + consent short-circuit) | cli_inner_pretty.js:184856 | function |
+| `Pi_` | `setUltracodeAppState` (reducer: `{...s, effortValue:"xhigh", ultracode:true}`) | cli_inner_pretty.js:461114 | function |
+| `Vx` | `ultracodeAvailable` (`workflowsEnabled() && (model===undefined || modelSupportsXhighEffort(model))`) | cli_inner_pretty.js:184853 | function |
+| `zP6` | `readUltracodeFlag` / `isUltracodeOn` (`i6().ultracode === true`; side-effect `SI()` releases the launch latch) | cli_inner_pretty.js:184884 | function |
+
+### `/effort` Slider UI (Faster/Smarter relabel)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `cYz` | `DEFAULT_SLIDER_INDEX` (`3` → slider opens on `xhigh`) | cli_inner_pretty.js:527511 | constant |
+| `eE8` | `getEffortHelpText` (`/effort` usage string; `ultracode` option gated on `Vx()`, capability tags inlined) | cli_inner_pretty.js:526897 | function |
+| `Ir4` | `BASE_SLIDER_TRIANGLE_POSITIONS` (`[1,10,20,30,40]` caret columns) | cli_inner_pretty.js:527553 | variable |
+| `mH` | `applyModelMenuEffort` (`/model` menu effort apply; ultracode → `SI()`+`Pi_`, else persist + reset ultracode) | cli_inner_pretty.js:460906 | function |
+| `mr4` | `getSliderGeometry` (5-tick base ladder + optional 6th `ultracode` rail when `Vx()`) | cli_inner_pretty.js:527105 | function |
+| `O6$` | `BASE_TRACK_WIDTH` (`42` — slider base track width) | cli_inner_pretty.js:527507 | constant |
+| `qy$` | `RIPPLE_RAMP` (8-step violet ripple color ramp for the ultracode rail) | cli_inner_pretty.js:527565 | variable |
+| `T8q` | `BASE_SLIDER_LEVELS` (the 5 base slider ticks low/medium/high/xhigh/max) | cli_inner_pretty.js:527555 | variable |
+| `xYz` | `parseEffortArg` (`/effort <arg>`; `auto`/`unset`→undefined, `ultracode`→xhigh when `Vx()`, else strict parse) | cli_inner_pretty.js:526915 | function |
+
+### Thinking-Signature 400 Hotfix (2.1.156)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `B87` | `isThinkingSignatureError` (NEW 2.1.156 400-matcher for modified/invalid thinking-block signatures) | cli_inner_pretty.js:186575 | function |
+| `cG4` | `stripSignedThinkingBlocks` (recovery: drop signed/redacted blocks, insert `[Thinking removed]`, identity-stable) | cli_inner_pretty.js:446238 | function |
+| `dG4` | `stripCrossModelThinkingBlocks` (proactive: strip signed thinking from other-model turns at request build) | cli_inner_pretty.js:446235 | function |
+| `gG4` | `isSignedThinkingBlock` (predicate: `redacted_thinking`, or `thinking` with non-empty `signature`) | cli_inner_pretty.js:446086 | function |
+| `HF6` | `filterSignedThinkingBlocks` (generic predicate-driven per-message signed-block stripper, no placeholder) | cli_inner_pretty.js:446218 | function |
+| `pQ_` | `filterTrailingThinkingBlocks` (drop trailing thinking from last assistant turn; emits `tengu_filtered_trailing_thinking_block`) | cli_inner_pretty.js:446091 | function |
+| `wv$` | `isThinkingOrRedacted` (predicate: `thinking` OR `redacted_thinking`, signed or not) | cli_inner_pretty.js:446083 | function |
+
+Known new themes:
+
+- `xhigh` effort level (2.1.154), default `high` for Opus 4.8, `xhigh` launch pin for Opus 4.7
+- `/effort` slider relabeled "Faster"/"Smarter" (was Speed/Intelligence) with an optional `ultracode` rail
+- `A2`-gated effort injection (`NLz`, see platform index) deletes `effort` for non-capable models to prevent 400s
+- v2.1.156: Opus 4.8 modified thinking-block signatures caused API 400s → strip-and-retry (`B87`/`cG4`)
+- `CLAUDE_CODE_ALWAYS_ENABLE_EFFORT`; `CLAUDE_CODE_EFFORT_LEVEL` env override
+
+---
+
+## Module: Model-Selection Feature (fast-label)
+
+The user-facing fast-mode label surfaced in `/effort` and the model menu (the deeper model-resolution / pricing / fast-mode availability machinery lives in `symbol_index_infra_platform.md` Module: Model Selection).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `uB` | `getFastModeModelLabel` (`ki() ? "Opus 4.6" : "Opus 4.8"` — the fast-mode model label shown in the UI) | cli_inner_pretty.js:98243 | function |
+
+Known new themes:
+
+- Fast mode Opus 4.8 pricing (2x rate / 2.5x speed); `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` deprecation (06/01)
+
+---
+
+## Module: Plan
+
+The `/plan` command, `EnterPlanMode`/`ExitPlanMode` tools, plan-mode permission overlay, ultraplan.
+
+*(No net-new symbols in the v2.1.143 → v2.1.156 window. The full Plan-mode symbol set is in [`../../../claude_code_v_2.1.142/analyze/00_overview/symbol_index_core_features.md`](../../../claude_code_v_2.1.142/analyze/00_overview/symbol_index_core_features.md) Module: Plan Mode and remains current for 2.1.156.)*
+
+---
+
+## Module: Todo
+
+TodoWrite tool + TaskList tool.
+
+*(No net-new symbols in the v2.1.143 → v2.1.156 window; symbols continue to live in `symbol_index_core_execution.md` Module: Tools.)*
+
+---
+
+## Module: Steering
+
+In-flight steering / queued-message injection.
+
+*(No net-new symbols specific to this index in the v2.1.143 → v2.1.156 window beyond the prior-tree baseline.)*
+
+---
+
+## Module: CLI
+
+CLI flag plumbing, dispatch flags, subcommand surface.
+
+*(The v2.1.156 CLI deltas in this window are background-agents-specific — `--exec`, `--bg`, `--bg-pty-host`, the dispatch/respawn flag sets — and are catalogued in the Background Agents module above. The general CLI flag surface is in `symbol_index_infra_platform.md` / `symbol_index_infra_integration.md`.)*
