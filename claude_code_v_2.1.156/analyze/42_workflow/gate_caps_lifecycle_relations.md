@@ -45,8 +45,8 @@ Key symbols in this document (full table is in `symbol_index_core_features.md`):
 - `WorkflowBudgetExceededError` (`fW8`) — error thrown when the token budget is spent (cli_inner_pretty.js:375746-375753)
 - `computeWorkflowConcurrency` (`dG_`) — `min(16, max(2, cores-2))` (cli_inner_pretty.js:374930-374932)
 - `WORKFLOW_STALL_MS_DEFAULT` (`tG_`) — `180000` (3 min) per-agent stall timeout (cli_inner_pretty.js:375699)
-- `WORKFLOW_PARALLEL_DEFAULT` (`cG_`) — concurrency limit seeded from CPU count (cli_inner_pretty.js:375676, 375735)
-- `WORKFLOW_PIPELINE_DEFAULT` (`lG_`) — `50` default pipeline concurrency (cli_inner_pretty.js:375677)
+- `WORKFLOW_PARALLEL_DEFAULT` (`cG_`) — concurrency limit (semaphore width) for the **local** agent executor `R`, seeded from CPU count (cli_inner_pretty.js:375676, 375735)
+- `WORKFLOW_REMOTE_DEFAULT` (`lG_`) — `50`; semaphore width for the **remote** agent executor `U` (`b = BiH(lG_, U)`, 375002), which throws "not available in this build" (375083). It is **not** a pipeline knob (see Part 3.3 correction) (cli_inner_pretty.js:375677)
 
 **Journal / respawn / snapshot**
 - `LocalFileJournal` (`bp6`) — append-only `journal.jsonl` per run (cli_inner_pretty.js:374871-374906)
@@ -64,7 +64,7 @@ Key symbols in this document (full table is in `symbol_index_core_features.md`):
 - `getBuiltinWorkflows` (`o74`) — built-in workflow list (`r74`, empty in this build) (cli_inner_pretty.js:375876-375882)
 - `saveWorkflow` (`$Q4`) — persists a named workflow, emits `tengu_workflow_saved` (cli_inner_pretty.js:507621-507643)
 - `workflowsCommand` (`Pjz`) — `/workflows` local-jsx slash command (cli_inner_pretty.js:538934-538942)
-- `WorkflowHistoryDialog` (`gt4`) — `/workflows` viewer component (cli_inner_pretty.js:538403-538…)
+- `WorkflowHistoryDialog` (`gt4`) — `/workflows` viewer component (cli_inner_pretty.js:538403-538797)
 
 **Ultracode / effort**
 - `isUltracodeOn` (`zP6`) — reads `i6().ultracode === true`, unpins launch effort (cli_inner_pretty.js:184884-184888)
@@ -100,8 +100,8 @@ This document maps the **control plane** of Dynamic Workflows — everything tha
                        ┌──────────────────┴──────────────────┐
    RUNTIME CAPS        │ agent-cap F74=1000 → Q74             │
                        │ token budget → fW8                   │  + journal bp6 (resume)
-                       │ concurrency dG_=min(16,cores-2)      │  + stall tG_=180s
-                       │ pipeline lG_=50                      │
+                       │ local concurrency cG_=min(16,cores-2)│  + stall tG_=180s
+                       │ (remote lG_=50 — remote disabled)    │
                        └──────────────────┬──────────────────┘
                                           ▼
    FLUSH              TrH(task_progress) ~16ms-batched → UI progress tree + /workflows
@@ -502,7 +502,9 @@ let WORKFLOW_PARALLEL_DEFAULT = computeWorkflowConcurrency(os.cpus().length);
 // Mapping: dG_→computeWorkflowConcurrency, H→coreCount, cG_→WORKFLOW_PARALLEL_DEFAULT, U74→os
 ```
 
-`cG_` is the default semaphore width for `parallel()`/`agent()` fan-out (the agent dispatcher uses `BiH(cG_, R)`, cli_inner_pretty.js:375001), and `lG_ = 50` (cli_inner_pretty.js:375677) is the wider default for `pipeline()` stages (`BiH(lG_, U)`, 375002). The formula reserves two cores for the host process and the UI, floors at 2 (always allow *some* parallelism), and **caps at 16** so a 64-core machine doesn't open 62 simultaneous subagents and overwhelm the API/rate limits.
+`cG_` is the default semaphore width for **all** `agent()` fan-out (whether issued directly, from `parallel()`, or from `pipeline()`). The VM bridge wraps the **local** executor `R` in a `BiH` semaphore of width `cG_`: `let C = BiH(cG_, R)` (cli_inner_pretty.js:375001), and *every* `agent()` call routes through `C` (cli_inner_pretty.js:375086 `await C(...)`). The formula reserves two cores for the host process and the UI, floors at 2 (always allow *some* parallelism), and **caps at 16** so a 64-core machine doesn't open 62 simultaneous subagents and overwhelm the API/rate limits.
+
+**Correction — `lG_ = 50` is the REMOTE width, not a pipeline knob.** A prior pass labeled `lG_ = 50` (cli_inner_pretty.js:375677) as "the wider default for `pipeline()` stages." That is wrong. `lG_` is the semaphore width for the **remote** executor `U`: `let b = BiH(lG_, U)` (cli_inner_pretty.js:375002). `U` is the `agent({isolation:'remote'})` path — and that path is disabled in this build: the `agent()` body throws `agent({isolation:'remote'}) is not available in this build` (cli_inner_pretty.js:375083) *before* `b`/`U` is ever invoked, so `lG_` has no observable effect here. The real `pipeline()`-vs-`parallel()` distinction is at the **DSL function level** (single `Promise.allSettled` barrier vs. per-item flow), not the semaphore choice — both DSL primitives dispatch agents through the *same* `cG_`-bounded local executor `C`. See [`workflow_runtime_and_subagents.md` §D](./workflow_runtime_and_subagents.md) for the full DSL semantics.
 
 **Why a CPU-derived default:** Each subagent is a full query loop with its own tool execution; concurrency is bounded by local CPU for tool work (grep/read/bash) more than by the API. `min(16, cores-2)` is a pragmatic balance — enough fan-out to be fast, capped low enough to stay within typical API concurrency and to keep the progress tree legible.
 
@@ -732,7 +734,9 @@ function registerSessionHook(setAppState, agentId, event, matcher, callback, err
 // Mapping: gtH→registerSessionHook, $→agentId, q→event, _→callback, z→errorMessage, aK4→addSessionHook
 ```
 
-In the workflow use (375227-375234) the callback allows the stop only after 2 attempts (`A8 >= 2`) or once the transcript contains a StructuredOutput call (`OW8(L$, iY)`), with the error message *"You did not call StructuredOutput. You MUST call StructuredOutput to return your answer — the tool input IS your answer. Call it now."* This guarantees `schema`-typed `agent()` calls return a validated object rather than free text.
+In the workflow use (375221-375236) the callback allows the stop only after 2 attempts (`A8 >= 2`) or once the transcript contains a StructuredOutput call (`OW8(L$, iY)`, where `iY = "StructuredOutput"` at cli_inner_pretty.js:212132), with the error message *"You did not call StructuredOutput. You MUST call StructuredOutput to return your answer — the tool input IS your answer. Call it now."* This guarantees `schema`-typed `agent()` calls return a validated object rather than free text.
+
+> The hook is only one half of StructuredOutput forcing. The other half is the **subagent system-prompt variant** (`aG_`/`oG_`) selected for `schema`-typed calls, and the StructuredOutput **tool injection** into the subagent's `availableTools`. Both are analyzed in [`workflow_runtime_and_subagents.md` §F](./workflow_runtime_and_subagents.md).
 
 ---
 
@@ -814,7 +818,9 @@ Finally it writes the snapshot (`C74`), routes the result/failure into the task 
 
 ## 5.4 `runWorkflowScript` (`q44`) — the VM executor
 
-`q44` (cli_inner_pretty.js:376007-376061) is the bridge between the `call` handler and the sandboxed VM. It loads the journal, builds the VM context via `H44` (which exposes `agent/parallel/pipeline/phase/log/workflow/args/budget/console`, cli_inner_pretty.js:375973-375997), runs the compiled script in the `vm` context with a sync timeout, races it against the abort signal, and returns `{result, agentCount, logs, failures, durationMs, error?}`. Logs are capped at `H0_ = 1000` lines (cli_inner_pretty.js:376011, 376062).
+`q44` (cli_inner_pretty.js:376007-376061) is the bridge between the `call` handler and the sandboxed VM. It loads the journal, builds the VM context via `H44` (which exposes `agent/parallel/pipeline/phase/log/workflow/args/budget/console`, cli_inner_pretty.js:375973-375997), runs the compiled script in the `vm` context with a sync timeout (`K.syncTimeoutMs ?? mP8`, where `mP8 = 30000` ms, cli_inner_pretty.js:367489, 376019), races it against the abort signal, and returns `{result, agentCount, logs, failures, durationMs, error?}`. Logs are capped at `H0_ = 1000` lines (declared `var H0_ = 1000` at cli_inner_pretty.js:376062, enforced at the `z.length < H0_` push at 376011).
+
+> The compile (`BP8`), the VM-context builder (`H44`), the runner internals (`q44`), the **DSL primitive semantics** (`agent()`/`parallel()`/`pipeline()`/`phase()`/`log()`/`workflow()`), the **determinism runtime shim** (`SZ_` via `uP8` — far stronger than the `validateInput` regex), and the **workflow subagent system prompts** are all analyzed in depth in the companion doc [`workflow_runtime_and_subagents.md`](./workflow_runtime_and_subagents.md).
 
 ## 5.5 Save & the `/workflows` command/UI
 
@@ -847,7 +853,7 @@ let workflowsCommand = {
 // Mapping: Pjz→workflowsCommand, NZ→isWorkflowsEnabled
 ```
 
-**Viewer** — `WorkflowHistoryDialog` (`gt4`, cli_inner_pretty.js:538403+). It merges two sources: **live** runs from app-state tasks (filtered to local-workflow tasks via `Djz`/`wjz`) and **completed** runs from `listWorkflowSnapshots` (`b74`, called in the mount effect at 538422), de-duplicated by `runId`, sorted newest-first (cli_inner_pretty.js:538436-538441). It has `list`/`detail` modes and auto-opens detail when there's exactly one run (538450-538453). This is the surface the 2.1.154 changelog promises: *"Run /workflows to view your runs."*
+**Viewer** — `WorkflowHistoryDialog` (`gt4`, cli_inner_pretty.js:538403-538797; the function's closing brace is at 538797, immediately before `function Ajz` at 538798). It merges two sources: **live** runs from app-state tasks (filtered to local-workflow tasks via `Djz`/`wjz`) and **completed** runs from `listWorkflowSnapshots` (`b74`, called in the mount effect at 538422), de-duplicated by `runId`, sorted newest-first (cli_inner_pretty.js:538436-538441). It has `list`/`detail` modes and auto-opens detail when there's exactly one run (538450-538453). This is the surface the 2.1.154 changelog promises: *"Run /workflows to view your runs."*
 
 ---
 

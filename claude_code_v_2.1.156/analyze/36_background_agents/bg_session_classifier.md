@@ -24,13 +24,13 @@ Key functions/objects in this document (list format, per project rules):
 - `TERMINAL_STATES` (`Md_`) — `Set(["done","failed","stopped"])` (cli_inner_pretty.js:449562)
 - `STATE_DEFINITIONS` (`fd_`) — long-form working/blocked/done/failed definitions for the LLM-output reconciler (cli_inner_pretty.js:449552-449560)
 - `OUTPUT_FIELDS` (`Od_`) — `{ result: "…" }` allow-list for `output.*` keys (cli_inner_pretty.js:449561)
-- explicit-marker regexes: `MARKER_FAILED` (`Dd_`), `MARKER_NEEDS_INPUT` (`Jd_`), `MARKER_BLOCKED` (`Xd_`), `MARKER_IM_BLOCKED` (`Ld_`) (cli_inner_pretty.js:449563-449566)
-- tail-shape regexes: `RX_FORWARD_INTENT` (`Wd_`), `RX_PASSIVE_WAIT` (`Zd_`), `RX_AGENTS_STATUS` (`Gd_`), `RX_WILL_CHECK_BACK` (`Td_`), `RX_CANT_PROCEED` (`Vd_`), `RX_GIVING_UP` (`vd_`), `RX_PUSHED_COMMITTED` (`kd_`), `RX_READY_FOR` (`Nd_`), `RX_VERDICT` (`Ed_`), `RX_PLEASE_DO_X` (`yd_`), `RX_STOPPING_HERE` (`hd_`) (cli_inner_pretty.js:449567-449584)
+- explicit-marker regexes (each on its own declaration line): `MARKER_FAILED` (`Dd_`, cli_inner_pretty.js:449563), `MARKER_NEEDS_INPUT` (`Jd_`, cli_inner_pretty.js:449564), `MARKER_BLOCKED` (`Xd_`, cli_inner_pretty.js:449565), `MARKER_IM_BLOCKED` (`Ld_`, cli_inner_pretty.js:449566)
+- tail-shape regexes (each on its own declaration line; multi-line bodies noted): `RX_FORWARD_INTENT` (`Wd_`, cli_inner_pretty.js:449567, body 449568), `RX_PASSIVE_WAIT` (`Zd_`, cli_inner_pretty.js:449569, body 449570), `RX_AGENTS_STATUS` (`Gd_`, cli_inner_pretty.js:449571), `RX_WILL_CHECK_BACK` (`Td_`, cli_inner_pretty.js:449573), `RX_CANT_PROCEED` (`Vd_`, cli_inner_pretty.js:449575), `RX_GIVING_UP` (`vd_`, cli_inner_pretty.js:449576), `RX_PUSHED_COMMITTED` (`kd_`, cli_inner_pretty.js:449577), `RX_READY_FOR` (`Nd_`, cli_inner_pretty.js:449579), `RX_VERDICT` (`Ed_`, cli_inner_pretty.js:449580), `RX_PLEASE_DO_X` (`yd_`, cli_inner_pretty.js:449581), `RX_STOPPING_HERE` (`hd_`, cli_inner_pretty.js:449583)
 - `buildClassifierUserMsg` (`o04`) — assembles `Current state / Tool calls / User's ask / tail` user message (cli_inner_pretty.js:449295-449307)
 - `parseClassifierJson` (`a04`) — strips fences, slices `{…}`, zod-validates (cli_inner_pretty.js:449308-449321)
 - `reconcileClassifierResult` (`yk$`) — fills/validates `{state,detail,tempo,needs,output}` against prior state (cli_inner_pretty.js:449325-449339)
 - `heuristicLastLine` (`Qi6`) — last-non-empty-line "working" fallback (cli_inner_pretty.js:449286-449294)
-- `summarizeToolCallsDeterministic` (`ci6`) — cheap top-5 tool-name tally for the classifier user message (cli_inner_pretty.js:449322-449334)
+- `summarizeToolCallsDeterministic` (`ci6`) — cheap top-5 tool-name tally for the classifier user message (cli_inner_pretty.js:450322-450334)
 - `EXCLUDED_TOOLS` (`Hc_`) — tools omitted from the tally: `Set([df, rP, MJ])` (cli_inner_pretty.js:450512)
 - `generateToolUseSummary` (`z04`) — LLM "git-commit-subject" tool-summary generator (cli_inner_pretty.js:447331-447382)
 - `TOOL_SUMMARY_PROMPT` (`Zg_`) — the label-writing system prompt for `z04` (cli_inner_pretty.js:447393-447402)
@@ -296,7 +296,7 @@ The most important pair is forward-intent vs passive-wait, because they jointly 
 ```javascript
 // ============================================
 // RX_FORWARD_INTENT / RX_PASSIVE_WAIT - the working-verb discriminator
-// Location: cli_inner_pretty.js:449567-449570
+// Location: Wd_ decl cli_inner_pretty.js:449567 (body 449568) / Zd_ decl 449569 (body 449570)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -500,7 +500,7 @@ The classifier user message's `toolSummary` field can be produced two ways.
 ```javascript
 // ============================================
 // summarizeToolCallsDeterministic - top-5 tool-name tally (no LLM)
-// Location: cli_inner_pretty.js:449322-449334
+// Location: cli_inner_pretty.js:450322-450334
 // ============================================
 
 // ORIGINAL (for source lookup):

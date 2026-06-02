@@ -21,7 +21,7 @@ PowerShell built-in `cd` (2.1.149):
 - `validateCompoundPaths` (`MC_`) — per-statement path validator that asks-on-compound-cwd-change (cli_inner_pretty.js:418618-418631)
 - `powershellPermissionCheck` (anonymous compound check) — the bare-repo-attack guard for `cd`+`git` compounds (cli_inner_pretty.js:420270-420283)
 - `isLinkCreatingCmdlet` (`yd6`) — New-Item symbolic/junction/hard-link detector, paired with `_v$` in the guards (cli_inner_pretty.js:418246, 420271)
-- `recomputeShellVarsOnCd` (inside `eT5` command-effect walker) — recomputes `PWD`/`OLDPWD`/`DIRSTACK` on `cd`/`chdir`/`pushd`/`popd` (cli_inner_pretty.js:208562-208579)
+- `recomputeShellVarsOnCd` (inside `tT5` `analyzeCommandEffects` walker) — recomputes `PWD`/`OLDPWD`/`DIRSTACK` on `cd`/`chdir`/`pushd`/`popd` (cli_inner_pretty.js:208562-208579)
 
 Bare variable assignment (2.1.145):
 - `parseCommand` (`dP6`) — async tree-sitter parse that returns `{ rootNode, envVars, commandNode, originalCommand }` (cli_inner_pretty.js:190366-190377)
@@ -34,6 +34,7 @@ Bare variable assignment (2.1.145):
 - `assignmentOps` (`sP5`) — set of assignment operators `=` `+=` … (cli_inner_pretty.js:190356)
 - `classifySimpleReadOnly` (`nz8`) — read-only classifier that now routes a non-allowlisted bare assignment to `passthrough` (cli_inner_pretty.js:242978-242990)
 - `parseSimpleCommandTree` (`nD$`/`nT5`/`C$H`/`eT5`) — produces `{ kind:"simple", commands, bareAssignmentNames }` (cli_inner_pretty.js:207762-207809)
+- `analyzeCommandEffects` (`tT5`) — per-command effect walker that POPULATES `bareAssignmentNames`: the `if (O === void 0) for (let M of $) A(M.name)` bare-assignment branch at cli_inner_pretty.js:208439, surfaced via `K.push(...z)` at 208590; also hosts the `PWD`/`OLDPWD`/`DIRSTACK` recompute (cli_inner_pretty.js:208413-208591)
 - `hasNonAllowlistedAssignment` (`LF_`) — leading-assignment env-var detector used by the read-only auto-allow gate (cli_inner_pretty.js:440619-440632)
 - `isAllowlistedEnvVar` (`V5H`) — membership test against the safe env-var set `_k$` (cli_inner_pretty.js:440527-440529)
 - `safeEnvVarSet` (`_k$`) — the allowlist of env vars that may be set bare without prompting (cli_inner_pretty.js:441481-...)
@@ -58,7 +59,7 @@ This document covers two **parser-level** auto-approve bypass closures in module
 
 1. **PowerShell built-in `cd` (2.1.149).** The directory-change detector `isCwdChangingCmdlet` (`_v$`, cli_inner_pretty.js:417684) now recognizes the **bareword** forms `cd..`, `cd\`, `cd/`, `cd~` and **drive-switch** `X:` (regex `/^[a-z]:$/`) as directory-changing — in addition to the canonical cmdlets `Set-Location` / `Push-Location` / `Pop-Location` / `New-PSDrive` (plus `ndr` / `mount` on Windows). These bareword forms are parsed by PowerShell as commands whose *name itself* is the cd action (`cd..` is a single token, not `cd` + `..`), so the pre-fix detector — which only alias-resolved the name and matched canonical cmdlets — never saw them as cwd-changers. A compound like `cd.. ; Set-Content ./settings.json '...'` therefore changed the working directory **undetected**, and the validators that re-resolve relative paths against the *original* cwd auto-allowed a write to the wrong directory. Confidence: **high** — the bareword/drive-switch form list is explicit at cli_inner_pretty.js:417686 and the 2.1.142 precursor (`JP$`) provably lacks it.
 
-2. **Bare variable assignment (2.1.145).** A Bash command that is **assignment-only** — `FOO=bar` with no command name — resolves to a `null` effective command node, because `findCommandNode` (`UcH`, cli_inner_pretty.js:190389) descends *through* a `variable_assignment` looking for the following real command and finds none. `getCommandPrefixStatic` (`kI8`, cli_inner_pretty.js:595517) then returns `{ commandPrefix: null }` — there is no command to build a prefix from. Pre-fix, the read-only classifier treated such a command as a trivially-safe "simple" command (an empty command list) and auto-allowed it, even though `FOO=bar` *sets a non-allowlisted environment variable that alters the behavior of every subsequent command in the session*. The fix threads a new `bareAssignmentNames` list out of the parser (cli_inner_pretty.js:207809) and routes a non-allowlisted bare assignment to `passthrough` → prompt in both `nz8` (cli_inner_pretty.js:242986) and the read-only auto-allow gate (cli_inner_pretty.js:441401). Confidence: **medium** — the resolver (`UcH`/`kI8`) is verified, `LF_`/`jA5` was already present pre-fix, and the *exact* added guard is pinned to the `bareAssignmentNames` clauses; I mark the reconstruction of the pre-fix bypass site honestly below.
+2. **Bare variable assignment (2.1.145).** A Bash command that is **assignment-only** — `FOO=bar` with no command name — resolves to a `null` effective command node, because `findCommandNode` (`UcH`, cli_inner_pretty.js:190389) descends *through* a `variable_assignment` looking for the following real command and finds none. `getCommandPrefixStatic` (`kI8`, cli_inner_pretty.js:595517) then returns `{ commandPrefix: null }` — there is no command to build a prefix from. Pre-fix, the read-only classifier treated such a command as a trivially-safe "simple" command (an empty command list) and auto-allowed it, even though `FOO=bar` *sets a non-allowlisted environment variable that alters the behavior of every subsequent command in the session*. The fix threads a new `bareAssignmentNames` list out of the parser (cli_inner_pretty.js:207809), populated by the per-command effect walker `analyzeCommandEffects` (`tT5`) at its bare-assignment branch (cli_inner_pretty.js:208439, surfaced at 208590), and routes a non-allowlisted bare assignment to `passthrough` → prompt in both `nz8` (cli_inner_pretty.js:242986) and the read-only auto-allow gate (cli_inner_pretty.js:441401). Confidence: **medium** — the resolver (`UcH`/`kI8`), the producer (`tT5`'s 208439/208590), and both enforcement points are all verified; the residual **medium** applies only to the reconstruction of the pre-fix bypass *route* (since `LF_`/`jA5`'s regex was already present pre-fix), detailed honestly below.
 
 Upstream changelog:
 - 2.1.149: "Fixed a PowerShell permission bypass where built-in `cd` functions changed the working directory undetected." (+ the `PWD`/`OLDPWD`/`DIRSTACK` stale-tracking fix.)
@@ -586,7 +587,7 @@ A `null` `commandPrefix` is *correct* — there is no command to form a prefix f
 
 ## 2.2 The fix: thread `bareAssignmentNames` out of the parser, gate on it
 
-The simple-command classifier was extended to emit a third field, `bareAssignmentNames` — the list of variable names that are set with **no following command**. The producer is the `{ kind:"simple", commands, bareAssignmentNames }` result built by `parseSimpleCommandTree` (`nT5`, cli_inner_pretty.js:207803-207809, walked by `C$H`/`eT5`):
+The simple-command classifier was extended to emit a third field, `bareAssignmentNames` — the list of variable names that are set with **no following command**. The `{ kind:"simple", commands, bareAssignmentNames }` result is built by `parseSimpleCommandTree` (`nT5`, cli_inner_pretty.js:207803-207809) and walked by `C$H`/`eT5`, which delegate the actual per-command effect analysis (and the population of `bareAssignmentNames`) to `analyzeCommandEffects` (`tT5`, called at cli_inner_pretty.js:208661) — analyzed in "The producer mechanism" below:
 
 ```javascript
 // ============================================
@@ -611,6 +612,57 @@ function parseSimpleCommandTree(rootNode) {
 
 // Mapping: nT5→parseSimpleCommandTree, C$H→walkCommandEffects, H→rootNode, $→commands, q→varEnv, K→bareAssignmentNames
 ```
+
+### The producer mechanism — where `bareAssignmentNames` is actually populated (`tT5`)
+
+`parseSimpleCommandTree` only *threads* `bareAssignmentNames` (the `K` accumulator) through the walker; the list is **filled** one level down, inside the per-command effect analyzer `analyzeCommandEffects` (`tT5`, cli_inner_pretty.js:208413-208591). This is the literal AST mechanism behind the fix — and it's what makes the new field precisely co-extensive with the bug class (it fires for *exactly* the assignment-only commands that `findCommandNode` would resolve to `null`).
+
+```javascript
+// ============================================
+// analyzeCommandEffects - records bare-assignment var names when no command follows the leading VAR=value tokens
+// Location: cli_inner_pretty.js:208413 (decl), 208439 (bare-assignment branch), 208590 (surface into bareAssignmentNames)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function tT5(H, $, q, K) {
+  let _ = [],
+    z = [],
+    A = (M, j = !0) => {                       // 208416-208421: record a leading-assignment var name
+      let w = M.match(/^[A-Za-z_][A-Za-z0-9_]*/);
+      if (w) { if ((_.push(w[0]), j)) z.push(w[0]); }
+    },
+    Y = H, f = !1;
+  // ... consume leading `VAR=value` tokens off the front of Y (each calls A(M)) ...
+  let O = Y[0];
+  if (O === void 0) for (let M of $) A(M.name);   // 208439: NO command name follows → record every bare-assignment name
+  // ... else dispatch on the real command name (export/read/unset/cd/...) ...
+  return (K.push(...z), null);                    // 208590: surface z into the caller's bareAssignmentNames
+}
+
+// READABLE (for understanding):
+function analyzeCommandEffects(argv, leadingAssignments, varEnv, bareAssignmentNames) {
+  const writtenVars = [];        // _: every var this command writes (drives the "too-complex" check)
+  const bareNames = [];          // z: the subset that are BARE assignments (no command ran)
+  const record = (token, isBare = true) => {
+    const m = token.match(/^[A-Za-z_][A-Za-z0-9_]*/);
+    if (m) { writtenVars.push(m[0]); if (isBare) bareNames.push(m[0]); }
+  };
+  let rest = argv, sawVerboseFlag = false;
+  // ... strip leading `VAR=value` tokens off the front, calling record() for each ...
+  const cmdName = rest[0];
+  // THE CRUX: if there is NO command name after the leading assignments, every
+  // leading assignment is a BARE assignment — mirror of findCommandNode → null.
+  if (cmdName === undefined) for (const a of leadingAssignments) record(a.name);
+  // ... else: a real command followed, so the assignments are env-prefixes, NOT bare ...
+  bareAssignmentNames.push(...bareNames);   // surface into the caller's accumulator
+  return null;
+}
+
+// Mapping: tT5→analyzeCommandEffects, H→argv, $→leadingAssignments, q→varEnv, K→bareAssignmentNames,
+//   _→writtenVars, z→bareNames, A→record, O→cmdName, j→isBare
+```
+
+The decisive line is `if (O === void 0) for (let M of $) A(M.name);` at cli_inner_pretty.js:208439: `O = Y[0]` is the first non-assignment token, so `O === void 0` is the "the only statement was a leading assignment with nothing after it" case — the exact dual of `findCommandNode` returning `null`. Only in that branch does `A(M.name)` push to `z` with the default `isBare = true`, and `z` is then merged into the caller's `bareAssignmentNames` via `K.push(...z)` at cli_inner_pretty.js:208590. (When a real command *does* follow, the leading assignments are consumed earlier as env-prefixes and are not bare.) `analyzeCommandEffects` is also where the `PWD`/`OLDPWD`/`DIRSTACK` recompute of Part 1.4 lives (cli_inner_pretty.js:208562-208579) — both the cd-effect tracking and the bare-assignment population are facets of the same per-command effect walker.
 
 ### Consumer A — read-only classifier `classifySimpleReadOnly` (nz8)
 
@@ -707,7 +759,8 @@ The 2.1.142 classifier `A78` (the `nz8` precursor) confirms the gap exactly: its
 Confidence calibration, stated honestly:
 - The resolver chain (`dP6`/`UcH`/`KW5`/`wD$`/`kI8`) is **verified** — read directly and matched to the readable 2.1.88 source.
 - The fix's two enforcement points (`nz8` at 242986, the gate's third clause at 441401) are **verified** present in 2.1.156 and **verified absent** in 2.1.142.
-- The *exact* runtime call path by which a pre-2.1.145 build reached `behavior:"allow"` for a bare assignment is reconstructed from the 2.1.142 `A78`/gate bodies; I mark this reconstruction **medium** — `jA5`/`LF_` (the regex detector) was already present in 2.1.142 and would catch a pure `FOO=bar` via its first regex iteration, so the precise bypass surfaced through the AST `commands:[]`-is-read-only path rather than the regex path. The fix unambiguously targets that AST path (the `bareAssignmentNames` field is the new artifact), which is why I rate the overall closure medium rather than high.
+- The **AST artifact and its population point are now pinned**: `bareAssignmentNames` is filled by `analyzeCommandEffects` (`tT5`, cli_inner_pretty.js:208413) at the `if (O === void 0) for (let M of $) A(M.name)` bare-assignment branch (cli_inner_pretty.js:208439) and surfaced via `K.push(...z)` (cli_inner_pretty.js:208590). So the new field is **verified** co-extensive with the `findCommandNode`-returns-`null` case, not reconstructed.
+- The remaining reconstruction is only the *exact runtime call path* by which a pre-2.1.145 build reached `behavior:"allow"` for a bare assignment, inferred from the 2.1.142 `A78`/gate bodies; I keep this **medium** — `jA5`/`LF_` (the regex detector) was already present in 2.1.142 and would catch a pure `FOO=bar` via its first regex iteration, so the precise bypass surfaced through the AST `commands:[]`-is-read-only path rather than the regex path. The fix unambiguously targets that AST path (the `bareAssignmentNames` field is the new artifact, now pinned to 208439/208590), which is why I rate the overall closure medium rather than high — the residual uncertainty is the *historical* bypass route, not the *current* mechanism.
 
 ---
 

@@ -23,7 +23,7 @@
 Key symbols in this document:
 - `getAllBaseTools` (`ra`) — exhaustive built-in tool array; source of truth for everything the model could see (cli_inner_pretty.js:409313-409370).
 - `WorkflowTool` object (`n0_`) — the tool definition built by the `yK` factory, name `Workflow` (cli_inner_pretty.js:378217-378225).
-- `WorkflowTool` lazy slot (`_H$`) — module-level slot that holds `n0_` after lazy init; spread into `ra()` (cli_inner_pretty.js:409350-409351, 409408, 409499-409501).
+- `WorkflowTool` lazy slot (`_H$`) — module-level slot that holds `n0_` after lazy init; spread into `ra()` (cli_inner_pretty.js:409351, 409408, 409499-409501).
 - `initializeBundledTools` (`k0`) — the `T()`-wrapped lazy initializer that populates `_H$` and the cron/monitor slots (cli_inner_pretty.js:409445-409504).
 - `WorkflowTool export` (`ep6.WorkflowTool`) — module namespace whose getter returns `n0_` (cli_inner_pretty.js:378079-378080).
 - `isWorkflowsEnabled` (`NZ`) — the runtime gate behind `n0_.isEnabled` (cli_inner_pretty.js:378222, 184757-184763).
@@ -57,8 +57,8 @@ decoupled pieces:
    (`cli_inner_pretty.js:409499-409501`), by calling `initBundledWorkflows()` and then reading
    `ep6.WorkflowTool`.
 3. **The spread** — inside `ra()` the slot is conditionally spliced in with
-   `...(_H$ ? [_H$] : [])` at `cli_inner_pretty.js:409350-409351`, immediately after the REPL/code
-   tool `pQ6`.
+   `...(_H$ ? [_H$] : [])` at `cli_inner_pretty.js:409351`, immediately after the REPL/code
+   tool `pQ6` (at cli_inner_pretty.js:409350).
 
 Whether the model actually *sees* Workflow is then a two-stage decision:
 - **Slot present?** `_H$` is non-null only after `k0` runs (which happens once the tool registry
@@ -95,7 +95,7 @@ binary expose Workflow to one org and hide it from another without re-bundling.
   ASSEMBLY (ra)                                ▼
   cli:409313-409370    ┌─────────────────────────────────────────────────────┐
                        │ return [ qZ8, CZ8, ... pQ6,                          │
-                       │          ...(_H$ ? [_H$] : []),   // (cli:409350-51)  │
+                       │          ...(_H$ ? [_H$] : []),   // (cli:409351)     │
                        │          ...dh_, ...ch_, G34, ... ];                  │
                        └───────────────────────┬─────────────────────────────┘
                                                │
@@ -355,7 +355,7 @@ Workflow slot is spread in right after the REPL/code-execution tool `pQ6`:
 ```javascript
 // ============================================
 // getAllBaseTools (ra) — Workflow slot spread among the conditional tail
-// Location: cli_inner_pretty.js:409313-409370 (Workflow spread at 409349-409351)
+// Location: cli_inner_pretty.js:409313-409370 (pQ6 at 409350, Workflow spread at 409351)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -716,14 +716,15 @@ here for completeness:
 - **AskUserQuestion reservation (2.1.154).** The name constant `AskUserQuestion` (`ez`) is at
   cli_inner_pretty.js:143388. The 2.1.154 behavior change ("reserve the multiple-choice prompt for
   decisions it genuinely cannot make") lives in the tool's prompt/description, not in registration.
-  See `04_tools/ask_user_question.md`.
+  See `04_tools/ask_user_question_reservation.md`.
 - **`disallowed-tools` frontmatter.** Skills/slash-commands can *remove* tools from the assembled
   pool via frontmatter at cli_inner_pretty.js:184492-184497 area — this is a subtractive filter
   applied after `zl`, orthogonal to the additive registration described here. See
   `10_skill_system/`.
-- **Read partial-view truncation (2.1.145)** and **always-on streaming tool execution (2.1.156)**
-  are runtime-behavior changes to specific tools, not registration changes. See
-  `04_tools/read.md` and `04_tools/runtime_mechanism.md`.
+- **Read partial-view truncation (2.1.145)** and **streaming tool execution extended to
+  Bedrock/Vertex (2.1.156)** are runtime-behavior changes to specific tools, not registration
+  changes. Both are covered in the single file `04_tools/read_partial_view_and_streaming_exec.md`
+  (Part 1 = Read partial-view, Part 2 = the per-model/per-provider `eager_input_streaming` gate).
 
 ---
 

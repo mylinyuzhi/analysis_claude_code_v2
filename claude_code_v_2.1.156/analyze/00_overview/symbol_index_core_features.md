@@ -61,7 +61,7 @@ See `42_workflow/{workflow_tool_definition,gate_caps_lifecycle_relations}.md` fo
 | `dG_` | `computeWorkflowConcurrency` (`min(16, max(2, cores-2))`) | cli_inner_pretty.js:374930 | function |
 | `F74` | `WORKFLOW_AGENT_CAP` (`1000` agent-call ceiling) | cli_inner_pretty.js:375678 | constant |
 | `fW8` | `WorkflowBudgetExceededError` (thrown when the output-token budget is spent) | cli_inner_pretty.js:375746 | class |
-| `lG_` | `WORKFLOW_PIPELINE_DEFAULT` (`50` default pipeline concurrency) | cli_inner_pretty.js:375677 | constant |
+| `lG_` | `WORKFLOW_REMOTE_DEFAULT` (`50` — semaphore width for the **remote** agent executor `U` via `b = BiH(lG_, U)` @375002; the remote path is disabled in this build, so unused. NOT a `pipeline()` knob — all `agent()` calls dispatch through the local executor `C = BiH(cG_, R)` @375001) | cli_inner_pretty.js:375677 | constant |
 | `nG_` | `agentCapErrorMessage` (diagnostic text for `Q74` — the `budget.remaining()` infinite-loop hint) | cli_inner_pretty.js:375736 | constant |
 | `Q74` | `WorkflowAgentCapError` (thrown at the `F74` agent cap) | cli_inner_pretty.js:375740 | class |
 | `tG_` | `WORKFLOW_STALL_MS_DEFAULT` (`180000` = 3 min per-agent stall timeout) | cli_inner_pretty.js:375699 | constant |
@@ -116,9 +116,34 @@ See `42_workflow/{workflow_tool_definition,gate_caps_lifecycle_relations}.md` fo
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `H0_` | `WORKFLOW_LOG_CAP` (`1000` — max log lines kept by `q44`) | cli_inner_pretty.js:376011 | constant |
-| `q44` | `runWorkflowScript` (executes the VM script, returns `{result, agentCount, logs, failures, durationMs, error?}`) | cli_inner_pretty.js:376007 | function |
+| `H0_` | `WORKFLOW_LOG_CAP` (`1000` — max log lines kept by `q44`; declared `var H0_ = 1000`) | cli_inner_pretty.js:376062 | constant |
+| `q44` | `runWorkflowScript` (executes the VM script: load journal, `runInContext` with the 30s `mP8` sync timeout, abort race, `structuredClone` the result out, returns `{result, agentCount, logs, failures, durationMs, error?}`) | cli_inner_pretty.js:376007 | function |
 | `TrH` | `emitTaskProgress` (flush a `task_progress` system message to the UI progress tree) | cli_inner_pretty.js:278050 | function |
+
+### Runtime / VM Sandbox / Subagent Prompts
+
+The execution runtime analyzed in `42_workflow/workflow_runtime_and_subagents.md`: the VM-bridge factory that builds the DSL globals, the VM-context builder, the determinism shim + intrinsic hardening, the sandboxed timers/await/console bridges, the nested-`workflow()` factory, the per-agent stall ceiling, and the workflow-subagent system prompts + agent defs. (`BP8`/`q44` are in the Tool Object/Schemas and Lifecycle sections above. The generic semaphore `BiH`, deep-clone `AP`, `iY`/`klH` StructuredOutput plumbing, and the coordinator-mode worker prompt `ZD7` live in `symbol_index_core_execution.md`; the determinism-shim injector `uP8` lives in `symbol_index_infra_platform.md` Sandbox.)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aB6` | `sandboxConsole` (VM `console` shim: `log/info/debug`→plain, `error`→`[error]`, `warn`→`[warn]`; all route to the `workflow_log` channel) | cli_inner_pretty.js:371858 | function |
+| `aG_` | `WORKFLOW_STRUCTURED_PROMPT` (StructuredOutput-forcing subagent system-prompt body: "you MUST call StructuredOutput exactly once; the script reads ONLY the tool call") | cli_inner_pretty.js:375759 | variable |
+| `g74` | `makeWorkflowHooks` (VM-bridge factory: builds the `agent`/`parallel`/`pipeline`/`log`/`phase` closures, caps `W()`/`G()`, phase allocator, local executor `C = BiH(cG_, R)` @375001, remote `b = BiH(lG_, U)` @375002; returns the bound globals object @375658-375673) | cli_inner_pretty.js:374939 | function |
+| `H44` | `buildWorkflowContext` (freeze `budget`; `vm.createContext` with exactly `{agent,parallel,pipeline,log,phase,workflow,args,budget,console,...timers}`; applies `uP8`/`UtH`/`uK4`) | cli_inner_pretty.js:375973 | function |
+| `hZ_` | `RANDOM_ERROR_MESSAGE` (user-facing "Math.random() is unavailable in workflow scripts (breaks resume)…" embedded in `SZ_`) | cli_inner_pretty.js:367486 | constant |
+| `iG_` | `WORKFLOW_SUBAGENT_PROMPT` (plain subagent system-prompt body: final text returned verbatim as the script's return value; "Do NOT use SendUserMessage") | cli_inner_pretty.js:375683 | variable |
+| `mp6` | `WORKFLOW_SUBAGENT_DEF` (agent def `agentType:"workflow-subagent"`, `tools:["*"]`, `disallowedTools:[cd, sq]` = `["SendUserMessage","Agent"]`, `getSystemPrompt:()=>iG_`) | cli_inner_pretty.js:375766 | object |
+| `mP8` | `WORKFLOW_SYNC_TIMEOUT_MS` (`30000` — sync-execution timeout for `vmScript.runInContext`; Node `vm` timeout covers synchronous code only; used at 376019) | cli_inner_pretty.js:367489 | constant |
+| `oG_` | `WORKFLOW_STRUCTURED_TAIL` (StructuredOutput-forcing tail appended to a named agent's prompt) | cli_inner_pretty.js:375754 | variable |
+| `p74` | `MAX_STALL_RETRIES` (`5` — per-agent stall retry ceiling before throwing "agent stalled/abandoned"; retry loop at 375429) | cli_inner_pretty.js:375700 | constant |
+| `QK4` | `createNestedWorkflowGlobal` (builds the `workflow()` global: resolve name/scriptPath, `FZ`+`BP8` child compile, fresh sandboxed child context sharing parent hooks, child `phase()` no-op, child `workflow()` hard-rejects — one level only) | cli_inner_pretty.js:371875 | function |
+| `rG_` | `WORKFLOW_SUBAGENT_TAIL` (plain subagent prompt tail appended to a named agent's prompt) | cli_inner_pretty.js:375690 | variable |
+| `sG_` | `WORKFLOW_STRUCTURED_DEF` (`{...mp6, getSystemPrompt:()=>aG_}` — workflow-subagent def with the StructuredOutput body; selected by `KH ?? (_H ? sG_ : mp6)` @375146) | cli_inner_pretty.js:375775 | object |
+| `SZ_` | `DETERMINISM_SHIM` (in-VM program: `Math.random`/`Date.now`/argless-`new Date`/bare-`Date` throw; closes the `(new Date(x)).constructor.now()` backdoor; `Object.freeze(RealDate)`) | cli_inner_pretty.js:367491 | variable |
+| `uK4` | `vmAwaitBridge` (compiles `(async v => v)` inside the context so VM `await` resolves in-sandbox) | cli_inner_pretty.js:367583 | function |
+| `UtH` | `hardenVMIntrinsics` (freezes intrinsic prototypes via SES override-enable; freezes `Error.prepareStackTrace`; deletes `ShadowRealm`/`WebAssembly`) | cli_inner_pretty.js:367515 | function |
+| `xK4` | `makeSandboxedTimers` (abort-aware `setTimeout`/`clearTimeout` exposed to the VM context; clears all on abort) | cli_inner_pretty.js:367445 | function |
+| `yZ_` | `DATE_ERROR_MESSAGE` (user-facing "Date.now()/new Date() are unavailable in workflow scripts (breaks resume)…" embedded in `SZ_`) | cli_inner_pretty.js:367484 | constant |
 
 ### `/workflows` Save & UI
 
@@ -253,12 +278,12 @@ See `36_background_agents/{shell_exec_sessions,unified_dispatcher_ol,...}.md` fo
 | `nJ` | `recordJobExitCause` (write the `exit-cause` marker file in `CLAUDE_JOB_DIR`) | cli_inner_pretty.js:9546 | function |
 | `Nv` | `isTerminalState` (worker-side: `terminalStateToOutcome(state) !== null`) | cli_inner_pretty.js:184280 | function |
 | `SF` | `BgWorkerHandle` (worker-handle class, renamed from v2.1.142 `aB`; phase machine + retire/respawn) | cli_inner_pretty.js:559938 | class |
-| `T_$` | `isPathTrackedDirty` (path is git-tracked and modified-vs-HEAD) | cli_inner_pretty.js:46920 | function |
+| `T_$` | `gitRootIsNonCanonical` (`findGitRoot(p) !== null && findCanonicalGitRoot(p) !== findGitRoot(p)`; true when a path's git-root differs from the canonical/main-repo root — used by `esH` to skip the isolation guard) | cli_inner_pretty.js:46920 | function |
 | `ujH` | `isExecSession` (`template === "exec" && respawnFlags.length === 0`; on-disk record predicate) | cli_inner_pretty.js:184286 | function |
 | `VPz` | `isLegalPhaseTransition` (phase-transition guard, renamed from v2.1.142 `UB5`; logic unchanged) | cli_inner_pretty.js:559923 | function |
 | `wh$` | `failPtyHost` (log + `process.exit(1)` for the pty-host) | cli_inner_pretty.js:559345 | function |
 | `x6$` | `idleNeedsHint` (`"send a prompt to start"`) | cli_inner_pretty.js:542584 | constant |
-| `y1` | `gitTrackedSha` (cached git-blob-sha lookup; non-null ⇒ path inside a git repo) | cli_inner_pretty.js:46913 | function |
+| `y1` | `findGitRoot` (cached walk-up-for-`.git` git-root finder; exported as `findGitRoot`; non-null ⇒ path inside a git repo. Assigned `y1 = oq1()` at 47419; underlying body `BNq` at 47382) | cli_inner_pretty.js:47419 | function |
 | `yq9` | `formatPhase` (phase → log string, renamed from v2.1.142 `FI4`) | cli_inner_pretty.js:559920 | function |
 
 ### Daemon Lifecycle Deltas (stale-exec / binary takeover / supervisor)
@@ -446,12 +471,12 @@ See `10_skill_system/{skill_reload_midsession,skill_disallowed_tools,skill_fork_
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `aSz` | `CLAUDE_API_SKILL_DESCRIPTION_BASE` (base `/claude-api` description; mentions migrating between model versions) | cli_inner_pretty.js:612051 | variable |
-| `bA` | `registerBundledSkill` (definition → `type:"prompt"`, `source/loadedFrom:"bundled"` record; merges extracted `files`, passes through `disallowedTools`/`getEffort`) | cli_inner_pretty.js:524187 | function |
+| `bA` | `registerBundledPromptCommand` (generic bundled prompt-command registrar: definition → `type:"prompt"`, `source/loadedFrom:"bundled"` record; wraps `getPromptForCommand` to merge extracted `files`, installs lazy `description`/`argumentHint`/`whenToUse` getters, pushes onto `Ji4`; passes through `disallowedTools`/`getEffort`) | cli_inner_pretty.js:524187 | function |
 | `c1q` | `SKILL_FILES` (map of relative path → bundled markdown string; includes `shared/model-migration.md`) | cli_inner_pretty.js:611884 | variable |
 | `cSz` | `buildClaudeApiFiles` (materialize `SKILL_FILES` with `{{OPUS_ID}}`/`{{OPUS_NAME}}` substituted) | cli_inner_pretty.js:611935 | function |
 | `d1q` | `SKILL_MODEL_VARS` (`{{OPUS_ID}}=claude-opus-4-8`, `{{OPUS_NAME}}=Claude Opus 4.8`, … substituted into bundled docs) | cli_inner_pretty.js:611874 | variable |
-| `Ehz` | `SIMPLIFY_SKILL_BODY` (the `/simplify` body: cleanup-only, 4 parallel cleanup agents via the Agent tool, then apply) | cli_inner_pretty.js:601378 | variable |
-| `eyz` | `codeReviewDescription` (function-typed; appends the `ultra` clause only when cloud review `WF()` is enabled) | cli_inner_pretty.js:600558 | function |
+| `Ehz` | `SIMPLIFY_PROMPT` (the `/simplify` body: cleanup-only, 4 parallel cleanup agents via the Agent tool, then apply) | cli_inner_pretty.js:601378 | variable |
+| `eyz` | `getCodeReviewDescription` (function-typed dynamic description; appends the `ultra: cloud` clause only when cloud review `WF()` is enabled) | cli_inner_pretty.js:600558 | function |
 | `mAz` | `prependBaseDir` (prefix prompt blocks with `Base directory for this skill: <dir>` so the model can Read/Grep extracted refs) | cli_inner_pretty.js:524283 | function |
 | `nSz` | `detectProjectLanguage` (scan cwd for `.py`/`package.json`/… markers and return the detected language) | cli_inner_pretty.js:611940 | function |
 | `nwH` | `installLazyStringGetter` (install an enumerable getter only for function-typed `description`/`argumentHint`/`whenToUse`) | cli_inner_pretty.js:222231 | function |
@@ -461,9 +486,9 @@ See `10_skill_system/{skill_reload_midsession,skill_disallowed_tools,skill_fork_
 | `rSz` | `CLAUDE_API_QUICK_TASK_REFERENCE` (Quick Task Reference block; routes "Migrating to a newer model…" to `shared/model-migration.md`) | cli_inner_pretty.js:612049 | variable |
 | `tSz` | `registerClaudeApiSkill` (registers `/claude-api`: `allowedTools` Read/Grep/Glob/WebFetch, `files: cSz()`, emits `tengu_claude_api_skill_loaded`) | cli_inner_pretty.js:612027 | function |
 | `uj9` | `claudeApiSkillDescription` (full `/claude-api` description = `aSz` + TRIGGER/SKIP clauses) | cli_inner_pretty.js:612071 | variable |
-| `vO9` | `registerSimplifySkill` (registers the cleanup-only `/simplify` via `bA`) | cli_inner_pretty.js:601350 | function |
+| `vO9` | `registerSimplify` (registers the cleanup-only `/simplify` via `bA`) | cli_inner_pretty.js:601350 | function |
 | `wj9` | `MODEL_MIGRATION_DOC` (bundled `shared/model-migration.md` body; the "Migrating to Opus 4.8" prose) | cli_inner_pretty.js:608931 | variable |
-| `zO9` | `registerCodeReviewSkill` (registers `/code-review` via `bA`; `subcommands:{ultra:"ultrareview"}` + `getEffort`) | cli_inner_pretty.js:600612 | function |
+| `zO9` | `registerCodeReview` (registers `/code-review` via `bA`; `subcommands:{ultra:"ultrareview"}` + `getEffort`) | cli_inner_pretty.js:600612 | function |
 
 Known new themes:
 

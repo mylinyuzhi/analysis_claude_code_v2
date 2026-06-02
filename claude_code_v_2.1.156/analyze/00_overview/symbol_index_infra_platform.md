@@ -157,6 +157,7 @@ CHANGED in v2.1.156: the `$TMPDIR` sandboxed-vs-unsandboxed unification. The per
 | `GJ5` | `assertSafeTmpDir` (owner/mode/symlink guard on the per-uid tmp dir: must be a real directory owned by the current uid; forces `0700`) | cli_inner_pretty.js:176739 | function |
 | `hx` | `canonicalSandboxTmpDir` (memoized `realpathSync`-canonicalized per-uid sandbox tmp dir with trailing separator) | cli_inner_pretty.js:550128 | function |
 | `McH` | `tmpFilePath` (builds a tmp file path under the sandbox tmp dir, hashing content or using a random UUID; shared util) | cli_inner_pretty.js:176767 | function |
+| `uP8` | `runDeterminismShim` (`vm.runInContext(SZ_, ctx)` — injects the workflow `DETERMINISM_SHIM` program into a VM context; the workflow-VM sandbox hardening counterpart that disables `Math.random`/`Date`. Workflow-specific but filed under Sandbox; `SZ_`/`UtH`/`xK4`/`uK4` live in `symbol_index_core_features.md` Dynamic Workflows) | cli_inner_pretty.js:367442 | function |
 | `vd` | `rawTmpDirRoot` (`CLAUDE_CODE_TMPDIR` env override or `os.tmpdir()`) | cli_inner_pretty.js:176735 | function |
 | `VL` | `sandboxTmpDir` (creates/returns the per-uid `claude-<uid>` tmp directory, created `0700` and ownership/symlink-checked via `assertSafeTmpDir`) | cli_inner_pretty.js:176754 | function |
 | `w9` | `extractTextBlocks` (concatenates the `text` blocks of a response's content array; non-empty whenever the model emitted prose; shared util consulted by the classifier paths) | cli_inner_pretty.js:445034 | function |

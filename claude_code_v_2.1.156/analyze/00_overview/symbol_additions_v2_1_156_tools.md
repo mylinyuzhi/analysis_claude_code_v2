@@ -29,7 +29,7 @@ Cross-validated against:
 > - `m57` is the namespace object at 216289; its lazy `WORKFLOW_TOOL_NAME` getter is wired at 216290
 >   (`X$(m57, { WORKFLOW_TOOL_NAME: () => mx })`); the `mx = "Workflow"` constant is at 216291.
 > - `ep6` is the namespace object at 378079; its lazy `WorkflowTool` getter is wired at 378080.
-> - `$48` (`cachedWorkflowAvailability`) is the bare `var $48;` declaration at 184789, populated lazily
+> - `$48` (`workflowAvailabilityCache`) is the bare `var $48;` declaration at 184789, populated lazily
 >   by `KP6` (the seed range pointed at the same line).
 > - `gM6` (`isEarlyAccessBuild`, `/-eap($|\[)/i`) is at 143836 (the seed value was truncated
 >   mid-token as `isEarlyAcces…`).
@@ -45,7 +45,7 @@ Cross-validated against:
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `$48` | `cachedWorkflowAvailability` (module memo for `SL5()` result; populated by `KP6`) | cli_inner_pretty.js:184789 | variable |
+| `$48` | `workflowAvailabilityCache` (module memo for `SL5()` result; populated by `KP6`) | cli_inner_pretty.js:184789 | variable |
 | `$j$` | `PARTIAL_VIEW_PREFIX` (`"[Truncated: PARTIAL view — "` system-reminder prefix for truncated Reads) | cli_inner_pretty.js:145392 | constant |
 | `_4` | `getSubscriptionTier` (subscription type; `SL5` keys `defaultOn = tier !== "pro"` off it) | cli_inner_pretty.js:131589 | function |
 | `_H$` | `workflowToolSlot` (lazy module slot holding `n0_`; spread into `ra()` via `...(_H$ ? [_H$] : [])`) | cli_inner_pretty.js:409408 | variable |
@@ -82,7 +82,8 @@ Cross-validated against:
 | `k0` | `initializeBundledTools` (`T()`-wrapped one-time initializer that populates `_H$` + cron/monitor slots, then calls `iUK(ra)`) | cli_inner_pretty.js:409445 | function |
 | `k4` | `parseBoolFalse` (env tri-state: explicit-false `0/false/no/off`) | cli_inner_pretty.js:1801 | function |
 | `k7` | `hasCapability` (generic org-policy/data-residency capability resolver; backs `r$7("allow_workflows")`) | cli_inner_pretty.js:184697 | function |
-| `KP6` | `getWorkflowAvailability` (memoizes `SL5()` into `$48`) | cli_inner_pretty.js:184776 | function |
+| `K7H` | `setAllowedChannels` (setter for `d$.allowedChannels`; called from the `--channels` flag handler at 645080 and dev-channel loaders) | cli_inner_pretty.js:3220 | function |
+| `KP6` | `resolveWorkflowAvailabilityCached` (memoizes `SL5()` into `$48`) | cli_inner_pretty.js:184776 | function |
 | `mFK` | `FILE_UNCHANGED_SHORT` (current "Wasted call — file unchanged…" re-read stub phrasing) | cli_inner_pretty.js:145391 | constant |
 | `m57` | `workflowToolNameExports` (namespace whose lazy getter returns `mx`/`WORKFLOW_TOOL_NAME`) | cli_inner_pretty.js:216289 | object |
 | `mx` | `WORKFLOW_TOOL_NAME` (the string `"Workflow"`) | cli_inner_pretty.js:216291 | constant |
@@ -98,16 +99,18 @@ Cross-validated against:
 | `qkH` | `validateFrontmatterShadow` (emits `tengu_frontmatter_shadow_*` telemetry on schema mismatch/unknown key) | cli_inner_pretty.js:184453 | function |
 | `qyK` | `getToolSchemaCache` (session-stable tool-schema cache keyed by `"L:"`/`"F:"` + name) | cli_inner_pretty.js:130649 | function |
 | `r$7` | `isWorkflowsAllowedByPolicy` (org-policy gate via `k7("allow_workflows")`) | cli_inner_pretty.js:184770 | function |
+| `R6` | `isNonInteractive` (`!d$.isInteractive`; second half of AskUserQuestion `isEnabled` gate — tool withheld when channel allowlist active AND session non-interactive) | cli_inner_pretty.js:2742 | function |
 | `R7` | `isAgentTeamsEnabled` (agent-teams predicate; gates TeamCreate/TeamDelete in `ra` and schema prop-stripping in `w08`) | cli_inner_pretty.js:240766 | function |
 | `ra` | `getAllBaseTools` (exhaustive hand-ordered built-in tool array; source of truth for everything the model could see) | cli_inner_pretty.js:409313 | function |
 | `Rz` | `isFirstPartyAnthropicBaseUrl` (true only when `ANTHROPIC_BASE_URL` is unset or `api.anthropic.com`) | cli_inner_pretty.js:91897 | function |
-| `SL5` | `computeWorkflowAvailability` (`{available, defaultOn}` from `CLAUDE_CODE_WORKFLOWS` env + `tengu_workflows_enabled` gate + tier) | cli_inner_pretty.js:184780 | function |
+| `SL5` | `resolveWorkflowAvailability` (`{available, defaultOn}` from `CLAUDE_CODE_WORKFLOWS` env + `tengu_workflows_enabled` gate + tier) | cli_inner_pretty.js:184780 | function |
 | `T6` | `computeEffectivePermissionContext` (folds `permissionLayers` — allowed/disallowed/avoid/effort/model — onto base `toolPermissionContext`) | cli_inner_pretty.js:453162 | function |
 | `TL5` | `agentFrontmatterSchema` (agent schema; has only camelCase `disallowedTools`, the pre-2.1.88 form) | cli_inner_pretty.js:184556 | object |
 | `tT4` | `wrapAppStateWithToolLayers` (wraps `getAppState` so its `toolPermissionContext` has the command's allow+deny lists applied) | cli_inner_pretty.js:452903 | function |
 | `tZ4` | `normalizeToolListOrNull` (inner normalizer `fc`/`hDH` share; returns `null` for nullish input) | cli_inner_pretty.js:443179 | function |
 | `UA` | `isFirstPartyish` (provider is firstParty / anthropicAws / gateway; default for unknown model ids in `c45`) | cli_inner_pretty.js:91891 | function |
 | `UUK` | `PREVIEW_FEATURE_PROMPT` (markdown/html preview-guidance map appended to the AskUserQuestion prompt) | cli_inner_pretty.js:143398 | object |
+| `uw` | `getAllowedChannels` (returns `d$.allowedChannels` — the `--channels` MCP-channel allowlist; first half of AskUserQuestion `isEnabled` gate) | cli_inner_pretty.js:3217 | function |
 | `v8` | `memoize` (lodash `memoize`; wraps the `X3` lean-prompt predicate) | cli_inner_pretty.js:1488 | function |
 | `V$` | `getFeatureGate` (GrowthBook/feature-gate reader with default; reads `tengu_cinder_plover`, `tengu_fgts`, `tengu_workflows_enabled`, …) | cli_inner_pretty.js:141101 | function |
 | `w08` | `buildToolSchema` (serializes one tool into the API schema; computes `eager_input_streaming` + cache key) | cli_inner_pretty.js:555969 | function |
@@ -160,7 +163,10 @@ When these rows are merged into the central index, split them as follows (single
   `Ji$` (`opus47Caps`), `Xi$` (`opus48Caps`), `jLz` (`getModelCaps`),
   `OVH` (`modelSupportsStructuredOutputs`), `_4` (`getSubscriptionTier`), `k7` (`hasCapability`),
   `V$` (`getFeatureGate`), `wC$` (`getQuestionPreviewFormat`), `v8` (`memoize`),
-  `xH` (`parseBoolTrue`), `k4` (`parseBoolFalse`).
+  `xH` (`parseBoolTrue`), `k4` (`parseBoolFalse`),
+  `uw` (`getAllowedChannels`), `K7H` (`setAllowedChannels`), `R6` (`isNonInteractive`)
+  (the AskUserQuestion `isEnabled` availability gate — `--channels` allowlist + interactivity
+  session state).
 
 > **Overlap with `symbol_additions_v2_1_156_workflow.md`:** the workflow gate family
 > (`NZ`, `KP6`, `SL5`, `r$7`, `H48`, `hL5`, `$48`, `mx`, `m57`, `n0_`, `yK`, `P45`) is also

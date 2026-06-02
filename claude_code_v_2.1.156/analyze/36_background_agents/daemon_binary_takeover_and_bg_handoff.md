@@ -538,14 +538,109 @@ Binary-takeover (`Mwz`) is the **third, client-side, unilateral** path that cove
 
 ---
 
-## 2.1.154 UI-Routing Behaviors (changelog-level; exact gate sites unverified)
+## 2.1.154 UI-Routing Behaviors (gate sites pinned)
 
-Two smaller 2.1.154 behaviors touch the agents-view entry surface. Per the changelog (`claude_code_v_2.1.156/CHANGELOG.md`):
+Two smaller 2.1.154 behaviors touch the agents-view entry surface. Per the changelog (`claude_code_v_2.1.156/CHANGELOG.md`). Both gate sites are now pinned to source.
 
-- **`/logout` now signs you out instead of being sent to a background session.** Previously, typing `/logout` in `claude agents` was misrouted into the background dispatch flow. The fix routes it to the actual sign-out. I located the agents-view default-routing predicate around the launcher (`defaultToAgentsView`, cli_inner_pretty.js:649900, with the config key registered at cli_inner_pretty.js:143031) but did **not** pin the exact branch that special-cases `/logout` vs bg-dispatch. **Confidence low-to-medium; exact gate site (unverified).**
-- **`←←` (double-left-arrow) to open the agents view now works on Bedrock, Vertex, Foundry, and with telemetry disabled.** Previously this keybinding was gated behind first-party/telemetry-enabled conditions. The config key driving it is `leftArrowOpensAgents` (registered alongside `defaultToAgentsView` at cli_inner_pretty.js:143030), and the provider labels exist in the bundle (Foundry/Bedrock/Vertex at cli_inner_pretty.js:91916-91918). I did **not** pin the exact predicate that previously suppressed the `←←` agents-view entry specifically on those providers/with telemetry off. **Confidence low-to-medium; exact gate site (unverified).**
+### `/logout` signs you out instead of being backgrounded (`fleetHostCall` short-circuit)
 
-These are noted here only to round out the 2.1.153/154 background-agents changelog. They belong to the agents-view UI routing rather than the daemon lifecycle, and should be pinned precisely in the agent-view / CLI-routing modules if needed.
+**What it does:** When `/logout` is typed inside `claude agents` (FleetView), it must run the actual sign-out, not be parsed as a background-dispatch intent.
+
+**How it works:** The FleetView submit handler special-cases any input starting with `/` *before* the bg-dispatch fall-through (cli_inner_pretty.js:616719-616734):
+
+```javascript
+// ============================================
+// FleetView submit handler — fleetHostCall short-circuit for /logout (and other host commands)
+// Location: cli_inner_pretty.js:616719-616734
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (U8.startsWith("/")) {
+  let [x4 = "", lz = ""] = h6.current.trim().slice(1).split(/\s+(.*)/, 2),
+    Nz = yX(x4.toLowerCase(), dqq());
+  if (Nz?.fleetHostCall && jk(Nz) && oy$(Nz)) {
+    (P6(), Nz.fleetHostCall({ exit: OH, relaunch: () => M$("manual"), setError: g5, setInfo: oH }, lz).catch(
+      (eL) => { (hH(eL), g5(TH(eL))); }));
+    return;   // ← short-circuits BEFORE the bg-dispatch fall-through at 616735+
+  }
+}
+// … later (only reached if no fleetHostCall matched) …
+let m7 = … q5q(ZK ? `!${Bq}` : Bq, …);   // 616741 — bg-dispatch parse
+
+// READABLE (for understanding):
+if (input.startsWith("/")) {
+  let [cmdName = "", args = ""] = inputRef.current.trim().slice(1).split(/\s+(.*)/, 2),
+    cmd = resolveCommand(cmdName.toLowerCase(), fleetHostCommands());          // yX over dqq()
+  if (cmd?.fleetHostCall && isCommandEnabled(cmd) && isCommandAvailable(cmd)) { // jk && oy$
+    clearInput();
+    cmd.fleetHostCall({ exit, relaunch: () => relaunch("manual"), setError, setInfo }, args).catch(showError);
+    return;   // host command handled — never falls through to bg dispatch
+  }
+}
+
+// Mapping: yX→resolveCommand, dqq→fleetHostCommands, jk→isCommandEnabled, oy$→isCommandAvailable,
+//          Nz→cmd, x4→cmdName, lz→args, q5q→parseFleetDispatchInput
+```
+
+The route resolves the typed command against the **host-command set** `fleetHostCommands` (`dqq` = `ay$().filter(H => H.fleetHostCall !== void 0)`, cli_inner_pretty.js:545926) via the command resolver `yX` (cli_inner_pretty.js:545438). If the resolved command carries a `fleetHostCall` *and* passes the enabled (`jk`, `H.isEnabled?.() ?? true`, cli_inner_pretty.js:395641) and availability (`oy$`, cli_inner_pretty.js:545303) checks, the handler invokes `fleetHostCall(...)` and **returns** (cli_inner_pretty.js:616732), short-circuiting the bg-dispatch parse that begins below.
+
+`/logout`'s command def `logoutCommand` (`cS4`, cli_inner_pretty.js:475334-475344, `type:"local-jsx"`, `name:"logout"`, `isEnabled` gated by `DISABLE_LOGOUT_COMMAND`) supplies exactly that `fleetHostCall` (cli_inner_pretty.js:475339-475342), which lazy-imports and calls `fleetHostLogout` (cli_inner_pretty.js:475340). So `/logout` resolves to a host command, runs sign-out on the FleetView host, and never reaches `q5q` bg-dispatch. **Confidence high** (gate, command def, and host-command set all read verbatim).
+
+### `←←` opens the agents view on all providers (no provider/telemetry gate)
+
+**What it does:** The double-left-arrow keybinding that opens the agents view must work on Bedrock, Vertex, Foundry, and with telemetry disabled — the 2.1.154 fix removed the old first-party/telemetry gating.
+
+**How it works:** The left-arrow handler memo decides the action (cli_inner_pretty.js:629870-629878):
+
+```javascript
+// ============================================
+// Left-arrow → open-agents-view gate (no provider/telemetry condition)
+// Location: cli_inner_pretty.js:629870-629878 (memo) · 461739-461741 (S$$) · 583226 (footer hint)
+// ============================================
+
+// ORIGINAL (for source lookup):
+TbH = b$().leftArrowOpensAgents !== !1,
+VbH = S$$(),
+EK$ = w8.useMemo(() => {
+  if (v7()) return Zn;
+  if (!C7 && VbH && TbH) return GbH;   // ← open-agents action
+  return;
+}, [C7, VbH, TbH, Zn, GbH]);
+// where:
+function S$$() { return Ap() && !d6(); }                 // 461739-461741
+function Ap() { return !JgH(); }                          // 142249-142251
+function JgH() { return jM6() !== null; }                 // 142221-142223
+function jM6() {                                          // 142224-142228
+  if (xH(process.env.CLAUDE_CODE_DISABLE_AGENT_VIEW)) return "…CLAUDE_CODE_DISABLE_AGENT_VIEW";
+  if (UV()?.settings.disableAgentView === !0) return "…'disableAgentView' setting";
+  return null;
+}
+function d6() { return d$.caps.workspace === "remote"; }  // 3190-3192
+
+// READABLE (for understanding):
+const settingOn = config().leftArrowOpensAgents !== false,    // TbH
+      gateOpen  = isLeftArrowAgentsViewEnabled();             // VbH = S$$()
+const leftArrowAction = useMemo(() => {
+  if (someOtherMode()) return otherAction;
+  if (!busy && gateOpen && settingOn) return openAgentsAction;  // GbH
+  return undefined;
+}, [busy, gateOpen, settingOn, otherAction, openAgentsAction]);
+
+function isLeftArrowAgentsViewEnabled() {                 // S$$
+  return isAgentsFleetEnabled() && !isRemoteWorkspace();  // Ap() && !d6()
+}
+
+// Mapping: S$$→isLeftArrowAgentsViewEnabled, Ap→isAgentsFleetEnabled, JgH→isAgentViewDisabled,
+//          jM6→agentViewDisableReason, d6→isRemoteWorkspace, TbH→settingOn, VbH→gateOpen, GbH→openAgentsAction
+```
+
+The decisive predicate is `isLeftArrowAgentsViewEnabled` (`S$$`, cli_inner_pretty.js:461739-461741) = `Ap() && !d6()`:
+- `Ap()` = `isAgentsFleetEnabled` (`!JgH()`, cli_inner_pretty.js:142249-142251). `JgH` = `isAgentViewDisabled` (`jM6() !== null`, cli_inner_pretty.js:142221-142223), and `jM6` (cli_inner_pretty.js:142224-142228) returns a disable-reason string **only** when the `CLAUDE_CODE_DISABLE_AGENT_VIEW` env var is truthy or the `disableAgentView` setting is true. Those are the *sole* kill-switches.
+- `!d6()` = not a remote workspace (`d6` = `d$.caps.workspace === "remote"`, cli_inner_pretty.js:3190-3192).
+
+**Why this matters:** There is **no Bedrock/Vertex/Foundry condition and no telemetry condition** anywhere in this gate — which is precisely why the 2.1.154 fix made `←←` work on those providers and with telemetry off. The same clean gate is reused by the footer hint that advertises the keybinding (`if (!v7() && !_ && K && !W && S$$() && b$().leftArrowOpensAgents !== !1)`, cli_inner_pretty.js:583226). The provider labels still exist in the bundle (Foundry/Bedrock/Vertex at cli_inner_pretty.js:91916-91918) but are no longer wired into this gate. **Confidence high** for the current gate (read verbatim); note the *old* provider-gated predicate is no longer present in the bundle, so only the post-fix clean gate can be verified.
+
+These behaviors belong to the agents-view UI routing rather than the daemon lifecycle; they are pinned here to close out the 2.1.153/154 background-agents changelog.
 
 ---
 
@@ -587,3 +682,12 @@ These are noted here only to round out the 2.1.153/154 background-agents changel
 | `leftArrowOpensAgents` / `defaultToAgentsView` config keys | cli_inner_pretty.js:143030-143031 |
 | Foundry/Bedrock/Vertex provider labels | cli_inner_pretty.js:91916-91918 |
 | `/logout` signs out / `←←` agents view on Bedrock/Vertex/Foundry (changelog) | claude_code_v_2.1.156/CHANGELOG.md:17-18 |
+| FleetView `/`-input `fleetHostCall` short-circuit + `return` | cli_inner_pretty.js:616719-616734 |
+| `dqq` host-command set `ay$().filter(H => H.fleetHostCall !== void 0)` | cli_inner_pretty.js:545926 |
+| `yX` command resolver / `jk` enabled / `oy$` available | cli_inner_pretty.js:545438 / 395641 / 545303 |
+| `/logout` command `cS4` carries `fleetHostCall`→`fleetHostLogout` | cli_inner_pretty.js:475334-475344 (call 475339-475342) |
+| `←←` gate `S$$` = `Ap() && !d6()` | cli_inner_pretty.js:461739-461741 |
+| `Ap` = `!JgH()` / `JgH` = `jM6() !== null` / `jM6` env+setting kill-switches | cli_inner_pretty.js:142249-142251 / 142221-142228 |
+| `d6` = `caps.workspace === "remote"` | cli_inner_pretty.js:3190-3192 |
+| left-arrow handler memo `if (!C7 && VbH && TbH) return GbH` | cli_inner_pretty.js:629874-629878 |
+| footer-hint predicate reuses `S$$()` | cli_inner_pretty.js:583226 |

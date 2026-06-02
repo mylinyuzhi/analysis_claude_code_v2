@@ -37,7 +37,7 @@ Key functions/constants in this document (list format — no mapping table here)
 - `isOpus4xFamily` (`C0H`) — membership test over the opus-4-x canonical set (cli_inner_pretty.js:98690-98699)
 - `isFastModeEligibleModel` (`Wj`) — opus-4-6/4-7/4-8 fast-mode membership (cli_inner_pretty.js:98257-98263)
 - `is1MContextAvailable` (`VP`) — 1M tier gate (cli_inner_pretty.js:98806-98810)
-- `getMaxOutputTokens` (`LMH`) — 64K/128K table keyed on canonical id (cli_inner_pretty.js:98194-98218 / 130194-130218)
+- `getMaxOutputTokens` (`LMH`) — 64K/128K table keyed on canonical id (cli_inner_pretty.js:130194-130218)
 - `selectFastModePricing` (`S0H`) — picks 4.8 vs legacy fast cost (cli_inner_pretty.js:98451-98457)
 - `resolveModelCost` (`mx1`) — overall cost resolver (cli_inner_pretty.js:98467-98480)
 - `OPUS_STANDARD_COST` (`BB`), `OPUS_LEGACY_FAST_COST` (`Cx1`), `OPUS_48_FAST_COST` (`bx1`) (cli_inner_pretty.js:98526-98546)
@@ -47,7 +47,7 @@ Key functions/constants in this document (list format — no mapping table here)
 - `isOpusLaunchDefaultActive` (`AkH`) / `unpinOpusLaunchEffortLatch` (`SI`) (cli_inner_pretty.js:184896-184908)
 - `resolveAppliedEffort` (`or`) — final effort with clamps (cli_inner_pretty.js:184909-184919)
 - `isThinkingSignatureError` (`B87`) / `matchThinkingTypeError` (`p87`) (cli_inner_pretty.js:186575-186590)
-- `stripSignedThinkingBlocks` (`cG4`) / `isSignedThinkingBlock` (`gG4`) (cli_inner_pretty.js:446086-446090, 446238-446251)
+- `stripSignedThinkingBlocks` (`cG4`) / `isSignedThinkingBlock` (`gG4`) (cli_inner_pretty.js:446086-446090, 446238-446252)
 
 ---
 
@@ -149,7 +149,7 @@ identical and is what 4.8 was forked from:
 ```
 
 The two are byte-for-byte identical except the version digit (`4-7` → `4-8`). The 4.6
-block one level up (`Di$`, cli_inner_pretty.js:91804-91814, not shown) differs slightly:
+block one level up (`Di$`, cli_inner_pretty.js:91805-91814, not shown) differs slightly:
 its `mantle` is `null` and its `eagerInputStreaming` is `{ vertex: !0 }` only — i.e. 4.6
 never got a Mantle id and did not eager-stream on Bedrock. 4.7 and 4.8 both eager-stream
 on Bedrock **and** Vertex and both carry a Mantle id.
@@ -250,10 +250,11 @@ These three lines are the **direct descendant of 2.1.88's `ALL_MODEL_CONFIGS` /
 goes. Confidence: HIGH — the construction (`Object.values(...).map(c=>c.firstParty)` and
 `Object.fromEntries(...)`) is identical.
 
-The provider-key list `Wq6 = Object.keys(j3)` is computed from the registry
-(cli_inner_pretty.js:92009) — actually `Wq6` is the list of *provider* keys used by the
-map builder; note the registry keys are the *model short keys* while `Wq6` enumerates the
-seven provider fields. The runtime accessor `getResolvedModelMap` (`Yz`)
+The model-key list `Wq6 = Object.keys(j3)` is computed from the registry
+(cli_inner_pretty.js:92009) — these are the *model short keys* (`haiku35`…`opus48`), not
+provider fields. `buildProviderModelMap` (`Zi$`) iterates `for (let _ of Wq6) { j3[_][H] … }`,
+where `_` is a model key and `H` is the provider field, so `Wq6` enumerates the rows of the
+registry while `H` selects the column. The runtime accessor `getResolvedModelMap` (`Yz`)
 (cli_inner_pretty.js:91986-91990) returns the registry **after** applying user
 `modelOverrides` via `applyModelOverrides` (`l7K`) (cli_inner_pretty.js:91957-91966).
 
@@ -871,7 +872,7 @@ The **runtime** levels list `EFFORT_LEVELS_WITH_MAX` (`dN`) additionally include
 (cli_inner_pretty.js:185009): `["low", "medium", "high", "xhigh", "max"]` — `max` is a
 runtime capability not persistable via settings. The session-only `ultracode` boolean
 (cli_inner_pretty.js:51695-51703) means "xhigh effort + standing dynamic-workflow
-orchestration"; `e$7` maps `ultracode === true` to `"xhigh"` (cli_inner_pretty.js:51015).
+orchestration"; `e$7` (effortValueFromContext) maps `ultracode === true` to `"xhigh"` (cli_inner_pretty.js:185015; function body 185012-185017).
 
 ### Default effort: `high` for 4.8, `xhigh` for 4.7
 
@@ -1088,7 +1089,7 @@ sanitized history and emits `tengu_thinking_signature_strip_retry`.
 ```javascript
 // ============================================
 // stripSignedThinkingBlocks (cG4) / isSignedThinkingBlock (gG4)
-// Location: cli_inner_pretty.js:446086-446090, 446238-446251
+// Location: cli_inner_pretty.js:446086-446090, 446238-446252
 // ============================================
 
 // ORIGINAL (for source lookup):

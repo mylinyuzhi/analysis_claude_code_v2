@@ -20,6 +20,8 @@ Key functions/symbols in this document:
 - `rawTmpDirRoot` (`vd`) — `CLAUDE_CODE_TMPDIR` or `os.tmpdir()` (cli_inner_pretty.js:176735-176738)
 - `assertSafeTmpDir` (`GJ5`) — owner/mode/symlink guard on the tmp dir (cli_inner_pretty.js:176739-176753)
 - `buildSandboxPromptSection` (`g24`) — builds the "Command sandbox" system-prompt section and substitutes `$TMPDIR` (cli_inner_pretty.js:438967-439033)
+- `createBashShellAdapter` (`Gs7`) — factory for the `type:"bash"` shell adapter (handles bash/zsh login shells); owns the TMPDIR override at cli_inner_pretty.js:341403-341413 (cli_inner_pretty.js:341341)
+- `createPowershellShellAdapter` (`Es7`) — factory for the `type:"powershell"` shell adapter; owns the TMPDIR override at cli_inner_pretty.js:341541-341546 (cli_inner_pretty.js:341512)
 - `dedupe` (`aq`) — `[...new Set(...)]` (cli_inner_pretty.js:40716-40718)
 
 Precursors in the v2.1.142 bundle (cross-validation, separate build):
@@ -35,7 +37,7 @@ Precursors in the v2.1.142 bundle (cross-validation, separate build):
 
 1. **`rm -rf $HOME` trailing-slash gap.** The "is this a protected removal target?" predicate `isDangerousRemovalTarget` (`PlH`, cli_inner_pretty.js:211484) now trailing-slash-normalizes **both** the candidate path *and* the home directory, and compares them through a case-normalizer `OJ` (`OJ(z) === OJ(A)`, cli_inner_pretty.js:211494). The 2.1.142 predicate (`nUH`) stripped the trailing slash from the **candidate only** and compared the raw strings (`A === z`, no `OJ`), so `rm -rf "$HOME/"` — or a case-mismatched home on a case-insensitive FS — slipped through the home check. Confidence: **high** (verified diff of the two predicate bodies).
 
-2. **TMPDIR sandboxed-vs-unsandboxed divergence.** `canonicalSandboxTmpDir` (`hx`, cli_inner_pretty.js:550128) now `realpathSync`-canonicalizes the per-uid sandbox tmp dir, and the shell-spawn env overrides set `TMPDIR = CLAUDE_CODE_TMPDIR = <same dir>` for **both** sandboxed and unsandboxed commands (zsh at cli_inner_pretty.js:341411, generic at 341544). The 2.1.142 spawn path set the sandbox tmp dir **only when `useSandbox` was true** (`X = Y ? vL() : void 0`, 2.1.142 cli_inner_pretty.js:361140-361146), and `vL` did not `realpathSync` (2.1.142 cli_inner_pretty.js:173853). Result pre-fix: a sandboxed and an unsandboxed `Bash` in the same session could resolve `$TMPDIR` to different directories. Confidence: **medium** — the realpath canonicalization and the same-dir-for-both env override are clearly present in 2.1.156; the exact pre-fix divergence is reconstructed from the 2.1.142 build and stated honestly below.
+2. **TMPDIR sandboxed-vs-unsandboxed divergence.** `canonicalSandboxTmpDir` (`hx`, cli_inner_pretty.js:550128) now `realpathSync`-canonicalizes the per-uid sandbox tmp dir, and the shell-spawn env overrides set `TMPDIR = CLAUDE_CODE_TMPDIR = <same dir>` for **both** sandboxed and unsandboxed commands at the only two adapter sites: the `type:"bash"` adapter at cli_inner_pretty.js:341411 and the `type:"powershell"` adapter at 341544. The 2.1.142 spawn path set the sandbox tmp dir **only when `useSandbox` was true** (`X = Y ? vL() : void 0`, 2.1.142 cli_inner_pretty.js:361140-361146), and `vL` did not `realpathSync` (2.1.142 cli_inner_pretty.js:173853). Result pre-fix: a sandboxed and an unsandboxed `Bash` in the same session could resolve `$TMPDIR` to different directories. Confidence: **medium** — the realpath canonicalization and the same-dir-for-both env override are clearly present in 2.1.156; the exact pre-fix divergence is reconstructed from the 2.1.142 build and stated honestly below.
 
 Upstream changelog (2.1.156):
 - "Fixed `rm -rf $HOME` not being blocked when `$HOME` has a trailing slash."
@@ -330,7 +332,7 @@ if (L) {
 }
 
 // READABLE (for understanding):
-const isRemoveItem = canonicalCmdName(parsed.name) === "remove-item";
+const isRemoveItem = resolveToCanonical(parsed.name) === "remove-item";
 if (isRemoveItem) {
   // Does any arg abbreviate "-Recurse"? PowerShell allows unambiguous prefixes (-r, -rec, -recurse).
   const hasRecurse = parsed.args.some((arg) => {
@@ -357,7 +359,7 @@ if (isRemoveItem) {
   }
 }
 
-// Mapping: L→isRemoveItem, EY→canonicalCmdName, K→cwd, O→targets, OJ→toLowerCase,
+// Mapping: L→isRemoveItem, EY→resolveToCanonical, K→cwd, O→targets, OJ→toLowerCase,
 //   dG8→stripQuotes, Id6→unescapePsArg, mS→path, _→verdict
 ```
 
@@ -584,10 +586,12 @@ The substitution compares write-allowlist entries against `hx()` — the **realp
 
 The child-process env is built by the shell adapter's `getEnvironmentOverrides`. The tmp dir value flows in as `sandboxTmpDir` and is written to **both** `TMPDIR` and `CLAUDE_CODE_TMPDIR`:
 
+There are exactly **two** TMPDIR override adapters in the bundle — confirmed by `grep "CLAUDE_CODE_TMPDIR = "`, which returns precisely two sites: cli_inner_pretty.js:341411 (the `type:"bash"` adapter) and cli_inner_pretty.js:341544 (the `type:"powershell"` adapter). There is no third/"generic" adapter, so no shell mode can diverge on the override.
+
 ```javascript
 // ============================================
-// zsh adapter TMPDIR override
-// Location: cli_inner_pretty.js:341403-341413
+// bash shell adapter TMPDIR override (handles bash/zsh login shells)
+// Location: cli_inner_pretty.js:341403-341413 (adapter type:"bash" / factory Gs7 @341341, header @341357)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -612,8 +616,8 @@ async getEnvironmentOverrides(_arg, sessionEnvVars) {
     let dir = sandboxTmpDir;
     if (isWindows()) dir = toWindowsPath(dir);
     env.TMPDIR = dir;
-    env.CLAUDE_CODE_TMPDIR = dir;            // same value
-    env.TMPPREFIX = path.join(dir, "zsh");   // zsh-specific tmp prefix lives under the same dir
+    env.CLAUDE_CODE_TMPDIR = dir;            // same value (cli_inner_pretty.js:341411)
+    env.TMPPREFIX = path.join(dir, "zsh");   // a zsh-specific tmp prefix the bash adapter also sets under the same dir
   }
   return env;
 }
@@ -621,10 +625,12 @@ async getEnvironmentOverrides(_arg, sessionEnvVars) {
 // Mapping: q→sandboxTmpDir, n$→isWindows, cW→toWindowsPath, SG$→path, mx6→EXEC_PATH_VAR
 ```
 
+This is the `type:"bash"` adapter returned by the factory `createBashShellAdapter` (`Gs7`, cli_inner_pretty.js:341341; the `type: "bash"` header is at cli_inner_pretty.js:341357). It captures the tmp dir as `q = Y.sandboxTmpDir` at cli_inner_pretty.js:341370. The `TMPPREFIX=path.join(dir,"zsh")` line is just a zsh-specific temp-prefix the **bash** adapter sets — it does **not** imply a separate zsh adapter (this one factory covers bash/zsh login shells).
+
 ```javascript
 // ============================================
-// generic shell adapter TMPDIR override
-// Location: cli_inner_pretty.js:341541-341546
+// PowerShell adapter TMPDIR override
+// Location: cli_inner_pretty.js:341541-341546 (adapter type:"powershell" / factory Es7 @341512, header @341515)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -639,27 +645,31 @@ async getEnvironmentOverrides(q, K) {
 async getEnvironmentOverrides(_arg, sessionEnvVars) {
   const env = {};
   if (sessionEnvVars) for (const [k, v] of sessionEnvVars) env[k] = v;
-  if (sandboxTmpDir) { env.TMPDIR = sandboxTmpDir; env.CLAUDE_CODE_TMPDIR = sandboxTmpDir; }  // same value
+  if (sandboxTmpDir) { env.TMPDIR = sandboxTmpDir; env.CLAUDE_CODE_TMPDIR = sandboxTmpDir; }  // same value (cli_inner_pretty.js:341544)
   return env;
 }
 
 // Mapping: $→sandboxTmpDir
 ```
 
-In 2.1.156 the captured tmp dir (`q` for zsh, `$` for the generic adapter) is set from `Y.sandboxTmpDir` (cli_inner_pretty.js:341370 for the zsh adapter; `K.sandboxTmpDir` at 341519 for PowerShell), and the spawn driver sets that field to `VL()` **unconditionally**:
+This is the `type:"powershell"` adapter returned by the factory `createPowershellShellAdapter` (`Es7`, cli_inner_pretty.js:341512; the `type: "powershell"` header is at cli_inner_pretty.js:341515). It captures the tmp dir as `$ = K.sandboxTmpDir` at cli_inner_pretty.js:341519.
+
+In 2.1.156 the captured tmp dir (`q` for the bash adapter, captured at cli_inner_pretty.js:341370; `$` for the PowerShell adapter, captured at cli_inner_pretty.js:341519) is set from the `sandboxTmpDir` field passed to `buildExecCommand`, and the spawn driver sets that field to `VL()` **unconditionally**:
 
 ```javascript
 // ORIGINAL (for source lookup):  cli_inner_pretty.js:341626-341631
-X = VL(),
+X = VL(),                                          // 341626 — unconditional
 { commandString: L, cwdFilePath: P } = await D.buildExecCommand(H, {
   id: J,
-  sandboxTmpDir: X,
+  sandboxTmpDir: X,                                // 341629 — same value handed to both adapters
   useSandbox: Y ?? !1,
 }),
 
 // READABLE: the sandbox tmp dir is computed for EVERY spawn, sandboxed or not.
 //   sandboxTmpDir: VL()    ← not  (useSandbox ? VL() : undefined)
 ```
+
+The two 2.1.156-side facts here are verbatim, **not** reconstructed: (a) the driver assigns `X = VL()` **unconditionally** at cli_inner_pretty.js:341626 and threads it as `sandboxTmpDir: X` at cli_inner_pretty.js:341629 (contrast 2.1.142's conditional `X = Y ? vL() : void 0` in §2.5); (b) both adapters then write `TMPDIR = CLAUDE_CODE_TMPDIR = <that same dir>` (bash at cli_inner_pretty.js:341411, PowerShell at cli_inner_pretty.js:341544 — the only two override sites per the grep above). Only the *pre-fix divergence* narrative in §2.5 remains a reconstruction; these spawn/override facts are pinned.
 
 ## 2.5 Cross-validation against 2.1.142 — the pre-fix divergence
 
@@ -693,7 +703,7 @@ So in 2.1.142, a sandboxed command got `TMPDIR = vL()` (a `claude-<uid>` dir, po
                  sandboxed ≠ unsandboxed          sandboxed = unsandboxed
 ```
 
-> Honest precision: the *spawn* env overrides write `VL()` (un-realpath'd) into the child env, while the *prompt-substitution* token-match uses `hx()` (realpath'd). These are consistent only insofar as the OS sandbox itself realpath-resolves before enforcing, and the prompt rewrite needs the canonical form to match the canonical allowlist entry. The two co-changes that demonstrably fix the changelog symptom are (a) `realpathSync` canonicalization landing in the tmp-dir path (cli_inner_pretty.js:550128/550133), and (b) the env override now firing for both modes (driver sets `sandboxTmpDir: VL()` unconditionally at cli_inner_pretty.js:341626, both adapters write `TMPDIR=CLAUDE_CODE_TMPDIR` at 341411/341544). I have **not** found a single line that says "if unsandboxed, previously used a different dir" — that conclusion is reconstructed from the 2.1.142 `X = Y ? vL() : void 0` conditional. Hence **medium** confidence on the precise mechanism, **high** confidence that both code paths now resolve to the same canonical directory.
+> Honest precision: the *spawn* env overrides write `VL()` (un-realpath'd) into the child env, while the *prompt-substitution* token-match uses `hx()` (realpath'd). These are consistent only insofar as the OS sandbox itself realpath-resolves before enforcing, and the prompt rewrite needs the canonical form to match the canonical allowlist entry. The two co-changes that demonstrably fix the changelog symptom are (a) `realpathSync` canonicalization landing in the tmp-dir path (`hx` at cli_inner_pretty.js:550128-550136, the `realpathSync` call at 550133), and (b) the env override now firing for both modes (driver sets `sandboxTmpDir: VL()` unconditionally — `X = VL()` at cli_inner_pretty.js:341626, threaded as `sandboxTmpDir: X` at 341629 — and both adapters write `TMPDIR=CLAUDE_CODE_TMPDIR=<same dir>`, bash at 341411 / PowerShell at 341544, the only two override sites). I have **not** found a single line that says "if unsandboxed, previously used a different dir" — that conclusion is reconstructed from the 2.1.142 `X = Y ? vL() : void 0` conditional (2.1.142 cli_inner_pretty.js:361140). Hence **medium** confidence on the precise pre-fix mechanism only; the 2.1.156-side spawn/canonicalization/override facts are **high**-confidence verbatim, and **high** confidence that both code paths now resolve to the same canonical directory.
 
 ## 2.6 Why this approach
 
@@ -714,6 +724,6 @@ So in 2.1.142, a sandboxed command got `TMPDIR = vL()` (a `claude-<uid>` dir, po
 | Fix | Confidence | Basis |
 |-----|-----------|-------|
 | `rm -rf $HOME` trailing slash + case | **high** | Verified line-by-line diff of `PlH` (2.1.156:211484-211498) vs `nUH` (2.1.142:207091-207104); the homedir slash-strip at 211493 and `OJ(z)===OJ(A)` at 211494 are the exact added operations. |
-| TMPDIR canonicalization + same-dir env | **medium** | `realpathSync` canonicalization (550133) and same-value `TMPDIR=CLAUDE_CODE_TMPDIR` env overrides for both modes (341411/341544) plus unconditional `sandboxTmpDir: VL()` (341626) and the "for both sandboxed and unsandboxed" prompt note (439019) all verified. Pre-fix divergence reconstructed from 2.1.142 `X = Y ? vL() : void 0` (361140) + "in sandbox mode" prompt (418804) — no single self-describing line, hence medium. |
+| TMPDIR canonicalization + same-dir env | **medium** (pre-fix narrative only) | 2.1.156-side facts all **high**/verbatim: `realpathSync` canonicalization (`hx` 550128-550136, call at 550133); unconditional `X = VL()` (341626) threaded as `sandboxTmpDir: X` (341629); same-value `TMPDIR=CLAUDE_CODE_TMPDIR` env overrides at the **only** two adapter sites — bash `type:"bash"` (`Gs7` @341341, override @341411) and PowerShell `type:"powershell"` (`Es7` @341512, override @341544); "for both sandboxed and unsandboxed" prompt note (439019). The **medium** label applies solely to the pre-fix divergence narrative, reconstructed from 2.1.142 `X = Y ? vL() : void 0` (2.1.142:361140) + "in sandbox mode" prompt (2.1.142:418804) — no single self-describing line. |
 
 Both fixes are NEW relative to the readable v2.1.88 source (the v2.1.142 bundle is the nearest precursor for both; the dangerous-path predicate and the per-uid tmp dir both exist in 2.1.142 but without these specific normalizations).

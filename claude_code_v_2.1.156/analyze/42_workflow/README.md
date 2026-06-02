@@ -39,12 +39,15 @@ internal-only prototype**, not a from-scratch feature. The only `Workflow`-named
 
 ## Architecture
 
-Dynamic Workflows is best understood as **two planes**: a *data plane* (the tool object, schemas,
-script source, and the background VM that actually spawns subagents) and a *control plane* (the gate
-that decides whether workflows exist, the opt-in that decides when the model may call the tool, the
-caps that bound a run, the journal that resumes it, and the UI that surfaces it). The data plane lives
-in [`workflow_tool_definition.md`](./workflow_tool_definition.md); the control plane lives in
-[`gate_caps_lifecycle_relations.md`](./gate_caps_lifecycle_relations.md).
+Dynamic Workflows is best understood as **two planes plus a runtime**: a *data plane* (the tool object,
+schemas, script source, and the meta trust boundary) and a *control plane* (the gate that decides whether
+workflows exist, the opt-in that decides when the model may call the tool, the caps that bound a run, the
+journal that resumes it, and the UI that surfaces it) — and underneath both, the *execution runtime* (how
+the script compiles, what globals it sees, what the DSL primitives actually do, how determinism is
+sandboxed, and what subagents run). The data plane lives in
+[`workflow_tool_definition.md`](./workflow_tool_definition.md); the control plane lives in
+[`gate_caps_lifecycle_relations.md`](./gate_caps_lifecycle_relations.md); the runtime lives in
+[`workflow_runtime_and_subagents.md`](./workflow_runtime_and_subagents.md).
 
 ```
    ┌──────────────────────── CONTROL PLANE ───────────────────────────┐
@@ -76,8 +79,8 @@ in [`workflow_tool_definition.md`](./workflow_tool_definition.md); the control p
    │  { status:"async_launched", taskId, runId, summary, scriptPath }  │
    │            │                                                       │
    │  RUNTIME CAPS: agent-cap F74=1000→Q74 · token budget→fW8 ·        │
-   │            │   concurrency dG_=min(16,cores-2) · pipeline lG_=50 · │
-   │            │   stall tG_=180s        + journal bp6 (resume)        │
+   │            │   local concurrency cG_=min(16,cores-2) (remote lG_=50 │
+   │            │   unused) · stall tG_=180s · journal bp6 (resume)      │
    │            ▼                                                       │
    │  FLUSH: TrH(task_progress) ~16ms-batched → progress tree          │
    │            ▼                                                       │
@@ -109,8 +112,8 @@ in [`workflow_tool_definition.md`](./workflow_tool_definition.md); the control p
 |-----|--------|-------|---------|----------|
 | Agent-call ceiling | `F74` (`WORKFLOW_AGENT_CAP`) → `Q74` | **1000** | Catch unbounded `agent()` loops (esp. `while(budget.remaining())` with no budget). | cli_inner_pretty.js:375678, 375740-375745 |
 | Token budget | `fW8` (`WorkflowBudgetExceededError`) | turn-spend derived | Stop new `agent()` calls once output-token budget spent; in-flight agents finish. | cli_inner_pretty.js:375746-375753 |
-| Concurrency | `dG_` (`computeWorkflowConcurrency`) → `cG_` | `min(16, max(2, cores-2))` | Default parallel/agent fan-out width; reserve 2 cores, cap at 16. | cli_inner_pretty.js:374930-374932 |
-| Pipeline concurrency | `lG_` (`WORKFLOW_PIPELINE_DEFAULT`) | **50** | Wider default for `pipeline()` stages. | cli_inner_pretty.js:375677 |
+| Concurrency (local) | `dG_` (`computeWorkflowConcurrency`) → `cG_` | `min(16, max(2, cores-2))` | Semaphore width for the **local** agent executor `R` (`C = BiH(cG_, R)`); **all** `agent()` calls — direct, `parallel()`, `pipeline()` — dispatch through it. Reserve 2 cores, cap at 16. | cli_inner_pretty.js:374930-374932, 375001 |
+| Concurrency (remote) | `lG_` (`WORKFLOW_REMOTE_DEFAULT`) | **50** | Semaphore width for the **remote** executor `U` (`b = BiH(lG_, U)`). Remote isolation is **disabled in this build** (`agent({isolation:'remote'})` throws @375083), so this has no effect here. **NOT** a pipeline knob. | cli_inner_pretty.js:375677, 375002 |
 | Per-agent stall | `tG_` (`WORKFLOW_STALL_MS_DEFAULT`) | **180000** (3 min) | Abort a single stalled agent (reason `"stalled"`), free its slot. | cli_inner_pretty.js:375699 |
 
 ## Module Structure
@@ -120,6 +123,8 @@ in [`workflow_tool_definition.md`](./workflow_tool_definition.md); the control p
 | `README.md` | This file — module index, architecture, reading order. |
 | [`workflow_tool_definition.md`](./workflow_tool_definition.md) | **Data plane / tool anatomy.** The `Workflow` tool-name constant (`mx`) and `RunWorkflow` alias; the `yK` tool factory; the four-layer `isEnabled` gate (`NZ`); the lazy Zod input/output schemas (`Q0_`/`g0_`) field-by-field; the long opt-in description prompt (`Fp6`); the `meta` AST parser (`FZ` + `IZ_`/`UK4`/`pK4`/`CZ_`/`bZ_`/`xZ_`/`RZ_`) and why it uses static evaluation instead of `eval`; the six `validateInput` error codes; `resolveWorkflowSource` (`b44`) precedence (`scriptPath > name > script`); ask-by-default `checkPermissions` with name-scoped allow-suggestion; fire-and-forget script persistence (`xFK`) and UNC rejection (`Hj$`/`tm`); the `call` launch path overview; the 82209-is-Bedrock disambiguation and the NEW-post-2.1.88 verdict. |
 | [`gate_caps_lifecycle_relations.md`](./gate_caps_lifecycle_relations.md) | **Control plane.** The enablement gate (`NZ`/`SL5`/`KP6`/`H48`/`r$7`/`hL5`, Pro-defaults-off rationale, the memo `$48`); the keyword opt-in (`pg6`/`Bg6` code-span masking, `KR_` reminder + `workflow_keyword_request`, the `alt+w` dismiss/restore with telemetry, `preExpansionInput` matching); first-use consent (`r0_`/`o0_`/`sF$`); the four runtime caps in depth (`F74`/`Q74`, `fW8`, `dG_`, `tG_`); the resume journal/respawn/snapshot (`bp6` JSONL, `x74` index, `m74` SHA-256 cache key, `gG_` canonical opts, longest-unchanged-prefix semantics, `C74` snapshot, the StructuredOutput nudge `gtH`); the launch→flush→completion lifecycle and telemetry (`call`, `q44` VM executor, the 16ms-batched `TrH` flush, `tengu_workflow_completed` + per-phase, save `$Q4`, `/workflows` command `Pjz` and viewer `gt4`); ultracode standing orchestration (`zP6`/`ycH`/`ar`/`or`); and the coordinator integration (`Dk5` NZ-gated Workflow clause). |
+| [`workflow_runtime_and_subagents.md`](./workflow_runtime_and_subagents.md) | **Execution runtime / how a script actually runs.** The compile path (`BP8` async-IIFE wrap + `Function()` syntax pre-check + `vm.Script`); the VM-context builder (`H44` — the exact six-global surface `agent/parallel/pipeline/log/phase/workflow` + `args`/`budget`/`console`/timers, frozen `budget`); the runner (`q44` — journal load, `runInContext` with the 30s `mP8` sync timeout, abort race, `H0_=1000` log cap, normalized return); the **DSL primitive semantics** — `agent()` per-call pipeline (cap/budget gate → journal cache → subagent selection `KH ?? (_H ? sG_ : mp6)` → `cG_`-bounded dispatch → stall watchdog + `p74=5` retries + 45s throttle backoff), the **true `parallel()` barrier vs `pipeline()` per-item flow** distinction (single `Promise.allSettled` shapes, *not* the semaphores), `phase()`/`log()`, and nested `workflow()` one-level-only (`QK4`); the **determinism runtime sandbox** (the `SZ_` shim via `uP8` that makes `Math.random`/`Date.now`/`new Date()` throw — far stronger than the `validateInput` regex — plus `UtH` intrinsic hardening); and the **workflow subagent system prompts** (plain `iG_`/`rG_`, StructuredOutput `aG_`/`oG_`, defs `mp6`/`sG_`, StructuredOutput forcing via `klH`/`iY` + the `gtH` nudge), contrasted with the coordinator *worker* prompt (`ZD7`). |
+| [`workflow_authoring_and_orchestration.md`](./workflow_authoring_and_orchestration.md) | **How the model is taught to orchestrate — the `Fp6` authoring prompt walked content-first.** The lazy `_44` initializer + the five `${...}` interpolation slots (`q0_`=`'worktree'` is the *only* isolation advertised — matches the build that throws on `'remote'`; `bGH`=`▸` nested-workflow glyph); **Part A** the opt-in policy (the five accepted forms, the *hybrid scout-then-pipeline* rule, ultracode standing opt-in + "token cost is not a constraint"); **Part B** the `meta` pure-literal contract (the author-facing twin of the `FZ` parser); **Part C** the DSL reference signatures paired with their runtime implementations; **Part D** the load-bearing **pipeline-vs-parallel** decision (DEFAULT-to-pipeline, when a barrier is/ isn't justified, the smell test, the canonical `review-changes` example); **Part E** the **orchestration pattern catalog** (Understand/Design/Review/Research/Migrate; loop-until-count/-budget; the composed exhaustive-review harness; Adversarial verify, Perspective-diverse verify, Judge panel, Loop-until-dry, Multi-modal sweep, Completeness critic, No-silent-caps; scale-to-ask); **Part F** the resume contract. Verbatim excerpts with `cli_inner_pretty.js:376077-376235` line anchors. |
 
 ## Related Symbols
 
@@ -160,6 +165,24 @@ Start with this **README.md** for the two-plane mental model. Then:
    - **Part 6 (Ultracode)** — the standing-orchestration session mode.
    - **Part 7 (Coordinator)** — the one place the two orchestration models (`Dk5` coordinator vs. scripted
      Workflow tool) cross-reference each other.
+3. **[`workflow_runtime_and_subagents.md`](./workflow_runtime_and_subagents.md)** — read third (or jump
+   here directly if you want *how a script runs*). It is the execution-runtime deep dive the first two
+   docs defer to:
+   - **§A–C (Compile / VM context / Runner)** — `BP8` → `H44` → `q44`; the exact global surface, the 30s
+     `mP8` sync timeout, the abort race, and the normalized return shape.
+   - **§D (DSL primitives)** — `agent()`/`parallel()`/`pipeline()`/`phase()`/`log()`/`workflow()`
+     semantics, including the **true barrier distinction** and the `lG_`-is-remote-not-pipeline correction.
+   - **§E (Determinism sandbox)** — the `SZ_` runtime shim (the real enforcement, not just the regex) and
+     `UtH` intrinsic hardening.
+   - **§F (Subagent prompts)** — the four prompt strings, the `mp6`/`sG_` defs, StructuredOutput forcing,
+     and the contrast with the coordinator worker prompt (`ZD7`).
+4. **[`workflow_authoring_and_orchestration.md`](./workflow_authoring_and_orchestration.md)** — read
+   fourth (or first, if your question is *"how do I actually write a good workflow?"*). It walks the
+   `Fp6` authoring prompt (cli_inner_pretty.js:376077-376235) content-first — the opt-in policy (Part A),
+   the `meta` contract (Part B), the DSL signatures (Part C), the **pipeline-vs-parallel** decision
+   (Part D), the **orchestration pattern catalog** (Part E: adversarial verify, judge panel,
+   loop-until-dry, multi-modal sweep, completeness critic, …), and the resume contract (Part F). It is
+   the operator's manual the first three docs (socket / engine / control plane) leave implicit.
 
 For cross-cutting context: the **task taxonomy** (the `local_workflow` task type) is documented in
 `30_agent_team/` of the 2.1.142 tree; the **background-task** plumbing the launch rides on is in

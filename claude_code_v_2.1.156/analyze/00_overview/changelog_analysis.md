@@ -103,7 +103,7 @@ The concurrency formula `min(16, cores-2)` is the most considered: reserve two c
 
 **UNC rejection** (`cli_inner_pretty.js:145295`): `scriptPath` pointing at a `\\server\share` UNC path is rejected outright — a Windows-specific path-injection guard, consistent with the permission-system discipline of refusing path forms the static analyzer cannot reason about.
 
-Cross-link: [`../42_workflow/`](../42_workflow/) (README + `workflow_tool_definition.md` for the data plane, `gate_caps_lifecycle_relations.md` for the control plane).
+Cross-link: [`../42_workflow/`](../42_workflow/) (README + `workflow_tool_definition.md` for the data plane, `gate_caps_lifecycle_relations.md` for the control plane, `workflow_runtime_and_subagents.md` for the VM execution runtime + DSL semantics + subagent prompts).
 
 ---
 

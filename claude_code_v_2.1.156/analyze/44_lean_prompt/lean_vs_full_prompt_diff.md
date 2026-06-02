@@ -22,7 +22,7 @@ Key symbols in this document:
 - `buildSystemPromptSections` (`N0`) — main async assembler; chooses lean vs full body at its terminal return (cli_inner_pretty.js:555614-555658).
 - `isLeanSystemPrompt` (`X3`) — memoized model gate; `true` ⇒ lean body, `false` ⇒ full body (cli_inner_pretty.js:143864, 143872-143877).
 - `isSimplePromptMode` (`cKq`) — `CLAUDE_CODE_SIMPLE` hard short-circuit checked before the lean/full branch (cli_inner_pretty.js:555588-555590).
-- `leanHarnessSection` (`oXz`) — the single lean body section ("# Harness", 6 bullets) (cli_inner_pretty.js:555591-555607).
+- `leanHarnessSection` (`oXz`) — the single lean body section ("# Harness", 5 bullets) (cli_inner_pretty.js:555591-555607; the five ` - ` lines are at 555602-555606).
 - `buildFullIntroSection` (`QXz`) — full intro ("You are an interactive agent…") (cli_inner_pretty.js:555442-555448).
 - `buildFullSystemSection` (`gXz`) — full "# System" section (6 bullets) (cli_inner_pretty.js:555449-555460).
 - `buildFullDoingTasksSection` (`dXz`) — full "# Doing tasks" section, gated by `keepCodingInstructions` (cli_inner_pretty.js:555461-555493).
@@ -38,9 +38,20 @@ Key symbols in this document:
 - `buildInvestigateFirstSection` (`OLz`) — emits the investigate-first guidance unless `rKq` is "off" (cli_inner_pretty.js:555878-555881).
 - `buildHooksSection` (`BXz`) — hooks-trust bullet, shared by lean (inline) and full ("# System") (cli_inner_pretty.js:555418-555420).
 - `getTodoToolDescription` (`z44`) — Todo tool-description picker; lean = `Y0_`, full = `f0_` (cli_inner_pretty.js:376250-376251; the `Y0_`/`f0_` bodies live at 376253-376261).
+- `getReadToolDescription` (`gFK`) — Read tool-description picker; lean blurb under `X3` (cli_inner_pretty.js:145356-145357). See §4f.
+- `getGlobToolDescription` (`g97`) — Glob tool-description picker; lean one-liner vs full `fZ6` (cli_inner_pretty.js:212029-212032). See §4f.
+- `getGrepToolDescription` (`OZ6`) — Grep tool-description picker (cli_inner_pretty.js:212043-212045). See §4f.
+- `getWriteToolDescription` (`o97`) — Write tool-description picker (cli_inner_pretty.js:212276-212278). See §4f.
+- `getWebSearchToolDescription` (`u57`) — WebSearch tool-description picker (cli_inner_pretty.js:216217-216220). See §4f.
+- `getEditToolDescription` (`gB_`) — Edit tool-description picker (cli_inner_pretty.js:434089-434092). See §4f.
+- `getWebFetchToolDescription` (`W47`) — WebFetch tool-description picker (cli_inner_pretty.js:206793-206797). See §4f.
+- `buildBashToolDescription` (`d24`) — Bash tool-description picker; lean ⇒ `IU_()`, full adds dedicated-tools/parallel/git blocks (cli_inner_pretty.js:439085-439086). See §4f.
+- `buildBashToolDescriptionLean` (`IU_`) — the terse lean Bash body returned by `d24` (cli_inner_pretty.js:439059-439084).
+- `formatAgentListEntry` (`Uv6`) — formats one agent line; lean prefers `whenToUseLean` via `j = X3($)` at 240594 (cli_inner_pretty.js:240482-240486). See §4f.
+- `buildEagerStreamingConfig` (`w08`) — eager-input-streaming config; lean cache prefix `"L:"` (cli_inner_pretty.js:555969-555972). See §4f.
 - `prependBullets` (`oU`) — converts string list to ` - bullet` / `  - subbullet` lines (cli_inner_pretty.js:555439-555441).
 - `makeSection` (`DE`) — wraps a name + compute closure into a cacheable section record (cli_inner_pretty.js:271350-271352).
-- `systemPromptBasePrefix` (`Q88` / `uM6`,`QUK`,`gUK`) — "You are Claude Code…" prefix prepended ahead of N0's body (cli_inner_pretty.js:143429-143444).
+- `systemPromptBasePrefix` (`Q88`) — "You are Claude Code…" prefix selector prepended ahead of N0's body (cli_inner_pretty.js:143429-143436). Its three string constants `uM6`/`QUK`/`gUK` live at cli_inner_pretty.js:143437-143439 (the unrelated `g88` Set-init that follows is at 143442-143444).
 
 ---
 
@@ -60,7 +71,7 @@ The single decision is at N0's terminal return (cli_inner_pretty.js:555650-55565
 _ = isLeanSystemPrompt(model)               // X3
 
 body = _
-  ? [ leanHarnessSection(outputStyle) ]                 // ← ONE section (~6 bullets)
+  ? [ leanHarnessSection(outputStyle) ]                 // ← ONE section (5 bullets)
   : [ buildFullIntroSection(outputStyle),               // ← SIX sections
       buildFullSystemSection(),
       keepCodingInstructions ? buildFullDoingTasksSection() : null,
@@ -70,7 +81,7 @@ body = _
 ```
 
 When the gate is **true** the entire behavioral body collapses to a single `# Harness`
-section of **6 terse bullets** (GFM output, permission modes, system-reminder/hooks,
+section of **5 terse bullets** (GFM output, permission modes, system-reminder/hooks,
 dedicated-tools + parallel, file:line refs). When **false** the body is **6 multi-paragraph
 sections** totalling thousands of tokens (intro + cyber-risk, `# System`, `# Doing tasks`,
 `# Executing actions with care`, `# Using your tools`, `# Tone and style`).
@@ -81,7 +92,7 @@ anti-verbosity (`uXz`), an extra action-caution one-liner (`mXz`), focus-mode te
 (`z44`→`Y0_`/`f0_`). So "lean" is not just one swap — it is a coordinated, ~16-site
 contraction of the whole instruction surface, all keyed off one memoized predicate.
 
-Quantitatively: **lean ≈ 6 bullets** for the entire behavioral body, vs **full ≈ 6
+Quantitatively: **lean = 5 bullets** for the entire behavioral body, vs **full ≈ 6
 multi-paragraph sections** (the `# Executing actions with care` section alone, `cXz`, is
 larger than the entire lean body — cli_inner_pretty.js:555499-555509).
 
@@ -128,7 +139,7 @@ the new lean/full split and far more aggressive.
             │ _ === true (LEAN)            _ === false (FULL)
             ▼                                            ▼
      [ oXz(outputStyle) ]            [ QXz, gXz, dXz?, cXz, lXz, rXz ]
-       "# Harness" 6 bullets           6 multi-paragraph sections
+       "# Harness" 5 bullets           6 multi-paragraph sections
             │                                            │
             └──────────────┬─────────────────────────────┘
                            ▼
@@ -297,7 +308,8 @@ the deliberately-varied behavioral text.
 ## 2. The lean body: `leanHarnessSection` (`oXz`) vs the full intro+system pair
 
 The lean body is one function returning intro + cyber-risk + a `# Harness` block of exactly
-6 bullets. Compare it to the **first two** of the six full sections (`QXz` intro + `gXz`
+5 bullets (the five ` - ` lines at cli_inner_pretty.js:555602-555606). Compare it to the
+**first two** of the six full sections (`QXz` intro + `gXz`
 `# System`) — even just those two are longer than the entire lean body.
 
 ```javascript
@@ -407,7 +419,7 @@ clickable `file:line` convention. These are environment facts, not behavioral no
 
 **Key insight:** the lean trim is *semantically curated*, not a naive truncation. It keeps
 exactly the "things only this harness knows" and drops the "things a good model already
-knows," which is why the surviving 6 bullets cut across four different full sections rather
+knows," which is why the surviving 5 bullets cut across four different full sections rather
 than just keeping the first section.
 
 ---
@@ -622,11 +634,101 @@ function getTodoToolDescription(model) {
 This trims a **tool description** rather than a prompt section, but it is the same pattern:
 `isLeanSystemPrompt` selects a 4-bullet lean blurb (`Y0_`, cli_inner_pretty.js:376253-376254)
 over the multi-section full description (`f0_`, cli_inner_pretty.js:376261+). It demonstrates
-that the lean gate reaches past the system prompt into tool schemas. (The scout anchor labels
+that the lean gate reaches past the system prompt into tool schemas — Todo is one of **ten**
+such tool descriptions; the full set is enumerated in §4f below. (The scout anchor labels
 this "Read tool-result trimming"; the verified function at cli_inner_pretty.js:376250-376251
 is the **Todo** tool-description picker — `Y0_`/`f0_` are Todo descriptions, confirmed at
 cli_inner_pretty.js:376253-376261. The `X3`-driven trim mechanism is identical regardless of
 which tool it labels.)
+
+### 4f. The full set of `X3`-gated tool descriptions (lean reaches into ten tool schemas)
+
+The Todo trim above is not a one-off. **Ten** of the bundle's tool-description builders
+follow the exact same `if (X3(H)) return <lean blurb>` pattern — under lean each emits a
+terse one-or-two-line description; under full each emits a multi-paragraph/multi-bullet
+block. This is the concrete evidence that the lean gate "reaches past the system prompt into
+tool schemas." Every site below was verified by reading the cited line:
+
+- **Read** — `getReadToolDescription` (`gFK`, cli_inner_pretty.js:145356-145357):
+  `if (X3(H)) return "Reads a file from the local filesystem.\n\n- \`file_path\` must be an
+  absolute path…"` (lean); the verbose full description follows.
+- **Glob** — `getGlobToolDescription` (`g97`, cli_inner_pretty.js:212029-212032):
+  `if (X3(H)) return 'Fast file pattern matching. Supports glob patterns like "**/*.js"…';
+  return fZ6;` — the full body `fZ6` is a 5-bullet block (cli_inner_pretty.js:212035-212039).
+- **Grep** — `getGrepToolDescription` (`OZ6`, cli_inner_pretty.js:212043-212045):
+  `if (X3(H)) return 'Content search built on ripgrep…'` (lean); full description follows.
+- **Write** — `getWriteToolDescription` (`o97`, cli_inner_pretty.js:212276-212278):
+  `if (X3(H)) return 'Writes a file to the local filesystem, overwriting if one exists…'`.
+- **WebSearch** — `getWebSearchToolDescription` (`u57`, cli_inner_pretty.js:216217-216220):
+  `if (X3(H)) return 'Search the web. Returns result blocks with titles and URLs. US-only.…'`.
+- **Edit** — `getEditToolDescription` (`gB_`, cli_inner_pretty.js:434089-434092):
+  `if (X3(H)) return 'Performs exact string replacement in a file.…'`.
+- **WebFetch** — `getWebFetchToolDescription` (`W47`, cli_inner_pretty.js:206793-206797):
+  lean ⇒ short blurb, full ⇒ the long "IMPORTANT: WebFetch WILL FAIL for authenticated or
+  private URLs…" body (already analyzed in the gate doc §9).
+- **Todo** — `getTodoToolDescription` (`z44`, cli_inner_pretty.js:376250-376251): the picker
+  analyzed in §4e (`Y0_` lean / `f0_` full).
+- **Bash** — `buildBashToolDescription` (`d24`, cli_inner_pretty.js:439085-439086):
+  `if (X3(H)) return IU_();` — under lean it returns the terse Bash body `IU_()`
+  (cli_inner_pretty.js:439059-439084, "Executes a bash command and returns its output." plus a
+  few essentials); under full `d24` builds a far larger description that *adds* the explicit
+  dedicated-tools-over-shell list ("File search: Use Glob (NOT find or ls)", "Content search:
+  Use Grep (NOT grep or rg)", …, cli_inner_pretty.js:439088-439093), the parallel-vs-sequential
+  command guidance (cli_inner_pretty.js:439098-439108), and the git-commit discipline block
+  (cli_inner_pretty.js:439109-439113). This is the single most dramatic tool-description trim.
+- **Task / agent listing** — `formatAgentListEntry` (`Uv6`, cli_inner_pretty.js:240482-240486)
+  fed by the lean flag `j = X3($)` at cli_inner_pretty.js:240594: each agent line uses
+  `($ && H.whenToUseLean) || H.whenToUse` — i.e. under lean an agent's compact
+  `whenToUseLean` blurb is preferred over its long `whenToUse` text.
+
+```javascript
+// ============================================
+// buildBashToolDescription - lean returns terse IU_() body; full adds dedicated-tools/parallel/git blocks
+// Location: cli_inner_pretty.js:439085-439086 (picker); 439059-439084 (lean body IU_)
+// ============================================
+
+// ORIGINAL (for source lookup):
+function d24(H, $) {
+  if (X3(H)) return IU_();
+  let q = RL(), K = [
+    ...(q ? [] : [`File search: Use ${S_} (NOT find or ls)`, `Content search: Use ${s1} (NOT grep or rg)`]),
+    `Read files: Use ${HK} (NOT cat/head/tail)`, /* …Edit/Write/Communication… */ ];
+  // …+ parallel-command guidance (439098-439108) + git-discipline block (439109-439113)…
+}
+
+// READABLE (for understanding):
+function buildBashToolDescription(model, opts) {
+  if (isLeanSystemPrompt(model)) return BASH_DESC_LEAN();            // IU_ — terse body
+  const restricted = isShellSearchRestricted();                     // RL
+  const dedicatedTools = [
+    ...(restricted ? [] : [`File search: Use ${GLOB} (NOT find or ls)`,
+                           `Content search: Use ${GREP} (NOT grep or rg)`]),
+    `Read files: Use ${READ} (NOT cat/head/tail)`, /* Edit/Write/Communication */ ];
+  // …full description = lean essentials + dedicatedTools list + parallel guidance + git rules…
+}
+
+// Mapping: d24→buildBashToolDescription, IU_→BASH_DESC_LEAN, RL→isShellSearchRestricted,
+//   S_→GLOB, s1→GREP, HK→READ, X3→isLeanSystemPrompt
+```
+
+**Why this matters:** under full, the Bash description itself teaches "prefer the dedicated
+file/search tools over shell." Under lean that whole list is dropped from Bash's schema —
+because the lean `# Harness` bullet already carries the one-line "Prefer the dedicated
+file/search tools over shell commands" rule (cli_inner_pretty.js:555605). So the same
+behavioral fact is stated once (in the harness) instead of being repeated verbosely inside
+the Bash tool description. The trim is coordinated across the prompt **and** the tool schemas,
+not duplicated.
+
+**Two further non-tool `X3` sites for completeness** (not tool descriptions, but part of the
+21-site fan-out):
+- **Eager-input-streaming cache key** — `buildEagerStreamingConfig` (`w08`,
+  cli_inner_pretty.js:555969-555972): `_ = X3($.model) ? "L:" : ""`. This uses a *separate*
+  lean cache-key prefix `"L:"` (note: distinct from `N0`'s `":L"` suffix at 555623) on an
+  eager-input-streaming config keyed by provider — so the streamed-prompt cache also splits
+  lean vs full renderings.
+- **`tengu_cinder_plover` prompt gate** — a command `prompt({model})` builder at
+  cli_inner_pretty.js:348816-348822: `if (X3(H)) { let K = V$("tengu_cinder_plover", "").trim();
+  … }` — under lean it injects an extra growthbook-controlled prompt fragment.
 
 ---
 
@@ -635,7 +737,7 @@ which tool it labels.)
 ```
 LEAN BODY (X3 === true)                       FULL BODY (X3 === false)
 ──────────────────────                        ────────────────────────
-oXz   "# Harness"        ~6 bullets           QXz   intro + cyber-risk + no-URL
+oXz   "# Harness"        5 bullets            QXz   intro + cyber-risk + no-URL
                                               gXz   "# System"               6 bullets
 uXz   1 sentence (code style)                 dXz   "# Doing tasks"          ~12 bullets (gated)
 mXz   1 sentence (action caution)             cXz   "# Executing actions"    multi-paragraph (largest)
@@ -647,7 +749,7 @@ z44→Y0_  4-bullet Todo desc                   fLz→ALz  longer focus text
                                               rKq   may be additive/compact → OLz emits
                                               z44→f0_  multi-section Todo desc
 ──────────────────────                        ────────────────────────
-≈ 6 bullets + 2 one-liners                    ≈ 6 multi-paragraph sections + verbose subs
+5 bullets + 2 one-liners                      ≈ 6 multi-paragraph sections + verbose subs
 ```
 
 Shared between both modes (NOT affected by `X3`): the `systemPromptBasePrefix` ("You are

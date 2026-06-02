@@ -37,11 +37,14 @@ one rides on machinery that already existed in 2.1.142/2.1.88:
    turn); forked commands emit a `{kind:"disallowed_tools"}` permission layer that auto-expires with
    the subagent.
 
-4. **Read PARTIAL-view truncation (2.1.145) + always-on streaming exec (2.1.156).** Oversized
-   whole-file Reads are salvaged into paginated excerpts marked `isPartialView` (so
+4. **Read PARTIAL-view truncation (2.1.145) + streaming exec extended to Bedrock/Vertex (2.1.156).**
+   Oversized whole-file Reads are salvaged into paginated excerpts marked `isPartialView` (so
    Edit/Write/dedup/@-mention refuse to treat them as full reads); and `eager_input_streaming` is
-   extended from firstParty-only to per-model Bedrock/Vertex via a new `eagerInputStreaming`
-   capability record.
+   extended from firstParty-only to Bedrock/Vertex via a new per-model `eagerInputStreaming`
+   capability record. Streaming is **not** literally always-on: `buildToolSchema` (`w08`) gates it
+   through a four-way per-provider/per-model conditional (firstParty+`tengu_fgts` | vertex+caps |
+   bedrock+caps | env force), bracketed by an explicit-off env kill — `eager_input_streaming` is
+   attached only when that branch fires (cli_inner_pretty.js:555990-555996).
 
 **Cross-validation verdict:** the *registration mechanism*, the `isPartialView` consumer mesh, and
 the firstParty streaming branch are byte-for-byte 2.1.88 precursors (confidence **high**). The
@@ -104,7 +107,7 @@ infrastructure:
 | `workflow_tool_registration.md` | How the Workflow tool (`n0_`) enters `getAllBaseTools` (`ra`) via the lazy `_H$` slot + `...(_H$ ? [_H$] : [])` spread, populated once in `k0`; the `isEnabled → NZ → KP6/SL5 + r$7/H48 + hL5` gate chain and deny-rule filter (`HqH`) that decide whether the model ever sees it; the IIFE that runs `initBundledWorkflows()` before reading the tool. | Plumbing has a direct `src/tools.ts` precursor (high); the runtime gate replacing the static feature flag is **NEW**. |
 | `ask_user_question_reservation.md` | The 2.1.154 `prompt({ model })` change: the reservation paragraph (`FUK`) injected only when `X3(model)` (lean set, incl. Opus 4.8) is true, with a `tengu_cinder_plover` runtime override; the gate `X3 = !c45(model) \|\| d45(model)` and its helpers; composition order `base + reservation + preview`. | **NEW** — 2.1.88 `prompt()` took no model arg and had no reservation/gate. |
 | `disallowed_tools_frontmatter.md` | The `disallowed-tools` skill/slash-command frontmatter field end to end: the Zod schema (`GL5`) + canonical `disallowedTools` alias, the `fc`/`IS` paren-aware parser, the inline path appending to `alwaysDenyRules.command` via `c28(...,"union")` with clear-on-next-message in `fI8` (replace mode), and the fork path emitting a `{kind:"disallowed_tools"}` layer folded by `T6 → fV8`. Includes "why deny is eager but allow is lazy". | **NEW** — skill/command frontmatter form + `permissionLayers`/`contextLayers` machinery are post-2.1.88; the agent `disallowedTools` field and `--disallowed-tools` CLI flag are the only precursors. |
-| `read_partial_view_and_streaming_exec.md` | (P1) Read PARTIAL-view truncation (2.1.145): the line-then-char geometric-shrink algorithm in `readFileBody` (`gJ4`), the self-calibrating estimator, the two reminder phrasings, and how `isPartialView` is load-bearing across Edit/Write/dedup/@-mention. (P2) Always-on streaming (2.1.156): the four-way `eager_input_streaming` gate in `buildToolSchema` (`w08`) and the per-model `eagerInputStreaming` caps (`Ji$`/`Xi$`), plus the `"L:"`/`"F:"` cache-key tags. | `isPartialView` consumers + firstParty streaming branch are byte-identical precursors (high); Read-truncation *producer* + per-model `eagerInputStreaming` field are **NEW**. |
+| `read_partial_view_and_streaming_exec.md` | (P1) Read PARTIAL-view truncation (2.1.145): the line-then-char geometric-shrink algorithm in `readFileBody` (`gJ4`), the self-calibrating estimator, the two reminder phrasings, and how `isPartialView` is load-bearing across Edit/Write/dedup/@-mention. (P2) Streaming exec extended to Bedrock/Vertex (2.1.156), per-provider/per-model gated (not literally always-on): the four-way `eager_input_streaming` gate in `buildToolSchema` (`w08`) and the per-model `eagerInputStreaming` caps (`Ji$`/`Xi$`), plus the `"L:"`/`"F:"` cache-key tags. | `isPartialView` consumers + firstParty streaming branch are byte-identical precursors (high); Read-truncation *producer* + per-model `eagerInputStreaming` field are **NEW**. |
 
 ## Reading order
 

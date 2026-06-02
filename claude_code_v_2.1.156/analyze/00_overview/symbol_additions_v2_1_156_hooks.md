@@ -50,6 +50,17 @@ Cross-validated against:
 >   `"MessageDisplay"` member is the last entry of that array at 49289.
 > - `wj_` is the parallel Zod-enum source array (byte-identical event list) ending at 336638; the
 >   enum `Fo7 = y.enum(wj_)` is built one line later at 336640.
+> - **`MessageDisplay` has two further registration sites beyond `jN`/`wj_`:** it is a *key* (→ `[]`)
+>   in the per-event seed maps built by `hc5` (`buildPluginHookConfigMap`, member at 270506) and by
+>   `X8H` (`loadPluginHooks`, member at 270611). These are load-bearing — `hc5`'s merge loop drops any
+>   event missing from its seed map via `if (!$[_]) continue;` at 270511 — so plugin/source-defined
+>   `MessageDisplay` hooks would be silently dropped if the key were absent. `jN`/`wj_` make the
+>   string valid; the seed-map keys make plugin hooks for the event actually load.
+> - **`hc5`/`X8H` are evolved 2.1.88 functions, not net-new.** The 2.1.88 precursor of `hc5` is
+>   `convertPluginHooksToMatchers` (`src/utils/plugins/loadPluginHooks.ts:30-86`, same `continue` guard at :68-70);
+>   `X8H` is the memoized `loadPluginHooks` loader (`loadPluginHooks.ts:91`). Both 2.1.88 seed maps end
+>   at `FileChanged: []`; 2.1.156 appends `MessageDisplay: []` (and `PostToolBatch: []`). Only the
+>   `MessageDisplay` seed key is the delta relevant to this module — hence both rows are listed here.
 > - The four engine constants are declared together in one `var` block at 627128-627132
 >   (`var HR$, Xxz = 10, AW9, YW9 = 3, fW9 = 1e4;`); `AW9` and `HR$` are *assigned* in the lazy
 >   init thunk at 627139 (`((HR$ = require("crypto")), (AW9 = 1000 / Xxz))`). Rows cite each
@@ -84,6 +95,7 @@ Cross-validated against:
 | `fW9` | `MESSAGE_DISPLAY_TIMEOUT_MS` (`1e4` = 10s per-flush hook budget; passed by every real caller in place of `q_`) | cli_inner_pretty.js:627132 | constant |
 | `fzH` | `executeStopHooks` (Stop/SubagentStop dispatcher; selects event by subagent id and builds the `background_tasks`/`session_crons` payload when a `toolUseContext` is present) | cli_inner_pretty.js:551871 | function |
 | `go7` | `sessionCronElementSchema` (per-element Zod schema for a scheduled wakeup: `id`/`schedule`/`recurring`/`prompt`) | cli_inner_pretty.js:336823 | object |
+| `hc5` | `buildPluginHookConfigMap` (per-plugin hook-config builder: seeds a per-event map with all `HOOK_EVENT_NAMES` keys → `[]` incl. `MessageDisplay: []` at 270506, then merges `H.hooksConfig`, silently dropping any event not in the seed via `if (!$[_]) continue;` at 270511 — the third MessageDisplay registration site, load-bearing for plugin-defined hooks) | cli_inner_pretty.js:270475 | function |
 | `hj_` | `subagentStopHookInputSchema` (SubagentStop input schema; same two arrays added as Stop, plus `agent_id`/`agent_transcript_path`/`agent_type`) | cli_inner_pretty.js:336879 | object |
 | `hKq` | `HOOK_FIELD_CHAR_CAP` (`1000` — char cap for a Stop-hook task `description`/`command` and cron `prompt`) | cli_inner_pretty.js:551845 | constant |
 | `HR$` | `cryptoModule` (lazily-required `crypto`; provides `randomUUID()` for the engine's local `messageId`/`turnId`; declared 627128, assigned 627139) | cli_inner_pretty.js:627128 | variable |
@@ -112,6 +124,7 @@ Cross-validated against:
 | `wk` | `hasHookForEvent` (a.k.a. `hasHooksForEvent`; cheap gate returning true iff any policy/user/plugin/session hook is configured for an event; guards the whole MessageDisplay pipeline) | cli_inner_pretty.js:552979 | function |
 | `WG` | `getSessionCronTasks` (session cron-task list accessor; `mapSessionCronsForHook`'s default argument) | cli_inner_pretty.js:2994 | function |
 | `w5` | `buildBaseHookInput` (runtime builder of the common `session_id`/`transcript_path`/`cwd`/`agent_*`/`effort` envelope spread into each event's input) | cli_inner_pretty.js:552312 | function |
+| `X8H` | `loadPluginHooks` (lazy plugin-hook loader: seeds the plugin-aggregation per-event map incl. `MessageDisplay: []` at 270611, merges each plugin via `hc5(K)` at 270616 with `$[z].push(..._[z])` at 270617; the fourth MessageDisplay registration site) | cli_inner_pretty.js:270579 | function |
 | `Xxz` | `MESSAGE_DISPLAY_FLUSH_FPS` (`10` — flush-rate divisor; `AW9 = 1000/Xxz` → 100ms; the meaningful "≤10 flushes/sec" budget knob) | cli_inner_pretty.js:627129 | constant |
 | `YW9` | `MESSAGE_DISPLAY_INFLIGHT_CAP` (`3` — max concurrent in-flight flush hook passes; back-pressure for a slow hook) | cli_inner_pretty.js:627131 | constant |
 
@@ -143,7 +156,9 @@ module-global symbols but are named here for the streaming-engine deep-dive.
   counter (cli_inner_pretty.js:270671). They are payload contracts, not symbols, so they are not
   table rows.
 - **`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`** is an env var (default 8, `0` disables, garbage → 8),
-  read inline in the agent-loop block-cap branch (cli_inner_pretty.js:451904 area). It is a string
+  read at cli_inner_pretty.js:451902 (`parseInt(process.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP ?? "", 10)`),
+  with the default-8 fallback `F$ = Number.isNaN(v$) ? 8 : v$` at 451903 and the cap guard
+  `if (F$ > 0 && $$ > F$)` at 451904. It is a string
   literal, not an obfuscated identifier, so it has no row; the surrounding helpers `kT4`
   (`dispatchStopHookErrors`), `Z_` (`makeSystemMessage`, the override warning, cli_inner_pretty.js:445864),
   and `VK` (`makeProgressMessage`, the max-turns message) belong to the agent-loop module

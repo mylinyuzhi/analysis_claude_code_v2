@@ -35,6 +35,19 @@ The tool factory, the shared tool-defaults object, the lazy module/export access
 
 ---
 
+## Module: Tools — Generic Runtime Helpers (Workflow Runtime)
+
+Generic runtime primitives the dynamic-workflow VM executor is built from but which are not workflow-specific: the concurrency semaphore that gates the local/remote agent executors, the deep-clone used to copy agent/script results out of the VM realm, and the `StructuredOutput` tool name + compiler used to force schema-validated subagent output. (Full workflow-runtime analysis is in `42_workflow/workflow_runtime_and_subagents.md`; the workflow-specific runtime symbols live in `symbol_index_core_features.md` Dynamic Workflows.)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AP` | structuredClone (generic deep-clone — `using`-resource-traced; used to copy agent/script results out of the VM realm) | cli_inner_pretty.js:9132 | function |
+| `BiH` | concurrencyLimiter (generic semaphore factory `BiH(width, fn)`; wraps the local executor at `cG_` `C = BiH(cG_, R)`, remote at `lG_` `b = BiH(lG_, U)`, and the worktree path at width 1 `BiH(1, fSH)` @374947) | cli_inner_pretty.js:268738 | function |
+| `iY` | STRUCTURED_OUTPUT_TOOL_NAME (the string `"StructuredOutput"`) | cli_inner_pretty.js:212132 | constant |
+| `klH` | compileSchemaTool (Ajv-validate a JSON Schema and build a `StructuredOutput` tool with `inputJSONSchema` = the user schema; memoized in `c97`; `pV5` is the builder at 212104) | cli_inner_pretty.js:212098 | function |
+
+---
+
 ## Module: Tools — Base-Tool Pool Assembly & Schema
 
 The exhaustive built-in tool array, the enabled-only preset selectors, the deny-rule / `isEnabled` mask filters, the tool-pool merger, the base-tools provider registration, and the per-tool API-schema serializer + cache.
@@ -172,12 +185,13 @@ The coordinator-mode system-prompt builder (Claude as an orchestrator directing 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `cf` | SEND_MESSAGE_TOOL_NAME (`"SendMessage"`; coordinator "Continue an existing worker" tool) | cli_inner_pretty.js:216283 | constant |
-| `Dk5` | getCoordinatorSystemPrompt (coordinator prompt builder with `NZ`-gated Workflow clause; emits `tengu_feature_ok("coordinator_mode_start")` via `SH`) | cli_inner_pretty.js:216506 | function |
+| `Dk5` | getCoordinatorSystemPrompt (coordinator prompt builder with `NZ`-gated Workflow clause; emits `tengu_feature_ok("coordinator_mode_start")` via `SH` = `emitFeatureOk`) | cli_inner_pretty.js:216506 | function |
 | `mx` | WORKFLOW_TOOL_NAME (`"Workflow"`; interpolated into the coordinator's `NZ`-gated clause — full home in core_features) | cli_inner_pretty.js:216291 | constant |
 | `n18` | LIST_AGENTS_TOOL_NAME (`"ListAgents"`; cross-session peer discovery in the coordinator prompt) | cli_inner_pretty.js:216292 | constant |
 | `nT` | TASK_STOP_TOOL_NAME (`"TaskStop"`; coordinator "Stop a running worker" tool) | cli_inner_pretty.js:216170 | constant |
-| `SH` | recordFeatureOk (`d("tengu_feature_ok", {feature_name})`; called as `SH("coordinator_mode_start")` inside `Dk5`) | cli_inner_pretty.js:41590-41592 | function |
+| `SH` | emitFeatureOk (sync fire-and-forget `d("tengu_feature_ok", {feature_name})`; called as `SH("coordinator_mode_start")` inside `Dk5`) | cli_inner_pretty.js:41590-41592 | function |
 | `sq` | AGENT_TOOL_NAME (`"Agent"`; coordinator "Spawn a new worker" tool) | cli_inner_pretty.js:185637 | constant |
+| `ZD7` | getWorkerSystemPrompt (coordinator-mode **worker** system prompt: "You are a worker agent executing a task assigned by the coordinator."; exported via `X$(TD7, {getWorkerSystemPrompt, getCoordinatorAgents:Ib5, WORKER_AGENT:GD7})` @236123; contrast point vs the scripted-workflow subagent prompts `iG_`/`aG_`) | cli_inner_pretty.js:236124 | function |
 
 ---
 

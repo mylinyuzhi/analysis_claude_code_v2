@@ -477,10 +477,23 @@ the model string (lodash memoize's default keyer), which is exactly the only inp
    `gM6(model)` matches `/-eap($|\[)/i` (cli_inner_pretty.js:143836-143837, 143848), so EAP
    variants of any model receive the reservation.
 
-6. **`isEnabled` is orthogonal.** Whether the tool is *registered* is decided elsewhere
-   (`isEnabled()` at cli_inner_pretty.js:348839-348842, which disables the tool when extra MCP
-   tools are present in certain modes). The reservation only affects the *prompt text* when the
-   tool is enabled; it does not gate availability.
+6. **`isEnabled` gates availability separately — and on an unrelated axis.** Whether the tool is
+   *shown to the model* is decided by its `isEnabled()` (cli_inner_pretty.js:348839-348842), whose
+   body is `if (uw().length > 0 && R6()) return !1; return !0;`. The two predicates are:
+   - `uw()` (`getAllowedChannels`, cli_inner_pretty.js:3217-3219) returns `d$.allowedChannels` — the
+     `--channels` MCP-channel allowlist (default `[]` at cli_inner_pretty.js:2340, populated by
+     `K7H(I$)` from the `--channels` flag handler at cli_inner_pretty.js:645080). So
+     `uw().length > 0` means *a channel allowlist is in force*.
+   - `R6()` (`isNonInteractive`, cli_inner_pretty.js:2742-2744) returns `!d$.isInteractive`, i.e. the
+     session is headless/print rather than a live TUI.
+
+   So AskUserQuestion is withheld **only when a `--channels` allowlist is active AND the session is
+   non-interactive** — a print/headless session restricted to specific MCP channels, where there is
+   no interactive UI to render the multiple-choice prompt. This is *not* an "extra MCP tools present"
+   check; the allowlist is about restricting *channels*, not about the presence of other tools, and
+   the non-interactive half of the condition is what actually makes the prompt un-renderable. The
+   reservation paragraph (`FUK`) only affects the *prompt text* when the tool is enabled; it does not
+   participate in this availability gate.
 
 ---
 

@@ -70,11 +70,13 @@ Cross-validated against:
 | `BP$` | `runSingleStageToolUseClassifier` (single-stage `tool_use`/`classify_result` classifier path; `max_tokens: 4096 + E`, unchanged in 2.1.156) | cli_inner_pretty.js:277689 | function |
 | `consentDebounceCancelRef` (`H1`) | `consentDebounceCancelRef` (`useRef` holding the 800ms opt-in-dialog timer's cancel function) | cli_inner_pretty.js:584571 | variable |
 | `en5` | `runTwoStageClassifier` (two-stage XML auto-mode classifier; stage 1 = hard_deny gate, stage 2 = soft_deny + ALLOW + user intent; holds the stage-2 `max_tokens: 8192 + V` budget at 277501) | cli_inner_pretty.js:277392 | function |
+| `Es7` | `createPowershellShellAdapter` (factory returning the `type:"powershell"` shell adapter, header at 341515; captures `$ = K.sandboxTmpDir` at 341519; owns `getEnvironmentOverrides` at 341541-341546 setting `TMPDIR`/`CLAUDE_CODE_TMPDIR` at 341544 — one of the only two TMPDIR override sites) | cli_inner_pretty.js:341512 | function |
 | `EY` | `resolveToCanonical` (strips a trailing `.exe/.cmd/.bat/.com` suffix and resolves a PowerShell alias to its canonical Verb-Noun cmdlet name) | cli_inner_pretty.js:417677 | function |
 | `GE7` | `parseBlockReason` (extracts `<reason>…</reason>` text for the user-facing block message) | cli_inner_pretty.js:277345 | function |
 | `GJ5` | `assertSafeTmpDir` (owner/mode/symlink guard on the per-uid tmp dir: must be a real directory owned by the current uid; forces `0700`) | cli_inner_pretty.js:176739 | function |
 | `g24` | `buildSandboxPromptSection` (builds the "Command sandbox" system-prompt section; substitutes the canonical tmp dir for the `$TMPDIR` token; carries the "for both sandboxed and unsandboxed commands" note) | cli_inner_pretty.js:438967 | function |
 | `gG8` | `extractPowershellRemovalPath` (resolves a PowerShell `Remove-Item` argument to an absolute path, then defers to `isDangerousRemovalTarget`) | cli_inner_pretty.js:418371 | function |
+| `Gs7` | `createBashShellAdapter` (factory returning the `type:"bash"` shell adapter for bash/zsh login shells, header at 341357; captures `q = Y.sandboxTmpDir` at 341370; owns `getEnvironmentOverrides` at 341403-341413 setting `TMPDIR`/`CLAUDE_CODE_TMPDIR`/`TMPPREFIX` at 341411 — one of the only two TMPDIR override sites) | cli_inner_pretty.js:341341 | function |
 | `h0` | `isAutoModeGateEnabled` (runtime auto-mode gate: circuit-breaker + settings-disable + model support; does NOT consult opt-in consent) | cli_inner_pretty.js:443051 | function |
 | `hE6` | `IRON_GATE_TTL` (`1800000` ms = 30 min TTL for the `tengu_iron_gate_closed` fail-closed sandbox-egress gate) | cli_inner_pretty.js:277998 | constant |
 | `hm` | `handleAutoModeOptInDecline` (decline handler: clears pending consent, tears down the dialog/timer, does NOT exit the process) | cli_inner_pretty.js:585448 | function |
@@ -106,6 +108,7 @@ Cross-validated against:
 | `rY8` | `classifierCouldNotEvaluateReason` (fail-closed reason builder: always returns "Auto mode could not evaluate this action and is blocking it for safety — run with --debug for details"; params ignored) | cli_inner_pretty.js:277918 | function |
 | `rn5` | `stage1HardDenyReminderTwoStage` (stage-1 reminder for the 2-stage "both" path: "Stage 1 does NOT apply user intent or ALLOW exceptions") | cli_inner_pretty.js:277993 | constant |
 | `T71` | `mcpServerPolicyKeys` (`[{key:"allowedMcpServers",schema:fo8},{key:"deniedMcpServers",schema:Oo8}]` table driving `validateMcpServerPolicyEntries`) | cli_inner_pretty.js:52417 | variable |
+| `tT5` | `analyzeCommandEffects` (per-command effect analyzer that POPULATES `bareAssignmentNames`: the `if (O === void 0) for (let M of $) A(M.name)` bare-assignment-only branch at 208439 records every leading-assignment name, surfaced via `K.push(...z)` at 208590; also hosts the `PWD`/`OLDPWD`/`DIRSTACK` recompute at 208562-208579 — the AST mechanism behind the 2.1.145 bare-assignment auto-approve fix) | cli_inner_pretty.js:208413 | function |
 | `UcH` | `findCommandNode` (descends through a `variable_assignment` node to the following real command; returns `null` for an assignment-only command) | cli_inner_pretty.js:190389 | function |
 | `UE7` | `getTwoStageClassifierSetting` (reads `tengu_auto_mode_config.twoStageClassifier`, default `true`) | cli_inner_pretty.js:277908 | function |
 | `V5H` | `isAllowlistedEnvVar` (membership test against the static safe env-var set `safeEnvVarSet`) | cli_inner_pretty.js:440527 | function |
@@ -150,6 +153,19 @@ Cross-validated against:
 - **`nUH`** is a 2.1.142-bundle PRECURSOR (the pre-fix `isDangerousRemovalTarget`), included as a
   single row for cross-version traceability; its `File:Line` is explicitly tagged `2.1.142
   cli_inner_pretty.js:207091` so it is not mistaken for a 2.1.156 line.
+- **Shell-adapter naming correction (TMPDIR overrides).** `dangerous_path_home_tmpdir.md` §2.4
+  originally labeled the two TMPDIR override snippets "zsh adapter" (341403-341413) and "generic
+  shell adapter" (341541-341546). Source reading shows these are the `type:"bash"` adapter
+  (`createBashShellAdapter`/`Gs7`, header `type:"bash"` at 341357 — it sets a zsh `TMPPREFIX` but is
+  one bash/zsh login-shell factory, not a zsh adapter) and the `type:"powershell"` adapter
+  (`createPowershellShellAdapter`/`Es7`, header `type:"powershell"` at 341515). `grep
+  "CLAUDE_CODE_TMPDIR = "` returns exactly two sites (341411, 341544), confirming there is no third
+  "generic" adapter. The doc and these rows now use the corrected names.
+- **`tT5` (`analyzeCommandEffects`)** is the previously-uncited producer of `bareAssignmentNames`
+  behind the 2.1.145 bare-assignment fix; `powershell_cd_and_bare_assignment_bypass.md` §2.2 now
+  pins the population point (208439) and surfacing (208590). Note `recomputeShellVarsOnCd`
+  (208562-208579) is a region **inside `tT5`**, not inside `eT5` (the doc's §1.4 location range is
+  unchanged and correct; only the host-function attribution was tightened).
 - **VSCode/consent UI symbols** (`r4q`, `ym`, `iC`, `hm`, `QCH`, `PR8`, `consentDebounceCancelRef`)
   are React/PromptInput-layer symbols that interact with the permission *mode* surface; they are
   filed here because the consent gate is a permission-policy behavior, but a future pass may prefer

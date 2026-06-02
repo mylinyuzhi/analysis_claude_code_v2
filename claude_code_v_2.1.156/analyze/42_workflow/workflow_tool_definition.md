@@ -360,6 +360,12 @@ workflowOutputSchema = memoize(() =>
 
 `prompt()` and `description()` both return the same constant `Fp6` (cli_inner_pretty.js:378223-378228), assigned at module init (376074-376077). It is one of the longest tool descriptions in the codebase (~80 lines of prose). Its job is not just documentation — it is the **policy that gates when the model is allowed to call the tool at all**.
 
+> **Content walk-through:** this section maps the *structure* of `Fp6` and explains *why it is one giant
+> string*. For a verbatim, section-by-section walk of its **content** — the opt-in policy, the
+> pipeline-vs-parallel argument, and the full orchestration pattern catalog (adversarial verify, judge
+> panel, loop-until-dry, multi-modal sweep, completeness critic, …) — see
+> [`workflow_authoring_and_orchestration.md`](./workflow_authoring_and_orchestration.md).
+
 ```javascript
 // ============================================
 // WORKFLOW_DESCRIPTION - the long opt-in policy + scripting reference for Workflow

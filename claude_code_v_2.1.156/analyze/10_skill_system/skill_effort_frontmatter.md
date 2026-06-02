@@ -138,6 +138,23 @@ The `effort` field is then placed onto the parsed skill record
 error message interpolates `dN.join(", ")`, adding `xhigh` to `dN` automatically updated
 every "valid options" string across both parsers — a single-point change.
 
+> **Asymmetry note — the static zod `.describe()` strings are stale, but the parser is
+> not.** There are *two* different "valid options" surfaces, and only one of them was kept
+> in sync with `dN`. (1) The **runtime validator** path is fully `dN`-driven: `vx`
+> validates against `dN` via `KkH`/`isEffortLevel`, and the parse-*error* message
+> interpolates `dN.join(", ")` (cli_inner_pretty.js:421565-421568, identical at
+> 414144-414147), so it *does* list `xhigh` and `xhigh` *is* accepted. (2) The **static
+> zod schema `.describe()` text** for the `effort` field was *not* updated: the
+> skill/slash-command field describe still reads *"Thinking effort for the model: `low`,
+> `medium`, `high`, `max`, or an integer."* (cli_inner_pretty.js:184510) and the agent
+> field describe still reads *"Thinking effort: `low`, `medium`, `high`, `max`, or an
+> integer."* (cli_inner_pretty.js:184568) — neither mentions `xhigh`. The practical
+> consequence is minor describe-text staleness, **not** a behavioral bug: any
+> schema-derived surface (generated docs / autocomplete sourced from the `.describe()`
+> strings) under-advertises `xhigh`, while the actual parser/validator fully honors it.
+> The single-point `dN` change propagated to the dynamic error string but missed the two
+> hard-coded describe literals.
+
 ### The parser: `parseEffortValue` (`vx`)
 
 `vx` accepts a named level (after lowercasing + alias mapping) **or** a raw integer. It
@@ -200,8 +217,10 @@ from it, so `xhigh` was added in exactly one line and propagated everywhere.
 
 A skill's effort can be **static** (the parsed `effort` field) or **dynamic** (a
 `getEffort(args)` callback on bundled skills). Resolution is always the same idiom —
-`getEffort?.(args) ?? effort` — appearing at three sites
-(cli_inner_pretty.js:396035, 396604, 396649). Bundled skills get `getEffort` wired by
+`getEffort?.(args) ?? effort` — appearing at every invocation site: the two
+`processPromptSlashCommand` returns (cli_inner_pretty.js:396604, 396649) and the two fork
+paths (`forkSlashCommand` at cli_inner_pretty.js:396035 and the inline `Skill.call`→fork
+helper `mL_` at cli_inner_pretty.js:350450). Bundled skills get `getEffort` wired by
 `registerBundledSkill` (`bA`):
 
 ```javascript
@@ -237,13 +256,22 @@ function registerBundledSkill(spec) {
 // Mapping: bA→registerBundledSkill, H→spec, _→record, getEffort→getEffort
 ```
 
-> **Accuracy note:** in the 2.1.156 bundle the only place `getEffort:` is assigned is the
-> generic pass-through at cli_inner_pretty.js:524228 — none of the three bundled skill
-> bodies in scope (`/simplify` via `vO9` at 601350-601372, `/code-review` `Y18` at
-> 211646, `/claude-api` via `tSz` at 612027-612045) actually supplies a `getEffort`
-> function. They rely on the static `effort` field (set by the filesystem parsers for
-> user skills). The `getEffort?.() ?? effort` idiom therefore degrades gracefully to the
-> static field for every shipped skill, while leaving the dynamic hook available.
+> **Accuracy note — `/code-review` is the one shipped skill that uses the dynamic hook.**
+> `bA`'s record always copies `getEffort: H.getEffort` (the generic pass-through at
+> cli_inner_pretty.js:524228), so whether a bundled skill *has* a dynamic effort depends on
+> whether its registrar supplies one in the definition it passes to `bA`. Of the three
+> bundled skill bodies in scope: `/simplify` (`vO9` at 601350-601373) and `/claude-api`
+> (`tSz` at 612027-612045) supply **no** `getEffort` (and no static `effort`), so for them
+> the `getEffort?.() ?? effort` idiom resolves to `undefined` (no effort layer). But
+> `/code-review` (`zO9` at 600612-600624) **does** supply a dynamic
+> `getEffort(H) { return _O9(H).explicit; }` (cli_inner_pretty.js:600619-600621): `_O9`
+> (cli_inner_pretty.js:600530) parses the slash-command argument string (`--comment`,
+> `--fix`, `ultra`, and a leading effort token via `_kH`) and `.explicit` is the effort
+> level the user named on the command line (e.g. `/code-review high`), or `undefined` when
+> no level was given. So `/code-review high` flows a dynamic `high` effort through the
+> `kind:"effort"` layer for that invocation. The idiom therefore degrades gracefully to
+> `undefined`/static for the skills that omit the hook, while `/code-review` exercises the
+> dynamic path.
 
 ### Inline invocation path (`Skill.call` → `processPromptSlashCommand`)
 
@@ -595,11 +623,21 @@ function resolveModelEffort(model, requestedEffort) {
 //          E1H→normalizeEffortLevelString, AkH→isLaunchEffortPinned, zkH→effortFromEnv
 ```
 
-`modelSupportsXhighEffort` (`ycH`) returns true only for `claude-opus-4-8` and
-`claude-opus-4-7` (cli_inner_pretty.js:184850), or when the `xhigh_effort` 3P capability
-override says so. So a skill carrying `effort: xhigh` running on, say, Sonnet 4.6 is
-**silently downgraded to `high`** for both the API call and the status bar — they stay
-consistent precisely because both go through `Ev`/`or`.
+`modelSupportsXhighEffort` (`ycH`, cli_inner_pretty.js:184834-184852) is actually a
+three-tier denylist + allowlist + fallthrough, not a bare two-model allowlist: (1) a 3P
+`xhigh_effort` capability override wins first — if `si(H, "xhigh_effort")` is defined its
+value is returned verbatim (cli_inner_pretty.js:184835-184836); (2) otherwise an explicit
+**denylist** of pre-4.7 models returns `false` (cli_inner_pretty.js:184838-184849:
+`claude-3-*`, `opus-4-0/4-1/4-5/4-6`, `sonnet-4-0/4-5/4-6`, `haiku-4-5`); (3) then the
+**allowlist** `claude-opus-4-8`/`claude-opus-4-7` returns `true`
+(cli_inner_pretty.js:184850); (4) finally a **fallthrough** `return oR(ew(H))` decides for
+anything else — e.g. an unknown/future model not in either list — rather than silently
+denying it (cli_inner_pretty.js:184851). The practical takeaway is unchanged (`xhigh` is
+meaningful on Opus 4.7/4.8 and downgraded on the listed older models), but a future model
+resolves via the fallthrough capability check, not a default-deny. So a skill carrying
+`effort: xhigh` running on, say, Sonnet 4.6 (on the denylist) is **silently downgraded to
+`high`** for both the API call and the status bar — they stay consistent precisely because
+both go through `Ev`/`or`.
 
 The hook-input schema documents this downgrade explicitly. The `effort.level` field
 describes itself as the *"Active effort level for the current turn (e.g., "low",

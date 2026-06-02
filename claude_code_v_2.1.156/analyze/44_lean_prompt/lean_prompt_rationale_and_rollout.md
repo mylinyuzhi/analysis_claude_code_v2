@@ -27,7 +27,7 @@ Key symbols in this document:
 - `normalizeModelId` (`O7`) — canonical model id resolver, used by `c45`/`d45` (cli_inner_pretty.js:98770-98778).
 - `isSimplePromptMode` (`cKq`) — `CLAUDE_CODE_SIMPLE` hard short-circuit ("radically simple" path) (cli_inner_pretty.js:555588-555590).
 - `buildSystemPromptSections` (`N0`) — main assembler; the simple path and the lean/full branch both live here (cli_inner_pretty.js:555614-555658).
-- `leanHarnessSection` (`oXz`) — the single compact lean body (6 bullets) (cli_inner_pretty.js:555591-555607).
+- `leanHarnessSection` (`oXz`) — the single compact lean body (5 bullets) (cli_inner_pretty.js:555591-555607).
 - `makeSection` (`DE`) — wraps a section name + compute closure into a cacheable record (cli_inner_pretty.js:271350-271352).
 - `computeCachedSections` (`uv7`) — reads/populates the section cache, computing each section at most once (cli_inner_pretty.js:271353-271362).
 - `getSystemPromptSectionCache` (`SYH`) — accessor for the per-session section cache Map (cli_inner_pretty.js:2098, 3196-3197).
@@ -48,7 +48,8 @@ The lean system prompt is a **deliberate token-economy + model-capability trade*
 
 1. **Token economy.** The full body is six multi-paragraph sections
    (`QXz`+`gXz`+`dXz`+`cXz`+`lXz`+`rXz`, cli_inner_pretty.js:555650-555653). The lean body
-   collapses that to one ~6-bullet "# Harness" section (`oXz`, cli_inner_pretty.js:555591-555607).
+   collapses that to one 5-bullet "# Harness" section (`oXz`, cli_inner_pretty.js:555591-555607;
+   the five ` - ` bullets are at 555602-555606).
    Because the static sections are memoized in a per-session cache (`systemPromptSectionCache`
    via `SYH`/`uv7`/`DE`, cli_inner_pretty.js:2098, 3196-3204, 271350-271362), the cost is
    re-paid in *cache-read* tokens every turn, so shrinking the body reclaims context budget
@@ -133,12 +134,13 @@ Counting the static body sections by what `N0` returns:
 | Body | Sections returned | Source |
 |------|-------------------|--------|
 | FULL | 6: `QXz` intro + `gXz` # System + `dXz` # Doing tasks (gated) + `cXz` # Executing actions + `lXz` # Using your tools + `rXz` # Tone and style | cli_inner_pretty.js:555653 |
-| LEAN | 1: `oXz` — a single "# Harness" section, 6 bullets | cli_inner_pretty.js:555591-555607, 555652 |
+| LEAN | 1: `oXz` — a single "# Harness" section, 5 bullets | cli_inner_pretty.js:555591-555607, 555652 |
 
 (That count table describes the *body* fan-out and is not a symbol-mapping table.)
 
 The lean section in full (cli_inner_pretty.js:555591-555607): a one-line role statement, the
-shared `gKq` security block, and exactly six "# Harness" bullets — markdown rendering,
+shared `gKq` security block, and exactly five "# Harness" bullets (the five ` - ` lines at
+cli_inner_pretty.js:555602-555606) — markdown rendering,
 permission-mode semantics, `<system-reminder>`/hooks trust, prefer dedicated tools + parallel
 calls, and `file_path:line_number` linking. Contrast that with just **two** of the full
 sections to feel the scale:
@@ -538,7 +540,7 @@ The contrast:
 
 So `CLAUDE_CODE_SIMPLE` strips the prompt down to environment facts (used for benchmarking /
 fully-autonomous harnesses), whereas lean keeps the real instruction set — security block, the
-six "# Harness" behavior bullets, and *every* dynamic section (memory, env info, language,
+five "# Harness" behavior bullets, and *every* dynamic section (memory, env info, language,
 output style, focus mode, etc., cli_inner_pretty.js:555629-555649) — just in compressed form.
 **Lean trims wording; Simple removes the prompt.** They sit on different axes and are checked in
 sequence: Simple wins if set (it returns before `X3` is even consulted), then lean/full is

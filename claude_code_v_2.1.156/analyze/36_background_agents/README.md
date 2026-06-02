@@ -182,11 +182,16 @@ consult `../../../claude_code_v_2.1.142/analyze/36_background_agents/`.
   `met===true` goal at 623983, with `activeGoal.condition` as the durable join key — but the *exact* code that
   distinguishes a cron-injected command turn from a user turn (to preserve the goal across the scheduled fire)
   could not be isolated to a single line. Four candidate touch points are enumerated there. (unverified)
-- **2.1.154 UI-routing gates (low-to-medium confidence).** The `/logout`-signs-out and `←←`-agents-view-on-
-  Bedrock/Vertex/Foundry behaviors are covered at the changelog level in
-  `daemon_binary_takeover_and_bg_handoff.md` §"2.1.154 UI-Routing"; the config keys (`defaultToAgentsView`,
-  `leftArrowOpensAgents` at cli_inner_pretty.js:143030-143031) are located but the exact suppressing predicates
-  are not pinned. These belong to the agents-view UI-routing module if pursued. (unverified)
-- **Single-letter regex constants (`Ed_`, `Gd_`, `hd_`, `kd_`, `Nd_`, `Td_`, `Vd_`, `vd_`, `yd_`)** are cited to
-  the 449567-449584 regex block in the additions file rather than to an individual line each; if exact per-symbol
-  lines are needed, grep the block.
+- **2.1.154 UI-routing gates — RESOLVED (high confidence).** The `/logout`-signs-out and `←←`-agents-view-on-
+  Bedrock/Vertex/Foundry behaviors are now pinned to source in `daemon_binary_takeover_and_bg_handoff.md`
+  §"2.1.154 UI-Routing": `/logout` routes through the FleetView submit handler's `fleetHostCall` short-circuit
+  (cli_inner_pretty.js:616719-616734) — its command def `cS4` carries `fleetHostCall`→`fleetHostLogout`
+  (cli_inner_pretty.js:475334-475344); the `←←` gate is `S$$()` = `Ap() && !d6()` (cli_inner_pretty.js:461739-461741),
+  which has NO provider/telemetry condition (only env/setting kill-switches via `JgH`/`jM6` + not-remote-workspace),
+  exactly why the fix made `←←` work on all providers. Note the *old* provider-gated predicate is no longer in the
+  bundle, so only the current clean gate is verifiable.
+- **Single-letter regex constants — RESOLVED.** Each classifier regex constant is now cited to its own
+  declaration line in the additions file and in `bg_session_classifier.md` (verified by grep over the block):
+  `Dd_`@449563, `Jd_`@449564, `Xd_`@449565, `Ld_`@449566, `Wd_`@449567 (body 449568), `Zd_`@449569 (body 449570),
+  `Gd_`@449571, `Td_`@449573, `Vd_`@449575, `vd_`@449576, `kd_`@449577, `Nd_`@449579, `Ed_`@449580, `yd_`@449581,
+  `hd_`@449583.

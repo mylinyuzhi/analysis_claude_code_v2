@@ -24,12 +24,13 @@ Key functions in this document:
 - `skillReloadEmitter` (`Xc`) — Signal emitter re-announcing skill changes to UI subscribers; built via `Xc = y7()` (cli_inner_pretty.js:270624-270628)
 - `createSignal` (`y7`) — The exception-isolating subscribe/emit/clear signal factory (cli_inner_pretty.js:1813-1838)
 - `loadSkillsForList` (`L2`) — Memoized user-facing skill list; on cache-miss re-reads disk via `BL`→`sH9`→`gDz`→`nd6` (cli_inner_pretty.js:545823-545826)
-- `aggregateAllSkillCommands` (`BL`/`sH9`) — The disk-walk aggregator `L2` delegates to (cli_inner_pretty.js:545320-545331, 545805-545821)
+- `aggregateAllSkillCommands` (`BL`) — The async disk-walk aggregator `L2` delegates to; itself delegates to the memoized `sH9` (cli_inner_pretty.js:545320-545331)
+- `skillCommandAggregatorMemo` (`sH9`) — The memoized master skill+command aggregator `BL` wraps; calls `gDz`→`nd6` (cli_inner_pretty.js:545805-545821)
 - `loadSkillDirCommands` (`gDz`) — Loads skill-dir + plugin + bundled + builtin-plugin skills; calls the disk-reading `nd6` (cli_inner_pretty.js:545264-545302)
 - `memoize` (`v8`/`cx8`) — Lodash-style first-arg-keyed memoize exposing `.cache.clear()` (cli_inner_pretty.js:1475-1486, 1492)
 - `getCwd` (`C$`) — Current working directory (the memoization key passed to `L2`) (cli_inner_pretty.js:42238-42244)
 - `pluralize` (`N8`) — `count===1 ? singular : plural` used for `"skill"`/`"skills"` (cli_inner_pretty.js:9655-9657)
-- `sessionStartHookGenerator` (`OP$`) — Streams SessionStart hook output (yields `reloadSkills`) (cli_inner_pretty.js:553933, generator)
+- `sessionStartHookGenerator` (`OP$`) — Streams SessionStart hook output (yields `reloadSkills`) (declaration cli_inner_pretty.js:551757; `reloadSkills` yield at 553933)
 - `featureOkTelemetry` (`SH`) — Emits `tengu_feature_ok { feature_name }`; called with `"hook_session_start_reload_skills"` (cli_inner_pretty.js:41590-41592)
 - `SKILL_TOOL_NAME` (`ZX`) — `"Skill"` tool-name constant (cli_inner_pretty.js:216282)
 - `defineModuleExports` (`X$`) — Lazy module-export binder used to register the command's `call` (cli_inner_pretty.js:521236, 521273)
@@ -380,7 +381,7 @@ function wu() {
 
 // READABLE (for understanding):
 function clearMemoizedSkillCommandCaches() {
-  aggregateAllSkillCommands.cache?.clear?.();  // sH9 — master skill+command aggregator
+  skillCommandAggregatorMemo.cache?.clear?.(); // sH9 — memoized master skill+command aggregator (BL delegates to it)
   loadSkillsForList.cache?.clear?.();          // L2  — user-facing skill list filter
   bundledSkillsAsync.cache?.clear?.();         // RDH — async bundled-skill loader
   invalidateWorkflowCache?.();                 // dDz — workflow-command cache (set at cli:545804)
@@ -390,7 +391,7 @@ function clearMemoizedSkillCommandCaches() {
     .then((mod) => mod.clearSkillIndexCache(), () => {});
 }
 
-// Mapping: wu→clearMemoizedSkillCommandCaches, sH9→aggregateAllSkillCommands, L2→loadSkillsForList,
+// Mapping: wu→clearMemoizedSkillCommandCaches, sH9→skillCommandAggregatorMemo, L2→loadSkillsForList,
 //          RDH→bundledSkillsAsync, dDz→invalidateWorkflowCache, Hs6/ea6→loadSkillIndexModule
 ```
 

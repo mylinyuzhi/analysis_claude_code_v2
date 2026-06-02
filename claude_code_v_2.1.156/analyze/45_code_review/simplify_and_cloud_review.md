@@ -369,11 +369,11 @@ ${DIFF_GATHER_PREAMBLE}                              // dq$
 ## Phase 1 — Find candidates (5 correctness + 3 cleanup + 1 altitude angle, up to 8 each)
 Run 9 independent finder angles via the Agent tool...
 ${correctnessAnglesA_E}${reuseAngleHdr}${simplificationAngle}${efficiencyAngle}${altitudeAngle}
-${cleanupRankingNote}${verifyPhase}
+${cleanupOutputNote}${verifyPhase}
 recall mode — a single non-REFUTED vote carries the finding...
 ${sweepPhase}${outputSchema(15)}`;
 
-// Mapping: HO9→recallEffortPromptFactory, H→level, dq$→DIFF_GATHER_PREAMBLE, sq→"Agent", nyz→correctnessAnglesA_E, U1q→reuseAngleHdr, cq$/lq$/nq$→cleanup angles, F1q→cleanupRankingNote, af9→verifyPhase, ryz→sweepPhase, Q1q→outputSchema
+// Mapping: HO9→recallEffortPromptFactory, H→level, dq$→DIFF_GATHER_PREAMBLE, sq→"Agent", nyz→correctnessAnglesA_E, U1q→reuseAngleHdr, cq$/lq$/nq$→cleanup angles, F1q→cleanupOutputNote, af9→verifyPhase, ryz→sweepPhase, Q1q→outputSchema
 ```
 
 **Why a finder→verify→sweep pipeline (and why per-level tuning)?**
@@ -590,7 +590,7 @@ async function evaluateUltraPreflight() {
 // Mapping: oe6→evaluateUltraPreflight, WU4→fetchUltrareviewPreflight, gIH→ultraCostNote, GU4→ultraConsentRemembered, H→preflight, $→billingNote
 ```
 
-`fetchUltrareviewPreflight` (`WU4`, cli_inner_pretty.js:502758-502792) calls `GET /v1/ultrareview/preflight` with `auth: "teleport-org"` and a 5s timeout. It maps server refusal reasons to user-facing blocks (cli_inner_pretty.js:502766-502780): `essential-traffic-only` → "unavailable when essential-traffic-only mode is active" (reason `zdr`); `data-residency` → "unavailable on third-party providers"; `no-auth` → "requires a Claude.ai account. Run /login". The response is Zod-validated against the schema `PU4` (cli_inner_pretty.js:502800-502810). The consent latch `GU4` is set by `ie6()` (cli_inner_pretty.js:502826-502828) once the user confirms, so subsequent `confirm` actions in the same session auto-proceed.
+`fetchUltrareviewPreflight` (`WU4`, cli_inner_pretty.js:502758-502792) calls `GET /v1/ultrareview/preflight` with `auth: "teleport-org"` and a 5s timeout. Before any network call, however, it honors a **test/CI override**: if `CLAUDE_CODE_ULTRAREVIEW_PREFLIGHT_FIXTURE` is set, it Zod-parses that env-var string as the preflight response via `PU4().safeParse(...)` and returns it directly, skipping the HTTP request entirely (cli_inner_pretty.js:502759-502763). This gives deterministic preflight behavior for tests/CI without a `teleport-org` round-trip (an invalid fixture parses to `null`, which `oe6` treats as the optimistic `proceed`). It maps server refusal reasons to user-facing blocks (cli_inner_pretty.js:502766-502780): `essential-traffic-only` → "unavailable when essential-traffic-only mode is active" (reason `zdr`); `data-residency` → "unavailable on third-party providers"; `no-auth` → "requires a Claude.ai account. Run /login". The response is Zod-validated against the schema `PU4` (cli_inner_pretty.js:502800-502810). The consent latch `GU4` is set by `ie6()` (cli_inner_pretty.js:502826-502828) once the user confirms, so subsequent `confirm` actions in the same session auto-proceed.
 
 ### 3.4 The launcher — `launchUltrareview` (`ae6`)
 

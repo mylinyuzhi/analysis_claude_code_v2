@@ -26,7 +26,7 @@ It fires once per "flush" of whole-line deltas during streaming and once more on
 Key symbols in this document:
 
 - `HOOK_EVENT_NAMES` (`jN`) — Canonical event-name array; `"MessageDisplay"` is the last entry (cli_inner_pretty.js:49259-49290).
-- `hookEventNameEnum` (`wj_`) — Zod-enum source array, identical list (cli_inner_pretty.js:336608-336639).
+- `hookEventNameEnumSource` (`wj_`) — Zod-enum source array, identical list; the enum itself is `hookEventNameEnum` (`Fo7`) (cli_inner_pretty.js:336608-336639).
 - `messageDisplayInputSchema` (`lj_`) — Hook input schema for `MessageDisplay` (cli_inner_pretty.js:337023-337050).
 - `messageDisplayOutputSchema` (`Mw_`) — `hookSpecificOutput` schema with `displayContent` (cli_inner_pretty.js:337161-337175).
 - `executeMessageDisplayHooks` (`l6$`) — Executor generator for the event (cli_inner_pretty.js:551726-551745).
@@ -84,6 +84,12 @@ const HOOK_EVENT_NAMES = [
 
 // Mapping: jN→HOOK_EVENT_NAMES; the parallel zod-enum source array wj_ (336608-336639) is byte-identical.
 ```
+
+**The two event-name arrays are not the only registration sites — and the others are load-bearing.** Beyond `jN`/`wj_`, `MessageDisplay` is also a *key* in the per-source hook-config maps. The plugin hook-config builder `buildPluginHookConfigMap` (`hc5`, cli_inner_pretty.js:270475) initializes a fresh per-event map seeded with all 30 `HOOK_EVENT_NAMES` keys to `[]`, ending in `MessageDisplay: []` (cli_inner_pretty.js:270506). The plugin-aggregation map inside `loadPluginHooks` (`X8H`, cli_inner_pretty.js:270579) seeds the identical map, also ending in `MessageDisplay: []` (cli_inner_pretty.js:270611), and merges each plugin via `hc5(K)` (cli_inner_pretty.js:270616) with `$[z].push(..._[z])` (cli_inner_pretty.js:270617).
+
+This is structural, not cosmetic. `hc5`'s merge loop walks the plugin's declared `hooksConfig` entries and **silently drops any event that is not a key in the seed map** — the guard is `if (!$[_]) continue;` (cli_inner_pretty.js:270511, inside the `Object.entries(H.hooksConfig)` loop opened at 270509). So a plugin (or any source-config) that declares a `MessageDisplay` hook would have it discarded — never loaded, never run — if `MessageDisplay` were absent from this seed map. The division of labor is precise: registering the event in `jN`/`wj_` makes `"MessageDisplay"` a *valid* hook-event string everywhere the Zod enum is consulted; registering it as a key in the `hc5`/`loadPluginHooks` seed maps is what makes plugin- and source-defined `MessageDisplay` hooks actually survive the merge and load. Both are required for the feature to work end-to-end for plugin-provided hooks.
+
+**Cross-validation (HIGH confidence): the registration *mechanism* is the unchanged 2.1.88 precursor; only the `MessageDisplay` key is new.** In 2.1.88 the same per-plugin builder exists as `convertPluginHooksToMatchers` (`src/utils/plugins/loadPluginHooks.ts:30-86`) with the identical skip-unknown-event guard `if (!pluginMatchers[hookEvent]) continue;` (`loadPluginHooks.ts:68-70`), and the aggregating `loadPluginHooks` memoized loader exists at `loadPluginHooks.ts:91`. The 2.1.88 seed maps end at `FileChanged: []` (`loadPluginHooks.ts:58`); in 2.1.156 the same maps append `MessageDisplay: []` (and `PostToolBatch: []`). So the obfuscated `hc5`/`X8H` are the evolved versions of `convertPluginHooksToMatchers`/`loadPluginHooks`, and the only delta relevant to this event is the added `MessageDisplay` seed key — which is exactly why that key is load-bearing for plugin hooks.
 
 The `MessageDisplay` literal union member `lj_` is added to the giant input-union `do7` at (cli_inner_pretty.js:337085), so any incoming hook payload with `hook_event_name: "MessageDisplay"` parses into the typed shape below.
 

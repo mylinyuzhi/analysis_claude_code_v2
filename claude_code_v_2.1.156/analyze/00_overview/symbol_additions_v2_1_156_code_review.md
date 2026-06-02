@@ -77,9 +77,9 @@ Cross-validated against:
 | `ef9` | `highEffortPrompt` (high effort: 3+4 angles × 6, recall-biased verify (`iyz`), ≤10) | cli_inner_pretty.js:600502 | variable |
 | `Ehz` | `SIMPLIFY_PROMPT` (`/simplify` body: 4 cleanup agents in parallel + apply fixes; quality-only, no bug hunting) | cli_inner_pretty.js:601378 | variable |
 | `eyz` | `getCodeReviewDescription` (dynamic description; appends the "ultra: cloud" clause only when `WF()` is true) | cli_inner_pretty.js:600558 | function |
-| `F1q` | `cleanupShapeNote` (note that cleanup/altitude findings reuse the file/line/summary output shape) | cli_inner_pretty.js:600325 | variable |
+| `F1q` | `cleanupOutputNote` (cleanup/altitude findings reuse the `file`/`line`/`summary` output shape with a *cost* in `failure_scenario`; also carries the rule "correctness bugs always outrank cleanup and altitude findings when the output cap forces a cut") | cli_inner_pretty.js:600325 | variable |
 | `gIH` | `getUltraCostNote` (`tengu_review_bughunter_config.cost_note` or default `"$10-$20"`) | cli_inner_pretty.js:502735 | function |
-| `GU4` | `ultraConsentRemembered` (session latch set by `ie6()` so subsequent `confirm` preflights auto-proceed) | cli_inner_pretty.js:502826 | variable |
+| `GU4` | `ultraConsentRemembered` (session latch declared `var GU4 = !1`; set to `!0` by `ie6()` so subsequent `confirm` preflights auto-proceed) | cli_inner_pretty.js:503099 | variable |
 | `Hhz` | `getCodeReviewArgumentHint` (dynamic hint; appends `\|ultra` to the level list only when `WF()` is true) | cli_inner_pretty.js:600561 | function |
 | `HO9` | `buildHighRecallEffortPrompt` (factory for the xhigh/max 9-angle body; `$O9 = HO9("xhigh")`, `qO9 = HO9("max")`) | cli_inner_pretty.js:600389 | function |
 | `ie6` | `rememberUltraConsent` (set the `GU4` consent latch after the user accepts usage-credit billing) | cli_inner_pretty.js:502826 | function |
@@ -125,6 +125,16 @@ Cross-validated against:
 | `zO9` | `registerCodeReview` (registers `/code-review` via `bA`; wires `subcommands: { ultra: "ultrareview" }` and `getEffort`) | cli_inner_pretty.js:600612 | function |
 
 ---
+
+## Naming notes
+
+- **`F1q` canon = `cleanupOutputNote`** (was split across docs as `cleanupShapeNote` in
+  `review_prompt_algorithm.md`/this file and `cleanupRankingNote` in `simplify_and_cloud_review.md`).
+  Reading the source at cli_inner_pretty.js:600325-600326, `F1q` carries **both** concerns —
+  the output *shape* for cleanup/altitude findings (`file`/`line`/`summary` + a cost-not-crash
+  `failure_scenario`) **and** a cross-type ranking rule ("Correctness bugs always outrank cleanup
+  and altitude findings when the output cap forces a cut"). Neither single-aspect name was
+  accurate; `cleanupOutputNote` covers both. All three module docs now use this one name.
 
 ## Notes & gaps
 

@@ -1,5 +1,15 @@
 # Cross-validation Summary — v2.1.156 (v2.1.143 → v2.1.156 delta)
 
+> **UPDATE (2026-06-02): the two follow-ups in §6/§7 of this report have since been resolved — see
+> [`improvement_report_round2.md`](./improvement_report_round2.md).** Specifically: (a) the "17 broken
+> relative links" in §4 were already repaired in a prior pass (a fresh sweep finds 0 real broken links —
+> the only matches are backtick-wrapped *example link patterns* in §4's prose, not real links); and (b) the
+> 6 cross-index readable-name divergences in §2c/§6 are now canonicalized (`bA`→`registerBundledPromptCommand`,
+> `SH`→`emitFeatureOk`, `Ehz`→`SIMPLIFY_PROMPT`, `eyz`→`getCodeReviewDescription`, `vO9`→`registerSimplify`,
+> `zO9`→`registerCodeReview`). Round 2 also added `42_workflow/workflow_runtime_and_subagents.md` and
+> corrected a prior mislabel (`lG_` is the **remote** executor width, not "pipeline concurrency"). The
+> historical numbers below are kept as the point-in-time record of the original audit.
+
 A cross-unit roll-up of the nine per-module verification passes that audited the v2.1.156 analysis tree, plus an independent re-check of the consolidated `symbol_index_*.md` files (cross-file de-dup, name single-source-of-truth, line-number spot-checks), a forbidden-mapping-table compliance scan over every module doc, and a broken-relative-link sweep.
 
 **Source under analysis:** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` — **649,979 lines**, `VERSION: "2.1.156"` at `cli_inner_pretty.js:568305` (both re-confirmed by direct read during this sweep).

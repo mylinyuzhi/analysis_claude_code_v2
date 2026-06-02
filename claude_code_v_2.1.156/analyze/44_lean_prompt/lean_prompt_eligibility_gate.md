@@ -352,10 +352,12 @@ call for the same id.
 regex), and `d45` reaches into `clientDataCache` and the `tengu_velvet_cascade` GrowthBook gate.
 A single prompt build calls `X3` **many** times: in `N0` alone (§7) it gates `uXz`, `mXz`,
 `rKq`, `iXz`, the `:L` section-key suffix, `fLz`, and the top-level section swap. With sub-section
-helpers like `uXz` (555400), `mXz` (555415), `fLz` (555866), `rKq` (555874), tool-description
-gates (206794, 376251), and per-turn auto-mode/agent-listing checks (412891, 412988), the count is
-16+ evaluations per turn. Memoizing collapses all of those to one real computation per distinct
-model id for the life of the process.
+helpers like `uXz` (555400), `mXz` (555415), `fLz` (555866), `rKq` (555874), **ten**
+tool-description gates (Read 145357, WebFetch 206794, Glob 212030, Grep 212044, Write 212277,
+WebSearch 216219, Todo 376251, Edit 434091, Bash 439086, agent-listing 240594), and per-turn
+auto-mode/agent-listing checks (412891, 412988), the count is 16+ evaluations per turn (21
+distinct `X3(` sites in the bundle — see §9 for the full inventory). Memoizing collapses all of
+those to one real computation per distinct model id for the life of the process.
 
 > **Subtle correctness note:** the cache is keyed only on the model id, but `X3` *also* reads
 > `process.env.CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT` and (via `d45`) live caches. The env var is read
@@ -596,6 +598,50 @@ collide in the section cache.
 
 The common thread: lean trims every sub-section to its tersest form and skips several entirely.
 
+### Complete inventory of all 21 `X3(` call sites
+
+The list above is a *representative* subset. For verifiability, here is the **full** mapping of
+every one of the 21 `grep -c "X3("` hits to its category (each line was read directly; line
+numbers are exact `X3(` call lines):
+
+**(a) The central body swap + its cache key — in `N0`:**
+- the section swap `_ = X3($)` (cli_inner_pretty.js:555622)
+- *(the `:L` cache suffix at 555623 is derived from this single `_`, not a separate `X3(` call)*
+
+**(b) System-prompt sub-sections (all driven by `X3`):**
+- `uXz` anti-verbosity (cli_inner_pretty.js:555400)
+- `mXz` action-caution, lean-only (cli_inner_pretty.js:555415)
+- `fLz` focus-mode selector (cli_inner_pretty.js:555866)
+- `rKq` investigate-first forced "off" (cli_inner_pretty.js:555874)
+- `SFK` memory sub-behavior gate (cli_inner_pretty.js:145123)
+- memory-load prompt branch `if ($ && !_D() && X3(H))` (cli_inner_pretty.js:145062)
+
+**(c) Per-turn reminders / message attachments:**
+- `HR_` auto-mode classifier returns `[]` under lean (cli_inner_pretty.js:412891)
+- agent-listing reminder delta `let j = X3(H.options.mainLoopModel)` (cli_inner_pretty.js:412988)
+
+**(d) Tool descriptions (ten total — full analysis in
+[lean_vs_full_prompt_diff.md §4f](./lean_vs_full_prompt_diff.md)):**
+- `z44` Todo (cli_inner_pretty.js:376251)
+- `W47` WebFetch (cli_inner_pretty.js:206794)
+- `gFK` Read (cli_inner_pretty.js:145357)
+- `g97` Glob (cli_inner_pretty.js:212030)
+- `OZ6` Grep (cli_inner_pretty.js:212044)
+- `o97` Write (cli_inner_pretty.js:212277)
+- `u57` WebSearch (cli_inner_pretty.js:216219)
+- `gB_` Edit (cli_inner_pretty.js:434091)
+- `d24` Bash (cli_inner_pretty.js:439086, returning the terse `IU_` body)
+- `Uv6` Task/agent-listing tool description fed by `j = X3($)` (cli_inner_pretty.js:240594)
+
+**(e) Two other lean-aware sites (not system-prompt, not tool-description):**
+- `w08` eager-input-streaming cache key, prefix `"L:"` (cli_inner_pretty.js:555972)
+- `tengu_cinder_plover` prompt-gate fragment in a command's `prompt({model})` builder
+  (cli_inner_pretty.js:348818)
+
+Count: (a) 1 + (b) 6 + (c) 2 + (d) 10 + (e) 2 = **21** — matching `grep -c "X3("`. So the
+single memoized predicate fans out to exactly these 21 reads, and §9's earlier subset is the
+illustrative slice, not the exhaustive list.
+
 ---
 
 ## 10. Distinct cousin: `isOpus46OrNewer` (`Wj`) — Fast Mode, not lean
@@ -709,10 +755,13 @@ Env overrides (checked before the table):
 ## 13. End-to-end flow diagram
 
 ```
-  buildSystemPromptSections(N0)              other 20 X3 call sites
-  (cli_inner_pretty.js:555614)               (uXz 555400, mXz 555415, fLz 555866,
-        |                                     rKq 555874, z44 376251, W47 206794,
-        | cKq()? --yes--> [CWD+Date] (stop)   HR_ 412891, agent-listing 412988, ...)
+  buildSystemPromptSections(N0)              other 20 X3 call sites (full list: §9)
+  (cli_inner_pretty.js:555614)               (uXz 555400, mXz 555415, fLz 555866, rKq 555874,
+        |                                     SFK 145123, memory 145062; HR_ 412891, agent 412988;
+        |                                     tool descs: gFK 145357, W47 206794, g97 212030,
+        | cKq()? --yes--> [CWD+Date] (stop)   OZ6 212044, o97 212277, u57 216219, Uv6 240594,
+        |                                     z44 376251, gB_ 434091, d24 439086;
+        |                                     w08 555972, cinder_plover 348818)
         | no                                          |
         v                                             v
   +----------------------------- X3(model) = isLeanSystemPrompt -----------------------------+

@@ -106,7 +106,7 @@ Workflows / Effort sections of `symbol_index_core_features.md`.
 | `gtH` | `registerSessionHook` (generic session-hook registrar; powers the StructuredOutput nudge) | cli_inner_pretty.js:372079 | function |
 | `H0_` | `WORKFLOW_LOG_CAP` (`1000` — max log lines kept by `q44`) | cli_inner_pretty.js:376011 | constant |
 | `KR_` | `makeWorkflowKeywordReminder` (emits `tengu_workflow_keyword` + `workflow_keyword_request` reminder) | cli_inner_pretty.js:412916 | function |
-| `lG_` | `WORKFLOW_PIPELINE_DEFAULT` (`50` default pipeline concurrency) | cli_inner_pretty.js:375677 | constant |
+| `lG_` | `WORKFLOW_REMOTE_DEFAULT` (`50` — semaphore width for the **remote** executor `U` via `b = BiH(lG_, U)` @375002; remote isolation is disabled in this build, so unused. **NOT** a pipeline knob — see correction note below) | cli_inner_pretty.js:375677 | constant |
 | `lj4` | `hasWorkflowKeyword` (`pg6(text).length > 0`) | cli_inner_pretty.js:412178 | function |
 | `m74` | `journalKey` (SHA-256 cache key `v2:<hash>` of phase + prompt + canonical opts) | cli_inner_pretty.js:374867 | function |
 | `nG_` | `agentCapErrorMessage` (diagnostic text for `Q74` — the `budget.remaining()` infinite-loop hint) | cli_inner_pretty.js:375736 | constant |
@@ -137,6 +137,72 @@ Workflows / Effort sections of `symbol_index_core_features.md`.
 
 ---
 
+## Module: Dynamic Workflows — Runtime & Subagents (workflow_runtime_and_subagents.md)
+
+These rows cover the **execution runtime** analyzed in `42_workflow/workflow_runtime_and_subagents.md`:
+the compile path, the VM-context builder, the runner, the DSL primitive closures, the determinism runtime
+sandbox, and the workflow-subagent system prompts/defs. Every line was verified against the v2.1.156
+bundle. Home index: `symbol_index_core_features.md` (Module: Dynamic Workflows) except `BiH`, `iY`, `klH`,
+`ZD7`, `AP` (see home-index notes below).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aB6` | `sandboxConsole` (VM `console` shim routing `log/info/debug/error/warn` into the `workflow_log` channel) | cli_inner_pretty.js:371858 | function |
+| `aG_` | `WORKFLOW_STRUCTURED_PROMPT` (StructuredOutput-forcing subagent system-prompt body: "you MUST call StructuredOutput exactly once") | cli_inner_pretty.js:375759 | variable |
+| `AP` | `structuredClone` (deep-clone agent/script results out of the VM realm; `using` resource-traced) | cli_inner_pretty.js:9132 | function |
+| `BiH` | `concurrencyLimiter` (semaphore factory `BiH(width, fn)`; wraps the local executor `R` at `cG_` and remote `U` at `lG_`) | cli_inner_pretty.js:268738 | function |
+| `BP8` | `compileWorkflowScript` (wrap body in `(async () => {…})()`, run a `Function()` syntax pre-check, return `{ok, vmScript}` or `{ok:false, error}`) | cli_inner_pretty.js:367468 | function |
+| `g74` | `makeWorkflowHooks` (VM-bridge factory: builds the `agent`/`parallel`/`pipeline`/`log`/`phase` closures, caps `W()`/`G()`, phase allocator, local/remote executors) | cli_inner_pretty.js:374939 | function |
+| `H0_` | `WORKFLOW_LOG_CAP` (`1000` — max log lines kept by `q44`; declared `var H0_ = 1000`) | cli_inner_pretty.js:376062 | constant |
+| `H44` | `buildWorkflowContext` (freeze `budget`, assemble the exact VM globals `{agent,parallel,pipeline,log,phase,workflow,args,budget,console,...timers}`, apply shims) | cli_inner_pretty.js:375973 | function |
+| `iG_` | `WORKFLOW_SUBAGENT_PROMPT` (plain subagent system-prompt body: "final text response is returned verbatim … not a message to a human") | cli_inner_pretty.js:375683 | variable |
+| `iY` | `STRUCTURED_OUTPUT_TOOL_NAME` (the string `"StructuredOutput"`) | cli_inner_pretty.js:212132 | constant |
+| `klH` | `compileSchemaTool` (Ajv-validate a JSON Schema and compile a StructuredOutput tool from it; memoized in `c97`) | cli_inner_pretty.js:212098 | function |
+| `mP8` | `WORKFLOW_SYNC_TIMEOUT_MS` (`30000` — synchronous-execution timeout for the VM script `runInContext`) | cli_inner_pretty.js:367489 | constant |
+| `mp6` | `WORKFLOW_SUBAGENT_DEF` (`workflow-subagent` agent def; `tools:["*"]`, `disallowedTools:[cd, sq]`, `getSystemPrompt:()=>iG_`) | cli_inner_pretty.js:375766 | object |
+| `oG_` | `WORKFLOW_STRUCTURED_TAIL` (StructuredOutput-forcing tail appended to a named agent's prompt) | cli_inner_pretty.js:375754 | variable |
+| `p74` | `MAX_STALL_RETRIES` (`5` — per-agent stall retry ceiling before throwing "agent stalled/abandoned") | cli_inner_pretty.js:375700 | constant |
+| `QK4` | `createNestedWorkflowGlobal` (build the `workflow()` global; resolve+compile a child, fresh sandboxed child context sharing parent hooks, one-level-only hard reject) | cli_inner_pretty.js:371875 | function |
+| `q44` | `runWorkflowScript` (load journal, `runInContext` with 30s `mP8` timeout, abort race, return `{result, agentCount, logs, failures, durationMs, error?}`) | cli_inner_pretty.js:376007 | function |
+| `rG_` | `WORKFLOW_SUBAGENT_TAIL` (plain subagent prompt tail appended to a named agent's prompt) | cli_inner_pretty.js:375690 | variable |
+| `sG_` | `WORKFLOW_STRUCTURED_DEF` (`{...mp6, getSystemPrompt:()=>aG_}` — workflow-subagent def with the StructuredOutput body) | cli_inner_pretty.js:375775 | object |
+| `SZ_` | `DETERMINISM_SHIM` (in-VM program rebinding `Math.random`/`Date.now`/`Date` to throw; closes the `(new Date(x)).constructor.now()` backdoor; frozen `RealDate`) | cli_inner_pretty.js:367493 | variable |
+| `uK4` | `vmAwaitBridge` (compile `(async v => v)` inside the context so VM `await` resolves in-sandbox) | cli_inner_pretty.js:367583 | function |
+| `uP8` | `runDeterminismShim` (`vm.runInContext(SZ_, ctx)` — inject the determinism shim into a VM context) | cli_inner_pretty.js:367442 | function |
+| `UtH` | `hardenVMIntrinsics` (freeze intrinsics + their prototypes via SES-style override-enable; freeze `Error.prepareStackTrace`; delete `ShadowRealm`/`WebAssembly`) | cli_inner_pretty.js:367515 | function |
+| `xK4` | `makeSandboxedTimers` (abort-aware `setTimeout`/`clearTimeout` exposed to the VM context; cleared on abort) | cli_inner_pretty.js:367445 | function |
+| `yZ_` | `DATE_ERROR_MESSAGE` (user-facing "Date.now()/new Date() are unavailable in workflow scripts (breaks resume)…") | cli_inner_pretty.js:367484 | constant |
+| `hZ_` | `RANDOM_ERROR_MESSAGE` (user-facing "Math.random() is unavailable in workflow scripts (breaks resume)…") | cli_inner_pretty.js:367486 | constant |
+| `ZD7` | `getWorkerSystemPrompt` (coordinator-mode *worker* system prompt — contrast point vs the workflow-subagent prompts) | cli_inner_pretty.js:236124 | function |
+
+> **`lG_` correction (single source of truth).** A prior pass labeled `lG_ = 50` (cli_inner_pretty.js:375677)
+> as "default pipeline concurrency / wider default for pipeline() stages." That is **wrong**: `lG_` is the
+> semaphore width for the **remote** agent executor `U` (`b = BiH(lG_, U)` @375002), and the remote path is
+> disabled in this build (the `agent()` body throws "not available in this build" @375083 before `U` is
+> reached). `cG_` is the width for the **local** executor `R` (`C = BiH(cG_, R)` @375001), through which
+> **all** `agent()` calls — including those from `parallel()` and `pipeline()` — are dispatched. When this
+> file is consolidated, update the `lG_` row's readable name to `WORKFLOW_REMOTE_DEFAULT` (remote executor
+> semaphore width) and drop the "pipeline" framing.
+
+---
+
+## Authoring prompt (`workflow_authoring_and_orchestration.md`)
+
+Symbols for the `Fp6` authoring-prompt content walk-through. Home index: `symbol_index_core_features.md`
+(Dynamic Workflows) except `bGH` (UI glyph → `symbol_index_infra_integration.md`). Every line verified
+against the v2.1.156 bundle.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_44` | `initWorkflowDescription` (lazy `T(() => {...})` thunk that builds + assigns `Fp6` on first access; invoked at 378130) | cli_inner_pretty.js:376075 | function |
+| `bGH` | `NESTED_WORKFLOW_GLYPH` (`"▸"` — the group prefix the `workflow()` primitive uses in the `/workflows` tree; interpolated into `Fp6` @376129) | cli_inner_pretty.js:49151 | constant |
+| `q0_` | `WORKFLOW_ISOLATION_DESC` (`"'worktree'"` — the only `isolation` value advertised in the `agent()` signature; interpolated into `Fp6` @376122; matches the build that throws on `'remote'`) | cli_inner_pretty.js:376071 | constant |
+
+> **Empty interpolation slots:** `_0_`/`$0_`/`K0_` (cli_inner_pretty.js:376072-376073) are build-conditional
+> `${...}` slots in `Fp6` that compile to `""` in this binary; not given rows.
+
+---
+
 ## Notes on home-index placement
 
 When these rows are merged into the central index, split them as follows (so each lands in its
@@ -146,9 +212,15 @@ single-source-of-truth file):
   and the effort-overlap rows noted above. (All of these are already present in the central index's
   Dynamic Workflows / Effort sections; this additions file is the staging mirror.)
 - **`symbol_index_core_execution.md`** (Tools) — `yK` (`makeTool`), `P45` (`TOOL_DEFAULTS`). These are
-  generic tool-runtime helpers the Workflow tool is built from, not workflow-specific.
+  generic tool-runtime helpers the Workflow tool is built from, not workflow-specific. Also from the
+  runtime/subagents section: `BiH` (`concurrencyLimiter`, a generic semaphore), `AP` (`structuredClone`,
+  generic deep-clone), `iY` (`STRUCTURED_OUTPUT_TOOL_NAME`) and `klH` (`compileSchemaTool`) — the
+  StructuredOutput tool plumbing shared with the broader tool runtime — and `ZD7` (`getWorkerSystemPrompt`,
+  the coordinator-mode worker prompt, an agent-team symbol cited here only as a contrast point).
 - **`symbol_index_infra_platform.md`** — `tm` (`isUncPath`, a shared path util; Permissions/Sandbox area)
-  and `d6H` (`lookupPermissionRules`, Permissions).
+  and `d6H` (`lookupPermissionRules`, Permissions). The VM-sandbox hardening helpers `uP8`/`SZ_`/`UtH`/`xK4`
+  (Sandbox area) may also be placed here at consolidation time, though they are workflow-specific and could
+  equally stay under Dynamic Workflows.
 
 Status: as of this finalize pass the control-plane rows above have been merged into
 `symbol_index_core_features.md` (Dynamic Workflows §Gate/Keyword/Consent/Caps/Journal/Lifecycle/Save-UI/

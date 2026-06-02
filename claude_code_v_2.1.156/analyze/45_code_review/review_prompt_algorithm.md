@@ -26,7 +26,7 @@ Prompt fragments (the building blocks, all in one `var` cluster):
 - `correctnessAnglesABC` (`p1q`) — Angles A/B/C (line scan, removed-behavior, cross-file tracer) (cli_inner_pretty.js:600300)
 - `correctnessAnglesDE` (`nyz`) — A/B/C + Angle D (language-pitfall) + Angle E (wrapper/proxy) (cli_inner_pretty.js:600421)
 - `reuseAngleIntro` (`U1q`) — "### Reuse" header wrapping `BI8` (cli_inner_pretty.js:600438)
-- `cleanupShapeNote` (`F1q`) — note that cleanup/altitude reuse the file/line/summary shape (cli_inner_pretty.js:600325)
+- `cleanupOutputNote` (`F1q`) — cleanup/altitude reuse the file/line/summary shape AND the rule "correctness bugs always outrank cleanup/altitude when the output cap forces a cut" (cli_inner_pretty.js:600325)
 - `verifyPhasePrecision` (`af9`) — "## Phase 2 — Verify (1-vote, 3-state)" precision-biased (cli_inner_pretty.js:600442)
 - `verifyPhaseRecall` (`iyz`) — "## Phase 2 — Verify (1-vote, recall-biased)" (cli_inner_pretty.js:600458)
 - `sweepPhase` (`ryz`) — "## Phase 3 — Sweep for gaps" (one more finder) (cli_inner_pretty.js:600329)
@@ -328,6 +328,23 @@ severe". The cap is the per-level number: `Q1q(8)` for medium, `Q1q(10)` for hig
 for xhigh/max. (Low uses a different, plain-text one-line-per-finding output, capped at 4 —
 it does not call `Q1q`.)
 
+`F1q` (`cleanupOutputNote`, cli_inner_pretty.js:600325-600326) does **two** things, both
+load-bearing:
+
+1. **Output shape for cleanups.** Cleanup and altitude findings reuse the same
+   `file`/`line`/`summary` shape, but their `failure_scenario` must state a concrete *cost*
+   ("what is duplicated, wasted, or harder to maintain") rather than a crash — because a
+   cleanup never crashes, it just costs.
+2. **A cross-type priority rule under the cap.** Verbatim: *"Correctness bugs always outrank
+   cleanup and altitude findings when the output cap forces a cut."* This couples F1q to
+   `Q1q(n)`: since the cap truncates to the `n` *most-severe survivors* (the
+   "keep the `${H}` most severe" rule above), F1q guarantees the cap is spent on **bugs
+   first**. So the four cleanup angles (Reuse/Simplification/Efficiency/Altitude) can never
+   crowd a verified correctness finding out of a capped result — a noisy cleanup pass cannot
+   push a real bug below the cut line. This is the *why* behind running cleanup angles in the
+   same pipeline as correctness angles without diluting the bug output: the priority rule, not
+   a separate cap, keeps the two finding types from competing.
+
 ---
 
 ## How the five effort levels are compiled
@@ -393,7 +410,7 @@ mediumEffortPrompt =
   + simplificationAngle        // cq$
   + efficiencyAngle            // lq$
   + altitudeAngle              // nq$
-  + cleanupShapeNote           // F1q
+  + cleanupOutputNote          // F1q (output shape + correctness>cleanup ranking-under-cap rule)
   + "Pass every candidate with a nameable failure scenario through ..."
   + verifyPhasePrecision       // af9  (neutral 3-state)
   + buildFindingsOutputSchema(8)   // Q1q(8)
@@ -466,7 +483,7 @@ const buildHighRecallEffortPrompt = (level) =>
   "Phase 1: 9 finder angles (5 correctness + 3 cleanup + 1 altitude), ≤8 each, via Agent tool\n" +
   correctnessAnglesDE +                     // nyz = A,B,C,D,E
   reuseAngleIntro + simplificationAngle + efficiencyAngle + altitudeAngle +  // U1q,cq$,lq$,nq$
-  cleanupShapeNote +                        // F1q
+  cleanupOutputNote +                       // F1q (output shape + correctness>cleanup ranking-under-cap rule)
   verifyPhasePrecision +                    // af9 (note: xhigh/max use af9, NOT iyz)
   "recall mode — one non-REFUTED vote carries the finding\n" +
   sweepPhase +                              // ryz

@@ -23,8 +23,9 @@ hotfix that keeps it stable. This module documents the full surface area of that
   cli_inner_pretty.js:568321), so effort-incapable models never receive an `effort` field.
 - **Fast mode is 2x, not 6x.** Opus 4.8 fast pricing (`OPUS_48_FAST_COST` `bx1`, 10/50) is
   *exactly* 2x standard (5/25), a 3x reduction from the legacy 6x tariff (`OPUS_LEGACY_FAST_COST`
-  `Cx1`, 30/150); the deprecated `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` (removal 06/01) is
-  replaced by the explicit `/model claude-opus-4-6[1m]` + `/fast on` flow.
+  `Cx1`, 30/150); the deprecated `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE` (removal 06/01 per
+  changelog — the bundle still wires `ki` actively, 9 call sites, with no in-code deprecation
+  warning) is replaced by the explicit `/model claude-opus-4-6[1m]` + `/fast on` flow.
 - **The `/effort` slider was reframed** from *Speed / Intelligence* to **Faster / Smarter**,
   with capability tags (`xhigh` = "Opus 4.8/4.7 only", `max` = "Opus 4.6+, Sonnet 4.6") and an
   optional violet `ultracode` rail.
