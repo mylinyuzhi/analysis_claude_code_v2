@@ -108,6 +108,8 @@ infrastructure:
 | `ask_user_question_reservation.md` | The 2.1.154 `prompt({ model })` change: the reservation paragraph (`FUK`) injected only when `X3(model)` (lean set, incl. Opus 4.8) is true, with a `tengu_cinder_plover` runtime override; the gate `X3 = !c45(model) \|\| d45(model)` and its helpers; composition order `base + reservation + preview`. | **NEW** — 2.1.88 `prompt()` took no model arg and had no reservation/gate. |
 | `disallowed_tools_frontmatter.md` | The `disallowed-tools` skill/slash-command frontmatter field end to end: the Zod schema (`GL5`) + canonical `disallowedTools` alias, the `fc`/`IS` paren-aware parser, the inline path appending to `alwaysDenyRules.command` via `c28(...,"union")` with clear-on-next-message in `fI8` (replace mode), and the fork path emitting a `{kind:"disallowed_tools"}` layer folded by `T6 → fV8`. Includes "why deny is eager but allow is lazy". | **NEW** — skill/command frontmatter form + `permissionLayers`/`contextLayers` machinery are post-2.1.88; the agent `disallowedTools` field and `--disallowed-tools` CLI flag are the only precursors. |
 | `read_partial_view_and_streaming_exec.md` | (P1) Read PARTIAL-view truncation (2.1.145): the line-then-char geometric-shrink algorithm in `readFileBody` (`gJ4`), the self-calibrating estimator, the two reminder phrasings, and how `isPartialView` is load-bearing across Edit/Write/dedup/@-mention. (P2) Streaming exec extended to Bedrock/Vertex (2.1.156), per-provider/per-model gated (not literally always-on): the four-way `eager_input_streaming` gate in `buildToolSchema` (`w08`) and the per-model `eagerInputStreaming` caps (`Ji$`/`Xi$`), plus the `"L:"`/`"F:"` cache-key tags. | `isPartialView` consumers + firstParty streaming branch are byte-identical precursors (high); Read-truncation *producer* + per-model `eagerInputStreaming` field are **NEW**. |
+| `tool_search.md` | Full re-analysis of the `ToolSearch` tool (`wV$`): identity/schemas (`wf4`/`Df4`), the hard-coded `<system-reminder>` prompt (`r18`), the multi-phase `call()` with the in-tool MCP refresh+wait machine (`X`/`J`, `py_=5000`), `select:`/keyword dispatch, the `tool_reference` result injection, the enablement/mode machine (`wE`/`Dv$`/`Pc6`, `auto:N`, model/provider gating), and the fingerprint cache (`Of4`). | Contract (schemas, `tool_reference`, query forms) byte-stable vs 2.1.88 (high); **NEW**: MCP wait machine, `refreshTools` pool, Vertex optimistic branch, `tengu_tool_search_mcp_wait`/`_sdk_mcp_false_unavailable`. |
+| `deferred_tools.md` | The defer-loading mechanism: the `isDeferredTool` 8-rule ladder (`pp`) incl. the two NEW turn-1 exemptions (ScheduleWakeup+`hwH()`, EnterWorktree+bg), the `defer_loading` wire field, the keyword scorer (`jf4`/`Mf4`/`Qy_`) with the NEW `coarseParts` dimension, the 5-state delta diff (`tg6`) + 4-section `<system-reminder>` rendering, and `extractDiscoveredToolNames` (`P8H`) compact carry-across. | Deferral contract byte-stable vs 2.1.88 (high); **NEW**: defer rules 7–8 (2.1.156/2.1.153), `coarseParts`, `readded`/`pending` delta facets, completed `<system-reminder>` rollout. |
 
 ## Reading order
 
@@ -124,6 +126,12 @@ infrastructure:
    degrades gracefully, and how the wire schema (`buildToolSchema`) gains `eager_input_streaming`.
    Reading it last is natural because its Part 2 cache-key discussion reuses the `X3` lean-prompt
    tag introduced in doc 3.
+5. **`tool_search.md`** then **`deferred_tools.md`** — a self-contained pair on the deferred-tool
+   subsystem (read either order; `tool_search.md` cross-references the scorer in `deferred_tools.md`).
+   Unlike docs 1–4, these are *full* deep-dives of a subsystem that predates the window (so they double
+   as the foundational ToolSearch/defer-loading reference for 2.1.156) — but every 2.1.156-specific
+   delta (MCP wait machine, Vertex gating, `coarseParts`, defer rules 7–8, 5-state delta, completed
+   `<system-reminder>` rollout) is called out inline and cross-validated against 2.1.88.
 
 ## Cross-version status summary
 
@@ -165,6 +173,7 @@ infrastructure:
 > - [symbol_index_infra_platform.md](../00_overview/symbol_index_infra_platform.md) - Platform infra (Model, Prompt, Permissions, Gates)
 > - [symbol_index_infra_integration.md](../00_overview/symbol_index_infra_integration.md) - Integrations
 > - v2.1.156 tools additions: [symbol_additions_v2_1_156_tools.md](../00_overview/symbol_additions_v2_1_156_tools.md)
+> - v2.1.156 ToolSearch & defer-loading additions: [symbol_additions_v2_1_156_tool_search.md](../00_overview/symbol_additions_v2_1_156_tool_search.md)
 > - v2.1.156 workflow additions (gate family overlap): [symbol_additions_v2_1_156_workflow.md](../00_overview/symbol_additions_v2_1_156_workflow.md)
 
 Key entries (full list + line numbers in the additions file above):
@@ -181,12 +190,16 @@ Key entries (full list + line numbers in the additions file above):
 
 ## Validation status
 
-- **Docs in module**: 5 — `README.md` (this), `workflow_tool_registration.md`,
+- **Docs in module**: 7 — `README.md` (this), `workflow_tool_registration.md`,
   `ask_user_question_reservation.md`, `disallowed_tools_frontmatter.md`,
-  `read_partial_view_and_streaming_exec.md`.
-- **Symbols consolidated**: see `../00_overview/symbol_additions_v2_1_156_tools.md` (≈80 rows,
-  deduplicated, alphabetically ordered). Every line number was verified directly against
-  `cli_inner_pretty.js`.
+  `read_partial_view_and_streaming_exec.md`, `tool_search.md`, `deferred_tools.md`.
+- **Symbols consolidated**: see `../00_overview/symbol_additions_v2_1_156_tools.md` (≈80 rows) for the
+  workflow/askUserQuestion/disallowed-tools/read-streaming deltas, and
+  `../00_overview/symbol_additions_v2_1_156_tool_search.md` (≈60 rows) for the ToolSearch/defer-loading
+  symbols. Every line number was verified directly against `cli_inner_pretty.js`.
+- **Cross-validation**: `../00_overview/cross_validation_report_tool_search.md` (41 samples, 0 fails)
+  covers `tool_search.md` + `deferred_tools.md`; `../00_overview/cross_validation_report_tools.md`
+  (55 samples) covers the other four docs.
 - **Correction applied during finalize**: the seed listed `defineLazyExports` (`X$`) at
   cli_inner_pretty.js:378080; that is the *call site*. The definition is at cli_inner_pretty.js:55 —
   the additions file cites the definition. `ez` (`AskUserQuestion`) was deduplicated to a single row.

@@ -32,10 +32,11 @@ Each of the nine modules was verified independently against the 2.1.156 bundle b
 | `44_lean_prompt` | 27 | 27 | 0 | 6 | PASS | HIGH |
 | `45_code_review` | 44 | 43 | 1 | 5 | PASS | HIGH |
 | `04_tools` | 55 | 55 | 0 | 7 | PASS | HIGH |
+| `04_tools / ToolSearch + defer-loading` | 73 | 73 | 0 | 4 | PASS | HIGH |
 | `10_skill_system` | 47 | 47 | 0 | 3 | PASS | HIGH |
 | `11_hooks` | 62 | 59 | 3 | 4 | PASS | HIGH |
 | `37_permission_policy` | 52 | 52 | 0 | 2 | PASS | HIGH |
-| **Total** | **375** | **370** | **5** | **46** | **PASS** | **HIGH** |
+| **Total** | **448** | **443** | **5** | **50** | **PASS** | **HIGH** |
 
 **Aggregate: 370 / 375 citations passed (98.7%) on the first verification read; all 5 failures were line-number / range defects (not fabricated symbols) and were fixed in place. 46 in-place corrections were applied across the nine modules.**
 
