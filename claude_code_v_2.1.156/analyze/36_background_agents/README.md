@@ -41,6 +41,7 @@ subsystem only handed *sessions* to a daemon). One medium-confidence gap is note
 | Pinned-session guard, broadened settled predicate, low-mem pinned-shed, bridge grace | NEW (2.1.156) | `worker_retire_respawn_2156.md` |
 | Subagent worktree-isolation guard + `--bg-pty-host` orphan watchdog (macOS) | NEW (2.1.156) | `worktree_isolation_and_pty_orphan.md` |
 | Daemon stale-exec fallback / binary-takeover / `/bg` live-turn handoff | NEW (2.1.144–153) | `daemon_binary_takeover_and_bg_handoff.md` |
+| `/background` (`/bg`) slash command — full surface (def → call → seed → confirm-UI → fork) + `/stop`, `/fork` siblings | NEW (post-2.1.88; handoff layer 2.1.144+) | `background_slash_command.md` |
 
 ## Architecture
 
@@ -114,6 +115,7 @@ version-upgrade respawn (you must never silently re-run `npm publish` because th
 | [worker_retire_respawn_2156.md](./worker_retire_respawn_2156.md) | The v2.1.156 worker-reliability fixes inside the renamed handle `BgWorkerHandle` (`SF`, was `aB`) and the supervisor tick: pinned-set guard in `retireIfSettled`, broadened non-exec settled predicate, settled-and-pinned respawn, bridge grace, sleep/wake clock shift, and low-memory pinned-shed escalation (`tengu_bg_retire_pinned_low_mem`). |
 | [worktree_isolation_and_pty_orphan.md](./worktree_isolation_and_pty_orphan.md) | Two independent 2.1.156 process-safety fixes: the worktree-isolation guard `esH` gaining a `$.agentId` subagent branch (`f6` vs `C$` cwd selection) so subagents in bg sessions stop bypassing isolation; and the `--bg-pty-host` orphan watchdog that SIGTERM/SIGKILLs a re-parented, clientless REPL child after ~60s, plus the macOS TCC-disclaim respawn (`a69`) and process-group signal forwarding. |
 | [daemon_binary_takeover_and_bg_handoff.md](./daemon_binary_takeover_and_bg_handoff.md) | Three daemon/lifecycle deltas: the 2.1.144/145 service stale-exec fallback in `ensureDaemonRunning` (`EF`); the 2.1.153 client-side binary-takeover of a stale transient daemon (`Mwz`/`Owz`, SIGKILL + `tengu_bg_daemon_binary_takeover`); and the `/bg`-while-responding live-turn handoff (`zh8`) that resumes the session in a bg worker via `--resume --fork-session --reply-on-resume` with conditional worktree handoff. |
+| [background_slash_command.md](./background_slash_command.md) | The **full `/background` (`/bg`) slash-command surface** end-to-end: the `local-jsx` command def (`owz`/`awz`) + lazy-load split (`MH9`/`OH9`/`Sqq`); the `call` handler `Fwz` and its three guards (already-bg `v7`/`bzH`, persistence-off `NWH`, empty-seed); the reverse-scan seed deriver `Ah8` (`deriveBackgroundSeed` → `{intent,name,nameSource,detail}`); the `BackgroundForkPrompt` `gwz` confirm UI (auto-confirm-when-idle vs "Background anyway" when busy, inflight counter `hV8`, once-only effect, decline telemetry, banner `ny$`); the argv builder `zh8` (`spawnBackgroundFork`) with `--resume --fork-session [--reply-on-resume]`, worktree handoff, async auto-naming over `ol`; the sibling `/stop` (`Yh8`) and `/fork` (`Wr6`) lifecycle commands; the full `tengu_background*` telemetry family; and 2.1.88 cross-validation (the handoff layer is NEW atop the pre-existing `--fork-session` primitive). This is the dedicated command analysis; `daemon_binary_takeover_and_bg_handoff.md` §3 keeps `/bg` only as the daemon-handoff delta. |
 
 > **Foundation (unchanged, see v2.1.142):** the agent-view dashboard UI, the rv-socket protocol, the daemon's
 > adopt/idle-exit, and the worker phase enum / transition guard / `onExit` / static factories are documented in
@@ -152,8 +154,13 @@ Key functions/objects (list format, per project rules):
 - `runPtyHost` (`jPz`) — `--bg-pty-host` entry + orphan watchdog (cli_inner_pretty.js:559067-559275). See [worktree_isolation_and_pty_orphan.md](./worktree_isolation_and_pty_orphan.md).
 - `ensureDaemonRunning` (`EF`) — daemon reachability; stale-exec transient fallback (cli_inner_pretty.js:540124-540208). See [daemon_binary_takeover_and_bg_handoff.md](./daemon_binary_takeover_and_bg_handoff.md).
 - `takeoverStaleDaemon` (`Mwz`) / `isDaemonStaleVsClient` (`Owz`) — client-side binary-takeover (cli_inner_pretty.js:540233-540291 / 540220-540232). See [daemon_binary_takeover_and_bg_handoff.md](./daemon_binary_takeover_and_bg_handoff.md).
-- `backgroundCurrentSession` (`zh8`) — `/bg` live-turn handoff via `--resume --fork-session` (cli_inner_pretty.js:542680-542731). See [daemon_binary_takeover_and_bg_handoff.md](./daemon_binary_takeover_and_bg_handoff.md).
+- `backgroundCurrentSession` / `spawnBackgroundFork` (`zh8`) — `/bg` live-turn handoff via `--resume --fork-session` (cli_inner_pretty.js:542680-542731). Bundler export name is `spawnBackgroundFork`. See [background_slash_command.md](./background_slash_command.md) §5 and [daemon_binary_takeover_and_bg_handoff.md](./daemon_binary_takeover_and_bg_handoff.md).
 - `formatBgHints` (`ny$`) — "backgrounded · <short>" banner with attach/logs/stop hints (cli_inner_pretty.js:542079-542089). Shared by `hwz` and `gwz`.
+- `backgroundCommandDef` (`owz`/`awz`) — the `/background` (`/bg`) `local-jsx` command def; `immediate:(H)=>!H.trim()` (cli_inner_pretty.js:542938-542951). See [background_slash_command.md](./background_slash_command.md) §1.
+- `backgroundCall` (`Fwz`) — the command's `call` handler: already-bg (`v7`/`bzH`), persistence-off (`NWH`), empty-seed guards → `BackgroundForkPrompt` (cli_inner_pretty.js:542895-542912). See [background_slash_command.md](./background_slash_command.md) §2.
+- `deriveBackgroundSeed` (`Ah8`) — reverse-scan transcript → `{intent,name,nameSource,detail}` (cli_inner_pretty.js:542733-542762). See [background_slash_command.md](./background_slash_command.md) §3.
+- `BackgroundForkPrompt` (`gwz`) — confirm UI; auto-confirm-when-idle vs "Background anyway" when `hV8` count > 0; once-only fork effect (cli_inner_pretty.js:542763-542873). See [background_slash_command.md](./background_slash_command.md) §4.
+- `stopSelfSession` (`Yh8`) / `forkConversation` (`Wr6`) — the `/stop` and `/fork` sibling lifecycle commands (cli_inner_pretty.js:542955 / 454216). See [background_slash_command.md](./background_slash_command.md) §6.
 
 ## Reading Order
 
@@ -162,6 +169,7 @@ Start here (**README.md**), then read in this order:
 1. **The new launch surface** (read these two as a pair — they explain how a shell command becomes a bg session):
    - [shell_exec_sessions.md](./shell_exec_sessions.md) — the two front doors and the `exec` field
    - [unified_dispatcher_ol.md](./unified_dispatcher_ol.md) — the single seam `ol`/`ywz` and the launch-mode cascade
+   - [background_slash_command.md](./background_slash_command.md) — the third front door: the in-REPL `/background` (`/bg`) command that hands the *current* session to a bg worker (def → call → seed → confirm UI → `zh8` fork over `ol`)
 
 2. **The notification engine** (independent — read when investigating phone push / job-list state):
    - [bg_session_classifier.md](./bg_session_classifier.md) — how a worker's state is derived from message text

@@ -168,12 +168,53 @@ Cross-validated against:
 | `z04` | `generateToolUseSummary` (LLM "git-commit-subject" tool-call → ≤30-char progress label) | cli_inner_pretty.js:447331-447382 | function |
 | `Zd_` | `RX_PASSIVE_WAIT` (temporal/conditional clause meaning "not the agent's own next step") | cli_inner_pretty.js:449569 (body 449570) | constant |
 | `Zg_` | `TOOL_SUMMARY_PROMPT` (label-writing system prompt for `generateToolUseSummary`) | cli_inner_pretty.js:447393-447402 | variable |
-| `zh8` | `backgroundCurrentSession` (resume the live session in a bg worker via `--resume --fork-session`; worktree handoff) | cli_inner_pretty.js:542680-542731 | function |
+| `zh8` | `backgroundCurrentSession` / `spawnBackgroundFork` (resume the live session in a bg worker via `--resume --fork-session`; worktree handoff — bundler ground-truth export name is `spawnBackgroundFork`) | cli_inner_pretty.js:542680-542731 | function |
 | `zH9` | `collectRespawnFlags` (keep-list flag collector for respawn replay: value-bearing `hqq` + boolean `pwz`) | cli_inner_pretty.js:542542-542560 | function |
 | `Zyz` | `restoreGoalFromTranscript` (resume-time goal recovery; re-stamp `activeGoal` if not met/failed) | cli_inner_pretty.js:598870 | function |
 | `_H9` | `extractResumeSessionId` (pull the resume target session id from `--resume`/`-r` argv) | cli_inner_pretty.js:542463-542475 | function |
 | `_J` | `isSettledState` (`isTerminalState(state) && tempo !== "active"`) | cli_inner_pretty.js:184283-184285 | function |
 | `$q9` | `writePtyLog` (append a timestamped line to the pty-host log) | cli_inner_pretty.js:559334-559343 | function |
+
+### `/background` (`/bg`) command surface, guards, confirm-UI state & sibling commands
+
+Added for `36_background_agents/background_slash_command.md`. The bg-specific rows live in
+`symbol_index_core_features.md` (Background Agents → `/background` Command Surface + Lifecycle Commands); the
+generic primitives `kLH`/`D$`/`t9`/`C8` live in `symbol_index_infra_integration.md`. All verified at the cited
+line in the 2.1.156 bundle.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$Dz` | `stopCommandNonInteractive` (`/stop` `type:"local"` variant, `supportsNonInteractive:true`, `isEnabled:v7`) | cli_inner_pretty.js:543016 | object |
+| `_Dz` | `forkCommandDef` (`/fork` `local-jsx` def "Spawn a background agent that inherits the full conversation"; `isEnabled:oT`) | cli_inner_pretty.js:543045 | object |
+| `awz` | `backgroundCommandDefExport` (default export of `MH9`; `= owz`) | cli_inner_pretty.js:542950 | variable |
+| `bzH` | `requestDaemonDetach` (Guard 1 path when already a bg session: ask the daemon to detach this client) | cli_inner_pretty.js:457636 | function |
+| `C8` | `DialogBox` (generic titled/subtitled bordered panel with `onCancel`; used by `gwz`) | cli_inner_pretty.js:183009 | function (React) |
+| `cwz` | `selectAlwaysDenyRules` (bg-prompt store selector → `toolPermissionContext.alwaysDenyRules`) | cli_inner_pretty.js:542877 | function |
+| `D$` | `useStoreSelector` (app-store selector hook over `useSyncExternalStore`; context store `nJ6`→`useContext(rdH)`) | cli_inner_pretty.js:170023 | function |
+| `dwz` | `selectTasks` (bg-prompt store selector → `state.tasks`) | cli_inner_pretty.js:542874 | function |
+| `ewz` | `stopBridgeCall` (`/stop` via bridge → `Yh8("bridge")`, returns `{type:"skip"}`) | cli_inner_pretty.js:542997 | function |
+| `Fwz` | `backgroundCall` (the `/background` `call` handler: two guards → `Ah8` seed → returns `gwz` element) | cli_inner_pretty.js:542895 | function |
+| `HDz` | `stopCommandJsx` (`/stop` `local-jsx` def "Stop this background session; transcript and worktree are kept"; `immediate:true`, `isEnabled:v7`) | cli_inner_pretty.js:543008 | object |
+| `hV8` | `countInflightTasks` (count + summarize in-flight work the fork won't inherit; `{count,kinds,summary}`) | cli_inner_pretty.js:457394 | function |
+| `iwz` | `selectPermissionMode` (bg-prompt store selector → `toolPermissionContext.mode`) | cli_inner_pretty.js:542886 | function |
+| `jH9` | `initBackgroundCommandDef` (lazy thunk assigning `owz`/`awz`) | cli_inner_pretty.js:542939 | function |
+| `KDz` | `forkCommandCall` (`/fork` call: trim directive, error if empty, `Wr6` fork, print success) | cli_inner_pretty.js:543028 | function |
+| `kLH` | `isImmediateCmd` (evaluate a command def's `immediate` as fn-of-input or boolean; drives `/background` no-Enter path) | cli_inner_pretty.js:395644 | function |
+| `lwz` | `selectAlwaysAllowRules` (bg-prompt store selector → `toolPermissionContext.alwaysAllowRules`) | cli_inner_pretty.js:542880 | function |
+| `MH9` | `backgroundCommandDefModule` (def namespace; `default → awz`) | cli_inner_pretty.js:542936 | object |
+| `NWH` | `isSessionPersistenceDisabled` (Guard 2: test-mode / `Kb()` / `CLAUDE_CODE_SKIP_PROMPT_HISTORY`) | cli_inner_pretty.js:546176 | function |
+| `nwz` | `selectAdditionalWorkingDirectories` (bg-prompt store selector → `toolPermissionContext.additionalWorkingDirectories`) | cli_inner_pretty.js:542883 | function |
+| `OH9` | `backgroundCommandImplModule` (impl namespace; exports `spawnBackgroundFork`/`deriveBackgroundSeed`/`call`) | cli_inner_pretty.js:542678 | object |
+| `owz` | `backgroundCommandDef` (the `/background` alias `/bg` `local-jsx` command def object) | cli_inner_pretty.js:542938 | object |
+| `qDz` | `stopCommandDefault` (`= HDz`, default export of the `/stop` jsx module) | cli_inner_pretty.js:543024 | variable |
+| `rwz` | `selectEffortValue` (bg-prompt store selector → `state.effortValue`) | cli_inner_pretty.js:542889 | function |
+| `Sqq` | `initBackgroundImplDeps` (init thunk: load dep modules + bind React `NAH` before impl namespace) | cli_inner_pretty.js:542914 | function |
+| `swz` | `currentJobDir` (returns `process.env.CLAUDE_JOB_DIR`) | cli_inner_pretty.js:542952 | function |
+| `t9` | `ConfirmCancelChoice` (generic confirm/cancel control: `confirmLabel`/`cancelLabel`/`onConfirm`/`onCancel`; used by `gwz`) | cli_inner_pretty.js:281923 | function (React) |
+| `twz` | `stopInteractiveCall` (`/stop` jsx call → `onDone()` then `Yh8("stop_command")`) | cli_inner_pretty.js:542989 | function |
+| `v7` | `isBackgroundSession` (`VOH() === "bg"`; Guard 1 detection; gates `/stop` `isEnabled`) | cli_inner_pretty.js:99358 | function |
+| `Wr6` | `forkConversation` (spawn a conversation-inheriting subagent from the live transcript + rendered system prompt) | cli_inner_pretty.js:454216 | function |
+| `Yh8` | `stopSelfSession` (`/stop` core: `tengu_bg_agent_action` telemetry, terminal-state-guarded "stopped" write, banner, graceful exit) | cli_inner_pretty.js:542955 | function |
 
 ---
 
@@ -193,7 +234,9 @@ module docs; this list is for cross-referencing event names, not for symbol look
 - `tengu_bg_daemon_service_stale_exec` — service exec deleted; transient fallback — cli_inner_pretty.js:540130
 - `tengu_bg_daemon_binary_takeover` — client SIGKILL of stale transient daemon — cli_inner_pretty.js:540288
 - `tengu_bg_binary_takeover` — feature gate (default true) for takeover — cli_inner_pretty.js:540247
-- `tengu_background` / `tengu_background_fork` / `tengu_background_spawn_failed` — `/bg` handoff — cli_inner_pretty.js:542723/542800/542722
+- `tengu_background` / `tengu_background_fork` / `tengu_background_spawn_failed` — `/bg` handoff (`via_flag`/`via`; `confirmed`/`inflight_count`/`mid_turn`/`had_prompt`/`had_worktree`/`worktree_handed_off`) — cli_inner_pretty.js:542723/542800/542722
+- `tengu_background_already_bg` — `/bg` invoked while already a bg session (Guard 1, `Fwz`) — cli_inner_pretty.js:542896
+- `tengu_background_declined` — user chose "Stay" at the in-flight-tasks confirm (`gwz`, `inflight_count`) — cli_inner_pretty.js:542842
+- `tengu_bg_agent_action` — `/stop` self-stop (`action:"stop"`, `source:"stop_command"|"bridge"`, `jobSessionId`) (`Yh8`) — cli_inner_pretty.js:542956
 - `tengu_daemon_yield_takeover` / `tengu_daemon_self_restart_on_upgrade` — pre-existing daemon self-restart paths — cli_inner_pretty.js:648590/648783
 - `ptyhost_orphan_watchdog` — pty-host orphan-watchdog `exit-cause` marker (via `nJ`) — cli_inner_pretty.js:559229
-</content>

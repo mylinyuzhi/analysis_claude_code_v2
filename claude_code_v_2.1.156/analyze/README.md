@@ -61,12 +61,16 @@ by_version/2.1.154.md   (THE FLAGSHIP — Opus 4.8 + dynamic workflows + lean pr
 by_version/2.1.156.md   (Opus 4.8 thinking-block modification → API-error hotfix)
 ```
 
-### Module deep-dives (11 modules)
+### Module deep-dives (12 modules)
 
 ```
 00_overview/             Navigation surface — narrative, traceability, four symbol indexes, per-module additions
 04_tools/                Workflow tool registration, AskUserQuestion reservation, disallowed-tools frontmatter,
                          Read PARTIAL-view truncation, always-on streaming tool execution
+07_compact/              Compaction — the {ok|warn|compact|blocked} threshold ladder + 4-source window resolution,
+                         the autocompact dispatcher with two breakers (circuit + rapid-refill), full/proactive +
+                         reactive/group-walk + context_hint micro-compact + /rewind partial lanes, summary prompts,
+                         PostCompact cache re-baseline (cross-validated vs v2.1.88 src/services/compact)
 10_skill_system/         /reload-skills + SessionStart reloadSkills, disallowed-tools frontmatter,
                          context:fork recursion guard, effort: frontmatter, three bundled skill bodies
 11_hooks/                NEW MessageDisplay display-only hook (+ streaming engine), SessionStart sessionTitle/reloadSkills,
@@ -90,7 +94,7 @@ by_version/2.1.156.md   (Opus 4.8 thinking-block modification → API-error hotf
                          verify → sweep prompt, --comment / --fix blocks, cleanup-only /simplify, cloud ultra ("bughunter") bridge
 ```
 
-**Four modules document features that are genuinely NEW in this window:** `42_workflow/`, `43_model_opus48/`, `44_lean_prompt/`, and `45_code_review/`. The other seven (`04_tools/`, `10_skill_system/`, `11_hooks/`, `30_agent_team/`, `31_auto_memory/`, `36_background_agents/`, `37_permission_policy/`) continue from the v2.1.142 baseline and document the v2.1.143 → v2.1.156 *delta* on top of it — each cross-links its v2.1.142 predecessor. (`31_auto_memory/` and `30_agent_team/` are the most recent additions, gained in later passes: auto memory + auto dreaming existed in v2.1.142 but only got its module later — documenting the `tengu_kairos_dream` `/dream` skill being replaced by a scheduled-task routine scaffold; the agent-team/swarm subsystem likewise existed in the v2.1.142 tree, but `30_agent_team/` here is a CONTINUATION that re-frames it around the v2.1.156 `BackendRegistry` executor split — in-process-vs-pane — that the v2.1.142 tree never isolated, and documents one cross-version delta: coordinator mode (absent in v2.1.142, per that tree's correct reading) is **re-introduced** and live in v2.1.156, a revival of v2.1.88's `coordinatorMode.ts`.)
+**Four modules document features that are genuinely NEW in this window:** `42_workflow/`, `43_model_opus48/`, `44_lean_prompt/`, and `45_code_review/`. The other eight (`04_tools/`, `07_compact/`, `10_skill_system/`, `11_hooks/`, `30_agent_team/`, `31_auto_memory/`, `36_background_agents/`, `37_permission_policy/`) continue from the v2.1.142 baseline and document the v2.1.143 → v2.1.156 *delta* on top of it — each cross-links its v2.1.142 predecessor. (`31_auto_memory/` and `30_agent_team/` are the most recent additions, gained in later passes: auto memory + auto dreaming existed in v2.1.142 but only got its module later — documenting the `tengu_kairos_dream` `/dream` skill being replaced by a scheduled-task routine scaffold; the agent-team/swarm subsystem likewise existed in the v2.1.142 tree, but `30_agent_team/` here is a CONTINUATION that re-frames it around the v2.1.156 `BackendRegistry` executor split — in-process-vs-pane — that the v2.1.142 tree never isolated, and documents one cross-version delta: coordinator mode (absent in v2.1.142, per that tree's correct reading) is **re-introduced** and live in v2.1.156, a revival of v2.1.88's `coordinatorMode.ts`.)
 
 ## Cross-Validation Methodology
 

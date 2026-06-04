@@ -219,8 +219,49 @@ See `36_background_agents/{shell_exec_sessions,unified_dispatcher_ol,...}.md` fo
 | `Swz` | `dispatchFailureLabel` (dispatch-failure reason → human label: "not running" / "timed out" / …) | cli_inner_pretty.js:542063 | function |
 | `Uwz` | `firstPositionalAsIntent` (derive intent from last non-flag positional that isn't the resume id) | cli_inner_pretty.js:542530 | function |
 | `uwz` | `stripLaunchFlags` (drop resume/fork/session-id flags for resume-mode `flagArgs`) | cli_inner_pretty.js:542476 | function |
-| `zh8` | `backgroundCurrentSession` (resume the live session in a bg worker via `--resume --fork-session`; worktree handoff) | cli_inner_pretty.js:542680 | function |
+| `zh8` | `backgroundCurrentSession` / `spawnBackgroundFork` (resume the live session in a bg worker via `--resume --fork-session`; worktree handoff — bundler ground-truth export name is `spawnBackgroundFork`, see `X$(OH9,{spawnBackgroundFork:()=>zh8,…})` at :542679) | cli_inner_pretty.js:542680 | function |
 | `zH9` | `collectRespawnFlags` (keep-list flag collector for respawn replay: value-bearing `hqq` + boolean `pwz`) | cli_inner_pretty.js:542542 | function |
+
+### `/background` (`/bg`) Command Surface, Guards & Confirm-UI State
+
+> Narrative: `36_background_agents/background_slash_command.md`. The generic primitives the surface composes with — `kLH` (immediate-predicate evaluator), `D$` (store-selector hook), `t9`/`C8` (confirm/dialog UI) — live in `symbol_index_infra_integration.md`.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `awz` | `backgroundCommandDefExport` (default export of `MH9`; `= owz`) | cli_inner_pretty.js:542950 | variable |
+| `bzH` | `requestDaemonDetach` (Guard 1 path: when already a bg session, ask the daemon to detach this client) | cli_inner_pretty.js:457636 | function |
+| `cwz` | `selectAlwaysDenyRules` (bg-prompt store selector → `toolPermissionContext.alwaysDenyRules`) | cli_inner_pretty.js:542877 | function |
+| `dwz` | `selectTasks` (bg-prompt store selector → `state.tasks`, feeds the inflight counter) | cli_inner_pretty.js:542874 | function |
+| `Fwz` | `backgroundCall` (the `/background` `call` handler: two guards → `Ah8` seed → returns `gwz` element) | cli_inner_pretty.js:542895 | function |
+| `hV8` | `countInflightTasks` (count + summarize in-flight work the fork won't inherit; `{count,kinds,summary}`) | cli_inner_pretty.js:457394 | function |
+| `iwz` | `selectPermissionMode` (bg-prompt store selector → `toolPermissionContext.mode`) | cli_inner_pretty.js:542886 | function |
+| `jH9` | `initBackgroundCommandDef` (lazy thunk assigning `owz`/`awz`) | cli_inner_pretty.js:542939 | function |
+| `lwz` | `selectAlwaysAllowRules` (bg-prompt store selector → `toolPermissionContext.alwaysAllowRules`) | cli_inner_pretty.js:542880 | function |
+| `MH9` | `backgroundCommandDefModule` (def namespace; `default → awz`) | cli_inner_pretty.js:542936 | object |
+| `NWH` | `isSessionPersistenceDisabled` (Guard 2: test-mode / `Kb()` / `CLAUDE_CODE_SKIP_PROMPT_HISTORY` → fork would have nothing to resume) | cli_inner_pretty.js:546176 | function |
+| `nwz` | `selectAdditionalWorkingDirectories` (bg-prompt store selector → `toolPermissionContext.additionalWorkingDirectories`) | cli_inner_pretty.js:542883 | function |
+| `OH9` | `backgroundCommandImplModule` (impl namespace; exports `spawnBackgroundFork`(`zh8`)/`deriveBackgroundSeed`(`Ah8`)/`call`(`Fwz`)) | cli_inner_pretty.js:542678 | object |
+| `owz` | `backgroundCommandDef` (the `/background` alias `/bg` `local-jsx` command def: name/aliases/description/argumentHint/immediate/isEnabled/load) | cli_inner_pretty.js:542938 | object |
+| `rwz` | `selectEffortValue` (bg-prompt store selector → `state.effortValue`; becomes `--effort`) | cli_inner_pretty.js:542889 | function |
+| `Sqq` | `initBackgroundImplDeps` (init thunk: load dep modules + bind React `NAH` before the impl namespace is handed back) | cli_inner_pretty.js:542914 | function |
+| `swz` | `currentJobDir` (returns `process.env.CLAUDE_JOB_DIR`) | cli_inner_pretty.js:542952 | function |
+| `v7` | `isBackgroundSession` (`VOH() === "bg"`; Guard 1 detection; also gates `/stop` `isEnabled`) | cli_inner_pretty.js:99358 | function |
+
+### Background-Session Lifecycle Commands (`/stop`, `/fork`)
+
+> Sibling commands documented alongside `/background` in `36_background_agents/background_slash_command.md` §6.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$Dz` | `stopCommandNonInteractive` (`/stop` `type:"local"` variant, `supportsNonInteractive:true`, `isEnabled:v7`) | cli_inner_pretty.js:543016 | object |
+| `_Dz` | `forkCommandDef` (`/fork` `local-jsx` def "Spawn a background agent that inherits the full conversation"; `isEnabled:oT`) | cli_inner_pretty.js:543045 | object |
+| `ewz` | `stopBridgeCall` (`/stop` call via bridge → `Yh8("bridge")`, returns `{type:"skip"}`) | cli_inner_pretty.js:542997 | function |
+| `HDz` | `stopCommandJsx` (`/stop` `local-jsx` def "Stop this background session; transcript and worktree are kept"; `immediate:true`, `isEnabled:v7`) | cli_inner_pretty.js:543008 | object |
+| `KDz` | `forkCommandCall` (`/fork` call: trim directive, error if empty, `Wr6` fork, print "forked `<name>` (`<id4>`)") | cli_inner_pretty.js:543028 | function |
+| `qDz` | `stopCommandDefault` (`= HDz`, default export of the `/stop` jsx module) | cli_inner_pretty.js:543024 | variable |
+| `twz` | `stopInteractiveCall` (`/stop` jsx call → `onDone()` then `Yh8("stop_command")`) | cli_inner_pretty.js:542989 | function |
+| `Wr6` | `forkConversation` (spawn a conversation-inheriting subagent from the live transcript + rendered system prompt) | cli_inner_pretty.js:454216 | function |
+| `Yh8` | `stopSelfSession` (`/stop` core: `tengu_bg_agent_action` telemetry, terminal-state-guarded "stopped" write, "Session stopped." banner, graceful `tK` exit) | cli_inner_pretty.js:542955 | function |
 
 ### Four-State Classifier (working/blocked/done/failed)
 
@@ -588,9 +629,103 @@ Known new themes:
 
 ## Module: Compact
 
-Autocompact dispatcher, microcompact stub, context-collapse persistence, summarize-up-to-here, prompt-cache interaction.
+The v2.1.156 compaction subsystem runs **multiple co-existing strategies** behind a multi-band **threshold
+ladder** with **4-source context-window resolution**. The bands are computed by `classifyTokenLevel` (`fX4`)
+returning `{level: ok|warn|compact|blocked}` — a v2.1.156 refactor of v2.1.88's four separate booleans. The
+per-turn dispatcher `autoCompactGenerator` (`DX4`) gates on the level, protects against thrashing with **two
+breakers** (circuit `_c6=3`, rapid-refill `Y08=3`), and either runs the **full/proactive** lane
+(`compactConversationFull` `_eH`, whole-conversation single summary) or routes to the **reactive/partial** lane
+(`runReactiveCompact` `lA8`, group-walk for 1M/PTL) when `thresholdSource!=='auto'`. A separate **micro-compact**
+lane (`createContextHintController` `kLz` → `applyKeepRecentMicrocompact` `K04`) clears old tool-result content
+in place (no LLM) on a server-driven `context_hint` rejection, and `/rewind` exposes a **partial** lane
+(`partialCompact` `qX4`, `from`/`up_to`). A PostCompact tail re-baselines the prompt cache.
 
-*(No net-new symbols specific to this index in the v2.1.143 → v2.1.156 window beyond what is recorded in `symbol_index_core_execution.md` and `symbol_index_infra_platform.md` for prompt-cache helpers. Skill-compaction truncation helpers continue to live in the Skills sections of the prior tree.)*
+See `07_compact/{threshold_and_window_resolution,autocompact_dispatcher_and_breakers,compaction_pipeline,reactive_compaction,micro_compact,session_memory_and_partial_compact,summary_prompt_templates,postcompact_and_prompt_cache,cross_validation}.md`
+for narrative analysis, and `symbol_additions_v2_1_156_compact.md` for the **full flat manifest** (202 symbols,
+eight sub-area tables). Model-window helpers (`Ov`/`DZ`/`P36`/`NO$`/`E5H`) route to
+`symbol_index_infra_platform.md`; the cache-break detector helpers (`wv7`/`_P$`/`HU`/`Pc5`/`Wc5`/`sk6`/`Xc5`/`GA8`)
+are shared with the prompt-cache work there. This table carries the highest-value structural symbols only.
+
+### Threshold Ladder & Window Resolution
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `fX4` | `classifyTokenLevel` (banded `{level: ok\|warn\|compact\|blocked, pctLeft}`; `warn=thr−20000`, `blocked=base−3000` — **replaces v2.1.88's 4 booleans**) | cli_inner_pretty.js:423873-423884 | function |
+| `Jv$` | `getCompactThreshold` (`effectiveWindow−13000`; `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` lowers it) | cli_inner_pretty.js:423864-423868 | function |
+| `YX4` | `getPrecomputeThreshold` (`min(eff−round(eff*0.2), compactThreshold)` — **NEW** proactive-work gate) | cli_inner_pretty.js:423870-423872 | function |
+| `Xl` | `resolveAutoCompactWindow` (**4-source**: env > settings > experiment > default; `{window,configured,source}`) | cli_inner_pretty.js:423915-423930 | function |
+| `_qH` | `getEffectiveWindow` (`window − min(maxOutput, MX4=20000)`) | cli_inner_pretty.js:423938-423943 | function |
+| `ab_` | `getAutoCompactWindowSource` (the `thresholdSource` that gates reactive routing) | cli_inner_pretty.js:423935-423937 | function |
+| `wX4` | `getExperimentWindowForModel` (Opus-4.8-only window via `tengu_amber_redwood2` — **NEW**) | cli_inner_pretty.js:423906-423914 | function |
+| `Ac6` | `parseWindowString` (`'auto'`/`Nm`/`Nk`/`N`; clamp `[zc6 .. jX4]`) | cli_inner_pretty.js:423889 | function |
+| `zX4` | `AUTOCOMPACT_BUFFER_TOKENS` (`13000`) | cli_inner_pretty.js:423885 | constant |
+| `AX4` | `MANUAL_COMPACT_BUFFER_TOKENS` (`3000` — blocking-limit buffer) | cli_inner_pretty.js:423886 | constant |
+| `qc6` | `DEFAULT_PRECOMPUTE_BUFFER_FRACTION` (`0.2`; `tengu_amber_rokovoko` override — **NEW**) | cli_inner_pretty.js:423887 | constant |
+| `MX4` | `MAX_OUTPUT_TOKENS_FOR_SUMMARY` (`20000` summary reserve) | cli_inner_pretty.js:424124 | constant |
+| `zc6` / `jX4` | `WINDOW_MIN` (`1e5`) / `WINDOW_MAX` (`1e6`) clamps | cli_inner_pretty.js:424125-424126 | constant |
+| `gE4` | `PERCENT_USED_UI_GATE` (`80` — autocompact-disabled nudge shows 50–80%) | cli_inner_pretty.js:467444 | constant |
+
+### Dispatcher & The Two Breakers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `DX4` | `autoCompactGenerator` (per-turn dispatcher; circuit + rapid-refill breakers; reactive-routing fork) | cli_inner_pretty.js:424002-424093 | function |
+| `eb_` | `shouldAutoCompact` (pre-flight predicate; true when level `compact`/`blocked`) | cli_inner_pretty.js:423991-424001 | function |
+| `J0` | `isAutoCompactEnabled` (`DISABLE_COMPACT`/`DISABLE_AUTO_COMPACT` + `autoCompactEnabled`) | cli_inner_pretty.js:423983-423987 | function |
+| `fc6` | `computeRapidRefillStreak` (`+1` if prev compacted & `turnCounter<3` — **NEW**) | cli_inner_pretty.js:423948-423950 | function |
+| `Mc6` | `isColdCompact` (`CLAUDE_CODE_COLD_COMPACT` — **NEW**) | cli_inner_pretty.js:423951-423953 | function |
+| `Xv$` | `pumpCompactEvents` (generator adapter forwarding `onCompactEvent` as yielded events) | cli_inner_pretty.js:424103-424123 | function |
+| `_c6` | `MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES` (`3` — circuit breaker) | cli_inner_pretty.js:424128 | constant |
+| `Yc6` | `RAPID_REFILL_TURN_WINDOW` (`3` — **NEW**) | cli_inner_pretty.js:424129 | constant |
+| `Y08` | `MAX_CONSECUTIVE_RAPID_REFILLS` (`3` — thrash breaker — **NEW**) | cli_inner_pretty.js:424130 | constant |
+
+### Full Pipeline, Reactive Lane & PTL
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_eH` | `compactConversationFull` (whole-conversation summary, `messagesToKeep:[]`, front-drop PTL retry) | cli_inner_pretty.js:423130+ | function |
+| `_X4` | `runCompactionSummarization` (forked cache-sharing summarize call; denies all tools) | cli_inner_pretty.js:423539 | function |
+| `$X4` | `sliceForPromptTooLong` (group-drop PTL recovery, shared by full + partial) | cli_inner_pretty.js:423077-423092 | function |
+| `qX4` | `partialCompact` (`/rewind` `from`/`up_to`; v2.1.142 `_H4`) | cli_inner_pretty.js:423340-423509 | function |
+| `lA8` | `runReactiveCompact` (reactive-lane orchestrator; reactive compaction was `feature(REACTIVE_COMPACT)`-gated/ant-only in v2.1.88 — the **routing fork** `thresholdSource!=="auto"` is what's NEW) | cli_inner_pretty.js:272213-272331 | function |
+| `xA8` | `iterateReactiveGroupWalk` (summarize-oldest / preserve-newest group walk) | cli_inner_pretty.js:271231-271323 | function |
+| `bv7` | `seedPreservedCount` (greedy token-accumulation seed; v2.1.142 `B47`) | cli_inner_pretty.js:271220-271226 | function |
+| `ucH` | `extractPTLTokenGap` (overflow size → `initialTokenGap`) | cli_inner_pretty.js:186340-186346 | function |
+| `PP$` | `createCompactBoundaryMessage` (`system/compact_boundary` marker; v2.1.142 `jM$`) | cli_inner_pretty.js:445985-445997 | function |
+| `PzH` | `PreCompactBlockedError` (thrown when a PreCompact hook blocks — **NEW**) | cli_inner_pretty.js:423862 | class |
+| `HX4` | `MAX_PTL_RETRIES` (`3`) | cli_inner_pretty.js:423806 | constant |
+| `Rd` | `PROMPT_TOO_LONG_PREFIX` (`'Prompt is too long'` sentinel) | cli_inner_pretty.js:186902 | constant |
+
+### Micro-Compact (`context_hint`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `kLz` | `createContextHintController` (stateful per-request reactive micro-compact driver — **NEW**) | cli_inner_pretty.js:556535-556577 | function |
+| `K04` | `applyKeepRecentMicrocompact` (gate `Ti6`, persist, apply `Zk$`, emit telemetry) | cli_inner_pretty.js:447282-447307 | function |
+| `Vi6` | `computeKeepClearSets` (partition keep-last-N / clear-rest; tokensSaved) | cli_inner_pretty.js:447253-447267 | function |
+| `Zk$` | `applyClearingToMessages` (in-place tool_result content substitution) | cli_inner_pretty.js:447268-447281 | function |
+| `X69` | `isContextHintEnabled` (`tengu_hazel_osprey` master switch) | cli_inner_pretty.js:556448-556450 | function |
+| `k76` | `CONTEXT_HINT_BETA` (`context-hint-2026-04-09` — **NEW**) | cli_inner_pretty.js:98137 | constant |
+| `Ti6` | `MIN_TOKENS_SAVED_TO_FIRE` (`20000` floor — **NEW**) | cli_inner_pretty.js:447310 | constant |
+| `Gi6` | `CLEARED_PLACEHOLDER` (`'[Old tool result content cleared]'`) | cli_inner_pretty.js:447308 | constant |
+| `k69` | `KEEP_RECENT` (`5`; matches v2.1.88 `keepRecent`) | cli_inner_pretty.js:556578 | constant |
+
+### Summary Prompts, Partial UI & PostCompact
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `bA8` | `buildFullCompactPrompt` (9-section TEXT-ONLY summary prompt) | cli_inner_pretty.js:270917-270930 | function |
+| `Cv7` | `buildPartialCompactPrompt` (direction dispatcher `from`/`up_to`) | cli_inner_pretty.js:270824-270916 | function |
+| `xc5` | `formatCompactSummary` (strip `<analysis>`, unwrap `<summary>`) | cli_inner_pretty.js:271031-271052 | function |
+| `jP$` | `buildCompactSummarySeed` (`isCompactSummary` replacement user message) | cli_inner_pretty.js:271053-271073 | function |
+| `jJ` | `tokenCountWithEstimation` (`preCompactTokenCount`: usage + tail estimate) | cli_inner_pretty.js:221106 | function |
+| `X4q` | `isSummarizeAction` (`'summarize'`/`'summarize_up_to'`) | cli_inner_pretty.js:572787-572789 | function |
+| `Wc` | `executePreCompactHooks` (PreCompact event; `{newCustomInstructions, blockedBy?}`) | cli_inner_pretty.js:551557 | function |
+| `XxH` | `markPostCompaction` (one-shot arm `pendingPostCompaction=true`) | cli_inner_pretty.js:2540-2542 | function |
+| `vu8` | `consumePostCompaction` (read-and-clear; consumed by `tengu_api_success`) | cli_inner_pretty.js:2543-2546 | function |
+| `Uo` | `runPostCompactCleanup` (main-thread-gated cache resets + banner ack) | cli_inner_pretty.js:272181-272194 | function |
+| `_P$` | `notifyCompaction` (re-baseline cache-break detector; **+disk-persist NEW**) | cli_inner_pretty.js:270034-270038 | function |
+| `xP$` | `openTracingSpan` (`'claude_code.compaction'` OTEL span — **NEW**) | cli_inner_pretty.js:276662 | function |
 
 Known new themes:
 

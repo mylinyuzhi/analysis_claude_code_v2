@@ -342,6 +342,8 @@ async function takeoverStaleDaemon(daemonVersion, forceTransient) {
 
 ## Part 3 — `/bg` While Responding: Live-Turn Handoff
 
+> **See also:** the **full `/background` (`/bg`) command surface** — command def, `call` handler + guards, seed derivation, the confirm UI, and the `/stop`/`/fork` siblings — is documented in [background_slash_command.md](./background_slash_command.md). This Part 3 keeps `/bg` only as the *daemon/live-turn-handoff* delta (`zh8`); read the dedicated doc for the end-to-end command. Note `zh8`'s bundler ground-truth export name is `spawnBackgroundFork` (the `backgroundCurrentSession` label used below is a descriptive alias).
+
 ### Entry points
 
 There are two ways to background the *current* session:

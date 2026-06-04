@@ -70,6 +70,16 @@ The `/workflows` viewer dialog and the run-snapshot persistence/listing helpers 
 | `C74` | `writeWorkflowSnapshot` (persist a completed run's full record JSON for `/workflows` history) | cli_inner_pretty.js:374771-374780 | function |
 | `gt4` | `WorkflowHistoryDialog` (`/workflows` viewer React component; merges live tasks + completed snapshots, de-dup by `runId`, list/detail modes) | cli_inner_pretty.js:538403+ | function (React) |
 
+### Shared Confirm/Dialog Primitives & Store Hook
+
+> Generic, widely-reused primitives. Surfaced here because the `/background` confirm UI (`gwz`, see `symbol_index_core_features.md` → `/background` Command Surface) composes with all three; documented in `36_background_agents/background_slash_command.md` §4.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `C8` | `DialogBox` (titled/subtitled bordered panel with an `onCancel`; wraps interactive children) | cli_inner_pretty.js:183009 | function (React) |
+| `D$` | `useStoreSelector` (app-store selector hook over `useSyncExternalStore`; reads `getState`/`subscribe` from the context store `nJ6`→`useContext(rdH)`) | cli_inner_pretty.js:170023 | function |
+| `t9` | `ConfirmCancelChoice` (two-option confirm/cancel control: `confirmLabel`/`cancelLabel`/`onConfirm`/`onCancel`) | cli_inner_pretty.js:281923 | function (React) |
+
 ---
 
 ## Module: Plugin System
@@ -106,6 +116,12 @@ Slash command parser, bundled prompt-command registrar/registry, `/code-review` 
 |------------|----------|-----------|------|
 | `bA` | `registerBundledPromptCommand` (generic bundled prompt-command registrar; normalizes the spec, installs lazy getters, pushes onto `Ji4`) | cli_inner_pretty.js:524187 | function |
 | `Ji4` | `BUNDLED_COMMANDS` (the bundled-prompt-command registry array; initialized to `[]` in a comma-expression) | cli_inner_pretty.js:524295 | variable |
+
+### Slash-Command Dispatch Primitives
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `kLH` | `isImmediateCmd` (evaluate a command def's `immediate` as a function-of-input or a plain boolean: `typeof q==="function" ? q(input) : q===true` — drives the no-Enter immediate path used by `/background`) | cli_inner_pretty.js:395644 | function |
 
 ### `/code-review` Command (v2.1.147 onward; v2.1.152 `--fix`, v2.1.154 cleanup-only split)
 

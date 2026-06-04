@@ -256,3 +256,45 @@ canonical additions file. Both are now reconciled.
 The two `(unverified)` items the module itself flags — the exact cron-goal-loss patch site (classifier doc §6.3)
 and the 2.1.154 `/logout` / `←←` UI-routing gate sites (daemon doc §"2.1.154 UI-Routing") — were left as honestly
 labeled gaps; they are not factual errors and are correctly scoped to other modules.
+
+---
+
+## Round 8 (2026-06-04) — `background_slash_command.md` cross-validation
+
+The 7th deep-dive in this module — [`background_slash_command.md`](../36_background_agents/background_slash_command.md), the full `/background` (`/bg`) slash-command surface — was added after this report's first pass and is cross-validated here on its own.
+
+- **Method:** an independent adversarial Workflow, **8 read-only validators, default-to-FAIL**: 7 partitioned the doc by section (1–105 overview, 106–433 def+call+guards, 434–635 seed, 636–860 confirm-UI, 861–1076 fork, 1077–1229 siblings+telemetry, 1230–1316 cross-ref+Related-Symbols) and re-opened **every** cited `cli_inner_pretty.js:<line>` in the 2.1.156 bundle; 1 re-ran the §8 greps against the 2.1.88 reconstructed tree (`/lyz/codespace/3rd/claude-code/src`). The doc carries **220 unique line citations + ~80 symbol→line mappings**.
+- **Result: 306 PASS / 1 PARTIAL / 1 FAIL.** Both flagged items were documentation wording, **not** code-analysis errors; the orchestrator re-confirmed both against source before acting.
+
+| Validator batch | PASS | PARTIAL | FAIL |
+|-----------------|------|---------|------|
+| overview (1–105) | 18 | 1 | 1 |
+| def-and-call (106–433) | 25 | 0 | 0 |
+| seed (434–635) | 18 | 0 | 0 |
+| confirm-ui (636–860) | 45 | 0 | 0 |
+| fork (861–1076) | 47 | 0 | 0 |
+| siblings-telemetry (1077–1229) | 19 | 0 | 0 |
+| xref-and-symbols (1230–1316) | 80 | 0 | 0 |
+| 2.1.88 cross-validation | 54 | 0 | 0 |
+
+### The two findings (both resolved)
+
+1. **PARTIAL — empty-seed message abbreviated in the flow diagram.** The "End-to-end flow" ASCII box (line ~80) rendered the third-guard message as `"Nothing to background yet — send a message…"`. Source `cli_inner_pretty.js:542904` is `"Nothing to background yet — send a message first."` (re-read verbatim). The §2 prose/snippet (lines 288/316/422/617) already had the exact text; only the diagram abbreviated it. **Fix:** diagram updated to the exact string.
+
+2. **FAIL (re-classified to a precision note) — `Sqq` → `initBackgroundImplDeps` is a *coined* name.** The validator failed this because `grep initBackgroundImplDeps` → 0 hits. Confirmed: it is not a bundler-preserved name. **But that is true of nearly every readable name in this project** — e.g. the same validator pass-listed `backgroundCall` (`Fwz`, also 0 hits). Coining readable names is the mandated deobfuscation methodology (CLAUDE.md). The genuine kernel: this doc emphasizes `OH9`'s three *ground-truth* export keys (`spawnBackgroundFork`/`deriveBackgroundSeed`/`call` — `grep spawnBackgroundFork` → 1 hit), so a reader could mistake a coined name for a recovered one. **Fix:** added a "ground-truth vs coined" note to §"Where it lives" that explicitly labels `MH9`/`OH9`/`Sqq`/`jH9`/`Fwz` as coined and only the three `OH9` exports as recovered. No faithful name was removed.
+
+### v2.1.88 cross-validation (re-run independently)
+
+All §8 claims re-confirmed against the reconstructed tree: `ls commands/` has **no** `background`/`bg`/`fork` command dir; the absence greps (`Send this session to the background`, `free the terminal`, `spawnBackgroundFork`/`deriveBackgroundSeed`/`BackgroundForkPrompt`, `tengu_background*`, `reply-on-resume|replyOnResume`) all return empty; and the pre-existing primitives are present verbatim — `--fork-session` (`main.tsx:988`) and `--bg`/`handleBgFlag` under `feature('BG_SESSIONS')` (`cli.tsx:185-206`). **Conclusion fully supported:** the `/background` (`/bg`) in-REPL handoff is NEW post-2.1.88, layered on the pre-existing `--resume`/`--fork-session` fork primitive and the `--bg` CLI flag, plus a new `--reply-on-resume` flag and the new `tengu_background*` telemetry family. *(Caveat carried in the doc: this is proven against a reconstruction, not the original obfuscated 2.1.88 bundle, which is not present locally.)*
+
+### Confidence roll-up (Round 8)
+
+| Area | Confidence | Notes |
+|------|-----------|-------|
+| Symbol existence + line pairing | **HIGH** | 306/308 exact on first pass; the 2 misses were wording, not symbol/line errors |
+| Verbatim ORIGINAL snippets (`Ah8`, `gwz`, `zh8`, `Fwz`) | **HIGH** | re-read bytewise against the bundle |
+| Telemetry events + fields | **HIGH** | all 6 events + fields confirmed at exact lines; "no `source:self`" upheld |
+| Param-flow (`zh8` call args, `ol` slot-shift) | **HIGH** | model-internal-via-`ik()`, effort=3rd, mode=4th, opts=`ol` param #5 all confirmed |
+| v2.1.88 cross-validation | **HIGH** | absence greps empty; precursors present verbatim |
+
+**Overall verdict: PASS.** After the two wording fixes, every structural, behavioral, and comparative claim in `background_slash_command.md` is backed by a re-read 2.1.156 citation, and the "NEW post-2.1.88" conclusion is independently reproduced.
