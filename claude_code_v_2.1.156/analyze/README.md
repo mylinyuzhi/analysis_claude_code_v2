@@ -36,12 +36,12 @@ This directory continues the deobfuscation analysis from v2.1.142 (in [`../../cl
 | [`00_overview/changelog_to_code_map.md`](00_overview/changelog_to_code_map.md) | Per-bullet code-traceability index — each changelog bullet (newest-first) → theme + `cli_inner_pretty.js:<line>` decl + implementation hint |
 | [`00_overview/file_index.md`](00_overview/file_index.md) | Inventory of the `cli_unpack_pretty/` decls and the `assets/` payload |
 | [`00_overview/symbol_index_core_execution.md`](00_overview/symbol_index_core_execution.md) | Symbol index — core execution (Agent Loop, Tools, LLM API, Agents, Subagent, State, System Prompts, Workflow **coordinator** prompt + Workflow tool factory/defaults) |
-| [`00_overview/symbol_index_core_features.md`](00_overview/symbol_index_core_features.md) | Symbol index — core features (Dynamic Workflows gate/caps/journal/keyword/ultracode/viewer/VM, Background Agents, Todo, Compact, Hooks, Skills, Thinking/Effort, Model-selection feature surface, Plan, Steering, CLI) |
+| [`00_overview/symbol_index_core_features.md`](00_overview/symbol_index_core_features.md) | Symbol index — core features (Dynamic Workflows gate/caps/journal/keyword/ultracode/viewer/VM, Background Agents, **Agent Team / swarm**, Todo, Compact, Hooks, Skills, Thinking/Effort, Model-selection feature surface, Plan, Steering, CLI) |
 | [`00_overview/symbol_index_infra_platform.md`](00_overview/symbol_index_infra_platform.md) | Symbol index — platform infra (MCP, Permissions, Sandbox, Auth, Model provider mapping/normalization/resolution/pricing/Fast-Mode/1M, Prompt-platform gate predicates, Telemetry) |
 | [`00_overview/symbol_index_infra_integration.md`](00_overview/symbol_index_infra_integration.md) | Symbol index — integration infra (LSP, Chrome, IDE, UI Components, Plugin System, Code Indexing, Shell Parser, Slash Commands) |
-| [`00_overview/symbol_additions_v2_1_156_*.md`](00_overview/) | Per-module symbol additions (nine files — one per analysis unit), transitional until consolidated into the four `symbol_index_*.md` files. Each carries a "Cross-validated against" block and a home-index routing note |
+| [`00_overview/symbol_additions_v2_1_156_*.md`](00_overview/) | Per-module symbol additions (twelve files — one per analysis unit, incl. `agent_team`), transitional until consolidated into the four `symbol_index_*.md` files. Each carries a "Cross-validated against" block and a home-index routing note |
 
-**Cross-validation is doubly recorded.** `00_overview/` carries nine per-module `cross_validation_report_*.md` files (the PASS/FAIL line-range + readable-name verification logs — e.g. `cross_validation_report_model_opus48.md` records the `q48`/`vP`/`Vx` canonical-name unification) plus a cross-unit roll-up `cross_validation_summary.md` (375 citation spot-checks at 98.7% first-read pass, the consolidated-index re-check, the forbidden-mapping-table scan, and the broken-relative-link sweep), and each `symbol_additions_v2_1_156_*.md` also opens with its own "Cross-validated against" block (v2.1.156 self-cross-check + v2.1.88 readable TypeScript + the v2.1.142 reference module). §13 of `changelog_analysis.md` rolls up where the readable-source trail runs cold (Workflow runtime, Opus 4.8, lean prompt, and the local `/code-review` finder are all post-2.1.88, so only partial/scaffold matches exist there).
+**Cross-validation is doubly recorded.** `00_overview/` carries twelve per-module `cross_validation_report_*.md` files (the PASS/FAIL line-range + readable-name verification logs — e.g. `cross_validation_report_model_opus48.md` records the `q48`/`vP`/`Vx` canonical-name unification) plus a cross-unit roll-up `cross_validation_summary.md` (375 citation spot-checks at 98.7% first-read pass, the consolidated-index re-check, the forbidden-mapping-table scan, and the broken-relative-link sweep), and each `symbol_additions_v2_1_156_*.md` also opens with its own "Cross-validated against" block (v2.1.156 self-cross-check + v2.1.88 readable TypeScript + the v2.1.142 reference module). §13 of `changelog_analysis.md` rolls up where the readable-source trail runs cold (Workflow runtime, Opus 4.8, lean prompt, and the local `/code-review` finder are all post-2.1.88, so only partial/scaffold matches exist there).
 
 ### Per-version delta files (`by_version/`)
 
@@ -61,7 +61,7 @@ by_version/2.1.154.md   (THE FLAGSHIP — Opus 4.8 + dynamic workflows + lean pr
 by_version/2.1.156.md   (Opus 4.8 thinking-block modification → API-error hotfix)
 ```
 
-### Module deep-dives (9 modules)
+### Module deep-dives (11 modules)
 
 ```
 00_overview/             Navigation surface — narrative, traceability, four symbol indexes, per-module additions
@@ -71,6 +71,11 @@ by_version/2.1.156.md   (Opus 4.8 thinking-block modification → API-error hotf
                          context:fork recursion guard, effort: frontmatter, three bundled skill bodies
 11_hooks/                NEW MessageDisplay display-only hook (+ streaming engine), SessionStart sessionTitle/reloadSkills,
                          Stop/SubagentStop background_tasks + session_crons, stop-hook block cap
+30_agent_team/           Agent team / swarm — in-process (ALS-isolated async task) vs cross-process (tmux/iTerm2 pane)
+                         teammates, the BackendRegistry executor split + isInProcessEnabled switch, file-mailbox IPC,
+                         TeamCreate/TeamDelete/SendMessage tools, leader↔teammate permission bridge, coordinator-mode revival (absent in .142, live in .156)
+31_auto_memory/          memdir auto memory (three writers, 200L/25KB index cap, mutual-exclusion contract) +
+                         auto dreaming (per-turn buildDreamPrompt, /dream scheduled-task scaffold, consolidation lock)
 36_background_agents/    claude --bg --exec / agents-view ! <command>, unified dispatcher ol, four-state classifier,
                          worker retire/respawn fixes, worktree-isolation guard + --bg-pty-host orphan watchdog
 37_permission_policy/    auto-mode exfiltration HARD-BLOCK rewrite + bulk-repo detection, rm -rf $HOME trailing-slash,
@@ -85,7 +90,7 @@ by_version/2.1.156.md   (Opus 4.8 thinking-block modification → API-error hotf
                          verify → sweep prompt, --comment / --fix blocks, cleanup-only /simplify, cloud ultra ("bughunter") bridge
 ```
 
-**Four modules are NEW in this window vs the v2.1.142 tree:** `42_workflow/`, `43_model_opus48/`, `44_lean_prompt/`, and `45_code_review/`. The other five (`04_tools/`, `10_skill_system/`, `11_hooks/`, `36_background_agents/`, `37_permission_policy/`) continue from the v2.1.142 baseline and document the v2.1.143 → v2.1.156 *delta* on top of it — each cross-links its v2.1.142 predecessor.
+**Four modules document features that are genuinely NEW in this window:** `42_workflow/`, `43_model_opus48/`, `44_lean_prompt/`, and `45_code_review/`. The other seven (`04_tools/`, `10_skill_system/`, `11_hooks/`, `30_agent_team/`, `31_auto_memory/`, `36_background_agents/`, `37_permission_policy/`) continue from the v2.1.142 baseline and document the v2.1.143 → v2.1.156 *delta* on top of it — each cross-links its v2.1.142 predecessor. (`31_auto_memory/` and `30_agent_team/` are the most recent additions, gained in later passes: auto memory + auto dreaming existed in v2.1.142 but only got its module later — documenting the `tengu_kairos_dream` `/dream` skill being replaced by a scheduled-task routine scaffold; the agent-team/swarm subsystem likewise existed in the v2.1.142 tree, but `30_agent_team/` here is a CONTINUATION that re-frames it around the v2.1.156 `BackendRegistry` executor split — in-process-vs-pane — that the v2.1.142 tree never isolated, and documents one cross-version delta: coordinator mode (absent in v2.1.142, per that tree's correct reading) is **re-introduced** and live in v2.1.156, a revival of v2.1.88's `coordinatorMode.ts`.)
 
 ## Cross-Validation Methodology
 
@@ -115,6 +120,7 @@ These three are co-designed: **Opus 4.8 is the model that triggers the lean prom
 6. **Hooks platform (v2.1.143/.145/.152).** A NEW `MessageDisplay` display-only hook (`cli_inner_pretty.js:49289`) to transform/hide streaming assistant text without touching the transcript or model-visible context; SessionStart `sessionTitle`/`reloadSkills`; Stop/SubagentStop `background_tasks` + `session_crons` input arrays; the stop-hook block cap. Deep-dive: [`11_hooks/`](11_hooks/).
 7. **Skills and Tools deltas.** `/reload-skills` + SessionStart `reloadSkills`, `disallowed-tools` frontmatter (`cli_inner_pretty.js:184492`), `context: fork` self-reinvoke recursion guard, `effort:` frontmatter; on the tools side, AskUserQuestion reservation behavior (`ez = "AskUserQuestion"`, `cli_inner_pretty.js:143388`), Read PARTIAL-view truncation, and always-on streaming tool execution. Deep-dives: [`10_skill_system/`](10_skill_system/), [`04_tools/`](04_tools/).
 8. **Permissions / auto-mode hardening (v2.1.149/.152/.156).** Improved exfiltration detection (bulk repo transfers), auto-mode no longer requiring opt-in consent, the `rm -rf $HOME` trailing-slash fix, `$TMPDIR` sandboxed-vs-unsandboxed unification, PowerShell `cd` + bare-var-assignment bypass closures, and managed-MCP per-entry policy validation with a `claude doctor` warning. Deep-dive: [`37_permission_policy/`](37_permission_policy/).
+9. **Auto memory + auto dreaming (memdir runtime).** The persistent `~/.claude/projects/<slug>/memory/` tree — a `MEMORY.md` index (200-line / 25,000-byte cap) plus topic files re-injected into the system prompt each turn — with **three independent writers** (inline main agent, the per-turn `extract_memories` subagent, and the `auto_dream` subagent) coordinating through a mutual-exclusion contract and a shared tool sandbox, plus a `.consolidate-lock` mutex. The old `tengu_kairos_dream` `/dream` skill is gone; `/dream` is now a scheduled-task routine scaffold, while live per-turn dreaming runs via `buildDreamPrompt` (gated on `tengu_onyx_plover`). Deep-dive: [`31_auto_memory/`](31_auto_memory/README.md).
 
 See [`00_overview/changelog_analysis.md`](00_overview/changelog_analysis.md) for theme-by-theme depth and [`00_overview/changelog_to_code_map.md`](00_overview/changelog_to_code_map.md) for per-bullet pointers.
 

@@ -344,6 +344,92 @@ Known new themes:
 
 ---
 
+## Module: Agent Team
+
+The **agent-team (internally "swarm")** subsystem: one running `claude` REPL (the team lead) spawning and
+coordinating leader-owned *teammates* that run in **exactly one of two execution modes** — **in-process** (an
+async task in the leader's own Node process, isolated by nested `AsyncLocalStorage`) or **cross-process panes**
+(a separate `claude` OS process in a tmux pane / iTerm2 split). The whole subsystem is gated by
+`isAgentTeamsEnabled` (`R7`); the **BackendRegistry** (`R94`) owns the in-process-vs-pane decision
+(`isInProcessEnabled`, `ma`) and hands callers a uniform `TeammateExecutor`; both modes share one **file
+mailbox** IPC (`writeToMailbox`, `aA`) and one `TeamCreate`/`TeamDelete`/`SendMessage` tool set.
+
+See `30_agent_team/{execution_modes_and_backend_registry,in_process_mode,cross_process_mode,mailbox_and_lifecycle_tools,cross_validation}.md`
+for narrative analysis, and `symbol_additions_v2_1_156_agent_team.md` for the full flat manifest (ALS identity
+helpers, message builders/parsers, the permission-bridge internals, env-detection probes, and cross-module
+shared helpers are catalogued there). The `SendMessage` tool-name constant `cf` (`"SendMessage"` @216283) is
+the coordinator/worker shared name constant and lives in `symbol_index_core_execution.md`; it is not duplicated
+here. This table carries the highest-value structural symbols only.
+
+### Gate, Teammate Mode & Snapshot
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `R7` | `isAgentTeamsEnabled` (**master gate**: env/flag AND GrowthBook `tengu_amber_flint`) | cli_inner_pretty.js:240766 | function |
+| `PEq` | `teammateModeEnum` (`["auto","tmux","in-process"]`) | cli_inner_pretty.js:49109 | constant |
+| `D94` | `captureTeammateModeSnapshot` (CLI override > config > "auto") | cli_inner_pretty.js:380289 | function |
+| `JSH` | `getTeammateModeFromSnapshot` (default "auto"; lazy-capture safety net) | cli_inner_pretty.js:380293 | function |
+| `LT_` | `setCliTeammateModeOverride` (`--teammate-mode` override) | cli_inner_pretty.js:380280 | function |
+
+### Backend Registry (Detection & Dispatch)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `R94` | `BackendRegistry` (module export map) | cli_inner_pretty.js:380912 | object |
+| `y94` | `createBackendRegistry` (mutable-state factory; the v2.1.156 state-holding form) | cli_inner_pretty.js:380930 | function |
+| `NS` | `globalBackendRegistry` (process singleton; `NS = y94()` @381129) | cli_inner_pretty.js:381118 | variable |
+| `ma` | `isInProcessEnabled` (**the in-process-vs-pane switch**) | cli_inner_pretty.js:381076 | function |
+| `NT_` | `getTeammateExecutor` (**dispatch entry point**) | cli_inner_pretty.js:381098 | function |
+| `jLH` | `detectAndGetBackend` (tmux/iTerm2/it2/fallback detection tree) | cli_inner_pretty.js:380965 | function |
+| `S94` | `getInProcessBackend` (memoized `InProcessBackend`) | cli_inner_pretty.js:381094 | function |
+| `ET_` | `getPaneBackendExecutor` (memoized `PaneBackendExecutor`) | cli_inner_pretty.js:381102 | function |
+| `NU6` | `getResolvedTeammateMode` (`"in-process"` \| `"tmux"`) | cli_inner_pretty.js:381091 | function |
+| `kU6` | `markInProcessFallback` (sticky bit: pane failed → in-process, auto mode) | cli_inner_pretty.js:381070 | function |
+
+### In-Process Backend & Runner
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `K94` | `InProcessBackend` (in-process `TeammateExecutor`) | cli_inner_pretty.js:380062 | class |
+| `JT_` | `runInProcessTeammate` (the persistent agent loop) | cli_inner_pretty.js:379714 | function |
+| `DT_` | `waitForNextPromptOrShutdown` (6-priority poll loop) | cli_inner_pretty.js:379637 | function |
+| `CW8` | `spawnInProcessTeammate` (alloc identity/taskId/teammate-ctx, register task) | cli_inner_pretty.js:381458 | function |
+| `bW8` | `killInProcessTeammate` (force-kill via AbortController + team cleanup) | cli_inner_pretty.js:381513 | function |
+| `fT_` | `POLL_INTERVAL_MS` / `PERMISSION_POLL_INTERVAL_MS` (`500`) | cli_inner_pretty.js:380022 | constant |
+| `LJ` | `isInProcessTeammateTask` (task-type guard: `type==="in_process_teammate"`) | cli_inner_pretty.js:238588 | function |
+
+### Pane Backends (tmux / iTerm2)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `L94` | `PaneBackendExecutor` (pane `TeammateExecutor`; owns `spawnedTeammates` map + cleanup) | cli_inner_pretty.js:380388 | class |
+| `ZU6` | `TmuxBackend` (tmux `PaneBackend`; `type="tmux"`, `supportsHideShow=true`) | cli_inner_pretty.js:380545 | class |
+| `TU6` | `ITermBackend` (iTerm2 `PaneBackend` via `it2` CLI; `supportsHideShow=false`) | cli_inner_pretty.js:380820 | class |
+| `J94` | `resolveTeammateExecPath` (which `claude` binary to relaunch in the pane) | cli_inner_pretty.js:380305 | function |
+| `X94` | `buildTeammateCliFlags` (permission/model/settings/plugins/mode/chrome — **evolved**) | cli_inner_pretty.js:380309 | function |
+| `WT$` | `buildTeammateEnvString` (`env KEY=VALUE …` prefix) | cli_inner_pretty.js:380336 | function |
+| `PT_` | `TEAMMATE_ENV_PASSTHROUGH` (env forward list — **grew ~17→~35 vs v2.1.88**) | cli_inner_pretty.js:380350 | constant |
+
+### Mailbox & Lifecycle Tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aA` | `writeToMailbox` (lock → re-read → push → atomic write; **the universal send**) | cli_inner_pretty.js:338306 | function |
+| `h_H` | `readMailbox` (parse array; tolerate ENOENT/SyntaxError; back-fill `type`) | cli_inner_pretty.js:338286 | function |
+| `JG$` | `markMessageAsReadByIndex` (flip `read` in place; idempotent "consume") | cli_inner_pretty.js:338333 | function |
+| `jhH` | `getInboxPath` (`<teamsDir>/<team>/inboxes/<agent>.json`) | cli_inner_pretty.js:338272 | function |
+| `tY` | `TEAM_LEAD_NAME` (`"team-lead"`) | cli_inner_pretty.js:336140 | constant |
+| `jU6` | `TEAMMATE_SYSTEM_PROMPT_ADDENDUM` (forces `SendMessage`; **evolved: dropped broadcast**) | cli_inner_pretty.js:379421 | constant |
+| `OT_` | `createTeammateCanUseTool` (**leader↔teammate permission bridge**; **evolved**) | cli_inner_pretty.js:379430 | function |
+| `U57` | `SWARM_TOOL_SET` (`{TaskCreate,TaskGet,TaskList,TaskUpdate,SendMessage,Cron…}`) | cli_inner_pretty.js:216435 | constant |
+| `rd` | `TeamCreate` (tool name constant) | cli_inner_pretty.js:216438 | constant |
+| `Oo` | `TeamDelete` (tool name constant) | cli_inner_pretty.js:216439 | constant |
+| `Th_` | `TeamCreateTool` (tool def) | cli_inner_pretty.js:406631 | object |
+| `vh_` | `TeamDeleteTool` (tool def; `{success:false}` if members active) | cli_inner_pretty.js:406775 | object |
+| `Bh_` | `SendMessageTool` (tool def; rejects `to:"*"` broadcast — **evolved**) | cli_inner_pretty.js:407447 | object |
+
+---
+
 ## Module: Hooks (2.1.143–156 delta)
 
 The NEW **MessageDisplay** display-only hook event (transform/hide streaming assistant text without touching transcript or model-visible context): its parallel event-name arrays, lazy Zod input/output schemas, the `forceSyncExecution` executor, the per-message streaming engine (`OW9`) and constants, the completed-message rewrite path (`MW9`), and the state-prune helper. Plus the Stop/SubagentStop `background_tasks` + `session_crons` inputs (2.1.145) and the stop-hook block cap (2.1.143).

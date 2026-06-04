@@ -135,6 +135,16 @@ These are the load-bearing regions for this window's features. Each was read and
 |--------|------------------|
 | `cli_inner_pretty.js:555461-555607` | `dXz()` lean-prompt body builder: the trimmed-down instruction set (no-over-engineering, comment policy, UI-verify-in-browser guidance) that becomes the default system prompt; the eligibility predicate reuses the opus membership test at 98262 |
 
+### Auto Memory + Auto Dreaming (memdir runtime) → `31_auto_memory/`
+
+| Region | What lives there |
+|--------|------------------|
+| `cli_inner_pretty.js:142100-145145` | **memdir core** (prompt-builder layer): `getAutoMemPath`/`ensureMemoryDirExists`/`logMemoryDirCounts` (`tengu_memdir_loaded`), `loadMemoryPrompt` entrypoint reader, `truncateEntrypointContent` (`q68` @144897) + the over-cap `WARNING:` text @144929, `MAX_ENTRYPOINT_LINES` (`B9H`=200 @143880), `MAX_ENTRYPOINT_BYTES` (`aM$`=25000 @145142), and the three-writer mutual-exclusion contract (`hasMemoryWritesSince` / `isExtractModeActive`) |
+| `cli_inner_pretty.js:448027-448390` | **extraction runtime**: the per-turn `extract_memories` forked subagent (`runForkedAgent` fork, `maxTurns:5`, cursor-based skip when the main agent already wrote), shared `canUseTool` sandbox (`cT8`, memoryDir-scoped), and the `"Saved"` notification verb (`createMemorySavedMessage`) |
+| `cli_inner_pretty.js:447997-448742` | **auto-dream runtime**: per-turn check + cross-session `auto_dream` forked subagent (`forkLabel:"auto_dream"`, `querySource:"auto_dream"`), hours + session-count gating (`minHours≥24`, `minSessions≥5`, gated on `tengu_onyx_plover`), `buildDreamPrompt` (`C04`), and `pendingMemoryUpdates {source:"dream"}` with the `"Improved"` notification verb |
+| `cli_inner_pretty.js:399347-399453` | **consolidation lock + task registry**: the `.consolidate-lock` PID-file mutex (acquire/release/stale-detection) the dream writers coordinate through, plus the dream task registration entries |
+| `cli_inner_pretty.js:532705-533045` | **`/dream` scheduled-task scaffold**: `As4` routine (name `"dream"` @532705) the cron/scheduling layer instantiates overnight — replaces the removed `tengu_kairos_dream` `/dream` slash-command skill (zero `tengu_kairos_dream` references remain in this build) |
+
 ### Background Agents — `--exec` / `! <command>` + retire/respawn fixes → `36_background_agents/`
 
 | Region | What lives there |
@@ -142,6 +152,37 @@ These are the load-bearing regions for this window's features. Each was read and
 | `cli_inner_pretty.js:540124` area | `EF()` daemon-ensure-running; emits `tengu_bg_daemon_service_stale_exec` — top of the bg daemon/dispatch region (~540124-542680) |
 | `cli_inner_pretty.js:540335` | `claude --bg` window-label selector (`agents` → "claude agents"; `--bg` → "claude --bg") |
 | `cli_inner_pretty.js:541956-541985` | `hwz(H)` `--exec` handler: parses `--exec` / `--exec=`, builds a shell-intent bg session, warns "--exec ignores …" for other flags |
+
+### Agent Team / Swarm — in-process vs cross-process pane teammates → `30_agent_team/`
+
+The leader-owned teammate subsystem (internally "swarm"). The bulk of the executor/backend code lives in one
+contiguous ~379419-381618 block; the gate, mailbox, and lifecycle tools are elsewhere in the bundle.
+
+| Region | What lives there |
+|--------|------------------|
+| `cli_inner_pretty.js:379419-379429` | teammate-prompt-addendum module (`H94`) — `TEAMMATE_SYSTEM_PROMPT_ADDENDUM` (`jU6`, "you MUST use the SendMessage tool") |
+| `cli_inner_pretty.js:379430-379573` | `OT_` permission bridge `createTeammateCanUseTool` — Path A (worker-badge dialog) + Path B (mailbox request + 500ms self-poll) |
+| `cli_inner_pretty.js:379576-379636` | mailbox-XML envelope (`wU6`), idle notifier (`MT_`/`$94`), task-list auto-claim (`q94`/`jT_`/`wT_`) |
+| `cli_inner_pretty.js:379637-379713` | `DT_` `waitForNextPromptOrShutdown` — the 6-priority poll loop (500ms) |
+| `cli_inner_pretty.js:379714-380015` | `JT_` `runInProcessTeammate` — the persistent agent loop (system-prompt assembly, in-teammate compaction, dual-ALS scopes, completion/kill tails) |
+| `cli_inner_pretty.js:380016-380022` | `qeH` fire-and-forget launcher + `fT_` `POLL_INTERVAL_MS`=500 |
+| `cli_inner_pretty.js:380062-380173` | `K94` `InProcessBackend` (`TeammateExecutor` for in-process) + `_94` factory |
+| `cli_inner_pretty.js:380183-380263` | it2 setup subsystem: `detectPythonPkgMgr`/`installIt2`/`verifyIt2Setup`/`pythonApiInstructions`/`markIt2SetupComplete`/`getPreferTmuxOverIterm2` |
+| `cli_inner_pretty.js:380272-380299` | teammate-mode snapshot module (`PU6`) — `captureTeammateModeSnapshot` (`D94`), `getTeammateModeFromSnapshot` (`JSH`), CLI-override slots |
+| `cli_inner_pretty.js:380305-380386` | teammate CLI/env builders: `resolveTeammateExecPath` (`J94`), `buildTeammateCliFlags` (`X94`), `buildTeammateEnvString` (`WT$`), `TEAMMATE_ENV_PASSTHROUGH` (`PT_`, ~35 entries) |
+| `cli_inner_pretty.js:380388-380500` | `L94` `PaneBackendExecutor` (pane `TeammateExecutor`: two-phase spawn → `cd && env claude --agent-id …` typed into a pane; sendMessage/terminate/kill/isActive) + `P94` factory |
+| `cli_inner_pretty.js:380512-380819` | `ZU6` `TmuxBackend` (`V94` module): two routers `kS`/`BE`, pane-creation mutex (`ZT_`/`Z94`), color map (`T94`), `send-keys … Enter`, hide/show |
+| `cli_inner_pretty.js:380820-380910` | `TU6` `ITermBackend` (`N94` module): `it2 session split` dead-session pruning loop, `it2 session run`/`close`, cosmetic no-ops |
+| `cli_inner_pretty.js:380912-381117` | `R94` BackendRegistry: `createBackendRegistry` (`y94`), `ensureBackendsRegistered` (`AeH`), `detectAndGetBackend` (`jLH`), `isInProcessEnabled` (`ma`), `getTeammateExecutor` (`NT_`), `getInProcessBackend` (`S94`), `getPaneBackendExecutor` (`ET_`), `markInProcessFallback` (`kU6`) |
+| `cli_inner_pretty.js:381118` (`NS = y94()` @381129) | `globalBackendRegistry` singleton declaration + init |
+| `cli_inner_pretty.js:381453-381555` | `uU6` permission-mode resolver, `CW8` `spawnInProcessTeammate`, `bW8` `killInProcessTeammate` |
+| `cli_inner_pretty.js:381573-381618` | `x94` `InProcessTeammateTask` helper module: shutdown flag, message append, user-message injection, lookups, sorted-running list, `GT$` Task object |
+| `cli_inner_pretty.js:338272-338560` | file-mailbox core: `getInboxPath` (`jhH`), `readMailbox` (`h_H`), `writeToMailbox` (`aA`), `markMessageAsReadByIndex` (`JG$`), message builders/parsers (idle/permission/shutdown), `isControlMessage` |
+| `cli_inner_pretty.js:336140` area | `TEAM_LEAD_NAME` (`tY`="team-lead"), `TEAMMATE_COMMAND_ENV_VAR` (`WsH`), tmux/iTerm2 detection probes + socket/label resolvers (`ob6`/`PsH`) |
+| `cli_inner_pretty.js:240763-240770` | master gate: `hasAgentTeamsFlag` (`Ru5`), `isAgentTeamsEnabled` (`R7`, env/flag AND `tengu_amber_flint`) |
+| `cli_inner_pretty.js:216435-216439` | swarm tool set + tool-name constants: `SWARM_TOOL_SET` (`U57`), `TeamCreate` (`rd`), `TeamDelete` (`Oo`) (`SendMessage`=`cf` @216283) |
+| `cli_inner_pretty.js:406631 / 406775 / 407447` | tool defs: `TeamCreateTool` (`Th_`), `TeamDeleteTool` (`vh_`), `SendMessageTool` (`Bh_`) |
+| `cli_inner_pretty.js:216440-216506` | coordinator-mode gate (distinct feature, LIVE in 2.1.156): `coordinatorModeRaw` (`cI`), `isCoordinatorMode` (`Bp`), `isCcrCoordinator` (`Mk5`, hard-false), `getCoordinatorSystemPrompt` (`Dk5`) |
 
 ### `/code-review` + `/simplify` (2.1.147 rename / 2.1.152 `--fix` / 2.1.154 simplify-cleanup-only) → `45_code_review/`
 
@@ -205,15 +246,17 @@ families. A couple of stray entries (`eval_registered________.md`, `explain_comm
 
 ## Map: `analyze/` Module Dir → What It Documents
 
-The tree carries **9 feature module dirs** (delta-focused, numbered to align with the long-running 2.1.142 tree),
+The tree carries **11 feature module dirs** (delta-focused, numbered to align with the long-running 2.1.142 tree),
 plus `00_overview/` and `by_version/`.
 
 | Dir | Scope (v2.1.143 → v2.1.156 delta) | Key docs |
 |-----|-----------------------------------|----------|
-| `00_overview/` | This index + four `symbol_index_*.md` mapping tables + nine per-module `symbol_additions_v2_1_156_*.md` tables + `changelog_analysis.md` | see "00_overview contents" below |
+| `00_overview/` | This index + four `symbol_index_*.md` mapping tables + twelve per-module `symbol_additions_v2_1_156_*.md` tables + twelve `cross_validation_report_*.md` verification reports + `changelog_analysis.md` | see "00_overview contents" below |
 | `04_tools/` | Tools-subsystem delta: Workflow tool registration, `AskUserQuestion` reservation, `disallowed-tools` frontmatter, Read PARTIAL view + always-on streaming exec | `workflow_tool_registration.md`, `ask_user_question_reservation.md`, `disallowed_tools_frontmatter.md`, `read_partial_view_and_streaming_exec.md` |
 | `10_skill_system/` | Skills delta: `/reload-skills` mid-session, `disallowed-tools` frontmatter, `effort:` frontmatter, context:fork recursion guard, bundled skill bodies (`/simplify`, `/code-review`, `/claude-api`) | `skill_reload_midsession.md`, `skill_disallowed_tools.md`, `skill_effort_frontmatter.md`, `skill_fork_recursion_guard.md`, `bundled_skill_bodies.md` |
 | `11_hooks/` | Hooks delta: `MessageDisplay` event + streaming engine, SessionStart `sessionTitle`/`reloadSkills`, Stop-hook `background_tasks` input + block cap | `message_display_event.md`, `message_display_streaming_engine.md`, `session_start_title_and_reload_skills.md`, `stop_hook_background_tasks_and_block_cap.md` |
+| `30_agent_team/` | **Agent team / swarm (CONTINUATION of the 2.1.142 module)**: the two teammate execution modes (in-process async task vs cross-process tmux/iTerm2 pane), the `BackendRegistry` executor split + `isInProcessEnabled` switch, the file-mailbox IPC, `TeamCreate`/`TeamDelete`/`SendMessage` lifecycle tools, the leader↔teammate permission bridge, and the v2.1.88/v2.1.142 cross-validation (incl. the coordinator-mode re-introduction: absent in v2.1.142, revived/live in v2.1.156) | `execution_modes_and_backend_registry.md`, `in_process_mode.md`, `cross_process_mode.md`, `mailbox_and_lifecycle_tools.md`, `cross_validation.md` |
+| `31_auto_memory/` | **Auto memory + auto dreaming (memdir runtime)**: memdir prompt-builder layer (entrypoint 200L/25KB cap + truncation warning, three-writer mutual-exclusion contract), per-turn extraction subagent + shared tool sandbox, per-turn auto-dream scheduler (hours/session-count + `.consolidate-lock` mutex gating), `/dream` scheduled-task scaffold replacing the removed `tengu_kairos_dream` skill | `memdir_core.md`, `extract_memories_runtime.md`, `auto_dream_runtime.md`, `cross_validation.md` |
 | `36_background_agents/` | Background-agents delta: `--exec` / `! <command>` shell sessions, unified dispatcher `ol`, daemon binary-takeover + bg handoff, worker retire/respawn fixes, worktree-isolation + PTY-orphan fixes, bg-session classifier | `shell_exec_sessions.md`, `unified_dispatcher_ol.md`, `daemon_binary_takeover_and_bg_handoff.md`, `worker_retire_respawn_2156.md`, `worktree_isolation_and_pty_orphan.md`, `bg_session_classifier.md` |
 | `37_permission_policy/` | Permissions delta: auto-mode consent removed, data-exfiltration classifier, dangerous-path `$HOME`/`$TMPDIR` fixes, PowerShell `cd` + bare-assignment bypass fixes, MCP-server policy partial-validation fix, classifier token-budget "could not evaluate" | `auto_mode_consent_removed.md`, `data_exfiltration_classifier.md`, `dangerous_path_home_tmpdir.md`, `powershell_cd_and_bare_assignment_bypass.md`, `mcp_server_policy_partial_validation.md`, `classifier_token_budget_could_not_evaluate.md` |
 | `42_workflow/` | **Dynamic Workflows (FLAGSHIP)**: tool definition, availability gate, agent/budget caps + lifecycle relations, VM execution runtime + DSL semantics + subagent prompts, and the `Fp6` authoring-prompt content walk (opt-in policy, pipeline-vs-parallel, orchestration pattern catalog) | `workflow_tool_definition.md`, `gate_caps_lifecycle_relations.md`, `workflow_runtime_and_subagents.md`, `workflow_authoring_and_orchestration.md` |
@@ -229,8 +272,10 @@ plus `00_overview/` and `by_version/`.
 - `symbol_index_core_features.md` — Core feature mappings (Plan, Background, Todo, Compact, Hooks, Skills, Thinking, Steering, CLI; Workflows + effort live here).
 - `symbol_index_infra_platform.md` — Platform mappings (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry).
 - `symbol_index_infra_integration.md` — Integration mappings (LSP, Chrome, IDE, UI, Plugin, Code Indexing, Shell Parser).
-- `symbol_additions_v2_1_156_{background_agents,code_review,hooks,lean_prompt,model_opus48,permission_policy,skill_system,tools,workflow}.md`
+- `symbol_additions_v2_1_156_{agent_team,auto_memory,background_agents,code_review,hooks,lean_prompt,model_opus48,permission_policy,skill_system,tool_search,tools,workflow}.md`
   — per-module new-symbol tables for this window, each noting which `symbol_index_*.md` it routes into.
+- `cross_validation_report_{agent_team,auto_memory,background_agents,code_review,hooks,lean_prompt,model_opus48,permission_policy,skill_system,tool_search,tools,workflow}.md`
+  — per-module verification reports (citation spot-checks, forbidden-table scans, broken-link sweeps, v2.1.88 corroboration).
 - `changelog_analysis.md` — long-form narrative of the v2.1.143 → v2.1.156 window.
 
 ---
