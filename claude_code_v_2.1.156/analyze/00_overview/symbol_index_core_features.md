@@ -832,8 +832,130 @@ Known new themes:
 ## Module: Plan
 
 The `/plan` command, `EnterPlanMode`/`ExitPlanMode` tools, plan-mode permission overlay, ultraplan.
+The v2.1.156 bundle is re-obfuscated relative to the 2.1.142 tree, so the obfuscated ids below are
+the current-build mappings (verified against `cli_inner_pretty.js`). The permission/model-engine
+symbols that plan mode *consumes* (`vl`, `xhH`, `nY`, `ChH`, `WlH`, `VT`, `st`, `ZF$`, `t1H`, …)
+live in `symbol_index_infra_platform.md`; the AskUserQuestion tool symbols live in
+`symbol_index_core_execution.md`.
 
-*(No net-new symbols in the v2.1.143 → v2.1.156 window. The full Plan-mode symbol set is in [`../../../claude_code_v_2.1.142/analyze/00_overview/symbol_index_core_features.md`](../../../claude_code_v_2.1.142/analyze/00_overview/symbol_index_core_features.md) Module: Plan Mode and remains current for 2.1.156.)*
+### Plan Mode — Tools (EnterPlanMode / ExitPlanMode)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$$4` | EXIT_PLAN_MODE_V2_TOOL_PROMPT (model-facing "finished writing your plan, ready for approval" prompt) | cli_inner_pretty.js:349781 | constant |
+| `aH4` | renderEnterPlanModeToolUse (EnterPlanMode `renderToolUseMessage` → `null`) | cli_inner_pretty.js:349655 | function |
+| `bGf` | exitPlanModeSdkInputSchema (`M$4.extend({plan?,planFilePath?})`; runtime-injected fields) | cli_inner_pretty.js:350000 | function |
+| `BM` | definePermissionDescriptor (identity registrar `BM(H){return H}` for typed permission kinds) | cli_inner_pretty.js:215037 | function |
+| `CL_` | exitPlanModeOutputSchema (7-field output schema) | cli_inner_pretty.js:350006 | function |
+| `dH4` | normalizeExitPlanModeToolInput (injects `plan`/`planFilePath`/`allowedPrompts`/`usage` from disk) | cli_inner_pretty.js:349140 | function |
+| `ftH` | permissionExitPlanModeV2Descriptor (`permission_exit_plan_mode_v2`; payload REQUIRES `plan`) | cli_inner_pretty.js:349453 | object |
+| `GL_` | getEnterPlanModeToolPromptExternal (full proactive-use EnterPlanMode prompt) | cli_inner_pretty.js:349566 | function |
+| `hL8` | EnterPlanModeTool (the `buildTool` descriptor; `name:og`, zero-param, `shouldDefer`, read-only) | cli_inner_pretty.js:349703 | object |
+| `IL_` | allowedPromptSchema (`{tool:enum(['Bash']),prompt:string}` prompt-based permission item) | cli_inner_pretty.js:349982 | function |
+| `JC` | ExitPlanModeV2Tool (the `buildTool` descriptor; `name:wv`, disk-read plan, teammate/main fork) | cli_inner_pretty.js:350025 | object |
+| `K$4` | renderExitPlanModeToolUse (ExitPlanMode `renderToolUseMessage` → `null`) | cli_inner_pretty.js:349840 | function |
+| `K0$` | permissionEnterPlanModeDescriptor (`permission_enter_plan_mode`; NO `plan` in payload) | cli_inner_pretty.js:349442 | object |
+| `M$4` | exitPlanModeInputSchema (`strictObject({allowedPrompts?}).passthrough()`) | cli_inner_pretty.js:349988 | function |
+| `oG` | EXIT_PLAN_MODE_TOOL_NAME (legacy V1 name, same string `"ExitPlanMode"`) | cli_inner_pretty.js:143386 | constant |
+| `og` | ENTER_PLAN_MODE_TOOL_NAME (the string `"EnterPlanMode"`) | cli_inner_pretty.js:143385 | constant |
+| `rH4` | getEnterPlanModeToolPrompt (`prompt()` wrapper returning `GL_()`) | cli_inner_pretty.js:349644 | function |
+| `RL8` | RejectedPlanMessage ("User rejected Claude's plan:" in a `planMode`-bordered box) | cli_inner_pretty.js:349805 | function |
+| `sH4` | renderEnterPlanModeResult ("Entered plan mode" + dim subtitle) | cli_inner_pretty.js:349658 | function |
+| `tH4` | renderEnterPlanModeRejected ("User declined to enter plan mode") | cli_inner_pretty.js:349675 | function |
+| `TL_` | enterPlanModeInputSchema (`z.strictObject({})` — parameterless) | cli_inner_pretty.js:349701 | function |
+| `VL_` | enterPlanModeOutputSchema (`z.object({message:string})`) | cli_inner_pretty.js:349702 | function |
+| `wv` | EXIT_PLAN_MODE_V2_TOOL_NAME (the V2 name `"ExitPlanMode"`; the one `JC` uses) | cli_inner_pretty.js:143387 | constant |
+| `z$4` | renderExitPlanModeRejected (rejected-message wrapper → `RL8`; `plan ?? getPlan() ?? "No plan found"`) | cli_inner_pretty.js:349901 | function |
+| `ZL_` | buildWhatHappensSection (What-Happens builder w/ `find`/`grep` shell-alias branch) | cli_inner_pretty.js:349553 | function |
+| `_$4` | renderExitPlanModeResult (3-state result: empty / awaiting-lead / approved) | cli_inner_pretty.js:349843 | function |
+
+### Plan Mode — Runtime / State / Naming
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AG4` | getExploreAgentCount (Phase-1 Explore subagent cap; default 3, env override clamped 1-10) | cli_inner_pretty.js:443680 | function |
+| `b$9` | isPlanFileForCurrentSession (`{plansDir}/{slug}` prefix + `.md`; session-scoped) | cli_inner_pretty.js:549461 | function |
+| `bJz` | findFileSnapshot (locates a `"plan"`-keyed `file_snapshot` transcript entry for resume recovery) | cli_inner_pretty.js:549333 | function |
+| `bQ_` | renderFullPlanModeReminder (custom-body OR default 5-phase, wrapped by preamble + footer) | cli_inner_pretty.js:445324 | function |
+| `CJz` | recoverPlanFromHistory (scans message history for ExitPlanMode `input.plan` / user `planContent`) | cli_inner_pretty.js:549305 | function |
+| `CL8` | persistFileSnapshotIfRemote (records the plan file as a `file_snapshot`; remote-only, gated on `D68`) | cli_inner_pretty.js:549341 | function |
+| `CQ_` | PLAN_MODE_PHASE4_FINAL_PLAN ("### Phase 4: Final Plan" reminder block) | cli_inner_pretty.js:446477 | constant |
+| `DV` | getPlan (reads the plan file; `null` on ENOENT) | cli_inner_pretty.js:549253 | function |
+| `eS_` | buildPlanModeAttachment (per-turn reminder w/ throttle + re-entry + full/sparse; sets `customInstructions`) | cli_inner_pretty.js:412847 | function |
+| `fw4` | buildPlanModeExitAttachment (one-shot `plan_mode_exit` attachment when the exit flag is set) | cli_inner_pretty.js:412871 | function |
+| `Gt` | setNeedsPlanModeExitAttachment (setter for `d$.needsPlanModeExitAttachment`) | cli_inner_pretty.js:3044 | function |
+| `HW8` | copyPlanForResume (restores slug, reads plan, recovers from snapshot/history if remote) | cli_inner_pretty.js:549265 | function |
+| `IJz` | MAX_SLUG_RETRIES (`10` — slug `existsSync` collision-avoidance loop bound) | cli_inner_pretty.js:549230 | constant |
+| `ILH` | getPlanSlug (seeded, collision-avoiding plan slug; NEW seed param) | cli_inner_pretty.js:549223 | function |
+| `IQ_` | renderPlanModeReminder (dispatch: sub-agent / sparse / full) | cli_inner_pretty.js:445313 | function |
+| `jG4` | PLAN_MODE_READONLY_PREAMBLE ("you MUST NOT make any edits (except the plan file)… supercedes any other instructions") | cli_inner_pretty.js:446485 | constant |
+| `lg6` | PLAN_MODE_CADENCE (`{TURNS_BETWEEN_ATTACHMENTS:5, FULL_REMINDER_EVERY_N_ATTACHMENTS:5}`) | cli_inner_pretty.js:414015 | object |
+| `m7$` | hasExitedPlanModeInSession (getter for `d$.hasExitedPlanMode`) | cli_inner_pretty.js:3035 | function |
+| `MM6` | slugifyPromptSeed (first 4 words, lowercase, dash-collapse, 40-char cap; NEW in 2.1.156) | cli_inner_pretty.js:141346 | function |
+| `ng6` | countTurnsSincePlanAttachment (scans back for the latest `plan_mode` attachment) | cli_inner_pretty.js:412820 | function |
+| `nM` | getPlansDirectory (memoized; resolves `plansDirectory` vs project root, `~/.claude/plans` fallback) | cli_inner_pretty.js:549382 | function |
+| `Rm8` | needsPlanModeExitAttachment (getter for `d$.needsPlanModeExitAttachment`) | cli_inner_pretty.js:3041 | function |
+| `sA8` | buildPlanModeFullAttachment (always-full builder; spreads `customInstructions` only when defined) | cli_inner_pretty.js:423732 | function |
+| `tS_` | countPlanModeAttachments (counts `plan_mode` attachments since last `plan_mode_exit`; full/sparse modulo) | cli_inner_pretty.js:412836 | function |
+| `Tt` | updatePlanModeExitAttachmentFlag (boundary-crossing toggle: set on plan entry, clear on plan exit) | cli_inner_pretty.js:3047 | function |
+| `uQ_` | renderSubagentPlanModeReminder (strictest sub-agent variant; no custom-body override) | cli_inner_pretty.js:445416 | function |
+| `wG4` | buildExitPlanModeFooter (terminal-call contract: end turn only via AskUserQuestion or ExitPlanMode) | cli_inner_pretty.js:445318 | function |
+| `wgH` | generateTwoWordSuffix (`adjective-noun` seeded-slug suffix; NEW in 2.1.156) | cli_inner_pretty.js:141358 | function |
+| `wV` | getPlanFilePath (`{plansDir}/{slug}.md` or `{slug}-agent-{agentId}.md`) | cli_inner_pretty.js:549248 | function |
+| `xQ_` | renderSparsePlanModeReminder (one-line nudge; adapts to custom instructions) | cli_inner_pretty.js:445411 | function |
+| `y88` | generateWordSlug (legacy `adjective-adjective-noun` random slug; fallback when no seed) | cli_inner_pretty.js:141340 | function |
+| `zG4` | getPlanAgentCount (Phase-2 Plan subagent cap; tier-scaled 1/3 + env override) | cli_inner_pretty.js:443669 | function |
+| `zQ` | setHasExitedPlanMode (setter for `d$.hasExitedPlanMode`) | cli_inner_pretty.js:3038 | function |
+
+### Plan Mode — UI / Approval Dialog / `/plan`
+
+The Shift+Tab permission-mode cycle state machine (`QCH`/`PR8`/`ym`/`i4q`/`c19`/`uV`) lives in
+`symbol_index_infra_platform.md` (Permissions — Mode / Consent UI Surface), since it is shared
+across all permission modes, not plan-specific.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Ayz` | exitPlanModeAnswerComponent (wires `mA9` into the permission-request dispatch table) | cli_inner_pretty.js:598471 | function |
+| `dg4` | planCommandModule (`/plan` module export `{call: () => v5z}`) | cli_inner_pretty.js:513488 | object |
+| `Gkz` | buildPlanApprovalOptions ("Ready to code?" variable-arity option list; bypass > auto > edits) | cli_inner_pretty.js:589794 | function |
+| `i9q` | buildPlanExitPermissionUpdates (`[setMode]` + gated `addRules`; allowedPrompts no-op via `jwH`) | cli_inner_pretty.js:589766 | function |
+| `JaK` | SHIFT_TAB_KEY (`canDeliverShiftTab ? "shift+tab" : "meta+m"`; → `chat:cycleMode`/`confirm:cycleMode`) | cli_inner_pretty.js:170200 | constant |
+| `jwH` | isPromptBasedPermissionsEnabled (hardcoded `return !1` — `allowedPrompts→addRules` is a no-op) | cli_inner_pretty.js:209900 | function |
+| `k5z` | planCommandDef (`/plan` command definition object) | cli_inner_pretty.js:513585 | object |
+| `mA9` | ExitPlanModePermissionRequest (the approval dialog; "Exit plan mode?" vs "Ready to code?" branch) | cli_inner_pretty.js:589878 | function |
+| `V5z` | PlanDisplay (`/plan` current-plan render with "/plan open to edit" hint) | cli_inner_pretty.js:513490 | function |
+| `v5z` | planCommandCall (`/plan` handler; three-way state behavior + new ccr remote short-circuit) | cli_inner_pretty.js:513519 | function |
+| `Vkz` | renderAllowedPrompt ("Requested permissions:" row in the approval dialog) | cli_inner_pretty.js:590476 | function |
+| `z97` | formatPromptRule (`"prompt: <prompt>"` rule-content formatter for the gated allowedPrompts path) | cli_inner_pretty.js:209897 | function |
+| `Zkz` | autoNameSessionFromPlan (fire-and-forget session auto-naming from the plan's first 1000 chars) | cli_inner_pretty.js:589777 | function |
+| `_I8` | getApprovalResult (pure choice→PermissionResult mapping, extracted from the React handler) | cli_inner_pretty.js:589839 | function |
+
+### Plan Mode — Remote / Ultraplan (CCR teleport)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `B4z` | extractApprovedPlan (scrapes `## Approved Plan:` out of the tool_result; throws on missing marker) | cli_inner_pretty.js:503257 | function |
+| `c4z` | ULTRAPLAN_UI_METADATA (per-variant UI metadata incl. advertised cost) | cli_inner_pretty.js:503750 | object |
+| `cqH` | isUltraplanEnabled (three-way gate: server config + bridge entitlement + interactive context) | cli_inner_pretty.js:503294 | function |
+| `dqH` | UltraplanPollError (error subclass carrying `reason`, `rejectCount`, NEW `eventStats`) | cli_inner_pretty.js:503281 | class |
+| `EU4` | contentToText (normalizes a tool_result `content` string/array into one text string) | cli_inner_pretty.js:503246 | function |
+| `FN8` | getUltraplanPromptIdentifier (server-config variant selection; falls back to `simple_plan`) | cli_inner_pretty.js:503388 | function |
+| `hU4` | REMOTE_PLAN_REMINDER_SIMPLE (`simple_plan` lightweight default remote-planning reminder) | cli_inner_pretty.js:503302 | function |
+| `i4z` | runUltraplanPoll (async driver; forks on `executionTarget` remote vs local teleport) | cli_inner_pretty.js:503405 | function |
+| `IU4` | DEFAULT_ULTRAPLAN_PROMPT_ID (`"simple_plan"`) | cli_inner_pretty.js:503686 | constant |
+| `kU4` | ExitPlanModeScanner (pure stateful CCR-event classifier; approved>terminated>rejected>pending) | cli_inner_pretty.js:503139 | class |
+| `m4z` | extractTeleportPlan (scrapes the `__ULTRAPLAN_TELEPORT_LOCAL__` sentinel; `null` when absent) | cli_inner_pretty.js:503249 | function |
+| `n4z` | buildUltraplanPromptText (assembles the remote-planning reminder text for the selected variant) | cli_inner_pretty.js:503398 | function |
+| `NU4` | pollForApprovedExitPlanMode (deadline-bounded poll loop; 3s interval, 5 consecutive-failure cap) | cli_inner_pretty.js:503190 | function |
+| `Q4z` | getUltraplanTimeoutMs (poll deadline in ms) | cli_inner_pretty.js:503379 | function |
+| `RU4` | REMOTE_PLAN_REMINDER_MULTIAGENT (`three_subagents_with_critique` multi-agent + critique reminder) | cli_inner_pretty.js:503347 | function |
+| `se6` | ULTRAPLAN_PROMPT_REGISTRY (`{simple_plan, visual_plan, three_subagents_with_critique}`) | cli_inner_pretty.js:503738 | object |
+| `SU4` | REMOTE_PLAN_REMINDER_VISUAL (`visual_plan` diagram-forward remote-planning reminder) | cli_inner_pretty.js:503323 | function |
+| `t4z` | ultraplanSlashCommandCall (`/ultraplan <prompt>` handler; double-gated, single-flight, empty-arg fork) | cli_inner_pretty.js:503690 | function |
+| `u4z` | ULTRAPLAN_TELEPORT_SENTINEL (`"__ULTRAPLAN_TELEPORT_LOCAL__"`) | cli_inner_pretty.js:503276 | constant |
+| `vU4` | POLL_INTERVAL_MS (`3000`) | cli_inner_pretty.js:503273 | constant |
+| `x4z` | MAX_CONSECUTIVE_FAILURES (`5` — consecutive transient-failure cap, reset on success) | cli_inner_pretty.js:503274 | constant |
+| `xU4` | ultraplanSlashCommand (`/ultraplan` command def; `isEnabled` = `isUltraplanEnabled`) | cli_inner_pretty.js:503765 | object |
 
 ---
 

@@ -94,6 +94,33 @@ The AskUserQuestion tool object whose `prompt({model})` injects the v2.1.154 "re
 | `xM6` | ASK_USER_QUESTION_BASE_PROMPT (tightened "use this tool only when blocked" base; ships to every model) | cli_inner_pretty.js:143419 | constant |
 | `YtH` | askUserQuestionTool (the tool object whose `prompt({model})` injects the reservation) | cli_inner_pretty.js:348809 | object |
 
+The AskUserQuestion schema graph, the runtime permission dialog + its three outcome handlers, the
+result-render component + notes-only sentinel, and the safety-classifier re-surfacing producer
+(2.1.156 plan-mode/AUQ delta):
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AL_` | questionOptionSchema (`{label, description, preview?}`) | cli_inner_pretty.js:348698 | function |
+| `aY9` | questionUsesPreview (single-select-with-preview predicate gating note capture) | cli_inner_pretty.js:594564 | function |
+| `bH4` | annotationsSchema (`record(string, {preview?, notes?})` keyed by question text) | cli_inner_pretty.js:348745 | function |
+| `BNz` | buildAcceptedAnswer (accept handler; builds annotations + returns allow + contentBlocks) | cli_inner_pretty.js:594528 | function |
+| `Bu6` | NO_OPTION_SELECTED_SENTINEL (`"(notes only)"`; encodes "no option, notes present" in the string answers record) | cli_inner_pretty.js:348683 | constant |
+| `CE7` | collectClassifierTranscript (re-surfaces answers as `[User answered AskUserQuestion]:` user-role text) | cli_inner_pretty.js:277149 | function |
+| `CH4` | questionSchema (`{question, header, options[2..4], multiSelect=false}`) | cli_inner_pretty.js:348718 | function |
+| `DL_` | validateHtmlPreview (3-regex HTML-fragment intent check: full-doc / `<script>`-`<style>` / non-HTML) | cli_inner_pretty.js:348663 | function |
+| `fL_` | commonFields (hidden `answers`/`annotations`/`metadata.source` fields) | cli_inner_pretty.js:348775 | function |
+| `INz` | AskUserQuestionDialog (permission dialog; reject / respond-to-claude / accept + `isInPlanMode`) | cli_inner_pretty.js:594187 | function |
+| `jL_` | AskUserQuestionResultMessage (result-render component) | cli_inner_pretty.js:348633 | function |
+| `ML_` | outputSchema (`{questions, answers:record(string,string), annotations}`) | cli_inner_pretty.js:348798 | function |
+| `OL_` | inputSchema (`strictObject{questions[1..4], ...commonFields}.refine(RH4)`) | cli_inner_pretty.js:348790 | function |
+| `pNz` | buildRespondToClaudeFeedback (respond-to-claude handler; deny-with-feedback meta-prompt to reformulate) | cli_inner_pretty.js:594541 | function |
+| `RH4` | UNIQUENESS_REFINE (rejects duplicate question texts / option labels within a question) | cli_inner_pretty.js:348760 | object |
+| `sY9` | buildImageBlocks (assembles pasted-image content blocks for accept/respond results) | cli_inner_pretty.js:594567 | function |
+| `UNz` | formatQuestionsForFeedback (renders each question + answer + notes for respond-to-claude feedback) | cli_inner_pretty.js:594553 | function |
+| `wL_` | renderAnswerRow (per-question result row inside `jL_`) | cli_inner_pretty.js:348659 | function |
+| `xNz` | getPermissionMode (reads `toolPermissionContext.mode`; drives `isInPlanMode`) | cli_inner_pretty.js:594519 | function |
+| `YL_` | answerValueSchema (`z.preprocess` joining multi-select `string[]` into one comma-separated string; NEW) | cli_inner_pretty.js:348772 | function |
+
 ---
 
 ## Module: Tools — Read PARTIAL-View Truncation (2.1.145)

@@ -88,11 +88,21 @@ The in-flow opt-in dialog and the Shift+Tab mode-cycle state machine + 800ms con
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| `c19` | `cyclePermissionMode` (`{nextMode, context}` = `QCH(ctx)` + `vl(ctx.mode, next, ctx, trigger)`; adds a `trigger` arg vs v2.1.88) | cli_inner_pretty.js:578731 | function |
 | `consentDebounceCancelRef` (`H1`) | `consentDebounceCancelRef` (`useRef` holding the 800ms opt-in-dialog timer's cancel function) | cli_inner_pretty.js:584571 | variable |
 | `hm` | `handleAutoModeOptInDecline` (decline handler: clears pending consent, tears down the dialog/timer, does NOT exit the process) | cli_inner_pretty.js:585448 | function |
+| `i4q` | `isAutoModeOptInDismissed` (`config.autoModeOptInDismissed && !override`; shared by `PR8` cycle gate + the approval dialog) | cli_inner_pretty.js:578709 | function |
 | `iC` | `handleAutoModeAccept` (accept handler: clears dialog, commits `toolPermissionContext` mode `auto`, emits `mode_auto_enter`) | cli_inner_pretty.js:585430 | function |
-| `QCH` | `cycleNextMode` (Shift+Tab mode-cycle state machine: default → acceptEdits → plan → (bypass\|auto) → default) | cli_inner_pretty.js:578712 | function |
+| `n3H` | `getModeSymbol` (mode → chip symbol, via `getModeConfig(mode).symbol`) | cli_inner_pretty.js:49215 | function |
+| `QCH` | `cycleNextMode` / `getNextPermissionMode` (Shift+Tab mode-cycle state machine: default → acceptEdits → plan → (bypass\|auto) → default; v2.1.156 dropped the `USER_TYPE==='ant'` branch) | cli_inner_pretty.js:578712 | function |
 | `r4q` | `AutoModeOptInDialog` (the in-flow opt-in dialog component; four actions, each emitting a `tengu_auto_mode_opt_in_dialog_*` event) | cli_inner_pretty.js:578742 | function |
+| `tt` | `getModeTitle` (mode → chip title, via `getModeConfig(mode).title`) | cli_inner_pretty.js:49203 | function |
+| `tV` | `getModeColor` (mode → theme color, via `getModeConfig(mode).color`; plan → `planMode` teal) | cli_inner_pretty.js:49218 | function |
+| `uV` | `handleCycleMode` (`chat:cycleMode` action handler; teammate-task branch, 800ms auto opt-in hold, remote `set_permission_mode`, telemetry; distinct from the adjacent `ym` PromptInput handler) | cli_inner_pretty.js:585344 | function |
+| `WF$` | `getModeConfig` (mode → `PERMISSION_MODE_METADATA[mode]` with `default` fallback) | cli_inner_pretty.js:49194 | function |
+| `xEq` | `PERMISSION_MODE_METADATA` (per-mode chip `{title,shortTitle,symbol,color,external}`; plan entry `{Plan Mode, ⏸, planMode, plan}` at 49230) | cli_inner_pretty.js:49228 | object |
+| `XF$` | `PAUSE_ICON` (`"⏸"` U+23F8 — the plan-mode chip symbol; the only mode-unique glyph, others use `⏵⏵`) | cli_inner_pretty.js:49136 | constant |
+| `Yi` | `toExternalPermissionMode` (mode → external-protocol name, via `getModeConfig(mode).external`) | cli_inner_pretty.js:49197 | function |
 | `ym` | `handleCycleMode` (PromptInput Shift+Tab handler; arms the 800ms consent debounce before showing the opt-in dialog) | cli_inner_pretty.js:585340 | function |
 
 ---
@@ -146,6 +156,39 @@ Two platform-infra rows routed from the Workflow module: the shared UNC-path det
 
 ---
 
+## Module: Permissions — Plan-Mode Engine
+
+The permission-mode metadata + transition funnel, the write floor and its plan-file exemption, the
+resume reconciler that drops plan/bypass, the `isEnabled`-gate predicates shared by
+EnterPlanMode/ExitPlanMode/AskUserQuestion, and the CCR remote-environment gates. (Consumed by the
+Plan module in `symbol_index_core_features.md` and the AskUserQuestion tool in
+`symbol_index_core_execution.md`. `T6`/`computeEffectivePermissionContext` lives in
+`symbol_index_core_execution.md`; the Shift+Tab cycle `QCH`/`PR8`/`c19`/`uV` is under Mode / Consent
+UI Surface above; the opusplan switch `VT`/`he`/`WY$`/`TT`/`NN` is under Model Selection above.)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Ah$` | `buildWritePermissionSuggestions` (setMode suggestions appended to a write `ask`; only offers acceptEdits when `prePlanMode` was elevated) | cli_inner_pretty.js:549891 | function |
+| `ChH` | `checkWritePermissionForTool` (THE plan-mode write floor; deny→memory→allow→ask→exemption→safety→**plan-floor**→acceptEdits/workingDir) | cli_inner_pretty.js:549806 | function |
+| `D68` | `getRemoteEnvironmentKind` (reads `CLAUDE_CODE_ENVIRONMENT_KIND` → `byoc`/`anthropic_cloud`/`null`) | cli_inner_pretty.js:145406 | function |
+| `dtH` | `hasBridgeEntitlement` (CCR bridge gate: account predicate + second predicate + `tengu_ccr_bridge` flag) | cli_inner_pretty.js:372224 | function |
+| `gv6` | `getPromptSuggestionBlockReason` (returns `"plan_mode"` to suppress prompt suggestions while planning) | cli_inner_pretty.js:240792 | function |
+| `nY` | `applyPermissionUpdate` (the `setMode`/`addRules`/… updater; bypassPermissions-availability guard) | cli_inner_pretty.js:210027 | function |
+| `R6` | `isNonInteractive` (`!d$.isInteractive`; second half of the EnterPlanMode/ExitPlanMode/AskUserQuestion `isEnabled` gate) | cli_inner_pretty.js:2742 | function |
+| `sN` | `applyPermissionUpdates` (applies an array of permission updates to a context) | cli_inner_pretty.js:210088 | function |
+| `st` | `EXTERNAL_PERMISSION_MODES` (`["acceptEdits","auto","bypassPermissions","default","dontAsk","plan"]`) | cli_inner_pretty.js:49174 | variable |
+| `t1H` | `recordPermissionModeChanged` (`permission_mode_changed` OTEL telemetry; no-op when `from===to`) | cli_inner_pretty.js:222562 | function |
+| `uE6` | `filterToolsByPermissionMode` (keeps ExitPlanMode available in plan mode even while writes are floored) | cli_inner_pretty.js:278956 | function |
+| `uw` | `getAllowedChannels` (returns `d$.allowedChannels` — the `--channels` allowlist; first half of the `isEnabled` gate) | cli_inner_pretty.js:3217 | function |
+| `vl` | `transitionPermissionMode` (the single mode-transition funnel; telemetry, flags, `prePlanMode` capture/clear, auto-gate throw) | cli_inner_pretty.js:442777 | function |
+| `Vyz` | `reconcileRestoredPermissionMode` (resume reconciler; `plan` and `bypassPermissions` are deliberately dropped) | cli_inner_pretty.js:598936 | function |
+| `wC$` | `getQuestionPreviewFormat` (`"markdown" \| "html" \| undefined`; drives AskUserQuestion preview prompt + HTML validation) | cli_inner_pretty.js:2829 | function |
+| `WlH` | `checkInternalEditablePath` (internal-editable exemption: plan file / workflow / scratchpad / bg-tmp / memory / wiki) | cli_inner_pretty.js:549939 | function |
+| `xhH` | `prepareContextForPlanMode` (captures `prePlanMode` + auto-mode side effects; must run before `setMode`) | cli_inner_pretty.js:443097 | function |
+| `ZF$` | `getModeDefaultBehavior` (mode → allow/ask/deny/classify; the `plan && context` allow branch) | cli_inner_pretty.js:49209 | function |
+
+---
+
 ## Module: Sandbox — TMPDIR Canonicalization
 
 CHANGED in v2.1.156: the `$TMPDIR` sandboxed-vs-unsandboxed unification. The per-uid tmp dir is realpath-canonicalized and the canonical path is substituted for the `$TMPDIR` token in the "Command sandbox" prompt section so sandboxed and unsandboxed commands resolve to the same directory.
@@ -176,6 +219,7 @@ The seven-provider `claude-opus-4-8` config object + registry wiring, the canoni
 | `d7K` | `CANONICAL_MODEL_IDS` (`Object.values(j3).map(c => c.firstParty)`) | cli_inner_pretty.js:91850 | variable |
 | `Gi$` | `resolveModelOverrideAlias` (reverse-map a user `modelOverrides` value back to its short key; used by `O7`/`normalizeModelId`) | cli_inner_pretty.js:91967-91977 | function |
 | `HD` | `canonicalizeOpusModelId` (substring waterfall: any vendor/dated id → canonical `claude-…`; tolerates `[1m]`, strips trailing `-YYYYMMDD`) | cli_inner_pretty.js:98751-98769 | function |
+| `he` | `getModelOverride` (reads the configured model alias, e.g. `opusplan`/`haiku`; backs the plan-mode model switch) | cli_inner_pretty.js:98701 | function |
 | `j3` | `MODEL_CONFIG_REGISTRY` (short-key → config map; `opus48: Xi$` is the new key) | cli_inner_pretty.js:91835-91849 | object |
 | `Ji$` | `OPUS_47_MODEL_CONFIG` (the 4.7 seven-provider block 4.8 was cloned from) | cli_inner_pretty.js:91815-91824 | object |
 | `NN` | `getDefaultSonnetModel` (default Sonnet selector; `sonnet45` fallback on `!UA()`, else `sonnet46`) | cli_inner_pretty.js:98726-98730 | function |
@@ -186,6 +230,8 @@ The seven-provider `claude-opus-4-8` config object + registry wiring, the canoni
 | `si` | `get3PModelCapabilityOverride` (memoized `ANTHROPIC_*_MODEL_SUPPORTED_CAPABILITIES` env reader; `undefined` for 1P) | cli_inner_pretty.js:130257-130275 | variable |
 | `TT` | `getDefaultOpusModel` (default Opus: opus48 on firstParty, opus47 on anthropicAws/gateway, opus46 on 3P) | cli_inner_pretty.js:98720-98725 | function |
 | `UA` | `isFirstPartyProvider` (provider class `{firstParty, anthropicAws, gateway}`; behind the lean gate's unknown-id fall-through and the launch-tier eligibility) | cli_inner_pretty.js:91891-91893 | function |
+| `VT` | `getMainLoopModelForPermissionMode` (opusplan→Opus / haiku→Sonnet plan-mode model switch; `!exceeds200kTokens` guard) | cli_inner_pretty.js:98735 | function |
+| `WY$` | `describeModelAlias` (surfaces "Opus in plan mode, else Sonnet" to the UI) | cli_inner_pretty.js:98797 | function |
 | `wZ` | `getCurrentModelId` (session-effective model id; threads `TT() + (VP()?"[1m]":"")`) | cli_inner_pretty.js:98741-98747 | function |
 | `Xi$` | `OPUS_48_MODEL_CONFIG` (seven-provider id map for `claude-opus-4-8` + `eagerInputStreaming`) | cli_inner_pretty.js:91825-91833 | object |
 | `Yz` | `getResolvedModelMap` (registry after applying user `modelOverrides`) | cli_inner_pretty.js:91986-91990 | function |
