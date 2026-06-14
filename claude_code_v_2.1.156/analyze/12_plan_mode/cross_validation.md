@@ -30,7 +30,7 @@
 
 ## 0. Executive summary — the genuinely-new post-2.1.88 deltas
 
-Across all eight subsystems, the v2.1.156 plan-mode + AskUserQuestion code is **structurally faithful**
+Across all subsystems, the v2.1.156 plan-mode + AskUserQuestion code is **structurally faithful**
 to the v2.1.88 precursor. The deltas cluster into four themes:
 
 1. **Tool split (EnterPlanMode becomes its own tool).** In v2.1.88, `ENTER_PLAN_MODE_TOOL_NAME`
@@ -41,7 +41,9 @@ to the v2.1.88 precursor. The deltas cluster into four themes:
 2. **Systematic de-flagging.** `feature('KAIROS')`/`KAIROS_CHANNELS')`, `feature('TRANSCRIPT_CLASSIFIER')`,
    `isPlanModeInterviewPhaseEnabled()`, and `USER_TYPE === 'ant'` are all **gone** (0 grep hits in the
    bundle for the plan-mode ones). The guards they protected either collapsed to one always-on path or
-   were re-expressed as intrinsic capability checks (`isNonInteractive()`, live auto-gate).
+   were re-expressed as intrinsic capability checks (`isNonInteractive()`, live auto-gate). The
+   internal-only **VerifyPlan** feature (`CLAUDE_CODE_VERIFY_PLAN` + `VerifyPlanExecution` tool) was
+   removed entirely, leaving only neutered reminder plumbing as resume-safe dead code (§9).
 3. **AskUserQuestion narrowing + multi-select normalization + notes-only state.** The base prompt was
    tightened (dropped the 4-item "this allows you to" checklist; reframed the opener to discourage
    over-asking), a `z.preprocess` now comma-joins multi-select arrays at the schema boundary, and a
@@ -392,7 +394,46 @@ text and the orchestration telemetry differ.
 
 ---
 
-## 9. Overall confidence assessment
+## 9. VerifyPlan — the removed verification tool & the dead reminder
+
+> Deep analysis: [`verify_plan_tool_and_reminder.md`](./verify_plan_tool_and_reminder.md) §1–§4.
+> **Cross-validation precursors:** `/lyz/codespace/3rd/claude-code/src/{tools.ts, utils/attachments.ts, utils/messages.ts, components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.tsx, state/AppStateStore.ts}`.
+
+| Aspect | v2.1.88 precursor | v2.1.156 (`cli_inner_pretty.js`) | Status |
+|---|---|---|---|
+| Env flag `CLAUDE_CODE_VERIFY_PLAN` | `tools.ts:92`, `messages.ts:4244`, `attachments.ts:3900` | grep = **0 hits** | **REMOVED** |
+| `VerifyPlanExecutionTool` registration | `tools.ts:91-95, 231` | grep = **0 hits** | **REMOVED** |
+| ExitPlanMode "IMPORTANT…finished implementing the plan" clause | `ExitPlanModePermissionRequest.tsx:367` | grep = **0 hits** | **REMOVED** |
+| Reminder generator (4 AND-ed gates: ant + env + pending + every-10) | `getVerifyPlanReminderAttachment` (`attachments.ts:3894-3929`) | `bR_` (`413895-413897`) = `return []` | **NEUTERED** |
+| Turn counter (human turns since `plan_mode_exit`) | `getVerifyPlanReminderTurnCount` (`attachments.ts:3872-3889`) | `kw4` (`413886-413894`) | **UNCHANGED** (byte-equivalent, orphaned) |
+| Config `VERIFY_PLAN_REMINDER_CONFIG` | `attachments.ts:291` `{TURNS_BETWEEN_REMINDERS:10}` | `zw4` (`414018`) `{TURNS_BETWEEN_REMINDERS:10}` | **UNCHANGED** (unused) |
+| Renderer case text | `messages.ts:4246-4250` (`"VerifyPlanExecution"`) | `445787` — tool name folded to `""` | **UNREACHABLE** (frozen string) |
+| `appState.pendingPlanVerification` consumer | reminder generator + tool | no live reader | **INERT** |
+| `${AGENT_TOOL_NAME}` in reminder text | `AGENT_TOOL_NAME` | `sq = "Agent"` (`185637`) | **MATCH** |
+
+### Why VerifyPlan is dead in v2.1.156
+
+This is the cleanest example of theme #2 (**systematic de-flagging**) in the whole plan-mode surface,
+and it shows the *two-speed* removal strategy:
+
+- **Capabilities are deleted outright** — the env flag, the `VerifyPlanExecution` tool, and the
+  ExitPlanMode hand-off clause have **zero** bundle occurrences. They are build-time/runtime
+  constructs with no cross-session persistence, so deleting them is safe.
+- **Schema is retained as dead code** — the `verify_plan_reminder` attachment *type*, its renderer
+  case, the turn counter (`kw4`), and the config (`zw4`) all survive, but the **generator `bR_` is
+  gutted to `return []`**, so the reminder can never be emitted. The renderer's tool-name slot is
+  constant-folded to `""` (it would render `call the "" tool directly` if it were ever reached). The
+  type is kept for the same `--resume` crash-safety reason as the adjacent `LEGACY_ATTACHMENT_TYPES`
+  list — an old transcript may still carry the attachment.
+
+VerifyPlan was an internal-only (`USER_TYPE === 'ant'`) experiment; its removal is consistent with the
+broader v2.1.156 deletion of the `USER_TYPE === 'ant'` plan-mode forks. Net answer to "does
+`CLAUDE_CODE_VERIFY_PLAN` still exist in v2.1.156?": **no — the env and tool are gone; only neutered
+reminder plumbing remains.**
+
+---
+
+## 10. Overall confidence assessment
 
 **HIGH confidence — verified by reading both trees directly:**
 - Every v2.1.156 line number and ORIGINAL snippet underlying these rows was read from

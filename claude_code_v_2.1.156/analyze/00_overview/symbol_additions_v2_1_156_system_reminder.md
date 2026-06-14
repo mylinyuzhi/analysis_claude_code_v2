@@ -141,6 +141,7 @@ Readable config names are CONFIRMED via the module's `__esModule` export block a
 | `IR_` | `emitOutputTokenUsageReminder` (**NEUTERED**: `return []`) | cli_inner_pretty.js:413877-413879 | function |
 | `CR_` | `emitBudgetUsdReminder` (emits when `maxBudgetUsd` configured) | cli_inner_pretty.js:413880-413885 | function |
 | `bR_` | `emitVerifyPlanReminder` (**NEUTERED**: `return []` unconditionally) | cli_inner_pretty.js:413895-413897 | function |
+| `kw4` | `getVerifyPlanReminderTurnCount` (human turns since `plan_mode_exit`; **SURVIVES but orphaned** — only caller `bR_` is neutered) | cli_inner_pretty.js:413886-413894 | function |
 | `WG8` | `memoryHeader` (`q ? \`${q}\n\nMemory: ${H}:\` : \`Memory: ${H}:\``) | cli_inner_pretty.js:413393-413400 | function |
 | `ME5` | `memoryAgeDays` (`Math.max(0, Math.floor((Date.now()-H)/86400000))`) | cli_inner_pretty.js:221252-221254 | function |
 | `oG6` | `memoryFreshnessText` (plain stale-marker text; `""` when age ≤ 1 day) | cli_inner_pretty.js:221255-221263 | function |
