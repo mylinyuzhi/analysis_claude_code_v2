@@ -235,3 +235,47 @@ README cluster; workflow's 2 before-picture lines; auto_memory's `PQa`/verbose l
 `XHe→isSmallerWindow` README correction, and reconcile the handful of cross-doc readable-name drifts
 (`Agi`/`mgi`/`Rt`, `rWa`/`Jyn`, `NXr`/`Dla`/`oso`) to the per-feature `symbol_additions_*` single-source-of-truth
 names — none of which invalidates a delta finding.
+
+---
+
+### Second verification pass — 2026-06-23 (independent re-audit, residuals resolved)
+
+A final tree-wide consistency audit was run after the verify+fix passes and the 00_overview consolidation
+completed. The mechanical follow-ups listed above and the §5 open items were independently re-checked against
+the v2.1.183 source bundle (`/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js`,
+699,346 lines). Outcome:
+
+- **§6 mechanical follow-ups — all confirmed applied and source-correct.** Spot-verified directly against the
+  bundle: compact's `XHe→isSmallerWindow` README correction landed (`function XHe(e, t)` @102376 is a strict
+  smaller-context-window comparator, not a same-model check); the dispatcher row in `file_index.md` now cites the
+  correct `zut`@460676 (`compactConversation`) and `del`@461088 (`streamCompactSummary`); `G4e`@445827 and
+  `YR`@445753 in `changelog_to_code_map.md` are exact function declarations; the `waitingFor` spread is exactly at
+  @691305. The name reconciliations now match the per-feature `symbol_additions_*` single source of truth in the
+  symbol index: `Agi`=`buildTeamRecallRwRo` (@151265), `mgi`=`buildCombinedPrivateTeam` (@151194),
+  `Rt`=`logFeatureSad` (@44575, body confirmed to emit `tengu_feature_sad`), `rWa`=`isNonDeterministic`
+  (@416439), `Jyn`=`isUltracodeKeywordTriggerEnabled` (@148797). The deferred `Rt` "telemetryFail vs telemetrySad"
+  alias conflict was confirmed **not to exist** in this tree.
+- **Routing layer — fully present and de-duplicated.** The four `symbol_index_*.md` files now hold **364 unique
+  obfuscated symbols with ZERO duplicates** (verified across all four files); the §4 broken-`symbol_index_*`
+  forward-reference issue stays **resolved**.
+- **Tree-wide invariants re-run — all PASS.** 829 resolvable relative links across 73 `.md` files resolve with
+  **0 broken** (inline-code spans correctly excluded; two earlier candidate hits confirmed as false positives — a
+  surrogate-pair regex literal in prose and a link-shaped string inside a code span); 157 cross-tree links into the
+  2.1.156 baseline resolve; **0 forbidden `| Obfuscated | Readable |` mapping tables** in the 22 module docs
+  (the compact README §DELTA 5 readable-keyed rename table flagged in §4 has since been **removed** from
+  `07_compact/README.md`; the surviving `bg_command_surface_and_retire_delta.md` TL;DR table is a Role-keyed
+  cross-version lineage table with an explicit disclaimer, the allowed exception); `## Related Symbols` present in
+  **22/22** module docs; **English-only** confirmed (no CJK/JP/KR/Cyrillic word characters); **no leftover
+  TODO/FIXME/WIP/TBD** markers (every "placeholder" match is a legitimate domain term — the `cat` pane-hold, the
+  `failed` retryable-job placeholder, the image text-placeholder fallback, `{name}` URL placeholders).
+- **§5 open questions — kept flagged as honest residuals.** The six low/medium-confidence items (background
+  "Working forever"/`--bg -cn` exact sites; 2.1.161 worktree bg-edit; bg-survival exact patch line; compact
+  `clientdata`/`rowan_thicket` server-push origin + precompute arm-table timing; auto-memory `sinceVersion`
+  best-effort attribution + writable-store/`promptIndexMaxBytes` trigger; workflow R2 bg-worktree blocking) are
+  documentation-honest "not pinned to one line / not live-repro'd" caveats, not source contradictions. They remain
+  **carried forward** unchanged — they would require runtime bisection / live repro, not a source audit, to close.
+
+Full evidence is recorded in [`final_verification_report.md`](./final_verification_report.md).
+
+**Re-audit verdict: PASS — HIGH confidence.** No new defects; the residual mechanical follow-ups are confirmed
+landed and source-correct, and the open §5 items are correctly kept flagged.

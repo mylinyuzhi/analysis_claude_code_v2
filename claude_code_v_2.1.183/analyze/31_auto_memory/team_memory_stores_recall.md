@@ -420,7 +420,7 @@ async function buildPromptIndexSizeWarning(filePath, baseDir) {
 
 **Why thresholds 0.8 / 0.7:** Warn at 80% of budget (room to act before truncation bites), and tell the model to compact to under 70% (so a single compaction buys real headroom rather than re-triggering the warning next session). The "content beyond that is dropped" wording at `>= 100%` is honest about the consequence — an oversized index is silently truncated when injected, so stale entries past the cap simply vanish from recall.
 
-> **Caveat (carried from dossier open-question 2).** `cXa` is clearly the consumer of `promptIndexMaxBytes`, but I did not trace every call site to confirm whether its string is surfaced directly to the user vs. folded into a system-reminder. Medium confidence on the exact UX trigger; the *logic* above is fully verified at source.
+> **Caveat (carried from dossier open-question 2; re-verified).** The `cXa` builder is **fully verified at source** — re-read in full at `cli_inner_pretty.js:447180-447213`, including the thresholds `kBp = 0.8` (warn) / `LBp = 0.7` (compact target), whose exact declaration lines are now pinned at **447212-447213** (`var lXa, a4t, kBp = 0.8, LBp = 0.7;`). The builder computes the budget from `promptIndexMaxBytes ?? HTe`, checks size against the 0.8 threshold, and returns either a formatted warning string or `null`. **Confidence on the builder logic is now high.** The one residual is the UX *surface*: `cXa` returns `string | null`, but not every call site that surfaces its output to the user (direct message vs. system-reminder fold vs. other) was traced to its rendering code — **medium-high confidence** on the exact UX-trigger location.
 
 ---
 
@@ -821,7 +821,7 @@ if (q !== null) {
 
 - **High confidence:** Deltas 1, 2, 3, 4, 5 — all verified at the cited v2.1.183 lines and contrasted against the v2.1.156 before-pictures and telemetry counts.
 - **`sinceVersion` is best-effort.** The schema/recall changes are present in v2.1.183, absent in v2.1.156, and the changelog pins the remote team-store recall fix to **2.1.172**; intermediate builds (2.1.157–182) were not bisected, so the precise patch that introduced `promptIndex` (Delta 2) vs the `scope` split (Deltas 1/4/5) could differ by a few releases.
-- **`promptIndexMaxBytes` warning surface (Medium).** `cXa` logic is fully verified; the exact UX trigger (direct user message vs. system-reminder) was not traced to every call site.
+- **`promptIndexMaxBytes` warning surface (builder High; UX surface Medium-High).** `cXa` builder logic is fully verified — re-read at `cli_inner_pretty.js:447180-447213` with the thresholds `kBp = 0.8` / `LBp = 0.7` now pinned at 447212-447213. The only residual is the exact UX trigger (direct user message vs. system-reminder fold), which was not traced to every call site.
 - **Builder bodies (Medium-High).** `mgi`/`Agi` bodies were read in full; `Sgi`/`Egi`/`bgi`/`UNr` signatures and dispatch confirmed but their full bodies were skimmed for the rendering variants.
 - **Writable user-scope recall (Medium).** Parse + watcher split + the dispatcher guard are verified; the full personal-recall prompt for a `scope:"user", mode:"rw"` store was not traced end-to-end.
 

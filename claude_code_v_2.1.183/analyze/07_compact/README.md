@@ -622,7 +622,7 @@ The micro-compact **`context_hint` beta string is verified unchanged**: `context
 
 ## Open questions / low-confidence items (carried honestly from the dossier)
 
-1. **`clientdata` window source semantics (MEDIUM).** `ywd` reads `rowan_thicket` from `clientDataCache` and `autoCompactWindowsCache`. The exact server-push mechanism that populates these caches — and whether `rowan_thicket` is a feature-gate key or a clientdata blob field — was not traced end-to-end. HIGH confidence on its existence and placement in `z2`; MEDIUM on the classification as a "window source" and its population path.
+1. **`clientdata` window source semantics (MEDIUM, still open).** `ywd` reads `rowan_thicket` from `clientDataCache` and `autoCompactWindowsCache`. The read path is fully pinned (`z2`@226887 → `ywd`@226865-226874 → `hti()?.rowan_thicket`), but `grep -n 'rowan_thicket =' cli_inner_pretty.js` returns **0 write sites** — the field is read-only in-bundle, populated by an external SDK/server clientdata sync. Confidence is therefore split: **HIGH** on its existence + wiring in `z2`; **MEDIUM** on the server-push mechanism (inferred external cache population, not traceable in this bundle). `rowan_thicket` is server-controlled, not client-computed.
 
 2. **Precompute arm-table consumption (MEDIUM).** The table parser (`bqr`/`eBi`/`tBi`) and the new gated telemetry are confirmed, but exactly how `tengu_precomputed_compact_arm_gated` / `_rearm_capped` (`cli_inner_pretty.js:452899`/`452973`) change the reactive precompute swap *timing* vs v2.1.156 was not fully traced. A focused read of 452899–452990 would close this.
 

@@ -166,7 +166,12 @@ Two caches give the server two push channels: `rowan_thicket` is a *named blob f
 
 ### Key insight & open-question caveat
 
-**OPEN QUESTION (carried from dossier §4.1, MEDIUM confidence on classification).** The exact server-push mechanism that *populates* `clientDataCache.rowan_thicket` and `autoCompactWindowsCache` was not traced end-to-end, and whether `rowan_thicket` is a feature-gate key versus a clientdata blob field was not fully resolved. What IS HIGH-confidence verified: the function exists at :226865, is wired into `z2` at Source 3 (:226887-226888), reads exactly these two cache fields via `hti`/`yti` (:134129-134134), and validates `[1e5,1e6]` integers. The classification as a "window source" is sound; the upstream cache-population path is the unverified part. Treat `rowan_thicket` as "a server-pushed per-model window blob, populated by a clientdata sync we did not trace."
+**OPEN QUESTION (carried from dossier §4.1) — STILL OPEN, but the EXISTENCE/WIRING half is now upgraded to HIGH.** Re-verified against live source: the read path is fully pinned but the *write* path is not in-bundle. Specifically:
+
+- **HIGH confidence — existence + wiring (verified).** `ywd` exists at :226865-226874, is wired into `z2` at Source 3 (:226887-226888), reads exactly `hti()?.rowan_thicket` then `yti()?.[model]` (`hti`/`yti` @134129-134134 = `wt().clientDataCache` / `wt().autoCompactWindowsCache`), and validates `[1e5,1e6]` integers. The call path `z2(@226887) → ywd → rowan_thicket` is confirmed.
+- **MEDIUM confidence — the server-push MECHANISM (still open, now with a negative-grep proof).** `grep -n 'rowan_thicket =' cli_inner_pretty.js` returns **no assignment sites** in the v2.1.183 bundle — the field is purely *read* in the compaction code, never written here. `clientDataCache` is populated externally (inferred: an SDK/server clientdata sync that lives outside this bundle), so `rowan_thicket` is **server-controlled, not client-computed**. Whether it is best described as a feature-gate key versus a clientdata blob field is therefore moot for the in-bundle read path — it is consumed as a per-model-keyed object either way.
+
+The classification as a "window source" is sound. Treat `rowan_thicket` as "a server-pushed, read-only per-model window blob, populated by a clientdata sync that is not present in the client bundle (no write site exists in-bundle)."
 
 ```javascript
 // ============================================
@@ -526,7 +531,7 @@ The worked numeric examples in the baseline (200k Sonnet, 1M Opus) still hold fo
 |------|-----------|------|
 | `z2` grew to 6 sources, precedence env>settings>clientdata>experiment>model-default>auto | **HIGH** | read :226875-226893; 0-count grep of `clientdata`/`model-default` in v2.1.156 |
 | `clientdata` source *exists* and is wired at Source 3, reads `rowan_thicket`/`autoCompactWindowsCache` | **HIGH** | read `ywd` :226865-226874 + `hti`/`yti` :134129-134134 |
-| `clientdata` upstream cache-population / `rowan_thicket` blob-vs-gate classification | **MEDIUM** | dossier §4.1 open question — not traced end-to-end |
+| `clientdata` upstream cache-population / `rowan_thicket` server-push mechanism | **MEDIUM** | dossier §4.1 open question, still open — `grep -n 'rowan_thicket ='` = 0 write sites in-bundle (read-only; populated by an external clientdata sync) |
 | `model-default` source (static `hwd` set + dynamic `ARr` clamp), `jQ`=200000 | **HIGH** | read :226891, :226982, :134118, :134192 |
 | `qCe` now counts clientdata + model-default as configured | **HIGH** | read :226895-226898 vs v2.1.156 `EH$` |
 | Arm table `bqr`/`eBi`/parser + malformed telemetry | **HIGH** | read :226920-226934, :226795-226816, :226912 |

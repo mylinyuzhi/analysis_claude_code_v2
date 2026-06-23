@@ -186,7 +186,7 @@ not initialized" if it is missing — the proof the team is a startup preconditi
 | `_F` | `globalBackendRegistry` | cli_inner_pretty.js:422467 | variable | BackendRegistry process singleton (`_F = J5a()`). v2.1.156 `NS`@381118. |
 | `Vdo` | `getCurrentBackend` | cli_inner_pretty.js:422480 | function | `(await eLe()).backend` resolver. NEW name; carryover behavior. |
 | `rqa` | `injectCommandIntoPane` | cli_inner_pretty.js:422493 | function | Spawn-side delegate onto `backend.sendCommandToPane(paneId, command, !insideTmux)`. v2.1.156 pane-spawn delegate family. |
-| `sDp` | `runInProcessTeammate` | cli_inner_pretty.js:421006 | function | The in-process persistent agent loop; per-turn `AbortController`; idle notification on turn end; clears only per-turn `currentWorkAbortController` (not children) at @421247. v2.1.156 `JT_`@379714. |
+| `sDp` | `runInProcessTeammate` | cli_inner_pretty.js:421006 | function | The in-process persistent agent loop; per-turn `AbortController`; idle notification on turn end; clears only per-turn `currentWorkAbortController` (not children) at @421247. **v2.1.183 idle update @421263 now sets `evictAfter: Date.now() + zGe`** (arms the +30s eviction timer on turn-end), whereas v2.1.156 `JT_` idle update @379909 set `{isIdle:!0, onIdleCallbacks:[]}` with **no** `evictAfter`. v2.1.156 `JT_`@379714. |
 | `qut` | `startInProcessTeammate` | cli_inner_pretty.js:421374 | function | Fire-and-forget `sDp(e).catch(...)`. v2.1.156 `qeH`@380016. |
 | `ZLp` | `POLL_INTERVAL_MS` | cli_inner_pretty.js:421380 | constant | `500` — in-process mailbox poll interval. v2.1.156 `fT_`@380022. |
 
@@ -337,10 +337,16 @@ keepalive release + new `<note>`).
   location used here and in the README is **149939**.
 - **Open questions carried (medium / unverified-edge):** the `F3f` env-var setter
   (`CLAUDE_INTERNAL_ASSISTANT_TEAM_NAME`); the `EDp` non-splitpane body (read at guard head
-  only); whether the in-process turn-end (`sDp` idle path) also changed vs v2.1.156 `JT_`
-  beyond the `G4e` notification delta; the `_vd` `Workflow` filter's inlined `|| !1` flag
-  (read as "always drop"); the `G4e` `<age>`/`<note>` tag-const literals (`bM`) not fully
-  resolved. See the module docs' "Confidence & open questions" sections.
+  only); the `_vd` `Workflow` filter's inlined `|| !1` flag (read as "always drop"); the
+  `G4e` `<age>`/`<note>` tag-const literals (`bM`) not fully resolved. See the module docs'
+  "Confidence & open questions" sections.
+- **RESOLVED (high confidence) in the fix pass:** whether the in-process turn-end (`sDp`
+  idle path) also changed vs v2.1.156 `JT_` beyond the `G4e` notification delta. It **did**:
+  the v2.1.183 `sDp` idle update @421263 now sets `evictAfter: Date.now() + zGe` (`zGe=30000`
+  @439188) whereas v2.1.156 `JT_` @379909 set only `{isIdle:!0, onIdleCallbacks:[]}`. The
+  turn-end thus *arms* eviction and the `G4e` notification-routing + keepalive *gate* it —
+  both are parts of the same survival fix. See
+  `coordinator_and_background_survival.md` §3.6 #1.
 - **Disproved dossier suspicions (now negative deltas):** the SendMessage model-facing
   `message` union was **not** trimmed (3 types in both versions; `team_permission_update`/
   `mode_set_request` were never model-submittable); the coordinator cross-session-peer

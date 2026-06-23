@@ -147,3 +147,260 @@ sampled v2.1.156 before-picture anchors resolve to the exact declaration claimed
 range-citations where the named declaration sits a few lines inside the cited window. The corpus is also
 format-clean — no forbidden mapping tables, universal `## See also` + prev/next nav, English-only, and (after the one
 `2.1.167.md` fix) all relative and cross-tree links resolve. No high- or medium-severity issues remain open.
+
+---
+
+## 5. Coverage audit (2026-06-23) — every CHANGELOG bullet accounted for
+
+**Scope of this pass:** an *exhaustive per-bullet* audit (distinct from §1's *sampled-anchor* citation audit). For
+each of the 22 published releases, every enumerated bullet in [`../../CHANGELOG.md`](../../CHANGELOG.md) was diffed
+against its `2.1.NN.md` by_version file to confirm the bullet is **addressed** somewhere in the file. A bullet counts
+as covered when the file does any of: (a) analyzes it with a `cli_inner_pretty.js:<line>` anchor, (b) summarizes it +
+links to a depth module (`30_agent_team` / `42_workflow` / `36_background_agents` / `07_compact` / `31_auto_memory`),
+or (c) honestly flags it as a non-isolable timing/render/platform fix carrying **no** fabricated anchor. A bullet is a
+gap only if it is unaddressed anywhere in the file, **or** it is plainly isolable and is mentioned without the source
+anchor it should carry.
+
+### 5.1 Method
+
+Per-release CHANGELOG-bullet ↔ by_version-file diff: enumerate the release's bullets → locate each in the file →
+classify covered/gap → for gaps, locate the patch by grepping a stable string (setting key, flag, `tengu_*` event,
+prompt/error fragment) in the v2.1.183 bundle, read off the enclosing declaration, and confirm NEW/removed claims by
+re-grepping the same stable string in the v2.1.156 bundle (never an obfuscated name — those are re-mangled between
+builds).
+
+### 5.2 Per-version covered/total counts
+
+| Release | Covered/Total | Gaps filled | Notes |
+|---------|---------------|-------------|-------|
+| 2.1.157 | 27/27 (after fill) | **2** | §26 worktree-restore-dir fix (anchored), §27 sleep/wake date fix (non-isolable, depth-linked) |
+| 2.1.158 | 1/1 | 0 | single-bullet auto-mode-on-3P release |
+| 2.1.159 | 1/1 | 0 | internal-only checkpoint (provenance) |
+| 2.1.160 | 27/27 | 0 | `workflow`→`ultracode` rename inflection |
+| 2.1.161 | 22/22 | 0 | telemetry-correctness + secret-hygiene |
+| 2.1.162 | 28/28 | 0 | "make the surfaces honest" |
+| 2.1.163 | 22/22 | 0 | managed-fleet ergonomics |
+| 2.1.165 | 1/1 | 0 | boilerplate release (provenance) |
+| 2.1.166 | 21/21 | 0 | `fallbackModel` chain |
+| 2.1.167 | 1/1 | 0 | boilerplate release (provenance) |
+| 2.1.168 | 1/1 | 0 | boilerplate release (provenance) |
+| 2.1.169 | 31/31 | 0 | troubleshooting + enterprise-hardening |
+| 2.1.170 | 2/2 | 0 | Fable 5 launch (causal, out-of-scope) |
+| 2.1.172 | 30/30 | 0 | nested subagents + focus cluster |
+| 2.1.173 | 2/2 | 0 | Fable `[1m]` + Windows sandbox-warning |
+| 2.1.174 | 13/13 | 0 | model-naming correctness sweep |
+| 2.1.175 | 1/1 | 0 | `enforceAvailableModels` |
+| 2.1.176 | 22/22 | 0 | localized titles + auth tightening |
+| 2.1.178 | 24/24 | 0 | the agent-team redesign |
+| 2.1.179 | 9/9 | 0 | "stop surfacing raw failure states" |
+| 2.1.181 | 39/39 | 0 | flagship maintenance |
+| 2.1.183 | 17/17 | 0 | auto-mode safety hardening |
+| **Total** | **343/343** | **2** | every enumerated bullet across 22 releases accounted for |
+
+**21 of 22 files were already complete** before this pass. Only `2.1.157.md` carried gaps (the window's largest fix
+batch); both were filled.
+
+### 5.3 Gaps filled — new source anchors
+
+Both gaps were in **`2.1.157.md`**, appended as numbered §26 and §27 in CHANGELOG order, immediately after §25 and
+before the trailing "File-level where to look" / Summary / See-also nav (all of which remain intact).
+
+**§26 — `--worktree` / `--worktree --tmux` return to the current linked worktree, not the canonical repo root (FIX,
+fully isolable, anchored).** Root cause: the `--worktree` launch runner `Gvf` (`cli_inner_pretty.js:598716-598748`)
+must `process.chdir` to the canonical repo root `Nm(Pt())` so `git worktree add` is parented at the main repo, but the
+session-worktree creator `b3t` derives `originalCwd = r?.fromCwd ?? Pt()` (`cli_inner_pretty.js:579989`). In v2.1.156
+the equivalent runner `dPz` (`cli_inner_pretty.js:563122-563146` before-picture) passed **no** `fromCwd`, so after the
+chdir, `DV$`'s `originalCwd = K?.fromCwd ?? C$()` (`cli_inner_pretty.js:554907` before-picture) captured the
+post-chdir cwd = the canonical root, and exiting returned there. The fix threads `fromCwd: e` (the pre-chdir launch
+dir = the linked worktree) into `b3t` at `cli_inner_pretty.js:598740`, so the session restores to the worktree the
+user launched from. Covers both `--worktree` and `--worktree --tmux` (same runner, same `b3t` call). 0-diff verified:
+v2.1.156 passed `Y ? { prNumber: Y } : void 0`; v2.1.183 passes `{ prNumber: a, fromCwd: e }`.
+
+**§27 — background sessions re-attached after sleep/wake are told the correct (current) date (FIX, honestly flagged
+non-isolable, depth-linked).** The conversation-side date stack is byte-identical between v2.1.156 and v2.1.183: the
+memoize `SCe = wn(Itt)` (`cli_inner_pretty.js:220209-220222`), the `date_change` detector `ftl`
+(`cli_inner_pretty.js:464855-464863`), the reminder text (`cli_inner_pretty.js:590591-590597`), the user-context
+"Today's date is …" surface `M1i` (`cli_inner_pretty.js:222386-226664`), and the cache-clear `Jyo`
+(`cli_inner_pretty.js:476428-476459`, clearing `SCe.cache` + `cyt(null)`) — and `date_change` resolves to the same 5
+occurrences with identical strings in both bundles. So the fix is **not** a new date-logic declaration; it is a
+wake/reattach-flow change in the background subsystem (the live wake path now invalidates the memoized date / re-runs
+the attachment pipeline), correctly recorded as "not isolated to a single declaration" and cross-linked to
+[`../36_background_agents/bg_command_surface_and_retire_delta.md`](../36_background_agents/bg_command_surface_and_retire_delta.md),
+matching the existing non-isolable sections' style.
+
+### 5.4 Genuinely non-isolable items (honestly recorded, no fabricated anchors)
+
+The fill did not invent anchors for render/timing/flow fixes that the bundle does not isolate. Recorded as such:
+
+- **2.1.157 §17** — pure rendering/timing fixes, explicitly "not isolated to a single decl."
+- **2.1.157 §27** — the sleep/wake date fix above: a background reattach-flow change, date machinery byte-identical to
+  v2.1.156, documented at the subsystem level (depth-linked), not pinned to a fabricated date-logic line.
+
+These follow the corpus convention of stating the absence of an isolable declaration honestly rather than fabricating
+a line number.
+
+### 5.5 Re-verification of the filled anchors (PASS/FAIL)
+
+Five anchors from the fill were re-opened in the bundles (v2.1.183 unless tagged otherwise):
+
+| # | Anchor | Bundle | Expected | Result |
+|---|--------|--------|----------|--------|
+| C1 | 598727-598740 (`Gvf` runner, `fromCwd: e`) | 2.1.183 | `_ = await b3t(xt(), h, y, { prNumber: a, fromCwd: e })` after the `qEt(Pt())` chdir to `Nm(Pt())` | PASS |
+| C2 | 579983-579992 (`b3t`, `originalCwd = fromCwd ?? cwd`) | 2.1.183 | `async function b3t(e,t,n,r){ … let o = r?.fromCwd ?? Pt(), s; …}` | PASS |
+| C3 | 220209-220222 (`SCe = wn(Itt)`) | 2.1.183 | `function Itt(){ … return \`${t}-${n}-${r}\`; }` then `var SCe; … SCe = wn(Itt);` | PASS |
+| C4 | 464855-464863 (`ftl` date_change detector) | 2.1.183 | `function ftl(e){ let t = Itt(); … if(SCe()===t) return []; … return [{ type:"date_change", newDate:t }]; }` | PASS |
+| C5 | 476428-476442 (`Jyo` clears `SCe.cache` + `cyt(null)`) | 2.1.183 | `function Jyo(e=new Set(),t){ … SCe.cache.clear?.(), … cyt(null), …}` | PASS |
+| C6 | 563122-563146 / 554907 (v2.1.156 before: `dPz`→`DV$`, no `fromCwd`) | 2.1.156 | runner calls `DV$(E$(), L, P, Y ? { prNumber: Y } : void 0)` (no fromCwd); `DV$` has `let _ = K?.fromCwd ?? C$()` | PASS |
+
+**Re-verification result: 6/6 PASS** (target was ~5). The before-picture C6 confirms the 0-diff claim: v2.1.156's
+runner genuinely omits `fromCwd`, so the `originalCwd` fell back to the post-chdir canonical root — exactly the bug
+§26 fixes.
+
+### 5.6 Format re-scan after the fill
+
+Re-ran the §3 invariants over all 22 files after the fill:
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| `## See also` present | PASS | 22/22 (unchanged by the fill). |
+| Prev/Next version nav | PASS | 22/22 — nav phrasing varies across files (`Prev:`/`Next:`, `Previous:`/`Next:`, `Adjacent versions: … (prev) … (next)`); all carry both directions (2.1.157 links the prior window as "Prev" via the cross-tree pointer and `2.1.158.md` as "Next"). |
+| No forbidden obf→readable mapping tables | PASS | New §26/§27 use the allowed dual-version `// Mapping:` comment line and a key/value `\| \| \|` info table (not a two-column obf→readable mapping table). No `\| Obfuscated \| Readable \|` headers anywhere. |
+| Relative links resolve | PASS | All `](../…)` / `](./…)` targets across the 22 analysis files resolve. The §26/§27 fill added only links to existing targets (`../36_background_agents/bg_command_surface_and_retire_delta.md`). The lone grep hit for `../43_model_opus48/` is the **quoted fix-note in §3 of this report**, not a live link in any analysis file. |
+| English-only | PASS | No CJK/Japanese/Korean in any file. |
+
+No new link or format breakage was introduced by the fill; nothing required re-fixing.
+
+### 5.7 README theme reconciliation
+
+The two filled §26/§27 items are both FIXes already encompassed by the existing `2.1.157` README theme line
+("…`EnterWorktree` mid-session switch … and background worktree-retire fixes"): the worktree-restore-dir fix is a
+worktree fix, and the sleep/wake date fix is a background-session fix. Neither materially shifts the release's theme
+(plugin ergonomics + `claude agents`/worktree polish), so [`README.md`](./README.md) needs no change.
+
+### 5.8 Overall coverage verdict
+
+**PASS — full coverage.** All **343** enumerated CHANGELOG bullets across the 22 published releases (2.1.157 … 2.1.183)
+are accounted for in their by_version files: anchored, depth-linked, or honestly flagged non-isolable. The only two
+gaps (both in `2.1.157.md`) are filled — one with a verified dual-version source anchor (`Gvf`/`b3t` `fromCwd`), one
+honestly recorded as a non-isolable background reattach-flow change (date machinery byte-identical to v2.1.156). Of the
+re-verified filled anchors, **6/6 PASS**. The corpus remains format-clean (universal `## See also` + prev/next nav, no
+forbidden mapping tables, all relative links resolving, English-only). No gaps remain open.
+
+---
+
+## 6. Adversarial cross-validation pass (2026-06-23) — independent coverage + citation re-check
+
+A second, **adversarial** pass re-audited every one of the 22 per-version files from a *default-to-FAIL* posture:
+each release was treated as guilty until each of its enumerated bullets was proven both (a) **covered** somewhere in
+the file and (b) **citation-accurate** — every cited `cli_inner_pretty.js:<line>` anchor re-opened *fresh* in the
+v2.1.183 bundle (`/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js`), and every
+"before-picture" absence claim re-confirmed in the v2.1.156 bundle
+(`/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js`). The pass was split into a
+**substantive** track (the large/medium releases with enumerable surfaces) and a **trivial/boilerplate** track (the
+single-bullet internal/bug-fix checkpoints). This rollup independently re-sampled anchors from across both tracks to
+corroborate the pass's own claims.
+
+### 6.1 Method
+
+Per-release, default-to-FAIL re-audit: (1) enumerate the release's bullets; (2) confirm each is addressed in the file
+(anchored / depth-linked / honestly flagged non-isolable — never a fabricated line); (3) re-read every sampled anchor
+*in source* and require the literal token at the cited line to match the asserted meaning; (4) re-confirm before-picture
+absences in the 2.1.156 bundle by grepping the **stable string** (setting key, flag, `tengu_*` event, prompt/error
+fragment), never an obfuscated name (those are re-mangled between builds). A citation is a FAIL if the cited line does
+not carry the claimed declaration; a coverage item is a FAIL if a bullet is unaddressed or mentioned without the anchor
+it should carry.
+
+### 6.2 Per-release coverage + citation result
+
+| Track | Release | Coverage | Citation | Fix |
+|-------|---------|----------|----------|-----|
+| substantive | 2.1.157 | PASS | PASS | — (the §26/§27 fills from §5 re-verified below) |
+| substantive | 2.1.160 | PASS | **FIXED** | §6 `xr()` prose corrected (see 6.4) |
+| substantive | 2.1.161 | PASS | PASS | — |
+| substantive | 2.1.162 | PASS | PASS | — |
+| substantive | 2.1.163 | PASS | PASS | — |
+| substantive | 2.1.166 | PASS | PASS | — |
+| substantive | 2.1.169 | PASS | PASS | — |
+| substantive | 2.1.172 | PASS | **FIXED** | §14 `vFi` anchor repointed 229573→228964 (see 6.4) |
+| substantive | 2.1.174 | PASS | PASS | — |
+| substantive | 2.1.176 | PASS | **FIXED** | `_Fl` anchor repointed 794→594705-594717 (see 6.4) |
+| substantive | 2.1.178 | PASS | PASS | — |
+| substantive | 2.1.179 | PASS | PASS | — |
+| substantive | 2.1.181 | PASS | PASS | — |
+| substantive | 2.1.183 | PASS | PASS | — |
+| trivial | 2.1.158 | PASS (1 bullet) | PASS (2 anchors) | — |
+| trivial | 2.1.159 | PASS (1 bullet) | PASS (2 anchors) | — |
+| trivial | 2.1.165 | PASS (1 bullet) | PASS (2 anchors) | — |
+| trivial | 2.1.167 | PASS (1 bullet) | PASS (2 anchors) | — |
+| trivial | 2.1.168 | PASS (1 bullet) | PASS (2 anchors) | — |
+| trivial | 2.1.170 | PASS (2 bullets) | PASS (4 anchors) | — |
+| trivial | 2.1.173 | PASS (2 bullets) | PASS (2 anchors) | — |
+| trivial | 2.1.175 | PASS (1 bullet) | PASS (2 anchors) | — |
+
+**Coverage: 22/22 PASS. Citation: 19/22 PASS, 3 FIXED.** The trivial track checked 18 anchors across 8 boilerplate
+releases (all PASS), confirming each correctly documents its single no-enumerated-surface bullet plus VERSION-metadata
+provenance — and that the per-release version strings (2.1.159 / .165 / .167 / .168) appear **zero** times in the
+bundle (a build embeds only its own VERSION), validating each doc's honest "no NN-specific symbol to cite" stance.
+
+### 6.3 Anchors re-sampled by this rollup (independent corroboration)
+
+Eight anchors were re-opened directly in the v2.1.183 bundle (and line 794 in the same bundle) to corroborate the
+pass's own claims rather than take them on trust:
+
+| # | Origin | Anchor | Expected | Result |
+|---|--------|--------|----------|--------|
+| R1 | 2.1.160 fix | 3151-3152 | `function xr(){ return !Ot.isInteractive; }` — TRUE when NOT interactive | PASS |
+| R2 | 2.1.172 fix | 228964-228965 | `function vFi(){ return st(process.env.CLAUDE_CODE_REMOTE); }` (and 229573 = `}` inside the AUP refusal builder) | PASS |
+| R3 | 2.1.176 fix | 594705-594717 | `function _Fl(...)` env-builder; `CLAUDE_CODE_SESSION_NAME: e.seed?.name \|\| e.seed?.intent \|\| e.short` @594717; line 794 = unrelated Vertex AI region URL | PASS |
+| R4 | 2.1.157 §26 | 579989 / 598740 | `b3t`'s `let o = r?.fromCwd ?? Pt()`; runner threads `_ = await b3t(xt(), h, y, { prNumber: a, fromCwd: e })` | PASS |
+| R5 | 2.1.157 §27 | 476428-476442 | `Jyo` clears `SCe.cache` + `cyt(null)`; `ftl` @464855 is the `date_change` detector returning `[{ type:"date_change", newDate:t }]` | PASS |
+| R6 | 2.1.158 | 134546-134549 | `function yxt(e){ if(e==="firstParty"\|\|e==="anthropicAws") return !0; return st(process.env.CLAUDE_CODE_ENABLE_AUTO_MODE); }` | PASS |
+| R7 | 2.1.170 | 95139 | `firstParty:"claude-fable-5", bedrock:"us.anthropic.claude-fable-5", …` | PASS |
+
+**Rollup re-sample result: 7/7 anchor groups PASS** (target was ~4). The deep re-verification of the new
+**2.1.157 §26/§27** sections specifically confirms: §26's worktree-restore-dir fix is a real one-argument
+change (`fromCwd: e` threaded into `b3t`, whose `originalCwd = r?.fromCwd ?? Pt()` previously fell back to the
+post-chdir canonical root), and §27's sleep/wake date fix is correctly recorded as a *non-isolable* background
+reattach-flow change — the underlying date machinery (`SCe`/`ftl`/`Jyo`) is byte-identical to v2.1.156, so no
+date-logic line was fabricated.
+
+### 6.4 Citation failures found and how they were fixed
+
+All three were **single bad-anchor** failures (the bullet was covered; only the line pointer was wrong). Each fix
+repointed the anchor to the verified site and adjusted prose where needed; coverage, `## See also`, and Prev/Next nav
+were left intact:
+
+- **`2.1.160.md` §6** — the prose described `xr()` as "this is the interactive CLI," but `xr()` at
+  `cli_inner_pretty.js:3151-3152` returns `!Ot.isInteractive` (TRUE when **not** interactive). Corrected: `!xr()`
+  (interactive) yields the `/model` picker; the `sdk-cli --model` branch is reached only when `xr()` is true
+  (non-interactive). 3151-3152 anchor added. **Re-verified by this rollup: PASS** (R1).
+- **`2.1.172.md` §14** — the "stopped promoting `/loop` in remote sessions" item cited the `vFi` remote-session
+  predicate near line 229573, but `vFi` is at **228964** (`st(process.env.CLAUDE_CODE_REMOTE)`); 229573 is a bare `}`
+  in the Usage-Policy refusal builder. Anchor repointed to 228964. **Re-verified by this rollup: PASS** (R2).
+- **`2.1.176.md`** — the `--bg -cn <name>` session-name item carried a spurious `cli_inner_pretty.js:794` anchor
+  (actually unrelated Vertex AI region code). Repointed to `_Fl`'s real bundle site **594705-594717**, with the
+  `CLAUDE_CODE_SESSION_NAME: e.seed?.name || e.seed?.intent || e.short` seed at 594717. **Re-verified by this rollup:
+  PASS** (R3).
+
+### 6.5 Format re-scan after the fixes
+
+Re-ran the §3/§5.6 invariants over all 22 files after the three fix-stage edits:
+
+| Check | Result | Detail |
+|-------|--------|--------|
+| `## See also` present | PASS | 22/22 — unchanged by the fixes. |
+| Prev/Next version nav | PASS | 22/22 carry both directions. |
+| No forbidden obf→readable mapping tables | PASS | No `## Symbol Mapping` / `## Symbol Index Reference` headers, no `\| Obfuscated \| Readable \|` table headers anywhere. |
+| Relative links resolve | PASS | Every `](../…)` / `](./…)` target across the 22 files resolves; the §5 `2.1.167.md` link fix (`../43_model_opus48/` → `../07_compact/fallback_model_in_compaction.md`) is in place. |
+| English-only | PASS | No CJK/Japanese/Korean in any file. |
+
+No fix-stage edit broke a format invariant; nothing required re-fixing.
+
+### 6.6 Overall verdict (adversarial pass)
+
+**PASS — high confidence.** Under a default-to-FAIL re-audit, all 22 per-version files are fully covered (343/343
+bullets) and citation-clean after three single-anchor fixes (2.1.160, 2.1.172, 2.1.176). Every anchor this rollup
+independently re-sampled (7/7 groups, spanning the three fixes, the new §26/§27 fills, and the 158/170 trivial track)
+lands on the cited line with the asserted meaning matching the literal code, and the trivial track's 18 boilerplate
+anchors plus zero-occurrence version-string checks all hold. The corpus remains format-clean across all invariants.
+No coverage failure and no unresolved citation failure remain.

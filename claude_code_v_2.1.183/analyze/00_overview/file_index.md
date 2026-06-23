@@ -192,7 +192,7 @@ dispatcher ~423130 → ~460676). The **context-hint beta is unchanged**.
 | `cli_inner_pretty.js:134105-134192` | 1M-credits clamp-back `tH`@134105 — `if (ARr) return jQ = 200000` (clamps the 1M-context window back to 200K when on credits; telemetry `tengu_1m_credits_clamp_activated`) (2.1.172) |
 | `cli_inner_pretty.js:226742-227081` | window resolver `z2`@226875 — grew **4 → 6 sources** (adds clientdata + model-default), with the arm table `bqr`@226920 (`tengu_amber_moleskin`) and the remote-reactive resolver `S7`@226751 |
 | `cli_inner_pretty.js:229183-229606` | 429-handling + clamp wiring (`if (e instanceof es && e.status === 429)`@229183, `Fwn`@229606) |
-| `cli_inner_pretty.js:460676-461690` | dispatcher + fallback-in-summarize: dispatcher `del`@460676, the summarize while-loop `ICn`@461078 / honor-`--fallback-model` at @461088 (telemetry `tengu_model_fallback_triggered query_source=compact`) (2.1.178), prefix-overflow `Yjp`@461484 |
+| `cli_inner_pretty.js:460676-461690` | full/partial pipeline + fallback-in-summarize: whole-conversation pipeline `zut`@460676 (`compactConversation`), partial `cel`@460886, fallback-chain helper `ICn`@461078, the summarize while-loop `del`@461088 (`streamCompactSummary`, honors `--fallback-model`; telemetry `tengu_model_fallback_triggered query_source=compact`) (2.1.178), prefix-overflow `Yjp`@461484 |
 
 ### 5. Auto Memory — team/remote memory stores + recall (2.1.172/2.1.181) → `../31_auto_memory/`
 

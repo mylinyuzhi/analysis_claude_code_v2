@@ -687,6 +687,16 @@ Everything else in the tool object — factory, gate, input schema fields, `chec
 
 - **All four deltas are high-confidence**, each verified by reading the cited v2.1.183 line and its v2.1.156 before-line directly. The errorCode 7 novelty is corroborated by the whole-bundle count (`grep -c "errorCode: 7"` = 6 in v2.1.156, 7 in v2.1.183 — exactly one new site, the Workflow `r5a`).
 - **Carried caveat (dossier §D3):** the tool description `gdo` (cli_inner_pretty.js:418170+) is ~150 lines; this doc diffed the load-bearing `agent()` signature (`effort?`) and the determinism standing line. There may be additional small wording tweaks elsewhere in the pattern catalog not enumerated here — low impact; a full character-level diff of `gdo` vs v2.1.156 `Fp6` is the place to look for an exhaustive description audit (out of scope for this tool-object-fixes doc).
+
+  For completeness, the three **load-bearing opt-in form** edits inside `gdo` (the keyword/own-words/footer surfaces that the keyword UX delta hinges on) are summarized below — the side-by-side is the same data the [`ultracode_keyword_trigger_delta.md` §5.1](./ultracode_keyword_trigger_delta.md) catalog table carries, reproduced here so this tool-object doc is self-contained on the `gdo`-vs-`Fp6` description delta:
+
+  | Opt-in form | v2.1.156 `Fp6` (before, cli_inner_pretty.js:376082-376088) | v2.1.183 `gdo` (after, cli_inner_pretty.js:418175-418181) |
+  |---|---|---|
+  | #1 keyword | `The user included the "workflow" or "workflows" keyword (you'll see a system-reminder confirming it).` | `The user included the keyword "ultracode" in their prompt (you'll see a system-reminder confirming it).` |
+  | #3 own-words | `("run a workflow", "fan out agents", "orchestrate this with subagents")` | `("use a workflow", "run a workflow", "fan out agents", "orchestrate this with subagents")` — **added "use a workflow"** |
+  | footer hint | `Mention they can include "workflow" in a future message to skip the ask.` | `Mention they can ask for one with "use a workflow" in a future message to skip the ask.` |
+
+  > This is a **cross-version before/after comparison table** (the CLAUDE.md exception for contrast), not an obfuscated→readable symbol mapping. The `gdo`/`Fp6`/`aLp` symbol rows live in the symbol-additions file linked at the bottom. The pattern-catalog (Understand/Design/Review/Research/Migrate) and adversarial-verify/judge-panel/loop-until-dry guidance were **not** character-level diffed; any residual wording tweaks there are low-impact and out of scope for this fixes doc.
 - **`Hqr` (the server-fallback abort sentinel)** was confirmed as the reason `zCe` matches against, but the exact code path that *aborts with* `Hqr` (the server-fallback dispatcher) lives in the request/dispatch layer and was not traced here — the Workflow-side adoption of errorCode 7 is fully verified; the producer of the sentinel is outside this module's scope.
 
 ---

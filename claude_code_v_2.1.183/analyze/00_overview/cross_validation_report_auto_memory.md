@@ -253,3 +253,49 @@ These are noted for completeness; no action strictly required.
 
 **Net: the analysis is substantively correct and well-evidenced. Apply AM-01 (links), AM-02/AM-03 (name
 consistency), and AM-04/AM-05 (anchor line fixes); AM-06/AM-07 optional.**
+
+---
+
+## Re-verification pass (post-fix) — anchors re-read against live source
+
+A second skeptical pass re-read **42 load-bearing anchors** against the v2.1.183 bundle at their cited lines.
+
+**Verdict: PASS.** All 42 anchors were physically re-read and verified at their cited lines.
+- **No DRIFT** — every line number is exact.
+- **No CONTENT DEFECTS** — all symbol identities, claim directions, and delta descriptions match source.
+- **Headline deltas confirmed:** (1) `CLAUDE_MEMORY_STORES` schema gained `scope`/`promptIndex`/`promptIndexMaxBytes`
+  (`bQu` @150491, `Zse` @150442); (2) `promptIndex` network fetch+inject operational (`agi` @150754, `kQu`
+  @150768, `memory_prompt_index` telemetry count 4 v2.1.183 vs 0 v2.1.156); (3) recall dispatcher `e0t`
+  rewritten to route by scope+mode (@151847); (4) `isTeamMemoryEnabled` gate fix (`Nk` @151098: mounted store
+  now enables team recall independent of `tengu_herring_clock`); (5) watcher `uFp` scope-split into team `rX`
+  and user `$W` multistores (@449203, `tengu_personal_mem_sync_started` count 1 v2.1.183 vs 0 v2.1.156);
+  (6) status-line renderer `Svp` file-list now verbose-only (@383399). All v2.1.156 before-pictures confirmed
+  (`dp_` @436758, `nM$` @144715, `sk_` @393698, etc.). Runtime carryover (entrypoint caps @150799-150801,
+  lock @424663-424664, dream scheduler @455311-455415) verified identical in v2.1.183.
+
+### Residual resolution — `promptIndexMaxBytes` warning UX trigger (partially-resolved)
+
+The size-warning builder `cXa` (`cli_inner_pretty.js:447180-447213`) is **fully verified**: it computes the
+budget from `promptIndexMaxBytes ?? HTe`, checks size against the 0.8 warn threshold, and returns a formatted
+warning string or `null` (`string | null`). The thresholds `kBp = 0.8` (warn) and `LBp = 0.7` (compact target)
+are now pinned at their exact declaration line **447212-447213** (`var lXa, a4t, kBp = 0.8, LBp = 0.7;`),
+resolving the prior "near the builder, exact line not isolated" gap.
+
+**Confidence upgrade:** builder logic **high** (verified); UX-trigger surface **medium-high** (the exact call
+site(s) that surface `cXa`'s output to the user — direct message vs. system-reminder fold vs. other — were not
+all traced to rendering code). The honest caveat remains in `team_memory_stores_recall.md` §2.3,
+`README.md` Delta 2, and `symbol_additions_v2_1_183_auto_memory.md` open question 2, now upgraded to reflect
+the verified-builder / unconfirmed-surface split.
+
+**Docs updated in this fix pass:**
+- `31_auto_memory/team_memory_stores_recall.md` — §2.3 caveat + §7 confidence summary: builder upgraded to
+  high, `kBp`/`LBp` lines pinned @447212-447213.
+- `31_auto_memory/README.md` — Delta 2 `cXa` prose (range 447180→447213, threshold lines added), Delta 2
+  caveat, and open question 2: builder upgraded to high.
+- `00_overview/symbol_additions_v2_1_183_auto_memory.md` — `cXa` row, `kBp`/`LBp` rows (lines @447212/@447213),
+  and open question 2: builder upgraded to high, threshold lines isolated.
+
+> **Note — AM-01 through AM-07 from the first pass are NOT re-applied here.** They concern tree-wide shared
+> files owned by the Consolidate phase (`symbol_index_*.md` links — AM-01) or were already addressed / are
+> cosmetic carryover-anchor items (AM-02/03/04/05/06/07). This fix pass is scoped to the residual-resolution
+> docUpdate only; see the deferred list in the fix-stage output.

@@ -49,7 +49,6 @@ The **agent-team (internally "swarm")** subsystem as it exists in v2.1.183 after
 | `_lt` | `TEAMMATE_COMMAND_ENV` (`"CLAUDE_CODE_TEAMMATE_COMMAND"`) | cli_inner_pretty.js:362643 | constant |
 | `a3n` | `sendCommandToPaneViaRespawn` (`respawn-pane -k -t <pane> -- <cmd>`; v2.1.156 used `send-keys`) | cli_inner_pretty.js:421874 | function |
 | `Rdo` | `TEAMMATE_SYSTEM_PROMPT_ADDENDUM` (verbatim-unchanged; v2.1.156 `jU6`) | cli_inner_pretty.js:420705 | constant |
-| `eDp` | `createTeammateCanUseTool` (permission bridge; unchanged design; v2.1.156 `OT_`) | cli_inner_pretty.js:420713 | function |
 | `p$p` | `SendMessageTool` (tool def; `isEnabled(){return Sl()}`; v2.1.156 `Bh_`) | cli_inner_pretty.js:434568 | object |
 | `o$p` | `SendMessageSchema` (`{to, summary?(≤200), message: string \| r$p}`; v2.1.156 `Sh_`) | cli_inner_pretty.js:434558 | object |
 | `r$p` | `sendMessageMessageUnion` (3-type union; unchanged vs v2.1.156 `hh_`) | cli_inner_pretty.js:434542 | object |
@@ -63,6 +62,30 @@ The **agent-team (internally "swarm")** subsystem as it exists in v2.1.183 after
 | `bvd` | `getCoordinatorSystemPrompt` (coordinator-mode system prompt) | cli_inner_pretty.js:221940 | function |
 | `yvd` | `matchSessionMode` (emits `tengu_coordinator_mode_switched`) | cli_inner_pretty.js:221898 | function |
 | `uP` | `TaskStop` tool name const (worker-stop tool surfaced in coordinator prompt) | cli_inner_pretty.js:220834 | constant |
+| `DCe` | `isArtifactEnabled` (first-party/online/non-local-agent gate consulted by the `_vd` Artifact filter) | cli_inner_pretty.js:221839 | function |
+| `Fn` | `runTmux` (low-level tmux exec used by `a3n`, `Fn(B8, [...])`) | cli_inner_pretty.js:50307 | function |
+| `N8` | `SWARM_SESSION_NAME` (`"claude-swarm"`; external standalone swarm session name) | cli_inner_pretty.js:362638 | constant |
+| `Nen` | `AGENT_MESSAGE_TAG` (`"agent-message"`; relay-envelope tag) | cli_inner_pretty.js:45675 | constant |
+| `Nhe` | `readTeamFile` (reads/parses on-disk team config; v2.1.156 `gZ`) | cli_inner_pretty.js:362824 | function |
+| `Qoo` | `HIDDEN_SESSION_NAME` (`"claude-hidden"`; hidePane break-pane target) | cli_inner_pretty.js:362641 | constant |
+| `Slt` | `assertNoControlChars` (rejects Unicode control chars before sending to a terminal; NEW defense-in-depth) | cli_inner_pretty.js:362755 | function |
+| `VAe` | `ARTIFACT_TOOL` (`"Artifact"`; dropped from worker-tool list unless `DCe()`) | cli_inner_pretty.js:221750 | constant |
+| `VI` | `isInteractiveTerminal` (`Ot.isInteractive`; coordinator interactive-local-veto input) | cli_inner_pretty.js:3154 | function |
+| `_a` | `isRemoteWorkspace` (`Ot.caps.workspace === "remote"`; coordinator veto input) | cli_inner_pretty.js:3638 | function |
+| `_vd` | `getCoordinatorUserContext` (builds `workerToolsContext`; NEW filters drop `Workflow`/`Artifact`; v2.1.156 `wk5`) | cli_inner_pretty.js:221916 | function |
+| `cza` | `resolveAgentName` (resolves caller-task's agent name for the relay envelope; NEW) | cli_inner_pretty.js:434343 | function |
+| `fDa` | `CONTROL_CHAR_RE` (`/\p{Cc}/u`; Unicode "Control" category; NEW) | cli_inner_pretty.js:362775 | constant |
+| `gvd` | `COORDINATOR_HIDDEN_TOOLS` (worker-tool denylist `new Set([zh, Em])`; carryover) | cli_inner_pretty.js:222194 | constant |
+| `i$p` | `sendTeammateMessage` (string-message leg → `writeToMailbox` + roster suggestion; v2.1.156 `Ih_`) | cli_inner_pretty.js:434357 | function |
+| `kj` | `runTmuxInSwarmSocket` (`tmux [-S <socket>] …`; v2.1.156 `kS`) | cli_inner_pretty.js:421866 | function |
+| `lDa` | `wrapRelayMessage` (wraps peer text in `<agent-message from="…">…</agent-message>`; NEW) | cli_inner_pretty.js:362507 | function |
+| `lza` | `REQUEST_ID_RE` (`/^[^\n\r]{1,200}$/`; bounds echoed `request_id`; NEW) | cli_inner_pretty.js:434539 | constant |
+| `sF` | `SwarmPaneError` (typed error thrown by `a3n`/`Slt` on pane-command failure; carryover) | cli_inner_pretty.js:362769 | class |
+| `yF` | `runTmuxInSwarmLabel` (`tmux -L <label> …`; v2.1.156 `BE`) | cli_inner_pretty.js:421871 | function |
+| `ylt` | `SWARM_WINDOW_NAME` (`"swarm-view"`; carryover) | cli_inner_pretty.js:362639 | constant |
+| `zh` | `SEND_MESSAGE_NAME` (`"SendMessage"`; v2.1.156 `cf`) | cli_inner_pretty.js:221450 | constant |
+
+> **REMOVED in v2.1.183 (TeamCreate / TeamDelete — v2.1.156 before-picture, grep=0 in v2.1.183):** `rd` `TeamCreate` name const (v2.1.156 :216438), `Th_` `TeamCreateTool` def (v2.1.156 :406631), `Oo` `TeamDelete` name const (v2.1.156 :216439), `vh_` `TeamDeleteTool` def (v2.1.156 :406775), `RO4` `TEAM_CREATE_PROMPT` (v2.1.156 :406487), `xO4` `TEAM_DELETE_PROMPT` (v2.1.156 :406735), `oN_` `resolveTeamName` routing pivot (v2.1.156 :398190), `aA4` `spawnTeammate` v2.1.156 entry (v2.1.156 :398160). Full traceability in [`symbol_additions_v2_1_183_agent_team.md`](symbol_additions_v2_1_183_agent_team.md) §8.
 
 ---
 
@@ -93,6 +116,46 @@ The v2.1.156 → v2.1.183 compaction delta, scoped to four behavioral changes: (
 | `Ego` | `autoCompactIfNeeded` (per-turn dispatcher; gained the prefix-overflow probe + recovery-timeout precompute-swap callback; rename of v2.1.156 `DX4` @424002) | cli_inner_pretty.js:461531 | function |
 | `zut` | `compactConversation` (full whole-conversation pipeline; same 16-phase shape; rename only of v2.1.156 `_eH` @423130) | cli_inner_pretty.js:460676 | function |
 | `cel` | `partialCompact` (direction-aware partial compactor for `/rewind summarize`; rename only of v2.1.156 `qX4` @423340) | cli_inner_pretty.js:460886 | function |
+| `Ewd` | `getPrecomputeBufferFractionResolved` (`return bqr(e,t,n).fraction`; NEW DELTA 4a wrapper) | cli_inner_pretty.js:226935 | function |
+| `Ggo` | `RAPID_REFILL_TURN_WINDOW` (`3` — a refill is "rapid" if `turnCounter < 3`; v2.1.156 `Yc6`) | cli_inner_pretty.js:461664 | constant |
+| `Igo` | `computeRapidRefillStreak` (rapid-refill counter; byte-identical to v2.1.156 `fc6`) | cli_inner_pretty.js:461481 | function |
+| `JNi` | `isValidFraction` (`[0,1)` per-fraction validator for the precompute arm table; NEW DELTA 4a) | cli_inner_pretty.js:226785 | function |
+| `Jjp` | `autoWindowSpinnerHint` (DELTA 3 CHANGED: spinner hint; now suppresses for `clientdata` source too; v2.1.156 `Hx_`) | cli_inner_pretty.js:461655 | function |
+| `Kjp` | `isModelUnavailableError` (classifier for `FW`; NEW DELTA 1) | cli_inner_pretty.js:461478 | function |
+| `Kw` | `isAutoCompactEnabled` (false if `DISABLE_COMPACT`/`DISABLE_AUTO_COMPACT`; else `autoCompactEnabled` config; v2.1.156 `J0`) | cli_inner_pretty.js:226746 | function |
+| `QNi` | `AUTOCOMPACT_BUFFER_TOKENS` (`13000`; buffer subtracted from the effective window; v2.1.156 `zX4`) | cli_inner_pretty.js:226839 | constant |
+| `Sqr` | `getThresholdOverrides` (CHANGED DELTA 4a: sets `precomputeBufferFraction: Ewd(...)`; v2.1.156 `jc6`) | cli_inner_pretty.js:226938 | function |
+| `Swd` | `reportArmTableMalformed` (one-shot emit of `tengu_precompute_arm_table_malformed`; NEW DELTA 4a) | cli_inner_pretty.js:226912 | function |
+| `VCe` | `calculateTokenWarningStatePublic` (public warning-state wrapper; blocking base = raw cap `_wd`; v2.1.156 `WRH`) | cli_inner_pretty.js:226951 | function |
+| `Wgo` | `isColdCompact` (`st(process.env.CLAUDE_CODE_COLD_COMPACT)`; v2.1.156 `Mc6`) | cli_inner_pretty.js:461516 | function |
+| `ZNi` | `MANUAL_COMPACT_BUFFER_TOKENS` (`3000`; buffer subtracted from the blocking base; v2.1.156 `AX4`) | cli_inner_pretty.js:226840 | constant |
+| `_qr` | `opus48ExperimentWindow` (Opus-4.8-only autocompact-window override; source `'experiment'`; v2.1.156 `wX4`) | cli_inner_pretty.js:226856 | function |
+| `_wd` | `getEffectiveContextWindowSizeRaw` (`tH(e, Wb()) − min(maxOutputTokens, 20000)`; blocking-limit base; v2.1.156 `sb_`) | cli_inner_pretty.js:226908 | function |
+| `bwd` | `PRECOMPUTE_ARM_FLAG` (`"tengu_amber_moleskin"`; GrowthBook flag read by `bqr`; NEW DELTA 4a) | cli_inner_pretty.js:226970 | constant |
+| `cWn` | `RAPID_REFILL_BREAKER_COUNT` (`3` — rapid-refill thrash breaker trips after 3; v2.1.156 `Y08`) | cli_inner_pretty.js:461665 | constant |
+| `eBi` | `parseArmTable` (validates the `tengu_amber_moleskin` payload; strict all-or-nothing; NEW DELTA 4a) | cli_inner_pretty.js:226795 | function |
+| `fqr` | `DEFAULT_PRECOMPUTE_BUFFER_FRACTION` (`0.2` default precompute buffer fraction; v2.1.156 `qc6`) | cli_inner_pretty.js:226841 | constant |
+| `gqr` | `getPrecomputeBufferFraction` (scalar; `ct("tengu_amber_rokovoko", fqr)` validated; the fallback when the arm table is absent; v2.1.156 `tb_`) | cli_inner_pretty.js:226916 | function |
+| `gwd` | `parseArmEntry` (parses one arm entry; requires valid `repl`+`sdk` fractions; NEW DELTA 4a) | cli_inner_pretty.js:226788 | function |
+| `hqr` | `WINDOW_MAX` (`1e6` (1M) upper clamp for parsed/env/configured/clientdata windows; v2.1.156 `jX4`) | cli_inner_pretty.js:226967 | constant |
+| `hwn` | `WINDOW_MIN` (`1e5` (100k) lower clamp; v2.1.156 `zc6`) | cli_inner_pretty.js:226966 | constant |
+| `iBi` | `isAbovePrecomputeOrCompact` (proactive-work gate with a `jQ`=200k standard-window floor; v2.1.156 `tv7`) | cli_inner_pretty.js:226956 | function |
+| `jgo` | `MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES` (`3` circuit-breaker trip; v2.1.156 `_c6`) | cli_inner_pretty.js:461663 | constant |
+| `lMt` | `getAutoCompactThresholdForModel` (`gwn(oee(e,t), Sqr(e,t))`; public threshold; reused by `Yjp`; v2.1.156 `DU6`) | cli_inner_pretty.js:226948 | function |
+| `mqr` | `getPrecomputeThreshold` (`Math.min(e - round(e*precomputeBufferFraction), gwn(e,t))`; v2.1.156 `YX4`) | cli_inner_pretty.js:226824 | function |
+| `nBi` | `calculateTokenWarningState` (banded classifier → `{level, pctLeft}`; v2.1.156 `fX4`; v2.1.88 `calculateTokenWarningState`) | cli_inner_pretty.js:226827 | function |
+| `oBi` | `armTableMalformedLatch` (one-shot guard so `Swd` fires at most once/session; NEW DELTA 4a) | cli_inner_pretty.js:226971 | variable |
+| `oee` | `getEffectiveContextWindowSize` (`resolvedWindow − min(maxOutputTokens, sBi=20000)` via `z2`; v2.1.156 `_qH`; v2.1.88 `getEffectiveContextWindowSize`) | cli_inner_pretty.js:226902 | function |
+| `qCe` | `isConfiguredWindow` (CHANGED DELTA 3: true iff `z2().source ∈ {env,settings,clientdata,model-default}`; v2.1.156 `EH$`) | cli_inner_pretty.js:226895 | function |
+| `rBi` | `AUTO_WINDOW_TABLE` (per-model auto-window override table, init empty `{}`; v2.1.156 `ob_`) | cli_inner_pretty.js:226968 | object |
+| `sBi` | `MAX_OUTPUT_TOKENS_FOR_SUMMARY` (`20000` summary output reserve; v2.1.156 `MX4`) | cli_inner_pretty.js:226965 | constant |
+| `tBi` | `matchArm` (exact `windowSize` match → entry, else default arm, else null; NEW DELTA 4a) | cli_inner_pretty.js:226813 | function |
+| `uG` | `isRedwood3Reactive` (`if (xr()) return !1; return !!ct("tengu_amber_redwood3","")`; reactive-mode gate; v2.1.156 `Pc`) | cli_inner_pretty.js:226742 | function |
+| `vqr` | `RECOVERY_TIMEOUT_MS` (`600000`; reactive-routing precompute-swap recovery timeout; NEW DELTA 4) | cli_inner_pretty.js:227081 | constant |
+| `wgo` | `THRASHING_USER_MESSAGE` (user-facing "Autocompact is thrashing…"; interpolates `Ggo`/`cWn`; v2.1.156 `Oc6`) | cli_inner_pretty.js:461687 | constant |
+| `yae` | `validateEnvInt` (validates an env int with default/upper bounds → `{effective, status}`; v2.1.156 `n$H`) | cli_inner_pretty.js:226769 | function |
+| `yqr` | `parseWindowString` (parses `'auto'`/`Nm`/`Nk`/`N` strings, clamps `[hwn..hqr]`; v2.1.156 `Ac6`; v2.1.88 `parseWindowString`) | cli_inner_pretty.js:226843 | function |
+| `ywn` | `getAutoCompactWindowSource` (returns just the `.source` field of `z2`; the `thresholdSource`; v2.1.156 `ab_`) | cli_inner_pretty.js:226899 | function |
 
 ---
 
@@ -120,6 +183,29 @@ The v2.1.156 → v2.1.183 auto-memory delta: the `CLAUDE_MEMORY_STORES` schema e
 | `Svp` | `renderMemorySaved` (DELTA 6, 2.1.181: `memory_saved` REPL renderer; per-file list now `o && s.map(Evp)` — produced only when verbose; v2.1.156 `sk_` @393698 always showed a truncated list) | cli_inner_pretty.js:383399 | function |
 | `cXa` | `buildPromptIndexSizeWarning` (DELTA 2 NEW: warns when an index file nears `promptIndexMaxBytes ?? HTe`=25KB; thresholds `kBp`=0.8 / `LBp`=0.7) | cli_inner_pretty.js:447180 | function |
 | `HTe` | `MAX_ENTRYPOINT_BYTES` (`25000`; also the default for `promptIndexMaxBytes ?? HTe`; rename only of v2.1.156 `aM$`) | cli_inner_pretty.js:150801 | constant |
+| `$w` | `ENTRYPOINT_NAME` (`"MEMORY.md"`; rename only of v2.1.156 `OX`/`g75`) | cli_inner_pretty.js:150799 | constant |
+| `BDp` | `LOCK_FILE_NAME` (`".consolidate-lock"`; auto-dream lock filename; v2.1.156 `qE_`) | cli_inner_pretty.js:424663 | constant |
+| `CNr` | `storeClients` (maps parsed store records → `m_n` store clients; carryover transport; v2.1.156 `q24`) | cli_inner_pretty.js:150710 | function |
+| `Dg` | `isSimpleSystemPrompt` (memoized simple-system-prompt gate consulted by `e0t`; v2.1.156 `X3`) | cli_inner_pretty.js:134268 | function |
+| `Egi` | `buildSimpleMemoryPrompt` (DELTA 3 NEW: compact single/dual-dir builder for the simple-system-prompt branch; v2.1.156 `TFK`) | cli_inner_pretty.js:151481 | function |
+| `FDp` | `HOLDER_STALE_MS` (`3600000`, 1 hr; lock stale window; v2.1.156 `KE_`) | cli_inner_pretty.js:424664 | constant |
+| `Sgi` | `buildTinyTeamMemoryPrompt` (DELTA 3 NEW: tiny dual-dir private+team builder; v2.1.156 `GFK`) | cli_inner_pretty.js:151426 | function |
+| `YSf` | `MEMORY_UPDATE_SOURCE_LABELS` (`{dream:"Background memory consolidation"}`; v2.1.156 `BQ_`) | cli_inner_pretty.js:590643 | constant |
+| `_Qu` | `MOUNT_REGEX_MSG` (validation message for the `mount` regex `[A-Za-z0-9_-]+`; carryover) | cli_inner_pretty.js:150481 | constant |
+| `aH` | `isTinyMemoryEnabled` (`ct("tengu_billiard_aviary", !1)`; tiny-memory variant gate; v2.1.156 `_D`) | cli_inner_pretty.js:147673 | function |
+| `bgi` | `buildTinyMemoryPrompt` (DELTA 3 NEW: tiny single-dir builder; tiny-branch fallback when `Nk()` false; v2.1.156 `ZFK`) | cli_inner_pretty.js:151378 | function |
+| `hm` | `getAutoMemBaseDir` (memoized private memory base dir `<Wse()>/projects/<slug>/(memory\|tiny_memory)/`; v2.1.156 `TA`; v2.1.88 `getAutoMemPath`) | cli_inner_pretty.js:147746 | function |
+| `jQu` | `parseMemoryStoresEnvSafe` (DELTA 3 NEW: try-wrapped `Zse()` used by `e0t`) | cli_inner_pretty.js:151840 | function |
+| `kBp` | `PROMPT_INDEX_WARN_FRACTION` (`0.8`; index-size warn threshold; NEW DELTA 2) | cli_inner_pretty.js:447212 | constant |
+| `LBp` | `PROMPT_INDEX_COMPACT_FRACTION` (`0.7`; index-size compaction-target; NEW DELTA 2) | cli_inner_pretty.js:447213 | constant |
+| `lAo` | `buildMultistore` (builds a multistore sync object; carryover transport; v2.1.156 `T24`) | cli_inner_pretty.js:448434 | function |
+| `m_n` | `MemoryStoreClient` (store transport client; `readByPath`; carryover transport) | cli_inner_pretty.js:150574 | class |
+| `mgi` | `buildCombinedPrivateTeam` (DELTA 3 NEW: combined private+team fallback builder; team-branch fallback) | cli_inner_pretty.js:151194 | function |
+| `pAo` | `pushMultistore` (startup push for a multistore lane; carryover transport) | cli_inner_pretty.js:448833 | function |
+| `rX` | `teamMultistore` (team-scope multistore `lAo(CNr(teamStores),…)`; scope-filtered driving is new; v2.1.156 `Tl`) | cli_inner_pretty.js:449224 | variable |
+| `tgi` | `absoluteStorePath` (zod schema for the bare-string/`path` field; carryover; referenced by `bQu`) | cli_inner_pretty.js:150488 | function |
+| `tie` | `MAX_ENTRYPOINT_LINES` (`200`; entrypoint line cap; v2.1.156 `B9H`) | cli_inner_pretty.js:150800 | constant |
+| `yQu` | `deriveMountName` (derives a mount name from a store path; rename only of v2.1.156 `Qp_`) | cli_inner_pretty.js:150430 | function |
 
 ---
 
@@ -127,12 +213,10 @@ The v2.1.156 → v2.1.183 auto-memory delta: the `CLAUDE_MEMORY_STORES` schema e
 
 The v2.1.156 → v2.1.183 background-agents delta: the headline cross-cutting **nested-subagent 5-level depth limit** (also tabled under `symbol_index_core_execution.md`), the daemon worker **env-isolation** rework (the 2.1.181 ANTHROPIC_* provider-env leak fix), the reworked **`claude agents --json`** lifecycle surface (2.1.169 / 2.1.162), the re-mangled **`/bg`** / **`/stop`** command surface, and the daemon **retire/respawn** refinements. The bundler re-mangles every build (`zh8`→`sKn`, `Eq9`→`_Fl`, `bBz`→`aGf`, `OH9`→`JMl`, …). Headline anchors below; exhaustive table: [`symbol_additions_v2_1_183_background_agents.md`](symbol_additions_v2_1_183_background_agents.md). Module docs: [`../36_background_agents/`](../36_background_agents/README.md).
 
+> **Nested-subagent depth limit** (`v1i` `SUBAGENT_DEPTH_LIMIT`=5 @221800, `cio` `filterSubagentTools` @371188, `bte` `buildResolvedTools` @371230, `Xut` `registerLocalAgentTask` @446073) is the headline cross-cutting delta but its canonical home is **[`symbol_index_core_execution.md`](symbol_index_core_execution.md)** ("Module: Subagent Depth Limit & Nested Spawn") — cross-linked there, not duplicated as table rows here.
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `v1i` | `SUBAGENT_DEPTH_LIMIT` (`5` — nested-subagent depth cap; NEW, concept absent in v2.1.156; full plumbing in `symbol_index_core_execution.md`) | cli_inner_pretty.js:221800 | constant |
-| `cio` | `filterSubagentTools` (universal tool filter; depth gate `if (Rc(i,vs)) return s < v1i;` @371194 hoisted above the async branch → fg+bg shared limit; v2.1.156 `uE6` @278956 team-only) | cli_inner_pretty.js:371188 | function |
-| `bte` | `buildResolvedTools` (NEW 6th param `agentDepth` + 5th `isTeammate`; single chokepoint for fg & bg toolsets; v2.1.156 `no` @278972 4-arg) | cli_inner_pretty.js:371230 | function |
-| `Xut` | `registerLocalAgentTask` (persists `spawnDepth` into the durable task record @446095 for resume; depth-threading registrar) | cli_inner_pretty.js:446073 | function |
 | `_Fl` | `buildWorkerEnv` (2.1.181 leak fix: bg worker env builder; four scrub passes + host-auth branch; v2.1.156 `Eq9` @559877 was single-pass over a provider-auth-free list) | cli_inner_pretty.js:594705 | function |
 | `GLo` | `PROVIDER_AUTH_SCRUB` (NEW, the leak fix: pass-2 provider auth/config union deleted from the worker env; no v2.1.156 ancestor) | cli_inner_pretty.js:595849 | variable |
 | `jLo` | `TERMINAL_SESSION_SCRUB` (pass-1 carryover terminal/SSH/session scrub list, broadened by 7 entries; v2.1.156 `Y7q` @560861) | cli_inner_pretty.js:595797 | variable |
@@ -148,6 +232,27 @@ The v2.1.156 → v2.1.183 background-agents delta: the headline cross-cutting **
 | `respawnIfIdleStale` | `BgWorkerHandle.respawnIfIdleStale` (NEW `trigger` param `(pinnedSet, trigger="sweep")` ∈ sweep/attach/prewarm + inflight/detritus guard; v2.1.156 single-arg @560029) | cli_inner_pretty.js:594895 | method |
 | `gFl` | `DETRITUS_KINDS` (NEW: `["local_bash","in_process_teammate","dream"]` — inflight kinds that do not block retire/respawn; `detritusOnly` grep = 0 in v2.1.156) | cli_inner_pretty.js:595796 | variable |
 | `Wzn` | `isAttachUpgradeEnabled` (NEW: `tengu_bg_attach_upgrade` feature gate (default on) for the prewarm respawn loop; grep = 0 in v2.1.156) | cli_inner_pretty.js:564348 | function |
+| `Bie` | `classifyTerminal` (`done`→`"success"`, `failed`→`"failure"`, `stopped`→`"stopped"`; terminal classifier behind `lGf`/`ph`) | cli_inner_pretty.js:192481 | function |
+| `Egf` | `stopCommandDef` (interactive `/stop` `local-jsx` def; `immediate:!0`, `isEnabled:yi`; v2.1.156 region on `Yh8`) | cli_inner_pretty.js:567208 | object |
+| `Gye` | `requestDaemonDetach` (Guard-1 already-bg path; ask the daemon to detach this client; v2.1.156 `bzH`) | cli_inner_pretty.js:477381 | function |
+| `Hgf` | `stopCommandDefNonInteractive` (NEW headless `/stop` `type:"local"`, `supportsNonInteractive:!0`; `isEnabled:yi`) | cli_inner_pretty.js:567208 | object |
+| `Ne` | `fromEnum` (value-preserving typed telemetry passthrough; cosmetic) | cli_inner_pretty.js:140 | function |
+| `Qe` | `fromString` (value-preserving typed telemetry passthrough; cosmetic) | cli_inner_pretty.js:137 | function |
+| `Tcc` | `normalizeStatus` (normalizes live-proc transport status to `idle`/`waiting`/`busy`) | cli_inner_pretty.js:691339 | function |
+| `Uwe` | `originCwdOf` (resolves a job's origin cwd (de-worktree) for the `--cwd` containment test) | cli_inner_pretty.js:192496 | function |
+| `YGf` | `buildSpareHostEnv` (NEW: env for the prewarmed `--bg-pty-host`/`--bg-spare` process; four scrub lists, no re-pass escape, macOS-only OAuth scrub) | cli_inner_pretty.js:695919 | function |
+| `Zyn` | `launchEffortFlagsUnpinned` (NEW gate on `--effort` propagation; `Boolean(unpinOpus47/48/Fable5 launch-effort flags)`) | cli_inner_pretty.js:148956 | function |
+| `cGf` | `agentsCommandHandler` (wires `--json` + `--all` through; `await t(e.cwd, e.all === !0)`; env guard carryover) | cli_inner_pretty.js:691363 | function |
+| `cgf` | `AUTO_NAME_TIMEOUT_MS` (`3000` ms timeout on the async auto-naming LLM call; v2.1.156 `Qwz`) | cli_inner_pretty.js:567109 | constant |
+| `hgf` | `backgroundCommandDef` (`local-jsx` `{name:"background", aliases:["bg"], …}`; `ygf = hgf` export alias; v2.1.156 `owz`/`awz`) | cli_inner_pretty.js:567140 | object |
+| `iKn` | `deriveBackgroundSeed` (reverse-scan transcript → `{intent, name, nameSource, detail}`; v2.1.156 `Ah8`) | cli_inner_pretty.js:566927 | function |
+| `jFe` | `isRecurring` (`routine !== void 0 \|\| inFlight?.kinds.includes("session_cron") \|\| oDt(e)`; recurring-job exception in `lGf`) | cli_inner_pretty.js:192504 | function |
+| `ph` | `isTerminal` (`Gk(e.state) && e.tempo !== "active"`; terminal-and-settled; reused as `isSettled`) | cli_inner_pretty.js:192490 | function |
+| `rDt` | `reconcileStaleStates` (NEW: auto-fails/auto-blocks process-less on-disk states past the `RAd` grace window) | cli_inner_pretty.js:192384 | function |
+| `retireIfSettled` | `BgWorkerHandle.retireIfSettled` (NEW `detritusOnly` carve-out in the inflight guard + field on `tengu_bg_retired`; cliVersion/`session_cron` guards carryover) | cli_inner_pretty.js:594936 | method |
+| `ugf` | `BackgroundForkPrompt` (confirm UI; six store selectors, auto-confirm-when-idle, once-only fork effect; v2.1.156 `gwz`) | cli_inner_pretty.js:566957 | function |
+| `vcc` | `sanitize` (NEW: strips control chars + collapses whitespace from emitted names; v2.1.156 emitted raw `K.name`) | cli_inner_pretty.js:691333 | function |
+| `zzn` | `listDaemonShorts` (NEW source: daemon RPC roster `{shorts, records}`; only `i.shorts` consumed) | cli_inner_pretty.js:564518 | function |
 
 ---
 
@@ -177,6 +282,33 @@ The v2.1.156 → v2.1.183 Dynamic Workflows (`ultracode`) delta. The subsystem i
 | `_Wa` | `WORKFLOW_AGENT_CAP` (`1000` agent-call ceiling; identical to v2.1.156 `F74`) | cli_inner_pretty.js:417718 | constant |
 | `K0p` | `computeWorkflowConcurrency` (`min(16, max(2, cores−2))`; identical to v2.1.156 `dG_`) | cli_inner_pretty.js:416892 | function |
 | `jmf` | `workflowsCommand` (`/workflows` slash command; NEW `immediate:!0` (2.1.169) + reworded description; v2.1.156 `Pjz`/`Wjz` had no `immediate`) | cli_inner_pretty.js:562632 | object |
+| `A2` | `WORKFLOW_SCRIPT_MAX_BYTES` (`524288` = 512 KiB script-size cap; v2.1.156 `jI`) | cli_inner_pretty.js:152140 | constant |
+| `CLp` | `workflowInputSchema` (lazy Zod `strictObject`; fields unchanged; v2.1.156 `Q0_`) | cli_inner_pretty.js:419334 | variable |
+| `EJu` | `getUserWorkflowSetting` (`mk()?.settings.enableWorkflows`; v2.1.156 `hL5`) | cli_inner_pretty.js:148803 | function |
+| `HJu` | `resolveWorkflowAvailability` (`{available, defaultOn: sa()!=="pro"}`; v2.1.156 `SL5`) | cli_inner_pretty.js:148810 | function |
+| `Kyn` | `isWorkflowsManagedDisabled` (`CLAUDE_CODE_DISABLE_WORKFLOWS` / `settings.disableWorkflows`; v2.1.156 `H48`) | cli_inner_pretty.js:148777 | function |
+| `Q0p` | `WORKFLOW_SUBAGENT_PROMPT` (plain workflow-subagent system prompt; v2.1.156 `iG_`) | cli_inner_pretty.js:417723 | variable |
+| `Qel` | `hasUltracodeKeyword` (`findUltracodeKeyword(text).length > 0`; v2.1.156 `lj4`) | cli_inner_pretty.js:464267 | function |
+| `Vjn` | `WorkflowInputError` (`Error` subclass thrown by `call` on source/parse failure) | cli_inner_pretty.js:419409 | class |
+| `Xel` | `findUltrareviewKeyword` (`matchKeyword(text,"ultrareview")`; v2.1.156 `dj4`) | cli_inner_pretty.js:464258 | function |
+| `Yel` | `KEYWORD_DELIMITER_MAP` (masking delimiter map; unchanged; v2.1.156 `gj4`) | cli_inner_pretty.js:464280 | object |
+| `aAi` | `isWorkflowsPolicyAllowed` (`di("allow_workflows")` capability gate; v2.1.156 `r$7`) | cli_inner_pretty.js:148800 | function |
+| `aLp` | `WORKFLOW_ISOLATION_DESC` (`"'worktree'"`; the only `isolation` value advertised; v2.1.156 `q0_`) | cli_inner_pretty.js:418164 | constant |
+| `ddo` | `WORKFLOW_SUBAGENT_DEF` (plain; `agentType:"workflow-subagent"`; v2.1.156 `mp6`) | cli_inner_pretty.js:417811 | object |
+| `eNr` | `getWorkflowDefaultOn` (`tNr().defaultOn`; v2.1.156 `qP6`) | cli_inner_pretty.js:148791 | function |
+| `gWa` | `MAX_STALL_RETRIES` (`5` per-agent stall retry ceiling; v2.1.156 `p74`) | cli_inner_pretty.js:417740 | constant |
+| `jjt` | `resolveNamedWorkflow` (registry lookup of a saved/named workflow; v2.1.156 `AT$`) | cli_inner_pretty.js:418000 | function |
+| `nLp` | `WORKFLOW_STRUCTURED_DEF` (`{...ddo, getSystemPrompt:()=>tLp}`; v2.1.156 `sG_`) | cli_inner_pretty.js:417820 | object |
+| `nNr` | `isUltracodeOn` (`jr().ultracode === true; if(t) u2(); return t` — unpins launch effort; v2.1.156 `zP6`) | cli_inner_pretty.js:148937 | function |
+| `oHl` | `saveWorkflow` (persist a named workflow; emits `tengu_workflow_saved`; v2.1.156 `$Q4`) | cli_inner_pretty.js:530752 | function |
+| `r0t` | `readWorkflowScriptFile` (UNC-reject + cwd-resolve + `A2 + 1` bounded read; v2.1.156 `Hj$`) | cli_inner_pretty.js:152126 | function |
+| `rLp` | `WORKFLOW_STALL_MS_DEFAULT` (`180000` = 3 min per-agent stall timeout; v2.1.156 `tG_`) | cli_inner_pretty.js:417739 | constant |
+| `s4p` | `makeStandingUltracodeReminder` (standing-ultracode `ultra_effort_enter` reminder injector; v2.1.156 `_R_`) | cli_inner_pretty.js:464873 | function |
+| `tLp` | `WORKFLOW_STRUCTURED_PROMPT` (StructuredOutput-forcing subagent prompt; v2.1.156 `aG_`) | cli_inner_pretty.js:417804 | variable |
+| `tNr` | `resolveWorkflowAvailabilityCached` (memoizes `HJu()` into `Yyn`; v2.1.156 `KP6`) | cli_inner_pretty.js:148806 | function |
+| `y1i` | `workflowExports` (namespace exposing lazy `WORKFLOW_TOOL_NAME`/`CODE_REVIEW_WORKFLOW_NAME` getters; v2.1.156 `m57`) | cli_inner_pretty.js:221549 | object |
+| `zWn` | `findUltraplanKeyword` (`matchKeyword(text,"ultraplan")`; v2.1.156 `OG8`) | cli_inner_pretty.js:464255 | function |
+| `X0p` | `WORKFLOW_REMOTE_DEFAULT` (`50` semaphore width for the remote executor; v2.1.156 `lG_`) | cli_inner_pretty.js:417717 | constant |
 
 ---
 

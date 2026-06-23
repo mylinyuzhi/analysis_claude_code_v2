@@ -22,4 +22,33 @@ The exhaustive per-symbol tables live in the per-feature additions files (linked
 
 The agent-team subsystem has a small integration surface (the swarm-view pane layout, the `<agent-message>` relay envelope, the `<cross-session-message>` coordinator envelope). Those symbols (e.g. the relay-envelope wrapper `lDa` and its tag const `Nen`) are catalogued under the Agent Team module in [`symbol_index_core_features.md`](symbol_index_core_features.md) and in [`symbol_additions_v2_1_183_agent_team.md`](symbol_additions_v2_1_183_agent_team.md), since they are tightly coupled to the feature rather than to a standalone integration. No new standalone integration symbols (LSP / Chrome / IDE / Plugin) were introduced by the v2.1.178 agent-team redesign.
 
+## Module: Auto Memory — UI renderers (status-line / clickable-file)
+
+The `memory_saved` status-line renderers and the clickable-file row component. The renderer `Svp` (`renderMemorySaved`) itself is tabled under **Module: Auto Memory** in [`symbol_index_core_features.md`](symbol_index_core_features.md) (it is the headline DELTA 6 symbol); its sibling renderers/components live here. Canonical exhaustive home: [`symbol_additions_v2_1_183_auto_memory.md`](symbol_additions_v2_1_183_auto_memory.md) (DELTA 6).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ANa` | `teamMemSavedPart` (builds the "N team memories" summary segment; carryover; v2.1.156 `gk_.teamMemSavedPart`) | cli_inner_pretty.js:382753 | function |
+| `Evp` | `renderClickableFile` (per-path key/wrapper rendering each `writtenPaths` entry as a clickable `Hvp`; v2.1.156 `tk_`) | cli_inner_pretty.js:383441 | function |
+| `Hvp` | `clickableFile` (clickable file row; `Box` with `onClick → openFile`, hover underline, `basename`; v2.1.156 `ek_`) | cli_inner_pretty.js:383444 | function |
+| `SNa` | `statusLineDispatch` (status-line renderer dispatch; for `memory_saved` computes verbose `p = o \|\| !!s` and passes to `Svp`; v2.1.156 `SNa`-analog @393207) | cli_inner_pretty.js:382861 | function |
+| `YGn` | `createMemorySavedMessage` (`{type:"system", subtype:"memory_saved", writtenPaths, …}` factory; carries the full `writtenPaths`; carryover; v2.1.156 `CT8`-family) | cli_inner_pretty.js:589751 | function |
+
+## Module: Workflow — Keyword-highlight UI (input-box shimmer)
+
+The input-box keyword-highlight color tokens and rainbow cycler. The keyword-highlight memo `ji` and dismiss toggle `el` are tabled under **Module: Workflow** in [`symbol_index_core_features.md`](symbol_index_core_features.md). Canonical exhaustive home: [`symbol_additions_v2_1_183_workflow.md`](symbol_additions_v2_1_183_workflow.md) (Keyword trigger).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `FZu` | `themeColorTokens` (`autoAccept = "rgb(135,0,255)"` violet, `autoAcceptShimmer = "rgb(208,180,255)"`; the dedicated ultracode keyword shimmer) | cli_inner_pretty.js:154110 | object |
+| `Xq` | `rainbowColor` (per-offset rainbow shimmer cycler; still used by ultraplan; byte-identical to v2.1.156 `fI`) | cli_inner_pretty.js:134367 | function |
+
+## Module: Compact — `/config` window-source UI label
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `J5p` | `autoCompactWindowHelpString` (CHANGED DELTA 3: `/config` window-source label; now branches on `'clientdata'`; v2.1.156 `Pn_`) | cli_inner_pretty.js:478040 | function |
+
+---
+
 For the v2.1.143→v2.1.156 integration baseline, see the v2.1.156 tree's [`symbol_index_infra_integration.md`](../../../claude_code_v_2.1.156/analyze/00_overview/symbol_index_infra_integration.md).
