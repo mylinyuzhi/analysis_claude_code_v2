@@ -22,6 +22,10 @@ The exhaustive per-symbol tables live in the per-feature additions files (linked
 
 The Agent tool became the teammate spawner in the v2.1.178 redesign. These rows are the tool-definition / schema / spawn-dispatch / task-notification / keepalive symbols the `30_agent_team/` docs reference. Their canonical exhaustive home is [`symbol_additions_v2_1_183_agent_team.md`](symbol_additions_v2_1_183_agent_team.md) (sections 4, 5, 10).
 
+> **Reconstructed-source capability modules** (Layer 2 — full subsystem reconstructions, not deltas):
+> - **Tools subsystem** → [`../04_tools/reconstructed_source/`](../04_tools/reconstructed_source/): the `Tool`/`buildTool` framework, the `getAllBaseTools`→`getTools`→`assembleToolPool` registry, `buildToolSchema` wire-serialization + `eager_input_streaming`, the deferred-tool/ToolSearch machine, and **all ~48 built-in tools at contract level**. Canonical exhaustive table (**441 symbols**): [`symbol_additions_v2_1_183_tools.md`](symbol_additions_v2_1_183_tools.md); per-file anchors inline in the reconstructed `.ts`. Prose: [`../04_tools/README.md`](../04_tools/README.md); verification: [`cross_validation_report_tools.md`](cross_validation_report_tools.md).
+> - **System Reminder mechanism** → [`../41_system_reminder/reconstructed_source/`](../41_system_reminder/reconstructed_source/): the `<system-reminder>` wrap/strip/extract primitives, the `collectAttachments` generator pool, the `PWn` attachment dispatcher + renderer map, and the exhaustive 25-string reminder catalogue. Canonical table (**164 symbols**): [`symbol_additions_v2_1_183_system_reminder.md`](symbol_additions_v2_1_183_system_reminder.md). Prose: [`../41_system_reminder/README.md`](../41_system_reminder/README.md); verification: [`cross_validation_report_system_reminder.md`](cross_validation_report_system_reminder.md).
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `f3n` | `agentToolDef` (the Agent tool object; `get inputSchema(){return zao()}`, teammate routing in `call`) | cli_inner_pretty.js:423505 | object |

@@ -1,6 +1,6 @@
-# Claude Code v2.1.156 → v2.1.183 — Focused Five-Feature Source Delta
+# Claude Code v2.1.156 → v2.1.183 — Five-Feature Source Delta + Capability Reconstructions
 
-This tree is a **focused delta analysis** of the **v2.1.156 → v2.1.183** window, scoped to **five features the user requested** — not a comprehensive every-module re-analysis. Where the prior tree ([`../../claude_code_v_2.1.156/analyze/`](../../claude_code_v_2.1.156/analyze/)) covered v2.1.143 → v2.1.156 as a broad ~13-module analysis, this one narrows to five subsystems and traces *only* how each one changed across the 27-version (22-published-release) window between 2.1.156 and 2.1.183.
+This tree has **two layers**. The original layer is a **focused delta analysis** of the **v2.1.156 → v2.1.183** window, scoped to **five features the user requested** — not a comprehensive every-module re-analysis. Where the prior tree ([`../../claude_code_v_2.1.156/analyze/`](../../claude_code_v_2.1.156/analyze/)) covered v2.1.143 → v2.1.156 as a broad ~13-module analysis, the delta layer narrows to five subsystems and traces *only* how each one changed across the 27-version (22-published-release) window between 2.1.156 and 2.1.183. The second layer (added later) is a **readable-source restoration** of three core capability subsystems — **tools, system prompt, system reminder** — rebuilt as clean TypeScript at v2.1.183 (see "Reconstructed-source capability modules" below).
 
 **The five focus features:**
 
@@ -9,6 +9,16 @@ This tree is a **focused delta analysis** of the **v2.1.156 → v2.1.183** windo
 3. **Background Agents** — the nested-subagent 5-level depth limit, worker provider-env isolation, `agents --json`, and `/bg` lifecycle
 4. **Compaction** — `--fallback-model` honored in summarize, the 1M-credits clamp-back, the six-source window resolver
 5. **Auto Memory** — team/remote memory stores (`CLAUDE_MEMORY_STORES`) recall + the memory status-line render
+
+**Plus — three reconstructed-source capability modules (a second, deeper pass):**
+
+Beyond the five-feature *delta*, this tree also carries a **readable-source restoration** of three core subsystems **as they exist in v2.1.183** — not a diff, but the *whole machine* rebuilt as clean TypeScript organized like the genuine v2.1.88 `src/` tree (the same approach as [`42_workflow/reconstructed_source/`](42_workflow/reconstructed_source/)):
+
+- **Tools** ([`04_tools/`](04_tools/)) — the `Tool`/`buildTool` framework, the `getAllBaseTools`→`getTools`→`assembleToolPool` registry, `buildToolSchema` wire-serialization + `eager_input_streaming`, the deferred-tool/ToolSearch machine, and **all ~48 built-in tools at contract level** (identity · Zod schema · verbatim description · `validateInput` · `checkPermissions` · `call`).
+- **System Prompt** ([`40_system_prompt/`](40_system_prompt/)) — the `buildEffectiveSystemPrompt` assembler + lean/full gate, the identity strings, the three main-loop builders, the environment block, the cacheable-section registry, and the five sub-agent prompt variants.
+- **System Reminder** ([`41_system_reminder/`](41_system_reminder/)) — the `<system-reminder>` wrap/strip/extract primitives, the `collectAttachments` generator pool, the `PWn` dispatcher + renderer map, and the exhaustive 25-string reminder catalogue.
+
+These were built by an **anchor-harvest → reconstruct → adversarial-verify → coherence + cross-validation** pipeline: **42 reconstructed `.ts` files (~23,700 LOC)**, every symbol anchored to a verified `cli_inner_pretty.js:<line>`, **682 obfuscated→readable mappings** catalogued, **27/27 units PASS** under adversarial per-file verification plus **129 anchors independently re-sampled (0 failing)**. Unlike the five-feature layer, these modules are **not deltas** — they reconstruct the full subsystem (carryover included), with 2.1.156→2.1.183 changes called out inline. See the per-module READMEs and the three [`00_overview/cross_validation_report_{tools,system_prompt,system_reminder}.md`](00_overview/).
 
 > **Scope honesty (read this first).** This tree is intentionally **narrow**. Many other subsystems changed in this same window — **Fable 5** (the new Mythos-class flagship model, shipped 2.1.170), plan mode, permissions (`Tool(param:value)` rules, auto-mode git/IaC destructive-action safety), MCP, the model allowlist (`availableModels` / `enforceAvailableModels`), and a very large body of UI / Windows / terminal reliability fixes. **All of that is out of scope** and is named honestly where relevant (see "Scope & what's NOT covered" below) so a reader knows what this tree does *not* cover.
 
@@ -76,12 +86,20 @@ The persistent-memory *runtime engine* is unchanged; what changed is the **store
 ```
 analyze/
 ├─ README.md                  ← you are here (front door)
-├─ 00_overview/               Navigation + symbol routing + per-feature symbol tables + cross-validation
+├─ 00_overview/               Navigation + symbol routing + per-feature/-module symbol tables + cross-validation
+│
+│  ─── Layer 1 · Five-feature delta (v2.1.156 → v2.1.183) ───
 ├─ 30_agent_team/             Agent Team — implicit-team redesign (5 docs)
-├─ 42_workflow/               Dynamic Workflows / ultracode (4 docs)
+├─ 42_workflow/               Dynamic Workflows / ultracode (4 docs) + reconstructed_source/ (whole-machine TS)
 ├─ 36_background_agents/      Background Agents — nested-subagent depth + lifecycle (5 docs)
-├─ 07_compact/               Compaction — fallback-model + 1M clamp + window resolver (5 docs)
+├─ 07_compact/                Compaction — fallback-model + 1M clamp + window resolver (5 docs)
 ├─ 31_auto_memory/            Auto Memory — team stores + recall (3 docs)
+│
+│  ─── Layer 2 · Reconstructed-source capability modules (readable-source restoration, organized like 2.1.88 src/) ───
+├─ 04_tools/                  Tools — framework + registry + serialization + deferral + ~48 tools (contract level); reconstructed_source/ (33 TS files)
+├─ 40_system_prompt/          System Prompt — assembler + identity + builders + env + cacheable sections + sub-agents; reconstructed_source/ (6 TS files)
+├─ 41_system_reminder/        System Reminder — primitives + generator pool + dispatcher + 25-string catalogue; reconstructed_source/ (3 TS files)
+│
 └─ by_version/                Per-release breadth analysis — one file per published release (22 files) + index
 ```
 

@@ -22,6 +22,8 @@ The exhaustive per-symbol tables live in the per-feature additions files (linked
 
 The in-process-vs-pane execution-mode split and the permission bridge are platform infrastructure the agent-team feature depends on. The abstraction is **carried over unchanged** from v2.1.156 (only the tmux spawn mechanic changed — see [`symbol_index_core_features.md`](symbol_index_core_features.md), `a3n`). The exhaustive table is in [`symbol_additions_v2_1_183_agent_team.md`](symbol_additions_v2_1_183_agent_team.md) section 5.
 
+> **Reconstructed-source capability module — System Prompt** (Layer 2; *Prompt building*): the full system-prompt construction machine reconstructed as readable TypeScript at [`../40_system_prompt/reconstructed_source/`](../40_system_prompt/reconstructed_source/) — the `buildEffectiveSystemPrompt` assembler + lean/full gate, the identity strings, the three main-loop builders, the environment block, the cacheable-section registry (`systemPromptSection`; note: **no separate `DANGEROUS_uncached` factory** in 2.1.183 — uncached is realized via `cacheScope:null` + the out-of-band `date_change` attachment), and the five sub-agent prompt variants. Canonical exhaustive table (**77 symbols**): [`symbol_additions_v2_1_183_system_prompt.md`](symbol_additions_v2_1_183_system_prompt.md). Prose: [`../40_system_prompt/README.md`](../40_system_prompt/README.md); verification: [`cross_validation_report_system_prompt.md`](cross_validation_report_system_prompt.md).
+
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `rWe` | `isInProcessEnabled` (in-process vs pane decision; v2.1.156 `ma`) | cli_inner_pretty.js:422425 | function |

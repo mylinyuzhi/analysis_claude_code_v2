@@ -1,6 +1,6 @@
-# Overview — v2.1.156 → v2.1.183 (FOCUSED five-feature delta)
+# Overview — v2.1.156 → v2.1.183 (five-feature delta + capability reconstructions)
 
-This directory is the **navigation surface** for the v2.1.156 → v2.1.183 analysis tree. It is **not** the place where features get explained in depth (those live under `../XX_<module>/`); it is the routing layer — the changelog narrative, the per-bullet code-traceability index, the per-feature symbol-addition tables, the four canonical symbol indexes, and the five adversarial cross-validation reports plus their roll-up.
+This directory is the **navigation surface** for the v2.1.156 → v2.1.183 analysis tree. It is **not** the place where features get explained in depth (those live under `../XX_<module>/`); it is the routing layer — the changelog narrative, the per-bullet code-traceability index, the per-feature symbol-addition tables, the four canonical symbol indexes, and the eight adversarial cross-validation reports (five feature + three reconstructed-module) plus their roll-up. A second layer (added later) carries the **readable-source reconstructions** of the tools / system-prompt / system-reminder subsystems (see "Layer 2" below).
 
 ## What this tree IS (read this first)
 
@@ -14,7 +14,19 @@ This tree is a **FOCUSED delta analysis** of the **v2.1.156 → v2.1.183** windo
 | 4 | **Compaction** | [`../07_compact/`](../07_compact/) | `--fallback-model` honored in summarize (v2.1.178), the 1M-credits clamp-back (v2.1.172), the four-→six-source context-window resolver |
 | 5 | **Auto Memory** | [`../31_auto_memory/`](../31_auto_memory/) | team memory stores (`CLAUDE_MEMORY_STORES`) recall + scope routing (v2.1.172), the status-line file-list render (v2.1.181) |
 
-**Everything else is intentionally out of scope.** Many other subsystems changed in this same window — Fable 5 / the new flagship model, plan mode, permissions (`Tool(param:value)` rules, auto-mode git/IaC safety), MCP, model-allowlist enforcement, and a very large body of UI/Windows/terminal fixes — and they are **not** inventoried here. Each in-scope changelog bullet gets a `cli_inner_pretty.js:<line>` anchor; the out-of-scope bullets are named honestly (per-version "Out of scope" lines in [`changelog_to_code_map.md`](changelog_to_code_map.md), §8 of [`changelog_analysis.md`](changelog_analysis.md)) so nothing is silently dropped.
+**Everything else is intentionally out of scope.** Many other subsystems changed in this same window — Fable 5 / the new flagship model, plan mode, permissions (`Tool(param:value)` rules, auto-mode git/IaC safety), MCP, model-allowlist enforcement, and a very large body of UI/Windows/terminal fixes — and they are **not** inventoried here. Each in-scope changelog bullet gets a `cli_inner_pretty.js:<line>` anchor; the out-of-scope bullets are named honestly (per-version "Out of scope" lines in [`changelog_to_code_map.md`](changelog_to_code_map.md), §8 of [`changelog_analysis.md`](changelog_analysis.md)) so nothing is silently dropped. (The three subsystems in Layer 2 below — tools, system prompt, system reminder — are covered separately, as *full reconstructions* rather than deltas.)
+
+## Layer 2 — Reconstructed-source capability modules (tools · system prompt · system reminder)
+
+Beyond the five-feature delta, the tree carries a **readable-source restoration** of three core subsystems **at v2.1.183** — the *whole machine* rebuilt as clean TypeScript organized like the genuine v2.1.88 `src/` tree (same approach as [`../42_workflow/reconstructed_source/`](../42_workflow/reconstructed_source/)). These are **full reconstructions, not deltas**: carryover included, with 2.1.156→2.1.183 changes flagged inline.
+
+| Module dir | Subsystem | `reconstructed_source/` contents |
+|---|---|---|
+| [`../04_tools/`](../04_tools/) | **Tools** | `Tool.ts` framework · `tools.ts` registry · `toolSchema.ts` serialization · `deferredTools.ts` + `tools/ToolSearchTool.ts` · **~48 tools at contract level** (33 TS files) |
+| [`../40_system_prompt/`](../40_system_prompt/) | **System Prompt** | `utils/systemPrompt.ts` assembler + lean/full gate · `constants/prompts.ts` (identity, 3 builders, env) · `constants/systemPromptSections.ts` (cacheable sections) · `constants/system.ts` + `prompts/subagents.ts` (6 TS files) |
+| [`../41_system_reminder/`](../41_system_reminder/) | **System Reminder** | `utils/messages.ts` primitives · `utils/attachments.ts` generator pool + `PWn` dispatcher · `attachmentCatalogue.ts` (25-string catalogue) (3 TS files) |
+
+Built by an **anchor-harvest → reconstruct → adversarial-verify → coherence + cross-validation** pipeline: **42 `.ts` files (~23,700 LOC)**, every symbol anchored to a verified `cli_inner_pretty.js:<line>`, **682 obfuscated→readable mappings**, **27/27 units PASS** under per-file adversarial verification + **129 anchors independently re-sampled (0 failing)**. Symbol tables and cross-validation reports are listed under "Layer 2" in the sections below.
 
 The prior tree [`../../../claude_code_v_2.1.156/analyze/`](../../../claude_code_v_2.1.156/analyze/) was a broad eleven-module analysis of the v2.1.143 → v2.1.156 window; this one narrows to five features over v2.1.156 → v2.1.183. The source bundle under analysis is `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js` (`"2.1.183"`, `cli_inner_pretty.js:848`; **699,346 lines**; build SHA `9d251abd…`, build_time 2026-06-18, bun 1.4.0). Every factual claim is cited as `cli_inner_pretty.js:<line>`, verified by reading that line; citations tagged `(v2.1.156)` or `(v2.1.88)` are deliberate before-pictures read in the prior bundle.
 
@@ -85,6 +97,14 @@ One file per in-scope feature. Each gives the v2.1.183 obfuscated identifier, re
 | [`symbol_additions_v2_1_183_compact.md`](symbol_additions_v2_1_183_compact.md) | Compaction | `--fallback-model` honored in `summarize` while-loop (`del`/`ICn`/`vF`, `query_source=compact`, 2.1.178), 1M-credits clamp-back (`tH` `if(ARr)return 200000`, 2.1.172), window resolver 4→6 sources (`z2`, +clientdata, +model-default), arm table + remote-reactive + prefix-overflow; large line-shift of the ladder/dispatcher |
 | [`symbol_additions_v2_1_183_auto_memory.md`](symbol_additions_v2_1_183_auto_memory.md) | Auto Memory | `CLAUDE_MEMORY_STORES` schema +scope/promptIndex/promptIndexMaxBytes (`bQu`/`Zse`), promptIndex network fetch+inject (`agi`/`kQu`), recall (`e0t`) routes by scope+mode, mounted-store-enables-team-recall (`Nk`) + `CLAUDE_CODE_REMOTE_MEMORY_DIR` (2.1.172 remote fix), watcher scope-split (`uFp`), status-line file-list verbose-only (`Svp`, 2.1.181). Runtime engine unchanged |
 
+**Layer 2 — reconstructed-source capability modules** (full reconstructions, not deltas; no before/after column — they reconstruct the whole subsystem at v2.1.183):
+
+| File | Module | One-line scope |
+|------|--------|----------------|
+| [`symbol_additions_v2_1_183_tools.md`](symbol_additions_v2_1_183_tools.md) | Tools | **441 symbols** — `Tool`/`buildTool` framework, `getAllBaseTools`/`getTools`/`assembleToolPool` registry, `buildToolSchema` + `eager_input_streaming`, deferral/ToolSearch, all ~48 tools (name/schema/description/validate/permissions/call) |
+| [`symbol_additions_v2_1_183_system_prompt.md`](symbol_additions_v2_1_183_system_prompt.md) | System Prompt | **77 symbols** — `buildEffectiveSystemPrompt` assembler + lean gate `Dg`, identity, builders `$vp`/`w_f`/`y_f`, env block, cacheable sections (`Jx`; no `DANGEROUS_uncached` factory), 5 sub-agent variants |
+| [`symbol_additions_v2_1_183_system_reminder.md`](symbol_additions_v2_1_183_system_reminder.md) | System Reminder | **164 symbols** — wrap/strip/extract primitives, `collectAttachments` pool, `PWn` dispatcher + renderer map, the 25-string catalogue, the `uWn` ambient trailer |
+
 ### Cross-validation reports (one per feature + roll-up)
 
 Each in-scope feature received an independent **default-to-FAIL adversarial pass**: every sampled `cli_inner_pretty.js:<line>` was re-opened at the exact line in the cited bundle and matched against the claim, before-pictures were re-read in the v2.1.156 bundle, and each doc was format-audited (forbidden mapping tables, `## Related Symbols` presence, dual-version snippet template, relative-link depth, English-only).
@@ -97,6 +117,14 @@ Each in-scope feature received an independent **default-to-FAIL adversarial pass
 | [`cross_validation_report_background_agents.md`](cross_validation_report_background_agents.md) | `36_background_agents` | 37 P / 7 F | depth-limit / `bte` hoist / `_Fl` env-scrub / `agents --json` / `/bg` re-mangle verification; **corrects the scout dossier** (cliVersion-equality + cron/routine guards = carryover) |
 | [`cross_validation_report_compact.md`](cross_validation_report_compact.md) | `07_compact` | 90 P / 4 F | fallback-model / 1M-clamp / six-source resolver / dispatcher-delta verification + 14 zero-count before-greps |
 | [`cross_validation_report_auto_memory.md`](cross_validation_report_auto_memory.md) | `31_auto_memory` | 45 P / 3 F | `CLAUDE_MEMORY_STORES` schema / promptIndex / `e0t` recall routing / `Nk` team-recall enable / status-line verification |
+
+**Layer 2 — reconstructed-source cross-validation** (independent default-to-FAIL re-sampling against the live v2.1.183 bundle, on top of the 27/27 per-file adversarial verify that produced the reconstructions):
+
+| File | Module | Sampled / Passed | Verdict |
+|------|--------|------------------|---------|
+| [`cross_validation_report_tools.md`](cross_validation_report_tools.md) | `04_tools` | 40 / 40 (0 fixed) | **PASS** — framework + registry + serialization + deferral + per-tool contracts re-verified byte-exact |
+| [`cross_validation_report_system_prompt.md`](cross_validation_report_system_prompt.md) | `40_system_prompt` | 35 / 34 (1 fixed in place) | **PASS** — assembler, lean gate, identity, builders, env, cacheable sections, sub-agents |
+| [`cross_validation_report_system_reminder.md`](cross_validation_report_system_reminder.md) | `41_system_reminder` | 54 / 53 (1 fixed in place) | **PASS** — primitives, generator pool, dispatcher, 25-string catalogue |
 
 ## Where to Start
 
