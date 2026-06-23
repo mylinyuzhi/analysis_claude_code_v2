@@ -315,3 +315,219 @@ When these rows are merged into the central index, split them as follows (single
 > caps + prompts + effort + runtime fixes + save/UI) is the comprehensive, deduplicated table the
 > `42_workflow/` v2.1.183 delta module docs reference via list-format `Related Symbols` sections.
 > Every `File:Line` was verified by reading the v2.1.183 bundle declaration during this pass.
+
+---
+
+## Full-reconstruction symbol additions (runtime spine, journal, VM membrane, spawn — beyond the delta)
+
+> The tables above are the **v2.1.156 → v2.1.183 delta** manifest. The rows below were surfaced by
+> the deeper readable-source reconstruction of the whole Workflow/ultracode subsystem in
+> [`42_workflow/reconstructed_source/`](../42_workflow/reconstructed_source/) (13 annotated
+> TypeScript files). They are the subsystem *internals* the delta pass did not enumerate — the VM
+> runtime spine, the host↔VM hardening membrane, the resume journal, the per-agent spawn helpers,
+> the lifecycle/notification machinery, the effort-table internals, and the leaf constants. Each
+> row's obf name + line was read from a `// 2.1.183: <name> = <obf> @<line>` anchor in a
+> reconstruction file (which in turn cites the live bundle); `cli_inner_pretty.js:<line>` is the
+> v2.1.183 line in
+> `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js`. Rows already
+> present in the delta tables above are NOT repeated here.
+
+### Runtime/VM
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `Djn` | `runDeterminismShim` | cli_inner_pretty.js:416280 | function | runtime.ts |
+| `K0e` | `stripCallablePrototype` | cli_inner_pretty.js:416277 | function | runtime.ts |
+| `nWa` | `makeSandboxedTimers` | cli_inner_pretty.js:416283 | function | runtime.ts |
+| `B0p` | `instrumentTopLevelAwait` | cli_inner_pretty.js:416316 | function | runtime.ts |
+| `Mjn` | `compileWorkflowScript` | cli_inner_pretty.js:416383 | function | runtime.ts |
+| `$0p` | `DATE_ERROR_MESSAGE` | cli_inner_pretty.js:416406 | constant | runtime.ts |
+| `O0p` | `RANDOM_ERROR_MESSAGE` | cli_inner_pretty.js:416408 | constant | runtime.ts |
+| `Pjn` | `WORKFLOW_VM_TIMEOUT_MS` | cli_inner_pretty.js:416411 | constant | runtime.ts |
+| `af` | `AWAIT_MEMBRANE_PREFIX` | cli_inner_pretty.js:416412 | constant | runtime.ts |
+| `N0p` | `DETERMINISM_SHIM` | cli_inner_pretty.js:416417 | constant | runtime.ts |
+| `ado` | `sandboxConsole` | cli_inner_pretty.js:416579 | function | runtime.ts |
+| `aWa` | `createNestedWorkflowGlobal` | cli_inner_pretty.js:416595 | function | runtime.ts |
+| `XGe` | `resultPreview` / `truncatePreview` | cli_inner_pretty.js:416895 | function | runtime.ts, journal.ts |
+| `EWa` | `makeWorkflowHooks` | cli_inner_pretty.js:416901 | function | runtime.ts |
+| `S` | `enforceAgentCap` | cli_inner_pretty.js:416933 | function | runtime.ts |
+| `T` | `enforceTokenBudget` | cli_inner_pretty.js:416938 | function | runtime.ts |
+| `L` | `resolvePhase` | cli_inner_pretty.js:416949 | function | runtime.ts |
+| `M` | `agent` (DSL primitive) | cli_inner_pretty.js:416968 | function | runtime.ts |
+| `U` | `localExecutor` | cli_inner_pretty.js:417088 | function | runtime.ts, subagents.ts |
+| `W` | `remoteExecutor` | cli_inner_pretty.js:417529 | function | runtime.ts |
+| `q` | `parallel` (DSL primitive) | cli_inner_pretty.js:417634 | function | runtime.ts |
+| `V` | `pipeline` (DSL primitive) | cli_inner_pretty.js:417659 | function | runtime.ts |
+| `Q` | `log` (DSL primitive) | cli_inner_pretty.js:417694 | function | runtime.ts |
+| `Y0p` | `DEFAULT_WORKFLOW_CONCURRENCY` | cli_inner_pretty.js:417780 | constant | runtime.ts |
+| `DWa` | `buildWorkflowContext` | cli_inner_pretty.js:418026 | function | runtime.ts |
+| `MWa` | `runWorkflowScript` | cli_inner_pretty.js:418079 | function | runtime.ts |
+| `sLp` | `WORKFLOW_LOG_CAP` | cli_inner_pretty.js:418155 | constant | runtime.ts |
+| `sOe` | `PHASE_MARKER` / `NESTED_GROUP_GLYPH` | cli_inner_pretty.js:53770 | constant | runtime.ts, prompt.ts |
+| `nst` | `withConcurrencyLimit` | cli_inner_pretty.js:298208 | function | runtime.ts |
+
+### VM hardening membrane
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `KGe` | `hardenVMIntrinsics` | cli_inner_pretty.js:411340 | function | runtime.ts |
+| `Mut` | `vmAwaitSettle` | cli_inner_pretty.js:411480 | function | runtime.ts |
+| `JGa` | `vmCall` | cli_inner_pretty.js:411483 | function | runtime.ts |
+| `Hjn` | `readVMError` | cli_inner_pretty.js:411486 | function | runtime.ts |
+| `vjn` | `hostToVMClone` | cli_inner_pretty.js:411506 | function | runtime.ts |
+| `Tjn` | `wrapHostFnForVM` | cli_inner_pretty.js:411572 | function | runtime.ts |
+| `Pce` | `makeVMError` | cli_inner_pretty.js:411575 | function | runtime.ts |
+| `R0p` | `readHostErrorReader` | cli_inner_pretty.js:411582 | function | runtime.ts |
+| `Bjt` | `readHostError` | cli_inner_pretty.js:411610 | function | runtime.ts |
+| `KY` | `syncGuard` | cli_inner_pretty.js:411622 | function | runtime.ts |
+| `wjn` | `asyncGuard` | cli_inner_pretty.js:411633 | function | runtime.ts |
+| `YGa` | `boundaryCapError` | cli_inner_pretty.js:411644 | function | runtime.ts |
+| `XGa` | `isBoundaryCapError` | cli_inner_pretty.js:411648 | function | runtime.ts |
+| `ZGa` | `assertBoundaryArrayLength` | cli_inner_pretty.js:411655 | function | runtime.ts |
+| `Njt` | `vmToHostClone` | cli_inner_pretty.js:411667 | function | runtime.ts |
+| `Cjn` | `toArrayAcrossBoundary` | cli_inner_pretty.js:411705 | function | runtime.ts |
+| `Ejn` | `VM_BOUNDARY_ARRAY_CAP` | cli_inner_pretty.js:411718 | constant | runtime.ts |
+| `QGa` | `BOUNDARY_CAP` (private symbol) | cli_inner_pretty.js:411723 | constant | runtime.ts |
+
+### Subagent spawn
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `dM` | `newAgentId` | cli_inner_pretty.js:2060 | function | subagents.ts |
+| `vs` | `AGENT_TOOL_NAME` | cli_inner_pretty.js:149939 | constant | subagents.ts |
+| `KO` | `SEND_USER_MESSAGE_TOOL_NAME` | cli_inner_pretty.js:221278 | constant | subagents.ts |
+| `Ftt` | `compileStructuredOutputTool` | cli_inner_pretty.js:221457 | function | subagents.ts |
+| `Lx` | `isMcpTool` | cli_inner_pretty.js:272589 | function | subagents.ts |
+| `Lxe` | `querySourceForAgent` | cli_inner_pretty.js:298970 | function | subagents.ts |
+| `lio` | `grantsAllTools` | cli_inner_pretty.js:371170 | function | subagents.ts |
+| `Br` | `getToolPermissionContext` | cli_inner_pretty.js:460389 | function | subagents.ts, WorkflowTool.tsx |
+| `Rn` | `makeUserMessage` | cli_inner_pretty.js:587504 | function | subagents.ts |
+| `But` | `findDenyRule` | cli_inner_pretty.js:585550 | function | subagents.ts |
+| `QGe` | `filterAgentsByPermission` | cli_inner_pretty.js:585553 | function | subagents.ts |
+| `Z0p` | `WORKFLOW_SUBAGENT_TAIL` | cli_inner_pretty.js:417730 | constant | subagents.ts |
+| `eLp` | `WORKFLOW_STRUCTURED_TAIL` | cli_inner_pretty.js:417799 | constant | subagents.ts |
+
+### Journal/resume
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `q0p` | `workflowSnapshotPath` | cli_inner_pretty.js:416710 | function | journal.ts |
+| `cWa` | `getWorkflowsDir` | cli_inner_pretty.js:416713 | function | journal.ts |
+| `Out` | `getWorkflowSubagentDir` / `resolveWorkflowTranscriptDir` | cli_inner_pretty.js:416717 | function | journal.ts, commands_and_task.ts |
+| `uWa` | `writeWorkflowSnapshot` | cli_inner_pretty.js:416721 | function | journal.ts, commands_and_task.ts |
+| `dWa` | `listWorkflowSnapshots` | cli_inner_pretty.js:416731 | function | journal.ts |
+| `pWa` | `indexJournal` | cli_inner_pretty.js:416787 | function | journal.ts |
+| `z0p` | `canonicalizeAgentOpts` | cli_inner_pretty.js:416799 | function | journal.ts |
+| `mWa` | `journalKey` | cli_inner_pretty.js:416829 | function | journal.ts |
+| `ldo` | `LocalFileJournal` / `WorkflowJournal` | cli_inner_pretty.js:416833 | class | journal.ts, commands_and_task.ts |
+| `V0p` | `JOURNAL_KEY_VERSION` | cli_inner_pretty.js:416872 | constant | journal.ts |
+
+### Keyword/effort
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `Mw` | `modelSupportsEffort` | cli_inner_pretty.js:148828 | function | gate_and_effort.ts |
+| `TBe` | `modelSupportsMaxEffort` | cli_inner_pretty.js:148853 | function | gate_and_effort.ts |
+| `wBe` | `isEffortLevel` | cli_inner_pretty.js:148904 | function | gate_and_effort.ts |
+| `yTe` | `toPersistableEffortLevel` | cli_inner_pretty.js:148933 | function | gate_and_effort.ts |
+| `CBe` | `getEffortEnvOverride` | cli_inner_pretty.js:148945 | function | gate_and_effort.ts |
+| `IBe` | `isLaunchEffortPinned` | cli_inner_pretty.js:148949 | function | gate_and_effort.ts |
+| `u2` | `unpinLaunchEffort` | cli_inner_pretty.js:148960 | function | gate_and_effort.ts |
+| `lAi` | `isValidNumericEffort` | cli_inner_pretty.js:149015 | function | gate_and_effort.ts |
+| `Mme` | `convertEffortValueToLevel` | cli_inner_pretty.js:149018 | function | gate_and_effort.ts |
+| `e_n` | `getDefaultEffortForModel` | cli_inner_pretty.js:149045 | function | gate_and_effort.ts |
+| `eP` | `EFFORT_LEVELS` | cli_inner_pretty.js:149051 | constant | gate_and_effort.ts |
+| `uAi` | `EFFORT_ALIASES` | cli_inner_pretty.js:149056 | constant | gate_and_effort.ts |
+| `WQ` | `get3PModelCapabilityOverride` | cli_inner_pretty.js:134301 | function | gate_and_effort.ts |
+| `Xyn` | `isWorkflowsAvailableIgnoringUserSetting` | cli_inner_pretty.js:148794 | function | gate_and_effort.ts, highlight.tsx |
+| `Yyn` | `availabilityCache` | cli_inner_pretty.js:148819 | variable | gate_and_effort.ts |
+| `Jel` | `hasUltraplanKeyword` | cli_inner_pretty.js:464264 | function | keyword.ts |
+| `KWn` | `stripUltraplanKeyword` | cli_inner_pretty.js:464270 | function | keyword.ts |
+| `BA` | `registerAttachment` | cli_inner_pretty.js:464693 | function | keyword.ts |
+| `itl` | `ULTRA_EFFORT_CONFIG` | cli_inner_pretty.js:464596 | object | keyword.ts |
+| `Bg` | `getSessionEffort` | cli_inner_pretty.js:460428 | function | keyword.ts |
+| `zjn` | `getSessionUltracodeOption` | cli_inner_pretty.js:460448 | function | keyword.ts |
+| `btl` | `isReminderOnlyContent` | cli_inner_pretty.js:465405 | function | keyword.ts |
+| `Gu` | `resolveKeybindingDisplay` | cli_inner_pretty.js:190153 | function | highlight.tsx |
+| `Mr` | `registerKeybinding` | cli_inner_pretty.js:187342 | function | highlight.tsx |
+| `Dwe` | `isInputDisabledByOverlay` | cli_inner_pretty.js:187840 | function | highlight.tsx |
+| `ze` | `isWorkflowConfigToggleable` | cli_inner_pretty.js:483325 | function | highlight.tsx |
+
+### Schemas/tool
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `we` | `lazySchema` (memoizer) | cli_inner_pretty.js:35809 | function | schemas.ts |
+| `pi` | `buildTool` (tool factory) | cli_inner_pretty.js:149995 | function | WorkflowTool.tsx |
+| `Utt` | `CODE_REVIEW_WORKFLOW_NAME` | cli_inner_pretty.js:221551 | constant | WorkflowTool.tsx, commands_and_task.ts |
+| `JWa` | `renderToolUseMessage` | cli_inner_pretty.js:419789 | function | WorkflowTool.tsx |
+| `QWa` | `renderToolUseProgressMessage` | cli_inner_pretty.js:419790 | function | WorkflowTool.tsx |
+| `ZWa` | `renderToolResultMessage` | cli_inner_pretty.js:419791 | function | WorkflowTool.tsx |
+| `e5a` | `renderToolUseRejectedMessage` | cli_inner_pretty.js:419792 | function | WorkflowTool.tsx |
+
+### Source/meta
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `_d` | `isUncPath` | cli_inner_pretty.js:3889 | function | source.ts |
+| `Pn` | `isNotFound` | cli_inner_pretty.js:8860 | function | source.ts, journal.ts |
+| `Pt` | `getCwd` | cli_inner_pretty.js:46264 | function | source.ts, WorkflowTool.tsx |
+| `J0e` | `getAllWorkflows` | cli_inner_pretty.js:418006 | function | source.ts |
+| `U0p` | `isMetaExport` | cli_inner_pretty.js:416500 | function | meta.ts |
+| `oWa` | `evalLiteralNode` | cli_inner_pretty.js:416507 | function | meta.ts |
+| `sWa` | `evalObjectLiteral` | cli_inner_pretty.js:416534 | function | meta.ts |
+| `j0p` | `evalMetaKey` | cli_inner_pretty.js:416545 | function | meta.ts |
+| `G0p` | `validateMetaFields` | cli_inner_pretty.js:416553 | function | meta.ts |
+| `W0p` | `normalizePhases` | cli_inner_pretty.js:416563 | function | meta.ts |
+| `F0p` | `RESERVED_META_KEYS` | cli_inner_pretty.js:416577 | constant | meta.ts |
+
+### Commands/task/notification
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `Eyf` | `getTaskIdPrefix` | cli_inner_pretty.js:575436 | function | commands_and_task.ts |
+| `lj` | `generateTaskId` | cli_inner_pretty.js:575439 | function | commands_and_task.ts |
+| `c0` | `createTaskStateBase` | cli_inner_pretty.js:575446 | function | commands_and_task.ts |
+| `Alt` | `claimTaskOutputFile` | cli_inner_pretty.js:575360 | function | commands_and_task.ts |
+| `fg` | `getTaskOutputPath` | cli_inner_pretty.js:575229 | function | commands_and_task.ts |
+| `Ume` | `slugifyWorkflowName` | cli_inner_pretty.js:152098 | function | commands_and_task.ts |
+| `Lgi` | `persistWorkflowScript` | cli_inner_pretty.js:152112 | function | commands_and_task.ts |
+| `Xlt` | `emitTaskProgress` | cli_inner_pretty.js:370413 | function | commands_and_task.ts |
+| `Ujn` | `invalidateWorkflowCaches` | cli_inner_pretty.js:418003 | function | commands_and_task.ts |
+| `edo` | `registerWorkflowTask` | cli_inner_pretty.js:411078 | function | commands_and_task.ts |
+| `tdo` | `updateWorkflowProgressBatch` | cli_inner_pretty.js:411119 | function | commands_and_task.ts |
+| `_jn` | `transitionWorkflowTask` | cli_inner_pretty.js:411169 | function | commands_and_task.ts |
+| `ndo` | `completeWorkflowTask` | cli_inner_pretty.js:411189 | function | commands_and_task.ts |
+| `bjn` | `failWorkflowTask` | cli_inner_pretty.js:411197 | function | commands_and_task.ts |
+| `Rjt` | `pauseWorkflowTask` | cli_inner_pretty.js:411201 | function | commands_and_task.ts |
+| `rdo` | `buildResumePrompt` | cli_inner_pretty.js:411204 | function | commands_and_task.ts |
+| `gye` | `killWorkflowTask` | cli_inner_pretty.js:411208 | function | commands_and_task.ts |
+| `KGa` | `abortWorkflowAgent` | cli_inner_pretty.js:411213 | function | commands_and_task.ts |
+| `$jt` | `skipWorkflowAgent` | cli_inner_pretty.js:411227 | function | commands_and_task.ts |
+| `Ojt` | `retryWorkflowAgent` | cli_inner_pretty.js:411230 | function | commands_and_task.ts |
+| `Sjn` | `enqueueWorkflowNotification` | cli_inner_pretty.js:411233 | function | commands_and_task.ts |
+| `VGa` | `WORKFLOW_PROGRESS_CAP` | cli_inner_pretty.js:411316 | constant | commands_and_task.ts |
+| `M0p` | `LocalWorkflowTask` | cli_inner_pretty.js:411332 | object | commands_and_task.ts |
+| `odo` | `workflowExports` (lifecycle namespace) | cli_inner_pretty.js:411064 | object | commands_and_task.ts |
+| `kmf` | `buildWorkflowTaskRecord` | cli_inner_pretty.js:562072 | function | commands_and_task.ts |
+| `Fof` | `resolveWorkflowSaveDir` | cli_inner_pretty.js:530744 | function | commands_and_task.ts |
+| `zGe` | `TASK_EVICT_TTL_MS` | cli_inner_pretty.js:439188 | constant | commands_and_task.ts |
+
+### Constants
+
+| Obfuscated | Readable | cli_inner_pretty.js:Line | Type | Reconstruction file |
+|------------|----------|--------------------------|------|---------------------|
+| `J0p` | `WORKFLOW_AGENT_CAP_MESSAGE` | cli_inner_pretty.js:417781 | constant | constants.ts, subagents.ts |
+
+> **Symbols found in the .ts files that LACKED a usable line anchor** (referenced by name only —
+> often "callsite @line" rather than a declaration line, so not added above): `YY`
+> (`filterAvailableTools`, callsite @417129), `glt` (`dedupeToolList`, callsite @417129), `Rc`
+> (`isStructuredOutputTool`, callsite @417130), `pte` (`resolveSubagentModel`, callsite @417131),
+> `y` (`createWorktree`, callsite @417135), `JGe` (worktree create @580244 — read in a sibling
+> region, not in an assigned-declaration anchor), `Re` (`stableStringify`, @9461 cited but as a
+> cross-file import note), `sN` (`structuredCloneValue`, @9485, import note), `Un` (`sleep`,
+> @105278, import note), `vn` (`pluralize`, import note), `xLp`/`LLp`
+> (`bucketWorkflowName`/`bucketWorkflowDescription`, declared via callsite @419571/@419572), and
+> the interned `<task-notification>` tag-name constants (`mp`/`Xy`/`_M`/`bM`/`yy`/`Om` @45659-45665,
+> given as a range, not per-symbol lines). These are listed here for completeness but cannot be
+> placed in a table without a confirmed declaration line.

@@ -5,6 +5,13 @@
 > BASELINE (read this for everything unchanged): [`../../../claude_code_v_2.1.156/analyze/42_workflow/`](../../../claude_code_v_2.1.156/analyze/42_workflow/README.md).
 > Obfuscated names were **re-derived** for v2.1.183 — the bundler re-mangles every build, so a v2.1.156 obf name is never reused. Use the anchor list in the per-feature additions file as the canonical map.
 
+> **📁 Full readable-source restoration:** this README is the *delta* (156→183). For a source-level
+> reconstruction of the **entire** subsystem at v2.1.183 — the whole machine restored as readable
+> TypeScript organized like the v2.1.88 source tree (13 files: gate, keyword, highlight, schemas,
+> tool, source, meta, runtime, subagents, journal, prompt, commands/task, constants) — see
+> [**`reconstructed_source/`**](./reconstructed_source/README.md). Every reconstructed function is
+> line-anchored to the 183 bundle and was adversarially re-verified against it.
+
 ---
 
 ## TL;DR — the subsystem is structurally unchanged; the deltas are concentrated in the keyword UX plus a handful of correctness fixes
