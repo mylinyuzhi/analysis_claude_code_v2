@@ -353,3 +353,339 @@ keepalive release + new `<note>`).
   block, `uds:`/`bridge:` addressing, `<cross-session-message>` envelope, and worker-stop
   tool reference **pre-existed verbatim** in v2.1.156. Both corrections are documented in
   the module docs with before-picture lines.
+
+---
+
+## Reconstruction-pass additions (readable-source restoration)
+
+> These rows are the **additional** symbols surfaced by reconstructing the *whole*
+> agent-team ("swarm") machine into readable TypeScript under
+> [`30_agent_team/reconstructed_source/`](../30_agent_team/reconstructed_source/),
+> organized the way the genuine v2.1.88 named-TS source tree organizes it. The
+> sections above (§1–§10) are the **delta** manifest — only what *changed* in the
+> v2.1.178→183 redesign. This section adds the carryover/supporting symbols that the
+> full reconstruction had to name and anchor (identity helpers, the in-memory
+> `Mailbox` class, the complete control-frame protocol, backend detection/registry,
+> pane-backend internals, the leader permission bridge, the SendMessage handlers,
+> and the spawn-side helpers). **Every row below carries a
+> `cli_inner_pretty.js:<line>` re-read against
+> `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js`
+> during this pass** (the same bundle as §1–§10). None of these obfuscated names
+> appear anywhere in §1–§10 above (they are net-new to this file).
+>
+> **Index home:** these fold into
+> [`00_overview/symbol_index_core_features.md`](symbol_index_core_features.md)
+> **"## Module: Agent Team"** (same home as the delta rows). A handful are shared
+> infra/tool-name constants whose canonical home is the execution/platform indexes;
+> they are reproduced here only as a reading aid for the reconstructed source and
+> are marked in their sub-table intro.
+>
+> **Verification:** ~170 of these rows were re-read line-for-line against the live
+> v2.1.183 bundle in this pass (all matched at the cited line) EXCEPT the two
+> permission-text constants `Wte`/`Mjt`, whose reconstructed anchors were off by a
+> few lines — the corrected declaration lines (590316 / 590318) are used in the
+> table below and the discrepancy is noted.
+
+### R1. Identity & Context
+
+Agent-id formatting/parsing and the AsyncLocalStorage-based teammate-context isolation (`utils/agentId.ts`, `utils/agentContext.ts`, `utils/teammate.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `tUo` | `parseAgentIdString` | cli_inner_pretty.js:2040 | function | Parse an `name@team` agent-id string back into components. |
+| `NCr` | `encodeAgentIdComponent` | cli_inner_pretty.js:103175 | function | URI-encode one agent-id component (name or team) for safe `@`-joining. |
+| `fwt` | `parseAgentId` | cli_inner_pretty.js:103178 | function | Parse a formatted agent id into `{name, team}`. |
+| `TYe` | `generateRequestId` | cli_inner_pretty.js:103183 | function | Random request-id generator (identity helper; distinct from the bridge's `HTp`). |
+| `Pk` | `getTeammateContext` | cli_inner_pretty.js:103394 | function | Read the current in-process teammate context from the AsyncLocalStorage (`GCr`). |
+| `Kun` | `runWithTeammateContext` | cli_inner_pretty.js:103397 | function | Run a callback inside a teammate-context ALS scope. |
+| `UN` | `isInProcessTeammate` | cli_inner_pretty.js:103400 | function | Predicate: is this an in-process (not pane) teammate session. |
+| `Yun` | `createTeammateContext` | cli_inner_pretty.js:103403 | function | Construct a teammate context object from spawn params. |
+| `GCr` | `teammateContextStorage` | cli_inner_pretty.js:103408 | variable | `AsyncLocalStorage` instance holding the per-teammate context (isolation primitive). |
+| `VD` | `getAgentId` | cli_inner_pretty.js:103450 | function | Return the current agent id (`main` for the leader, `name@team` for a teammate). |
+| `Wz` | `createDeferred` | cli_inner_pretty.js:103580 | function | Create a `{promise, resolve, reject}` deferred (used by pane-creation locks / runner). |
+
+### R2. Coordinator Tool-Name Refs
+
+Tool-name constants and availability predicates the coordinator consults to build the worker-tool list. These live OUTSIDE the swarm tree; reproduced here because the reconstructed `coordinatorMode.ts` references them.
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `ns` | `BASH_TOOL_NAME` | cli_inner_pretty.js:145275 | constant | `"Bash"` — tool-name const referenced by the coordinator worker-tool list. |
+| `Pw` | `isWorkflowAvailable` | cli_inner_pretty.js:148784 | function | Predicate consulted by the coordinator to decide whether the Workflow tool is offered. |
+| `c9` | `LEGACY_AGENT_TOOL_NAME` | cli_inner_pretty.js:149940 | constant | `"Task"` — the legacy alias name for the Agent tool (declared beside `vs="Agent"`). |
+| `$Ai` | `ONE_SHOT_BUILTIN_AGENT_TYPES` | cli_inner_pretty.js:149943 | constant | `new Set(["Explore","Plan"])` — built-in one-shot agent types the spawn path treats specially. |
+| `Fa` | `FILE_EDIT_TOOL_NAME` | cli_inner_pretty.js:152083 | constant | `"Edit"` — worker-eligible tool-name const used by the coordinator filter. |
+| `Ws` | `FILE_READ_TOOL_NAME` | cli_inner_pretty.js:152217 | constant | `"Read"` — worker-eligible tool-name const used by the coordinator filter. |
+| `Xs` | `POWERSHELL_TOOL_NAME` | cli_inner_pretty.js:221424 | constant | `"PowerShell"` — tool-name const referenced by the coordinator worker-tool list. |
+| `JO` | `isPowerShellAvailable` | cli_inner_pretty.js:221425 | function | Predicate: is PowerShell available (simple-build worker-tool gate). |
+| `Su` | `isBashAvailable` | cli_inner_pretty.js:221433 | function | Predicate: is Bash available (simple-build worker-tool gate). |
+| `Em` | `STRUCTURED_OUTPUT_TOOL_NAME` | cli_inner_pretty.js:221489 | constant | `"StructuredOutput"` — member of the coordinator hidden-tools denylist `gvd`. |
+| `UPt` | `WORKER_TOOL_SET` | cli_inner_pretty.js:221822 | constant | The full-build worker-eligible tool set (`UPt = mvd("external")`). |
+
+### R3. Coordinator
+
+Coordinator-mode gate helpers beyond the already-listed `oI`/`z9`/`yvd`/`bvd`/`_vd`.
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `Avd` | `isScratchpadEnabled` | cli_inner_pretty.js:221888 | function | Coordinator scratchpad-feature gate (consulted in `_vd`). |
+| `hvd` | `isCcrCoordinator` | cli_inner_pretty.js:221895 | function | CCR (Claude-Code-Runner) coordinator variant predicate. |
+| `x1i` | `scratchpadGateConfig` | cli_inner_pretty.js:574217 | object | Scratchpad gate config object (`var x1i = {}`) backing `isScratchpadEnabled`. |
+
+### R4. Coordinator Infra Refs
+
+Generic telemetry/env/coercion primitives the coordinator borrows (shared infra, not swarm-specific).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `st` | `parseBoolean` | cli_inner_pretty.js:163 | function | Parse an env-var string as a boolean (coordinator env helper). |
+| `Ne` | `redactTelemetryValue` | cli_inner_pretty.js:140 | function | Redact a value before telemetry emission (coordinator telemetry helper). |
+| `G` | `emitTelemetry` | cli_inner_pretty.js:3810 | function | Emit a telemetry event (shared telemetry primitive used by the coordinator). |
+| `Le` | `incrementCounterMetric` | cli_inner_pretty.js:44569 | function | Increment a named counter metric (shared metrics primitive). |
+| `n0` | `coerceBoolean` | cli_inner_pretty.js:292819 | function | Zod-coercing boolean parser (`H.boolean()`-based) used for env/option flags. |
+
+### R5. Teammate-Mode Snapshot
+
+The startup mode-snapshot module (`utils/swarm/backends/teammateModeSnapshot.ts`) — captures `auto|tmux|in-process` ONCE so runtime config edits can't change it mid-session. v2.1.183 default flipped to `in-process`.
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `hqd` | `setCliTeammateModeOverride` | cli_inner_pretty.js:293797 | function | Record the `--teammate-mode` CLI override BEFORE the snapshot is captured. |
+| `QYr` | `getCliTeammateModeOverride` | cli_inner_pretty.js:293800 | function | Read the recorded CLI teammate-mode override. |
+| `ZYr` | `clearCliTeammateModeOverride` | cli_inner_pretty.js:293803 | function | Clear the CLI teammate-mode override. |
+| `eXr` | `hasTeammateModeSnapshot` | cli_inner_pretty.js:293806 | function | Predicate: has the teammate-mode snapshot been captured yet. |
+| `ALn` | `captureTeammateModeSnapshot` | cli_inner_pretty.js:293809 | function | Capture the teammate-mode snapshot once at startup (`Ec("teammateMode", UOt)`). |
+| `UOt` | `DEFAULT_TEAMMATE_MODE` | cli_inner_pretty.js:293818 | constant | `"in-process"` — the v2.1.183 DEFAULT teammate mode (v2.1.88 default was `"auto"`). |
+| `Hxe` | `initialTeammateMode` | cli_inner_pretty.js:293819 | variable | Module var: the captured initial teammate mode (null until captured). |
+| `FOt` | `cliTeammateModeOverride` | cli_inner_pretty.js:293820 | variable | Module var: the CLI teammate-mode override (null until set). |
+
+### R6. In-Memory Mailbox
+
+The in-process `Mailbox` class (`utils/mailbox.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `kJr` | `Mailbox` | cli_inner_pretty.js:301895 | class | In-memory `Mailbox` class (send/poll/receive/notify/subscribe) — the in-process mailbox. |
+
+### R7. Backend Detection & Naming
+
+tmux/iTerm2 detection, socket/session naming, and name sanitization (`utils/swarm/backends/detection.ts`, `utils/swarm/constants.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `VFt` | `getSwarmSocketName` | cli_inner_pretty.js:362633 | function | Compute the per-user swarm tmux socket name. |
+| `iBn` | `isInsideTmuxSync` | cli_inner_pretty.js:362694 | function | Synchronous `$TMUX`-presence check. |
+| `kgp` | `listUserTmuxSessions` | cli_inner_pretty.js:362697 | function | List the user's existing tmux sessions (async). |
+| `mte` | `isInsideTmux` | cli_inner_pretty.js:362713 | function | Async inside-tmux check. |
+| `aBn` | `getLeaderPaneId` | cli_inner_pretty.js:362717 | function | Resolve the leader's tmux pane id. |
+| `lBn` | `getUserTmuxSocket` | cli_inner_pretty.js:362720 | function | Resolve the user's tmux socket path. |
+| `Wke` | `isTmuxAvailable` | cli_inner_pretty.js:362724 | function | Async tmux-binary availability check. |
+| `oce` | `isInITerm2` | cli_inner_pretty.js:362727 | function | Predicate: running inside iTerm2. |
+| `YFt` | `isIt2CliAvailable` | cli_inner_pretty.js:362734 | function | Async `it2` (iTerm2 CLI) availability check. |
+| `Lgp` | `resetDetectionCache` | cli_inner_pretty.js:362737 | function | Reset the cached backend-detection results (test/refresh). |
+| `zFt` | `cachedTmuxDetection` | cli_inner_pretty.js:362742 | variable | Module var: cached tmux-detection result (null until probed). |
+| `KFt` | `cachedIt2Detection` | cli_inner_pretty.js:362743 | variable | Module var: cached it2-detection result (null until probed). |
+| `cBn` | `IT2_COMMAND` | cli_inner_pretty.js:362744 | constant | `"it2"` — the iTerm2 CLI command name. |
+| `mDa` | `hasControlChars` | cli_inner_pretty.js:362752 | function | Predicate: does a string contain Unicode control chars (the `Slt` guard's test). |
+| `XFt` | `isPaneBackendType` | cli_inner_pretty.js:362764 | function | Predicate: is a value a valid pane-backend type (`"tmux"|"iterm"`). |
+| `uBn` | `sanitizeName` | cli_inner_pretty.js:362803 | function | Slugify/sanitize a name for tmux (allowed chars only). |
+| `tso` | `sanitizeAgentName` | cli_inner_pretty.js:362806 | function | Sanitize a teammate agent name (delegates to `uBn`). |
+
+### R8. Team-File I/O
+
+On-disk team-config read/write helpers (`utils/swarm/teammateInit.ts` / team helpers).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `QFt` | `getTeamDir` | cli_inner_pretty.js:362809 | function | `<teamsDir>/<team>` directory path. |
+| `gj` | `readTeamFileSync` | cli_inner_pretty.js:362815 | function | Synchronous read+parse of the on-disk team config file. |
+| `dBn` | `handleTeamWriteError` | cli_inner_pretty.js:362833 | function | Handle a team-file write error (EEXIST/race tolerant). |
+| `ZFt` | `writeTeamFileSync` | cli_inner_pretty.js:362837 | function | Synchronous write of the team config file. |
+| `pBn` | `writeTeamFile` | cli_inner_pretty.js:362885 | function | Async write of the team config file (lock + atomicWrite). |
+
+### R9. File Mailbox Helpers
+
+File-backed inbox read/mark/clear/format helpers complementing the already-listed `$A`/`v4e`/`Fhe`/`Kyp` (`utils/mailbox.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `T4e` | `readUnreadMessages` | cli_inner_pretty.js:365945 | function | Read only the unread messages from a file inbox. |
+| `aUt` | `markSingleMessageAsRead` | cli_inner_pretty.js:365977 | function | Mark a single inbox message as read (lock + re-read + rewrite). |
+| `Ilt` | `messageKey` | cli_inner_pretty.js:366004 | function | Compute a stable de-dupe key for an inbox message. |
+| `w4e` | `markMessagesAsRead` | cli_inner_pretty.js:366007 | function | Mark a batch of inbox messages as read. |
+| `lUt` | `clearInbox` | cli_inner_pretty.js:366039 | function | Clear (truncate) an inbox file. |
+| `xlt` | `formatAsTeammateXml` | cli_inner_pretty.js:366054 | function | Render one teammate message as the `<...>` XML the leader sees. |
+| `klt` | `formatMessagesAsTeammateXml` | cli_inner_pretty.js:366062 | function | Render a list of teammate messages as XML. |
+
+### R10. Control-Message Protocol
+
+The full teammate control-frame surface — builders, type-predicates, and Zod schemas for the 10-type protocol (`utils/teammateMailbox.ts` / `utils/teammateControlMessages.ts`). The already-listed `iF`/`Llt`/`wso`/`Cso` are the tip; this is the rest.
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `cUt` | `createIdleNotification` | cli_inner_pretty.js:366068 | function | Build an idle-notification control frame. |
+| `Sso` | `isIdleNotification` | cli_inner_pretty.js:366080 | function | Predicate: is a frame an idle notification. |
+| `Eso` | `createPermissionRequestMessage` | cli_inner_pretty.js:366087 | function | Build a permission-request control frame. |
+| `Hso` | `createPermissionResponseMessage` | cli_inner_pretty.js:366099 | function | Build a permission-response control frame. |
+| `uUt` | `isPermissionRequest` | cli_inner_pretty.js:366114 | function | Predicate: is a frame a permission request. |
+| `I4e` | `isPermissionResponse` | cli_inner_pretty.js:366121 | function | Predicate: is a frame a permission response. |
+| `vso` | `createSandboxPermissionRequestMessage` | cli_inner_pretty.js:366128 | function | Build a sandbox-permission-request control frame. |
+| `Tso` | `createSandboxPermissionResponseMessage` | cli_inner_pretty.js:366139 | function | Build a sandbox-permission-response control frame. |
+| `bBn` | `isSandboxPermissionRequest` | cli_inner_pretty.js:366148 | function | Predicate: is a frame a sandbox-permission request. |
+| `dUt` | `isSandboxPermissionResponse` | cli_inner_pretty.js:366155 | function | Predicate: is a frame a sandbox-permission response. |
+| `Yyp` | `sendShutdownRequestToMailbox` | cli_inner_pretty.js:366190 | function | Send a shutdown-request control frame to a teammate's mailbox. |
+| `Dlt` | `isShutdownRequest` | cli_inner_pretty.js:366200 | function | Predicate: is a frame a shutdown request. |
+| `AUt` | `isPlanApprovalRequest` | cli_inner_pretty.js:366207 | function | Predicate: is a frame a plan-approval request. |
+| `jhe` | `isShutdownApproved` | cli_inner_pretty.js:366214 | function | Predicate: is a frame a shutdown-approved. |
+| `Plt` | `isPlanApprovalResponse` | cli_inner_pretty.js:366221 | function | Predicate: is a frame a plan-approval response. |
+| `EBn` | `isTaskAssignment` | cli_inner_pretty.js:366228 | function | Predicate: is a frame a task assignment. |
+| `jT` | `parseFrameForDisplay` | cli_inner_pretty.js:366231 | function | Parse a protocol frame into a display string. |
+| `xso` | `isTeamPermissionUpdate` | cli_inner_pretty.js:366238 | function | Predicate: is a frame a team-permission-update. |
+| `Xyp` | `createModeSetRequestMessage` | cli_inner_pretty.js:366246 | function | Build a mode-set-request control frame. |
+| `Mlt` | `isModeSetRequest` | cli_inner_pretty.js:366249 | function | Predicate: is a frame a mode-set request. |
+| `hUt` | `planApprovalResumeText` | cli_inner_pretty.js:366277 | function | Build the resume text shown after a plan approval. |
+| `kso` | `isHeadlessLeadDisplayableMessage` | cli_inner_pretty.js:366282 | function | Predicate: is a frame displayable to the headless lead. |
+| `gUt` | `PROTOCOL_FRAME_PROMPT_ERROR` | cli_inner_pretty.js:366345 | constant | Error-text constant returned when a protocol frame is submitted as a prompt. |
+| `C4e` | `IdleNotificationMessageSchema` | cli_inner_pretty.js:366364 | constant | Zod schema: idle-notification message. |
+| `pUt` | `PlanApprovalRequestMessageSchema` | cli_inner_pretty.js:366376 | constant | Zod schema: plan-approval-request message. |
+| `fUt` | `PlanApprovalResponseMessageSchema` | cli_inner_pretty.js:366386 | constant | Zod schema: plan-approval-response message. |
+| `mUt` | `ShutdownRequestMessageSchema` | cli_inner_pretty.js:366396 | constant | Zod schema: shutdown-request message. |
+| `Uhe` | `ShutdownApprovedMessageSchema` | cli_inner_pretty.js:366405 | constant | Zod schema: shutdown-approved message. |
+| `SBn` | `ShutdownRejectedMessageSchema` | cli_inner_pretty.js:366415 | constant | Zod schema: shutdown-rejected message. |
+| `ODa` | `TaskAssignmentMessageSchema` | cli_inner_pretty.js:366424 | constant | Zod schema: task-assignment message. |
+| `Iso` | `TaskCompletedMessageSchema` | cli_inner_pretty.js:366434 | constant | Zod schema: task-completed message. |
+| `x4e` | `TeammateTerminatedMessageSchema` | cli_inner_pretty.js:366443 | constant | Zod schema: teammate-terminated message. |
+| `NDa` | `ModeSetRequestMessageSchema` | cli_inner_pretty.js:366444 | constant | Zod schema: mode-set-request message. |
+| `Jyp` | `parseJsonPermissionUpdates` | cli_inner_pretty.js:366469 | function | Parse JSON permission-update payloads from a frame. |
+| `wBn` | `registerPermissionCallback` | cli_inner_pretty.js:366480 | function | Register a per-request permission callback (leader side). |
+| `FDa` | `unregisterPermissionCallback` | cli_inner_pretty.js:366483 | function | Unregister a permission callback. |
+| `UDa` | `hasPermissionCallback` | cli_inner_pretty.js:366486 | function | Predicate: is a permission callback registered for a request. |
+| `jDa` | `clearPermissionCallbacks` | cli_inner_pretty.js:366489 | function | Clear all permission callbacks. |
+| `Nlt` | `resolvePermissionCallback` | cli_inner_pretty.js:366492 | function | Resolve (invoke) the permission callback for a request id. |
+
+### R11. Leader Permission Bridge
+
+The worker→leader permission round-trip (`utils/swarm/leaderPermissionBridge.ts`, `permissionSync.ts`) plus the shared denied-message text constants.
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `HTp` | `generateRequestId` | cli_inner_pretty.js:387638 | function | Generate a permission-bridge request id. |
+| `TUn` | `buildPermissionRequest` | cli_inner_pretty.js:387641 | function | Build a permission-request payload for the leader. |
+| `WBa` | `getLeaderName` | cli_inner_pretty.js:387673 | function | Resolve the leader's display name. |
+| `wUn` | `publishPermissionRequestToLeader` | cli_inner_pretty.js:387680 | function | Publish a worker's permission request up to the leader. |
+| `CUn` | `sendPermissionResponseToWorker` | cli_inner_pretty.js:387706 | function | Send the leader's permission decision back down to the worker. |
+| `Wte` | `PERMISSION_DENIED_MESSAGE` | cli_inner_pretty.js:590316 | constant | Permission-denied message text constant (decl @590316; the cited 590318 is off by ~2 lines — see manifest note). |
+| `Mjt` | `USER_DENIED_PREFIX` | cli_inner_pretty.js:590318 | constant | User-denied prefix text constant (decl @590318; the cited 590322 is the `$ao` plan-rejection literal — see manifest note). |
+
+### R12. Teammate Prompt & Tool-Gate
+
+The teammate system-prompt addendum and the teammate-scoped `canUseTool` factory (`utils/swarm/teammatePromptAddendum.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `Rdo` | `TEAMMATE_SYSTEM_PROMPT_ADDENDUM` | cli_inner_pretty.js:420704 | constant | The teammate system-prompt addendum string appended for spawned teammates. |
+| `eDp` | `createTeammateCanUseTool` | cli_inner_pretty.js:420713 | function | Build a teammate-scoped `canUseTool` (routes permission through the leader bridge). |
+
+### R13. In-Process Runner & Spawn Env
+
+In-process runner registry + resume + inherited-env construction (`utils/swarm/inProcessRunner.ts`, `spawnTeammate.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `Qjt` | `buildInheritedEnvVars` | cli_inner_pretty.js:421655 | function | Build the inherited env-var map passed to a spawned teammate. |
+| `aDp` | `TEAMMATE_ENV_VARS` | cli_inner_pretty.js:421665 | variable | Module var: the set of env-var names a teammate inherits. |
+| `lqa` | `registerInProcessTask` | cli_inner_pretty.js:422881 | function | Register an in-process teammate task in the registry. |
+| `Z6a` | `getInProcessTeammateMeta` | cli_inner_pretty.js:433934 | function | Read an in-process teammate's metadata. |
+| `eza` | `resumeInProcessTeammate` | cli_inner_pretty.js:433938 | function | Resume an in-process teammate from a resumable agent id. |
+| `dLe` | `resumeAgentBackground` | cli_inner_pretty.js:434052 | function | Resume a background agent (shared resume path). |
+
+### R14. Pane Backend Internals
+
+tmux/iTerm2 `PaneBackend` internals — pane-creation locks, color mapping, split-output parsing (`utils/swarm/backends/TmuxBackend.ts`, `ITermBackend.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `q5a` | `decoratePaneCreateError` | cli_inner_pretty.js:421839 | function | Decorate a pane-creation error with diagnostics. |
+| `lDp` | `tmuxPaneCreationLock` | cli_inner_pretty.js:421846 | function | tmux pane-creation lock (serializes split-window calls; with module promise `W5a`). |
+| `V5a` | `getTmuxColorName` | cli_inner_pretty.js:421854 | function | Map a teammate index to a tmux pane-border color name (color domain = its keys). |
+| `cDp` | `itermPaneCreationLock` | cli_inner_pretty.js:422137 | function | iTerm2 pane-creation lock (with module promise `K5a`). |
+| `Zjt` | `runIt2` | cli_inner_pretty.js:422145 | function | Run an `it2` (iTerm2 CLI) command. |
+| `uDp` | `parseSplitOutput` | cli_inner_pretty.js:422148 | function | Parse `tmux split-window -P` output into a pane id. |
+| `dDp` | `getLeaderSessionId` | cli_inner_pretty.js:422153 | function | Resolve the leader's session id (pane backend). |
+| `Udo` | `ITermBackend` | cli_inner_pretty.js:422160 | class | iTerm2 `PaneBackend` class. |
+| `yye` | `teammateSessionIds` | cli_inner_pretty.js:422248 | variable | Module var: set of known teammate session ids. |
+| `l3n` | `firstPaneUsed` | cli_inner_pretty.js:422249 | variable | Module var: whether the first (leader) pane has been used. |
+
+### R15. Backend Registry
+
+The backend registry/state, register/lookup/factory helpers, and mode/executor resolution (`utils/swarm/backends/registry.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `J5a` | `createBackendRegistry` | cli_inner_pretty.js:422279 | function | Create the backend-registry state object (`BackendRegistryState`). |
+| `u3n` | `ensureBackendsRegistered` | cli_inner_pretty.js:422291 | function | Ensure both tmux and iTerm2 backends are registered in the registry. |
+| `Fdo` | `registerTmuxBackend` | cli_inner_pretty.js:422299 | function | Register the tmux backend in the registry. |
+| `jdo` | `registerITermBackend` | cli_inner_pretty.js:422302 | function | Register the iTerm2 backend in the registry. |
+| `c3n` | `createTmuxBackend` | cli_inner_pretty.js:422305 | function | Factory: create a tmux backend instance. |
+| `Q5a` | `createITermBackend` | cli_inner_pretty.js:422309 | function | Factory: create an iTerm2 backend instance. |
+| `pDp` | `getTmuxInstallInstructions` | cli_inner_pretty.js:422383 | function | Return the tmux install-instructions string (shown when tmux missing). |
+| `e3t` | `getBackendByType` | cli_inner_pretty.js:422405 | function | Look up a registered backend by type. |
+| `fDp` | `getCachedBackend` | cli_inner_pretty.js:422413 | function | Get the cached/current backend. |
+| `Gdo` | `getCachedDetectionResult` | cli_inner_pretty.js:422416 | function | Get the cached backend-detection result. |
+| `mDp` | `getTeammateMode` | cli_inner_pretty.js:422422 | function | Resolve the configured teammate mode (registry view). |
+| `ADp` | `getResolvedTeammateMode` | cli_inner_pretty.js:422440 | function | Resolve the effective teammate mode after auto-detection. |
+| `Z5a` | `getInProcessBackend` | cli_inner_pretty.js:422443 | function | Get the in-process backend singleton. |
+| `gDp` | `getTeammateExecutor` | cli_inner_pretty.js:422447 | function | Resolve the teammate executor (in-process vs pane). |
+| `hDp` | `getPaneBackendExecutor` | cli_inner_pretty.js:422451 | function | Resolve the pane-backend executor for the current backend. |
+| `qdo` | `resetBackendDetection` | cli_inner_pretty.js:422459 | function | Reset backend detection (clears caches in the registry). |
+
+### R16. Spawn-Side Helpers
+
+Spawn-path helpers feeding the leaf spawners `SDp`/`EDp`/`sqa` (`utils/swarm/spawnTeammate.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `tqa` | `createTeammatePaneInSwarmView` | cli_inner_pretty.js:422487 | function | Spawn-side: create a teammate pane inside the swarm-view (delegate). |
+| `nqa` | `enablePaneBorderStatus` | cli_inner_pretty.js:422490 | function | Spawn-side: enable the pane-border status line. |
+| `Ydo` | `resolveTeammateModel` | cli_inner_pretty.js:422517 | function | Resolve the model a spawned teammate should run with. |
+| `yDp` | `hasTmuxSession` | cli_inner_pretty.js:422533 | function | Predicate: does a given tmux session exist. |
+| `_Dp` | `ensureExternalSwarmSession` | cli_inner_pretty.js:422536 | function | Ensure the external standalone swarm tmux session exists. |
+| `iqa` | `resolveTeammateExecPath` | cli_inner_pretty.js:422546 | function | Resolve the teammate exec path (honors `CLAUDE_CODE_TEAMMATE_COMMAND`). |
+| `aqa` | `buildInheritedCliFlags` | cli_inner_pretty.js:422550 | function | Build the inherited CLI flags forwarded to a spawned teammate. |
+| `Xdo` | `reserveTeammateIdentity` | cli_inner_pretty.js:422572 | function | Reserve a unique teammate identity (name@team) before spawn. |
+| `Jdo` | `updateMemberBackend` | cli_inner_pretty.js:422625 | function | Update a member's backend assignment in the team file. |
+| `bDp` | `dedupeTeammateName` | cli_inner_pretty.js:422632 | function | De-duplicate a requested teammate name against existing members. |
+
+### R17. Agent Tool Surface
+
+Agent-tool description/output-schema/spawnability helpers complementing the already-listed `f3n`/`CDp`/`IDp`/`zao` (`tools/AgentTool/`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `Aqa` | `buildAgentToolDescription` | cli_inner_pretty.js:423136 | function | Build the Agent-tool description string (hides `name`/`mode` for teammates). |
+| `xDp` | `agentOutputSchema` | cli_inner_pretty.js:423482 | constant | The Agent tool's output schema (memoized `we(() => ...)`). |
+| `_ye` | `isTeammateSpawnableAgent` | cli_inner_pretty.js:472402 | function | Predicate: is an agent type spawnable as a teammate. |
+
+### R18. SendMessage Handlers
+
+SendMessage control-message handlers and helpers complementing the already-listed `p$p`/`o$p`/`r$p`/`i$p`/`rza` (`tools/SendMessageTool/`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `s$p` | `findTeammateColor` | cli_inner_pretty.js:434337 | function | Pick a stable display color for a teammate. |
+| `p4n` | `getSenderName` | cli_inner_pretty.js:434353 | function | Resolve the sender's display name for a relayed message. |
+| `a$p` | `handleShutdownRequest` | cli_inner_pretty.js:434391 | function | SendMessage handler: shutdown-request. |
+| `l$p` | `handleShutdownApproval` | cli_inner_pretty.js:434402 | function | SendMessage handler: shutdown-approval. |
+| `c$p` | `handleShutdownRejection` | cli_inner_pretty.js:434455 | function | SendMessage handler: shutdown-rejection. |
+| `u$p` | `handlePlanApproval` | cli_inner_pretty.js:434464 | function | SendMessage handler: plan-approval. |
+| `d$p` | `handlePlanRejection` | cli_inner_pretty.js:434490 | function | SendMessage handler: plan-rejection. |
+| `d4n` | `inFlightTeammateResumes` | cli_inner_pretty.js:434540 | variable | Module var: in-flight teammate-resume `Map` (dedupes concurrent resumes). |
+
+### R19. Task Notification
+
+Task-notification queue helpers complementing the already-listed `G4e`/`Lye`/`YR` (`tasks/agentNotification.ts`).
+
+| Obfuscated | Readable | File:Line | Type | Description |
+|------------|----------|-----------|------|-------------|
+| `gWe` | `queuePendingMessage` | cli_inner_pretty.js:445814 | function | Queue a pending message for delivery (notification path). |
+| `lj` | `generateTaskId` | cli_inner_pretty.js:575439 | function | Generate a task id. |

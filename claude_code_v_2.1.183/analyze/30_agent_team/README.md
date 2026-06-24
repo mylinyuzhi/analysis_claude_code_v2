@@ -5,6 +5,17 @@
 > Every citation below is `cli_inner_pretty.js:<line>` in the **v2.1.183** bundle unless explicitly tagged as a v2.1.156 or v2.1.88 before-picture.
 > Subsystem internal name is still **"swarm"** (telemetry events `swarm_*`, gate `tengu_amber_flint`); the directory name `30_agent_team` is kept for continuity with the v2.1.156 baseline tree.
 
+> **📁 Full readable-source restoration:** the five docs in this module are the *delta* (156→183). For a
+> source-level reconstruction of the **entire** agent-team machine at v2.1.183 — the whole subsystem
+> restored as readable TypeScript organized like the genuine v2.1.88 source tree (31 files: the gate +
+> identity + context, the implicit-team bootstrap, the Agent-tool spawn routing + three spawn backends,
+> the file mailbox + control-message protocol, `SendMessage`, coordinator mode, the leader permission
+> bridge, the in-process runner, and the background-task survival path) — see
+> [**`reconstructed_source/`**](./reconstructed_source/README.md). Unlike Workflow, **the v2.1.88 swarm is
+> a real ancestor** (not gated out), so carryover parts port real names/logic forward while the v2.1.178
+> redesign deltas come from the 183 bundle. Every reconstructed function is line-anchored to the 183
+> bundle and was adversarially re-verified against it ([`_cross_validation_report.md`](./reconstructed_source/_cross_validation_report.md)).
+
 ---
 
 ## The headline: agent teams stopped being something the model *creates*
