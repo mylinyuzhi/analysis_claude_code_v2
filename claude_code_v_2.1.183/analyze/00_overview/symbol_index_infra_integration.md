@@ -49,6 +49,23 @@ The input-box keyword-highlight color tokens and rainbow cycler. The keyword-hig
 |------------|----------|-----------|------|
 | `J5p` | `autoCompactWindowHelpString` (CHANGED DELTA 3: `/config` window-source label; now branches on `'clientdata'`; v2.1.156 `Pn_`) | cli_inner_pretty.js:478040 | function |
 
+## Module: Slash Commands — `/loop` `/goal` `/batch` `/simplify` (Layer-2 reconstruction)
+
+The four user-facing slash commands reconstructed in [`../43_slash_commands/`](../43_slash_commands/) (readable-source restoration; see [`43_slash_commands/registration_and_dispatch.md`](../43_slash_commands/registration_and_dispatch.md)). The **exhaustive** per-symbol table (136 rows across registrar/dispatch, the four commands, shared tool-name constants, and gates) lives in [`symbol_additions_v2_1_183_slash_commands.md`](symbol_additions_v2_1_183_slash_commands.md); the shared/load-bearing anchors are recorded here.
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `ap` | `registerBundledSkill` (shared bundled-skill registrar; emits `Command{type:'prompt',source:'bundled'}`; v2.1.88 `src/skills/bundledSkills.ts`; `menuDescription` field emitted @546993) | cli_inner_pretty.js:546973 | function |
+| `FJn` | `initBundledSkills` (idempotent registry init; registers the three bundled skills + feature-gates) | cli_inner_pretty.js:660991 | function |
+| `_1f` | `registerLoopSkill` (`/loop`; 3-way dispatch: legacy cron / dynamic self-pace / loop.md+autonomous default; `aliases:["proactive"]`) | cli_inner_pretty.js:649251 | function |
+| `pzl` | `registerBatchSkill` (`/batch`; `disableModelInvocation:true`; coordinator `h$f`@637757 + worker `g$f`) | cli_inner_pretty.js:637828 | function |
+| `OKl` | `registerSimplifySkill` (`/simplify`; 4 review-angle agents; prompt `ZOf`@648007) | cli_inner_pretty.js:647978 | function |
+| `Cmf` | `goalLocalJsxCommand` (`/goal` interactive `local-jsx`; default-exported `xmf`@562070) | cli_inner_pretty.js:562050 | object |
+| `Imf` | `goalCommand` (`/goal` non-interactive `local` twin; `thinClientDispatch:"post-text"`) | cli_inner_pretty.js:562058 | object |
+| `Qdt` | `setGoal` (installs the session-scoped empty-matcher `prompt` Stop hook carrying the goal condition) | cli_inner_pretty.js:454466 | function |
+
+> **Routing note.** Per [`/lyz/codespace/analysis_claude_code_v2/CLAUDE.md`](/lyz/codespace/analysis_claude_code_v2/CLAUDE.md), Slash Commands route to this integration index. `/goal`'s Stop-hook plumbing (`Qdt`/`Zdt`/`ego`/`UGn`) is cross-listed under Hooks in [`symbol_index_core_features.md`](symbol_index_core_features.md); the prompt-command dispatch runner (turn injection) is cross-listed under Tools in [`symbol_index_core_execution.md`](symbol_index_core_execution.md).
+
 ---
 
 For the v2.1.143→v2.1.156 integration baseline, see the v2.1.156 tree's [`symbol_index_infra_integration.md`](../../../claude_code_v_2.1.156/analyze/00_overview/symbol_index_infra_integration.md).
