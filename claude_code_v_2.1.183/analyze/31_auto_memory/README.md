@@ -2,6 +2,19 @@
 
 > **This is a DELTA module.** It documents only what changed in the auto-memory subsystem between v2.1.156 and v2.1.183. Every citation below is `cli_inner_pretty.js:<line>` in the **v2.1.183** bundle (`/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js`) unless it is explicitly labelled a v2.1.156 / v2.1.88 before-picture citation. For the full architecture — the three writers, the three "dream" surfaces, caps, the lock protocol, the extraction subagent, the tool sandbox, and the per-turn dream scheduler — read the v2.1.156 baseline docs in [../../../claude_code_v_2.1.156/analyze/31_auto_memory/](../../../claude_code_v_2.1.156/analyze/31_auto_memory/). They remain the canonical reference; this delta doc layers on top of them.
 
+> **📁 Full readable-source restoration:** the docs in this module are the *delta* (156→183). For a
+> source-level reconstruction of the **entire** auto-memory / "dream" machine at v2.1.183 — the whole
+> subsystem restored as readable TypeScript organized like the genuine v2.1.88 source tree (20 files: the
+> `memdir` core + caps/scan/age/taxonomy, the recall + team-store path with the `CLAUDE_MEMORY_STORES`
+> `scope`/`promptIndex` routing, the `autoDream` consolidation service + `.consolidate-lock` protocol, the
+> `extractMemories` per-turn extraction subagent, the `DreamTask` scheduled-routine scaffold, the
+> `teamMemorySync` watcher + multistore transport, and the `<memory>`-block / status-line render surface) —
+> see [**`reconstructed_source/`**](./reconstructed_source/README.md). Like the swarm, **the v2.1.88
+> auto-memory/dream subsystem is a real ancestor** (ported forward), so carryover parts port real
+> names/logic forward while the v2.1.172/2.1.181 deltas come from the 183 bundle. Every reconstructed
+> function is line-anchored to the 183 bundle and was adversarially re-verified against it
+> (**20/20 reconstruct units PASS, 0 FAIL**; [`_cross_validation_report.md`](./reconstructed_source/_cross_validation_report.md)).
+
 ## TL;DR — the runtime engine is unchanged; the team-store recall path is what moved
 
 Between v2.1.156 and v2.1.183 the **runtime engine of auto memory did not change**. Re-verified identical in v2.1.183:

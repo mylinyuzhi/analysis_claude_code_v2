@@ -217,3 +217,287 @@ literals, prompt text) and confirmed by reading the v2.1.183 declaration at the 
 > - [../31_auto_memory/README.md](../31_auto_memory/README.md) — delta overview + carryover "what NOT to re-read" list
 > - [../31_auto_memory/team_memory_stores_recall.md](../31_auto_memory/team_memory_stores_recall.md) — Deltas 1–5 (schema, fetch, recall routing, gate fix, watcher split)
 > - [../31_auto_memory/status_line_and_misc_delta.md](../31_auto_memory/status_line_and_misc_delta.md) — Delta 6 (verbose-only file list) + env-surface note
+
+---
+
+## Reconstruction (v2.1.183 readable-source)
+
+> Harvested from the 20 final reconstructed `.ts`/`.tsx` files under
+> [`../31_auto_memory/reconstructed_source/`](../31_auto_memory/reconstructed_source/) (post-coherence —
+> the readable names below are authoritative for the restoration, not the delta-layer names above).
+> Every `// 2.1.183: <readable> = <obf> @cli_inner_pretty.js:<line>` anchor (plus the bare `<obf> @line`
+> JSDoc/inline references) was re-read at its source line. Rows are deduplicated by **obfuscated symbol**
+> (same obf → one row). Two obfuscated symbols carry a second readable role across non-importing files
+> and are noted inline: `Hgi` (`buildPrunePrompt` / `buildDreamPromptTiny`, same `@151520`) and `nAo`
+> (`makeSingleStoreSyncState` / the `SyncState` shape, same `@447317-447332`). This section is additive to
+> the delta-layer tables above — where a symbol appears in both, the delta table carries the
+> v2.1.156→183 lineage and this table carries the full reconstructed-surface name.
+>
+> Cross-validated against: v2.1.183 cli_inner_pretty.js (every anchor re-read).
+
+### memdir core (`memdir/{memdir,paths,memoryAge}.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `oZ` | `DIR_EXISTS_GUIDANCE` | cli_inner_pretty.js:150802 | constant |
+| `Ykt` | `DIRS_EXIST_GUIDANCE` | cli_inner_pretty.js:150804 | constant |
+| `$w` | `ENTRYPOINT_NAME` | cli_inner_pretty.js:150799 | constant |
+| `WXu` | `EXCLUDED_DIR_SEGMENTS` | cli_inner_pretty.js:146836 | constant |
+| `HTe` | `MAX_ENTRYPOINT_BYTES` | cli_inner_pretty.js:150801 | constant |
+| `tie` | `MAX_ENTRYPOINT_LINES` | cli_inner_pretty.js:150800 | constant |
+| `UNr` | `buildMemoryLines` | cli_inner_pretty.js:151756 | function |
+| `Tgi` | `buildMemoryPrompt` | cli_inner_pretty.js:151816 | function |
+| `bK` | `canonicalizeSegment` | cli_inner_pretty.js:146811 | function |
+| `Oyn` | `ccrSentinelDisabled` | cli_inner_pretty.js:147654 | function |
+| `nie` | `ensureMemoryDirExists` | cli_inner_pretty.js:151730 | function |
+| `ZXu` | `getAutoMemBase` | cli_inner_pretty.js:147712 | function |
+| `C0n` | `getAutoMemBaseDir` | cli_inner_pretty.js:289767 | function |
+| `bBe` | `getAutoMemEntrypoint` | cli_inner_pretty.js:147715 | function |
+| `hm` | `getAutoMemPath` | cli_inner_pretty.js:147746 | function |
+| `Omi` | `getAutoMemPathOverride` | cli_inner_pretty.js:147697 | function |
+| `QXu` | `getAutoMemPathSetting` | cli_inner_pretty.js:147700 | function |
+| `Wse` | `getMemoryBaseDir` | cli_inner_pretty.js:147666 | function |
+| `Byn` | `hasAutoMemPathOverride` | cli_inner_pretty.js:147709 | function |
+| `Iu` | `isAutoMemoryEnabled` | cli_inner_pretty.js:147636 | function |
+| `SK` | `isAutoMemPath` | cli_inner_pretty.js:147718 | function |
+| `Lkt` | `isAutoMemPathWritable` | cli_inner_pretty.js:147721 | function |
+| `Nyn` | `isExtractModeActive` | cli_inner_pretty.js:147662 | function |
+| `aH` | `isTinyMemoryEnabled` | cli_inner_pretty.js:147673 | function |
+| `e0t` | `loadMemoryPrompt` | cli_inner_pretty.js:151847 | function |
+| `p9` | `logMemoryDirCounts` | cli_inner_pretty.js:151739 | function |
+| `Myn` | `matchesAny` | cli_inner_pretty.js:146806 | function |
+| `EHd` | `memoryAgeDays` | cli_inner_pretty.js:220191 | function |
+| `XXu` | `memoryDirName` | cli_inner_pretty.js:147670 | function |
+| `xOi` | `memoryFreshnessNote` | cli_inner_pretty.js:220203 | function |
+| `YWr` | `memoryFreshnessText` | cli_inner_pretty.js:220194 | function |
+| `jQu` | `parseMemoryStoresEnvSafe` | cli_inner_pretty.js:151840 | function |
+| `dTe` | `pathCrossesExcludedDir` | cli_inner_pretty.js:146823 | function |
+| `Zkt` | `truncateEntrypointContent` | cli_inner_pretty.js:151691 | function |
+| `$mi` | `validateMemoryPath` | cli_inner_pretty.js:147676 | function |
+
+### taxonomy (`memdir/memoryTypes.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `y_n` | `MEMORY_DRIFT_CAVEAT` | cli_inner_pretty.js:150897 | constant |
+| `CTe` | `MEMORY_FRONTMATTER_EXAMPLE` | cli_inner_pretty.js:151080 | constant |
+| `_gi` | `RECALLED_IN_TOOL_RESULTS_SECTION` | cli_inner_pretty.js:151568 | constant |
+| `hgi` | `TINY_FRONTMATTER_EXAMPLE` | cli_inner_pretty.js:151560 | constant |
+| `UQu` | `TINY_MEMORY_DRIFT_CAVEAT` | cli_inner_pretty.js:151550 | constant |
+| `BNr` | `TINY_TYPES_SECTION_COMBINED` | cli_inner_pretty.js:151630 | constant |
+| `NNr` | `TINY_TYPES_SECTION_INDIVIDUAL` | cli_inner_pretty.js:151573 | constant |
+| `ygi` | `TINY_WHEN_TO_ACCESS_SECTION` | cli_inner_pretty.js:151561 | constant |
+| `wTe` | `TRUSTING_RECALL_SECTION` | cli_inner_pretty.js:151067 | constant |
+| `Jkt` | `TYPES_SECTION_COMBINED` | cli_inner_pretty.js:150913 | constant |
+| `Qkt` | `TYPES_SECTION_INDIVIDUAL` | cli_inner_pretty.js:150983 | constant |
+| `TTe` | `WHAT_NOT_TO_SAVE_SECTION` | cli_inner_pretty.js:151049 | constant |
+| `pgi` | `WHEN_TO_ACCESS_SECTION` | cli_inner_pretty.js:151060 | constant |
+| `xNr` | `WIKILINK_GUIDANCE` | cli_inner_pretty.js:150865 | constant |
+| `OQu` | `COMPACT_TYPE_DESCRIPTIONS` | cli_inner_pretty.js:150906 | object |
+| `kNr` | `MEMORY_TYPES` | cli_inner_pretty.js:150905 | object |
+| `ONr` | `TINY_MEMORY_TYPES` | cli_inner_pretty.js:151559 | object |
+| `vTe` | `buildCompactableTypesSection` | cli_inner_pretty.js:150888 | function |
+| `NQu` | `buildCompactTypesSection` | cli_inner_pretty.js:150876 | function |
+| `h_n` | `buildFrontmatterExample` | cli_inner_pretty.js:150823 | function |
+| `DNr` | `isCompactTypesEnabled` | cli_inner_pretty.js:150873 | function |
+| `LNr` | `memoryTypesSkillName` | cli_inner_pretty.js:150892 | function |
+| `dgi` | `parseMemoryType` | cli_inner_pretty.js:150869 | function |
+
+### recall + team stores (`memdir/{teamMemPaths,teamMemPrompts,memoryScan,findRelevantMemories}.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `xQu` | `MEM_PROMPT_INDEX_TIMEOUT_MS` | cli_inner_pretty.js:150791 | constant |
+| `CMt` | `MEMDIR_RELEVANCE` | cli_inner_pretty.js:230240 | constant |
+| `_Qu` | `MOUNT_REGEX_MESSAGE` | cli_inner_pretty.js:150481 | constant |
+| `etl` | `RECALL_KNOWLEDGE_TIMEOUT_MS` | cli_inner_pretty.js:464510 | constant |
+| `q3p` | `SELECT_MEMORIES_SYSTEM_PROMPT` | cli_inner_pretty.js:464524 | constant |
+| `V3p` | `SYNTHESIZE_MEMORIES_SYSTEM_PROMPT` | cli_inner_pretty.js:464532 | constant |
+| `tgi` | `absolutePathStringSchema` | cli_inner_pretty.js:150488 | object |
+| `bQu` | `storeObjectSchema` | cli_inner_pretty.js:150491 | object |
+| `p9r` | `appendMemoryTurn` | cli_inner_pretty.js:230228 | function |
+| `mgi` | `buildCombinedMemoryPrompt` | cli_inner_pretty.js:151194 | function |
+| `o2p` | `buildPromptIndexExcludeSet` | cli_inner_pretty.js:454766 | function |
+| `Egi` | `buildSimpleSystemPromptRecall` | cli_inner_pretty.js:151481 | function |
+| `Agi` | `buildTeamRecallRwRo` | cli_inner_pretty.js:151265 | function |
+| `bgi` | `buildTinySingleDirRecall` | cli_inner_pretty.js:151378 | function |
+| `Sgi` | `buildTinyTeamRecall` | cli_inner_pretty.js:151426 | function |
+| `$Be` | `checkTeamContainment` | cli_inner_pretty.js:151111 | function |
+| `yQu` | `deriveMountName` | cli_inner_pretty.js:150430 | function |
+| `i2p` | `extractFirstHeading` | cli_inner_pretty.js:454782 | function |
+| `kQu` | `fetchOnePromptIndex` | cli_inner_pretty.js:150768 | function |
+| `agi` | `fetchStorePromptIndices` | cli_inner_pretty.js:150754 | function |
+| `ntl` | `findRelevantMemories` | cli_inner_pretty.js:464313 | function |
+| `ttl` | `formatKnowledgeResults` | cli_inner_pretty.js:464306 | function |
+| `I4t` | `formatMemoryManifest` | cli_inner_pretty.js:454838 | function |
+| `u9r` | `getCachedMemoryState` | cli_inner_pretty.js:230206 | function |
+| `MBe` | `getMeta` | cli_inner_pretty.js:150852 | function |
+| `uH` | `getTeamMemPath` | cli_inner_pretty.js:151103 | function |
+| `tIe` | `initMemoryRecallCache` | cli_inner_pretty.js:230199 | function |
+| `hQu` | `isPathAbsoluteHostSafe` | cli_inner_pretty.js:150422 | function |
+| `vNr` | `isPromptIndexPathSafe` | cli_inner_pretty.js:150438 | function |
+| `BQu` | `isRealPathWithinTeamDir` | cli_inner_pretty.js:151147 | function |
+| `vK` | `isTeamMemFile` | cli_inner_pretty.js:151174 | function |
+| `Nk` | `isTeamMemoryEnabled` | cli_inner_pretty.js:151098 | function |
+| `Bme` | `isTeamMemPath` | cli_inner_pretty.js:151159 | function |
+| `RNr` | `isTeamMemServerActive` | cli_inner_pretty.js:151121 | function |
+| `lje` | `isUserStoreEnabled` | cli_inner_pretty.js:289759 | function |
+| `v` | `logForDebugging` | cli_inner_pretty.js:10623 | function |
+| `a2p` | `parseCreatedDate` | cli_inner_pretty.js:454790 | function |
+| `Zse` | `parseMemoryStoresEnv` | cli_inner_pretty.js:150442 | function |
+| `$Nr` | `realpathDeepestExisting` | cli_inner_pretty.js:151124 | function |
+| `jUe` | `resetMemoryRecallCache` | cli_inner_pretty.js:230202 | function |
+| `MNr` | `resolveTeamSubdir` | cli_inner_pretty.js:151106 | function |
+| `z3p` | `runMemorySelectorQuery` | cli_inner_pretty.js:464352 | function |
+| `K3p` | `runMemorySynthesisQuery` | cli_inner_pretty.js:464438 | function |
+| `PNr` | `sanitizePathKey` | cli_inner_pretty.js:151082 | function |
+| `C4t` | `scanMemoryFiles` | cli_inner_pretty.js:454800 | function |
+| `d9r` | `seedMemoryState` | cli_inner_pretty.js:230209 | function |
+| `Un` | `sleep` | cli_inner_pretty.js:105278 | function |
+| `rtl` | `synthesizeRelevantMemories` | cli_inner_pretty.js:464417 | function |
+| `Rt` | `telemetryFeatureSad` | cli_inner_pretty.js:44575 | function |
+| `__n` | `validateTeamMemKey` | cli_inner_pretty.js:151164 | function |
+| `uu` | `withTimeout` | cli_inner_pretty.js:105304 | function |
+
+### autoDream (`services/autoDream/{autoDream,config,consolidationLock,consolidationPrompt}.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `FDp` | `HOLDER_STALE_MS` | cli_inner_pretty.js:424664 | constant |
+| `BDp` | `LOCK_FILE` | cli_inner_pretty.js:424663 | constant |
+| `v2p` | `RECONCILE_AGAINST_CLAUDE_MD_SECTION` | cli_inner_pretty.js:455381 | constant |
+| `T2p` | `SESSION_SCAN_INTERVAL_MS` | cli_inner_pretty.js:455582 | constant |
+| `H2p` | `TEAM_MEMORY_DREAM_SECTION` | cli_inner_pretty.js:455379 | constant |
+| `$Qa` | `DEFAULTS` | cli_inner_pretty.js:455608 | object |
+| `_2p` | `MID_PROMPT_INJECTIONS` | cli_inner_pretty.js:455290 | variable |
+| `E2p` | `TAIL_PROMPT_INJECTIONS` | cli_inner_pretty.js:455305 | variable |
+| `PQa` | `buildConsolidationPrompt` | cli_inner_pretty.js:455311 | function |
+| `kQa` | `buildMidPromptInjection` | cli_inner_pretty.js:455283 | function |
+| `Hgi` | `buildPrunePrompt` — also referenced as `buildDreamPromptTiny` in `memdir/memoryTypes.ts`; same `@151520` symbol — the tiny-mode `# Dream: Memory Pruning` builder | cli_inner_pretty.js:151520 | function |
+| `LQa` | `buildTailPromptInjection` | cli_inner_pretty.js:455298 | function |
+| `k2p` | `countDailyLogs` | cli_inner_pretty.js:455568 | function |
+| `UQa` | `executeAutoDream` | cli_inner_pretty.js:455577 | function |
+| `w2p` | `getConfig` | cli_inner_pretty.js:455394 | function |
+| `yQa` | `getDreamConfig` | cli_inner_pretty.js:454520 | function |
+| `FQa` | `initAutoDream` | cli_inner_pretty.js:455413 | function |
+| `T4t` | `isAutoDreamEnabled` | cli_inner_pretty.js:454528 | function |
+| `jGn` | `isAutoDreamServerSideOptIn` | cli_inner_pretty.js:454523 | function |
+| `I2p` | `isForced` | cli_inner_pretty.js:455410 | function |
+| `C2p` | `isGateOpen` | cli_inner_pretty.js:455405 | function |
+| `Iqa` | `listSessionsTouchedSince` | cli_inner_pretty.js:424657 | function |
+| `opo` | `lockPath` | cli_inner_pretty.js:424609 | function |
+| `x2p` | `makeDreamProgressWatcher` | cli_inner_pretty.js:455546 | function |
+| `y2p` | `midPromptInjectionEnabled` | cli_inner_pretty.js:455280 | function |
+| `h3n` | `readLastConsolidatedAt` | cli_inner_pretty.js:424612 | function |
+| `S2p` | `tailPromptInjectionEnabled` | cli_inner_pretty.js:455295 | function |
+| `Cqa` | `tryAcquireConsolidationLock` | cli_inner_pretty.js:424619 | function |
+
+### extractMemories (`services/extractMemories/{extractMemories,prompts}.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `xQa` | `drainerSlot` | cli_inner_pretty.js:455252 | variable |
+| `IQa` | `extractorSlot` | cli_inner_pretty.js:455251 | variable |
+| `SQa` | `buildExtractionPrompt` | cli_inner_pretty.js:454882 | function |
+| `l2p` | `countModelVisibleMessagesSince` | cli_inner_pretty.js:454948 | function |
+| `vQa` | `countWords` | cli_inner_pretty.js:454979 | function |
+| `zGn` | `createAutoMemCanUseTool` | cli_inner_pretty.js:455059 | function |
+| `x4t` | `denyAutoMemTool` | cli_inner_pretty.js:455001 | function |
+| `g2p` | `drainPendingExtraction` | cli_inner_pretty.js:455246 | function |
+| `A2p` | `executeExtractMemories` | cli_inner_pretty.js:455243 | function |
+| `a` | `executeExtractMemoriesImpl` | cli_inner_pretty.js:455216 | function |
+| `f2p` | `extractWrittenPaths` | cli_inner_pretty.js:455105 | function |
+| `CQa` | `getWrittenFilePath` | cli_inner_pretty.js:455096 | function |
+| `c2p` | `hasMemoryWritesSince` | cli_inner_pretty.js:454962 | function |
+| `u2p` | `hasUserProseSince` | cli_inner_pretty.js:454989 | function |
+| `m2p` | `initExtractMemories` | cli_inner_pretty.js:455118 | function |
+| `k4t` | `isAutoMemPathMd` | cli_inner_pretty.js:455056 | function |
+| `p2p` | `isMemoryScopedRm` | cli_inner_pretty.js:455025 | function |
+| `rgo` | `isModelVisibleMessage` | cli_inner_pretty.js:454945 | function |
+| `d2p` | `isReadOnlyRemoveItem` | cli_inner_pretty.js:455008 | function |
+| `TQa` | `isSubstantialUserMessage` | cli_inner_pretty.js:454982 | function |
+| `i` | `runExtraction` | cli_inner_pretty.js:455125 | function |
+
+### DreamTask (`tasks/DreamTask/DreamTask.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `UDp` | `MAX_TURNS` | cli_inner_pretty.js:424717 | constant |
+| `kqa` | `addDreamTurn` | cli_inner_pretty.js:424694 | function |
+| `Lqa` | `completeDreamTask` | cli_inner_pretty.js:424707 | function |
+| `b3n` | `DreamTask` | cli_inner_pretty.js:424724 | class |
+| `Dqa` | `failDreamTask` | cli_inner_pretty.js:424712 | function |
+| `lj` | `generateTaskId` | cli_inner_pretty.js:424679 | function |
+| `spo` | `isDreamTask` | cli_inner_pretty.js:424675 | function |
+| `Ng` | `notifyTaskStatus` | cli_inner_pretty.js:234046 | function |
+| `xqa` | `registerDreamTask` | cli_inner_pretty.js:424678 | function |
+| `y3n` | `rollbackConsolidationLock` | cli_inner_pretty.js:424643 | function |
+| `Me` | `telemetryFeatureBad` | cli_inner_pretty.js:44572 | function |
+| `Le` | `telemetryFeatureOk` | cli_inner_pretty.js:44569 | function |
+
+### teamMemorySync watcher + transport (`services/teamMemorySync/{watcher,index}.ts`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `VXa` | `UNLINK_RECOVERABLE_REASONS_BY_SCOPE` | cli_inner_pretty.js:449409 | constant |
+| `Lb` | `memWatchState` | cli_inner_pretty.js:449406 | variable |
+| `AFp` | `_armResyncTimerForTesting` | cli_inner_pretty.js:449394 | function |
+| `fFp` | `_lastSyncCompletedAtForTesting` | cli_inner_pretty.js:449388 | function |
+| `dFp` | `_resetWatcherStateForTesting` | cli_inner_pretty.js:449371 | function |
+| `mFp` | `_resyncTimerForTesting` | cli_inner_pretty.js:449391 | function |
+| `pFp` | `_startFileWatcherForTesting` | cli_inner_pretty.js:449385 | function |
+| `u4t` | `armResyncTimer` | cli_inner_pretty.js:449127 | function |
+| `lAo` | `buildMultistore` | cli_inner_pretty.js:448434-448458 | function |
+| `YXa` | `executePush` | cli_inner_pretty.js:449022 | function |
+| `tGn` | `hashContent` | cli_inner_pretty.js:447333-447334 | function |
+| `WXa` | `initialPullForLane` | cli_inner_pretty.js:449277 | function |
+| `nGn` | `isMemorySyncAvailable` | cli_inner_pretty.js:447336-447340 | function |
+| `KXa` | `isPermanentFailure` | cli_inner_pretty.js:448990 | function |
+| `zXa` | `isUnlinkRecoverable` | cli_inner_pretty.js:448987 | function |
+| `gAo` | `isUserLaneEligible` | cli_inner_pretty.js:449086 | function |
+| `mAo` | `laneActive` | cli_inner_pretty.js:449148 | function |
+| `CNr` | `makeMultistoreBackends` | cli_inner_pretty.js:150710-150712 | function |
+| `nAo` | `makeSingleStoreSyncState` — its return value is the per-lane `SyncState` shape; same `@447317-447332` symbol | cli_inner_pretty.js:447317-447332 | function |
+| `aGn` | `makeWatchLaneState` | cli_inner_pretty.js:448975 | function |
+| `JXa` | `maybeResyncStaleStores` | cli_inner_pretty.js:449109 | function |
+| `m_n` | `MemoryServiceBackend` | cli_inner_pretty.js:150574-150709 | class |
+| `pAo` | `multistorePush` | cli_inner_pretty.js:448833-448842 | function |
+| `cGn` | `notifyMemoryWrite` | cli_inner_pretty.js:449326 | function |
+| `sAo` | `pullMemory / multistorePull` | cli_inner_pretty.js:447764-447773 | function |
+| `iAo` | `pushMemory` | cli_inner_pretty.js:447877 | function |
+| `fAo` | `resolveLaneForPath` | cli_inner_pretty.js:449002 | function |
+| `XXa` | `resyncAllowed` | cli_inner_pretty.js:449089 | function |
+| `lFp` | `runDebouncedPush` | cli_inner_pretty.js:449092 | function |
+| `lGn` | `schedulePush` | cli_inner_pretty.js:449080 | function |
+| `SLe` | `scopeLabel` | cli_inner_pretty.js:447314-447316 | function |
+| `AAo` | `startDirectoryWatcher` | cli_inner_pretty.js:449153 | function |
+| `cFp` | `startMemoryWatcher` | cli_inner_pretty.js:449196 | function |
+| `uFp` | `startMemoryWatcherCore` | cli_inner_pretty.js:449203 | function |
+| `QXa` | `stopMemoryWatcher` | cli_inner_pretty.js:449331 | function |
+| `GXa` | `suppressLane` | cli_inner_pretty.js:449011 | function |
+
+### messages + file-detection + status-line (`utils/{messages,memoryFileDetection}.ts`, `components/memory/MemoryUpdateNotification.tsx`)
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_7n` | `AMBIENT_CONTEXT_REMINDER` | cli_inner_pretty.js:590353 | constant |
+| `mc` | `STATUS_BULLET_GLYPH` | cli_inner_pretty.js:53778 | constant |
+| `YSf` | `MEMORY_UPDATE_SOURCE_LABELS` | cli_inner_pretty.js:590643 | object |
+| `Hvp` | `clickableFile` | cli_inner_pretty.js:383444-383473 | function |
+| `YGn` | `createMemorySavedMessage` | cli_inner_pretty.js:589751 | function |
+| `i4t` | `detectSessionFileType` | cli_inner_pretty.js:444839 | function |
+| `V4n` | `detectSessionPatternType` | cli_inner_pretty.js:444847 | function |
+| `Ctl` | `getMemoryUpdateAttachments` | cli_inner_pretty.js:465836 | function |
+| `HNp` | `isAgentMemFile` | cli_inner_pretty.js:444861 | function |
+| `kWe` | `isAutoManagedMemoryFile` | cli_inner_pretty.js:444865 | function |
+| `CYa` | `isAutoManagedMemoryPattern` | cli_inner_pretty.js:444914 | function |
+| `xWe` | `isAutoMemFile` | cli_inner_pretty.js:444852 | function |
+| `$mo` | `isMemoryDirectory` | cli_inner_pretty.js:444872 | function |
+| `wYa` | `isShellCommandTargetingMemory` | cli_inner_pretty.js:444892 | function |
+| `TYa` | `memoryScopeForPath` | cli_inner_pretty.js:444856 | function |
+| `Evp` | `renderClickableFile` | cli_inner_pretty.js:383441-383443 | function |
+| `Svp` | `renderMemorySaved` | cli_inner_pretty.js:383399-383440 | function |
+| `SNa` | `statusLineDispatch` | cli_inner_pretty.js:382861 | function |
+| `ANa` | `teamMemSavedPart` | cli_inner_pretty.js:382753 | function |
+| `kye` | `toComparable` | cli_inner_pretty.js:444835 | function |
+| `ENp` | `toPosix` | cli_inner_pretty.js:444832 | function |
