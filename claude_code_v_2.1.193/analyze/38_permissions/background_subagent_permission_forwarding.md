@@ -157,7 +157,7 @@ In 183 a denied *named* type was only caught later (via the ambiguous-resolution
 
 ## Cross-links
 
-- The background-agents subsystem (worker lifecycle, dispatcher, the permission request/decision protocol the carryover `rdc`/`M8n` ride on): [36_background_agents/README.md](../36_background_agents/README.md) and its nested-subagent depth doc [36_background_agents/nested_subagent_depth_limit.md](../36_background_agents/nested_subagent_depth_limit.md) (the depth gate that bounds these spawns).
+- The background-agents subsystem (worker lifecycle, dispatcher, the permission request/decision protocol the carryover `rdc`/`M8n` ride on): [36_background_agents/README.md](../36_background_agents/README.md) and its nested-subagent depth doc [36_background_agents/subagent_depth_tracking.md](../36_background_agents/subagent_depth_tracking.md) (the depth gate that bounds these spawns).
 - The agent-team / named-spawn routing rewrite is in [30_agent_team](../30_agent_team/) — the `Agent(x,y)` allow-list and named routing are documented there; this doc only covers the *permission-deny* enforcement on that path.
 - Sibling 193 doc: [README.md](./README.md).
 

@@ -61,7 +61,7 @@ front-and-center in the deep doc).
 | S1 | Skill schema `tVr` + canonical list `zEd` recognize `displayName`/`defaultEnabled`/`fallback`/`evals` | **REFINEMENT** (schema) | `tVr` :149302 (`defaultEnabled` :149335, `displayName` :149339); `zEd` :149406 | `Q1r` :148478 / `yJu` :148571 lack them | high |
 | S1b | Generic case-normalizer (`KEd`/`uIh`/`Gm` `normalizeKeys`) | **CARRYOVER + VESTIGIAL** (built, never read) | `KEd` :149400, `uIh` :149465, `Gm` ignores arg | `_Ju` :148568 / `kYA` :148629 identical, also dead | high (it's dead in both) |
 | S2 | Malformed YAML → `parseError` propagated + logged + counted | **REFINEMENT** (net-new plumbing) | `Gm` returns `parseError` :149531; `uyt` consumes :451753; `skill_load_yaml_failed` :451756 | `CA` :148675 returns no `parseError`; loader :443795 no log | high |
-| S2b | Malformed YAML → loads body with empty metadata (skill not dropped) | **CARRYOVER** | `Gm` `a={}` + `content:s` :149517/:149531 | identical in `CA` :148679/:148691 | high |
+| S2b | Malformed YAML → loads body with empty metadata (skill not dropped) | **CARRYOVER** | `Gm` `a={}` + `content:s` :149517/:149531 | identical in `CA` :148681/:148693 | high |
 | S3 | "Skills" section in `/plugin` Installed tab | **NET-NEW** (UI capability) | `OAf` `case "skills"` :519226; `In` builder :519545; `Cr.set("skills")` :519627; sort `skills:7` :519598 | `GYp` :508267 has no skills case; `set("skills")`/`scope:"skills"` = 0 | high |
 
 ---

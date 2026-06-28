@@ -184,5 +184,5 @@ Key functions/constants in this document:
 
 - `hookMatcherMatches` (obf `s3f`, `cli_inner_pretty.js:589634`) — comma-aware matcher test; 4th param `allowComma`; splits on `/[|,]/`.
 - `HOOK_EVENT_NAMES` (obf `o3f`, `cli_inner_pretty.js:591335`) — Set of all hook events; source of `allowComma` via `.has(hook_event_name)` (`:589831`).
-- `resolveAliases` (obf `Kcn`) / `canonicalToolName` (obf `KL`) (`cli_inner_pretty.js:589640`) — per-segment tool-alias expansion (183 `wHt`/`eL`).
+- `resolveAliases` (obf `Kcn`) / `canonicalToolName` (obf `KL`) — per-segment tool-alias expansion at the `s3f` flatMap site (`cli_inner_pretty.js:589641`); 183 `wHt`/`eL`.
 - 183 predecessor `qyf` (`cli_inner_pretty.js:577890`, *183*) — 3-arg, pipe-only `/^[a-zA-Z0-9_|]+$/`, split on `"|"` only.

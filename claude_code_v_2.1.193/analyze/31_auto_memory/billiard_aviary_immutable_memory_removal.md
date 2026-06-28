@@ -40,7 +40,7 @@ function isImmutableMemoryEnabled() {
 //   YXu→MEMORY_TYPE_TINY ("tiny_memory"), KXu→MEMORY_TYPE_DEFAULT ("memory")
 ```
 
-**The 11 gate sites in 183.** The single `aH()` boolean fanned out across the whole memory subsystem. Each row is a place the 183 build branched on the gate; all of these were removed (the OFF-path is now the only path) in 193:
+**The gate fan-out in 183 — 16 `aH()` call-sites.** The single `aH()` boolean fanned out across the whole memory subsystem (`grep -c '\baH()'` in the 183 bundle = 16 call-sites plus the one definition at `:147673`). Each representative row below is a place the 183 build branched on the gate; all of these were removed (the OFF-path is now the only path) in 193:
 
 | 183 site | What the gate toggled when ON |
 |---|---|
@@ -52,7 +52,7 @@ function isImmutableMemoryEnabled() {
 | `445405` (183) | gated a memory-attachment path |
 | `455476, 455488` (183, dream) | the tool-constraint copy **and** which dream builder to call (`Hgi` vs `PQa`) |
 
-> **Why one boolean fanned out so far.** Immutable memory is not a local tweak — it changes the *contract* of a memory file (append-only single facts vs an editable note), which ripples into the type name, the writer, the frontmatter, the rating UI, and the dream prompt's tool constraints simultaneously. Threading one `aH()` gate through all of them was the cheapest way to keep the experiment switchable as one unit. The cost is exactly what 193 had to pay to retire it: 11 coordinated edits.
+> **Why one boolean fanned out so far.** Immutable memory is not a local tweak — it changes the *contract* of a memory file (append-only single facts vs an editable note), which ripples into the type name, the writer, the frontmatter, the rating UI, and the dream prompt's tool constraints simultaneously. Threading one `aH()` gate through all of them was the cheapest way to keep the experiment switchable as one unit. The cost is exactly what 193 had to pay to retire it: unwinding all 16 `aH()` call-sites.
 
 ---
 
@@ -149,7 +149,7 @@ let memoryDir = getMemoryDir(),                          // tm()
 **How it works — the mechanics of the collapse.**
 1. **The `b` slot was repurposed.** In 183, `b = aH()` was a boolean. In 193 the *same local name* `b` is `Ph(mr())` — the resolved session-transcripts path, passed as the 2nd positional arg to `$_l`. Note `$_l(e, t, …)` has `e` = memory directory, `t` = transcripts; the call `$_l(y, b, …)` therefore passes `y=tm()` as the memory dir and `b=Ph(mr())` as the transcripts path. So `b` is no longer a gate — it is plain data threaded into the prompt.
 2. **The constraints string lost its conditional.** 183 had two `\`Tool constraints for this run:\`` variants (immutable vs standard); 193 keeps the standard one only (grep-count 2 → 1).
-3. **The builder is the standard one, verbatim.** `$_l` (193 `:463735`) has a **byte-identical body** to 183 `PQa` (183 `:455311`): same `# Dream: Memory Consolidation` header, same `Memory directory:` / `Session transcripts:` slots, same Phase 1-4 structure, same `Reconcile memories against CLAUDE.md` (1/1) and `team/` subdirectory block (1/1). The immutable builder `Hgi` (183 `:151520`, signature `(e, t, n=!1)` — 3 args, **no memory-dir param**) is deleted.
+3. **The builder is the standard one, verbatim.** `$_l` (193 `:463735`) has a **byte-identical body** to 183 `PQa` (183 `:455311`): same `# Dream: Memory Consolidation` header, same `Memory directory:` / `Session transcripts:` slots, same Phase 1-4 structure, same `Reconcile memories against CLAUDE.md` (1/1) and `team/` subdirectory block (1/1). The immutable builder `Hgi` (183 `:151520`, signature `(e, t, n=!1)`: `e`=memory dir, `t`=additional-context, `n`=team flag — 3 args, **no session-transcripts param** unlike `PQa`/`$_l`'s `t`=transcripts, because a pruning pass only re-reads the existing memory files rather than reviewing session transcripts) is deleted.
 
 **Why this approach (deletion, not a feature-flag flip).** The experiment had two states; the OFF state was the production default and the ON state was internal-only. Rather than leave a dormant `aH()` gate and a dead `Hgi` builder shipping in the bundle (dead-weight + an accidental-enable risk if the GrowthBook flag were ever flipped), 193 **removes the entire ON-path** and inlines the OFF-path as the only path. Trade-off: a future "immutable memory" idea would have to be re-introduced from scratch — but that is correct hygiene for a concluded experiment. The result is that the 193 dream shape matches the v2.1.88 ancestor `buildConsolidationPrompt` (`services/autoDream/consolidationPrompt.ts:10`, single-path, no immutable variant): the codebase reverted toward its original, simpler form.
 
@@ -206,5 +206,5 @@ Key symbols in this document (list format, per CLAUDE.md):
   - `isImmutableMemoryEnabled` (gate `aH` = `tengu_billiard_aviary`, default `false`, 183 `:147673`).
   - `selectMemoryType` (`XXu`, 183 `:147670`) → `MEMORY_TYPE_TINY` (`YXu="tiny_memory"`, 183 `:147730`) vs `MEMORY_TYPE_DEFAULT` (`KXu="memory"`, 183 `:147729`).
   - immutable dream builder `Hgi` "Dream: Memory Pruning" (183 `:151520`, 3-arg).
-  - `[Good]/[Bad]` rating widget `FOa` (183 `:378928`) + handlers `onRate:` (183 `:378871/:378881`) + payload `scopeCounts`.
+  - `[Good]/[Bad]` rating widget `FOa` (183 `:378926`; its own `onRate:` prop is read at `:378928`) + the two call-site handlers `onRate:` (183 `:378871/:378881`) + payload `scopeCounts`.
   - `created:` frontmatter stamp gate (183 `:220243`, `aH() && { created: Itt() }`).

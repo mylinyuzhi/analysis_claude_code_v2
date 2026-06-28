@@ -17,7 +17,7 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `W3f` | `computeEnvInfo` (env-block builder; gained `l = Nwn()` @592865 + `${l}` slot @592873-592879; carryover of 183 `D_f`@580996, v2.1.88 `computeEnvInfo`@`constants/prompts.ts:606`) | cli_inner_pretty.js:592845 | function |
+| `W3f` | `computeEnvInfo` (env-block builder, 2-param `(e,t)`; gained `l = Nwn()` @592865 + `${l}` slot @592873-592878; carryover of 183 `L_f`@580976 — env body/`OS Version:`→`</env>` @580996-581004; **not** 183 `D_f`@581006, which is the 3-param sibling = 193 `V3f`@592881; v2.1.88 `computeEnvInfo`@`constants/prompts.ts:606`) | cli_inner_pretty.js:592845 | function |
 | `C3o` | `buildAgentProxyEnvLine` (the `Outbound HTTPS goes through a pre-configured agent proxy…` line) | cli_inner_pretty.js:616578 | function |
 | `Nwn` | `getAgentProxyEnvLine` (returns `Bki`; read by `computeEnvInfo`) | cli_inner_pretty.js:151176 | function |
 | `h$t` | `setAgentProxyEnvLine` (push setter; called @616459/616464/616468, cleared @616690) | cli_inner_pretty.js:151173 | function |
@@ -44,7 +44,7 @@
 |------------|----------|-----------|------|
 | `p0i` | `whenToAccessMemories` (memory fragment array; now flows straight into `A$t`) | cli_inner_pretty.js:152255 | variable |
 | `A$t` | `beforeRecommendingFromMemory` (`## Before recommending from memory` array; string @152263; carryover, was 183 @151068) | cli_inner_pretty.js:152262 | variable |
-| `Kwn` | `recalledMemoriesGuidanceRef` (consolidated save-time drift/trust guidance; survives @152055) | cli_inner_pretty.js:152092 | variable |
+| `Kwn` | `memoryStalenessGuidance` (the "Memory records can become stale over time… verify that the memory is still correct" drift/trust bullet — final element of the `## When to access memories` array, reused @152260/152448/152554; carryover of 183 `UQu`@151550. This is one form of the "drift and trust rules" the removed `_gi` subsection pointed at, so it survives. NOTE: it is **not** the @152055 save-time guidance literal, which is a separate string.) | cli_inner_pretty.js:152092 | variable |
 | `_gi` | `removedRecalledMemoriesSubsection` (the deleted `## Recalled memories in tool results` array — **183-only**, gone in 193) | cli_inner_pretty.js:151568 *(183)* | variable |
 
 ## Identity / builder / sub-agent prompts (CARRYOVER — byte-identical, obf re-mangled)

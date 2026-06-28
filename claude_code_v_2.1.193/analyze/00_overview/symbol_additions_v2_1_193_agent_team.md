@@ -13,7 +13,7 @@
 | `uhs` | `EXEC_MODE_ENUM` (`["auto","tmux","iterm2","in-process"]`; 183 `Its` lacked `"iterm2"`) | cli_inner_pretty.js:54136 | constant |
 | `kPe` | `detectAndGetBackend` (gains explicit `iterm2` branch; 88 `utils/swarm/backends/registry.ts`) | cli_inner_pretty.js:429186 | function |
 | `zRe` | `getTeammateModeFromSnapshot` (default `$jt="in-process"`) | cli_inner_pretty.js:302915 | function |
-| `$jt` | `DEFAULT_TEAMMATE_MODE` (`"in-process"`) | cli_inner_pretty.js:302921 | constant |
+| `$jt` | `DEFAULT_TEAMMATE_MODE` (`"in-process"`) | cli_inner_pretty.js:302920 | constant |
 | `R8` | `isInsideITerm2` (`TERM_PROGRAM==="iTerm.app" \|\| ITERM_SESSION_ID \|\| terminal==="iTerm.app"`) | cli_inner_pretty.js:363523 | function |
 | `Rft` | `isIt2CliReachable` (`command -v it2` in login shell, then `it2 session list`) | cli_inner_pretty.js:363533 | function |
 | `xft` | `IT2_BIN` (`"it2"`) | cli_inner_pretty.js:363571 | constant |
@@ -40,7 +40,7 @@
 | `kht` | `stopTask` (`killedBy="user"` default; cascades `killedBy` to children) | cli_inner_pretty.js:431759 | function |
 | `GSe` | `killAndNotifyTask` (`GSe(e,t,n="user")`; propagates `killedBy` into `Eqe` + task state) | cli_inner_pretty.js:453871 | function |
 | `LEo` | `teammateIdleBanner` (idleReason → "finished"; 183 `Hao`@379341 "came to rest") | cli_inner_pretty.js:390965 | function |
-| `Mde` | `markAgentStoppedByUser` (called on user-source stop; also in Background Agents additions) | cli_inner_pretty.js:431809 | function |
+| `Mde` | `markAgentStoppedByUser` (called on user-source stop; also in Background Agents additions) | cli_inner_pretty.js:431808 | function |
 | `Kl` | `isLocalAgentTask` (used by `Eqe` to test live-task notify; carryover of 183 `od`) | cli_inner_pretty.js:453726 | function |
 
 ## Module: Agent Team — implicit-team deprecation (CARRYOVER 2.1.178 — listed for cross-ref only)

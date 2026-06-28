@@ -25,7 +25,7 @@ The public schema only permits `mode:"deny"`, but the enforcer also implements a
 ```javascript
 // ============================================
 // sandbox.credentials schema - file entry, env entry, and the credentials object
-// Location: cli_inner_pretty.js:54048-54077 (entries+object), 54096 (wired into Lwr)
+// Location: cli_inner_pretty.js:54048-54077 (entries+object), 54095 (wired into Lwr)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -42,7 +42,7 @@ IEu = Ce(() => A.object({
   envVars: A.array(Rwr()).optional().describe("Environment variables to protect. `deny` unsets the variable for sandboxed commands."),
 }).optional());
 // ... in the sandbox root schema Lwr:
-//   network: wEu(), filesystem: CEu(), credentials: IEu(),     // :54096
+//   network: wEu(), filesystem: CEu(), credentials: IEu(),     // :54095
 
 // READABLE (for understanding):
 credentialFileEntry = lazy(() => zod.object({
@@ -188,10 +188,10 @@ function buildSandboxFsDenyRead() {
 The `else if (i.mode === "mask")` branch in `Rqi` implements a *third* mode the schema does **not** expose. Instead of unsetting the secret, it:
 
 1. reads the real value from `process.env`,
-2. registers it in `secretInjectionRegistry` (`FRn`, `:209633`) which returns a **sentinel** placeholder string bound to a list of `injectHosts`,
+2. registers it in `secretInjectionRegistry` (`FRn`, `:209631`) which returns a **sentinel** placeholder string bound to a list of `injectHosts`,
 3. sets the env var to the *sentinel* (`setEnvVars`), not the real value.
 
-The companion machinery (`FRn.register` at `:209633`, `FRn.substituteInHeaders` at `:211518`, and the gate `Ya?.credentials?.allowPlaintextInject` at `:211560`) substitutes the real secret back into outbound request **headers only for whitelisted hosts**, so the secret never appears in the child's environment in plaintext yet still reaches the intended API. This is a **credential-injection** capability — the sandboxed command sees a sentinel, and only traffic to approved hosts gets the real token.
+The companion machinery (`FRn.register` at `:209631`, `FRn.substituteInHeaders` at `:211518`, and the gate `Ya?.credentials?.allowPlaintextInject` at `:211560`) substitutes the real secret back into outbound request **headers only for whitelisted hosts**, so the secret never appears in the child's environment in plaintext yet still reaches the intended API. This is a **credential-injection** capability — the sandboxed command sees a sentinel, and only traffic to approved hosts gets the real token.
 
 **Why staged (schema-hidden).** The public schema's `mode: A.literal("deny")` deliberately excludes `"mask"`, so no user config can reach this branch today. The enforcer carries the implementation so the feature can be activated by widening the schema literal to an enum — the same dark-launch pattern seen elsewhere in 193 (cf. the `toolDenialKind` taxonomy). Reported as a **staged capability**, not part of the 2.1.187 changelog bullet, flagged for follow-up.
 
@@ -202,15 +202,15 @@ The companion machinery (`FRn.register` at `:209633`, `FRn.substituteInHeaders` 
 | Item | 193 anchor | 183 status | grep diff |
 |------|-----------|------------|-----------|
 | File entry schema `kwr` | `:54048` | absent | net-new |
-| Env entry schema `Rwr` | `:54059` | absent | net-new |
+| Env entry schema `Rwr` | `:54058` | absent | net-new |
 | `sandbox.credentials` object `IEu` | `:54069` | absent | net-new |
-| Wired into root `Lwr` | `:54096` | absent | net-new |
+| Wired into root `Lwr` | `:54095` | absent | net-new |
 | Describe strings | `:54072`,`:54075` | absent | `grep -c` 183=**0**, 193=**2** |
 | Config assembly | `:219470` | absent | net-new |
 | Enforcement `Rqi` | `:211660` | absent | net-new |
 | Deny-read merge `Yjd` | `:211677` | n/a | net-new merge clause |
 | `denyReadPaths`/`unsetEnvVars` symbols | 4+6 hits | absent | `grep -c denyReadPaths` 183=**0**, 193=**4**; `unsetEnvVars` 193=**6** |
-| Staged `mode:"mask"` + `FRn` | `:211667`,`:209633` | absent | net-new (not in schema) |
+| Staged `mode:"mask"` + `FRn` | `:211667`,`:209631` | absent | net-new (not in schema) |
 
 Every load-bearing symbol is absent in 183 (`grep -c denyReadPaths` 183=0). Since no 2.1.187 bundle exists, attribution to 2.1.187 rests on the changelog plus the clean 183=0 / 193>0 split.
 
@@ -235,9 +235,9 @@ Every load-bearing symbol is absent in 183 (`grep -c denyReadPaths` 183=0). Sinc
 Key functions in this document:
 
 - `credentialFileEntry` (obf: `kwr`, `:54048`) — `{ path: string.min(1), mode: literal("deny") }`.
-- `secretEnvEntry` (obf: `Rwr`, `:54059`) — `{ name: /^[A-Za-z_]\w*$/, mode: literal("deny") }`.
-- `sandboxCredentials` (obf: `IEu`, `:54069`) — `{ files?, envVars? }`; wired into root `Lwr` at `:54096`.
+- `secretEnvEntry` (obf: `Rwr`, `:54058`) — `{ name: /^[A-Za-z_]\w*$/, mode: literal("deny") }`.
+- `sandboxCredentials` (obf: `IEu`, `:54069`) — `{ files?, envVars? }`; wired into root `Lwr` at `:54095`.
 - credentials assembly (loop over `jT` at `:219470`) — per-source path-resolved merge via `p3e`.
 - `resolveCredentialProtection` (obf: `Rqi`, `:211660`) — `{denyReadPaths, unsetEnvVars, setEnvVars}`; deny/mask branches.
 - `buildSandboxFsDenyRead` (obf: `Yjd`, `:211677`) — folds `denyReadPaths` into `filesystem.denyRead`.
-- `secretInjectionRegistry` (obf: `FRn`, `:209633`) — sentinel registry for the staged `mode:"mask"` injection; `allowPlaintextInject` gate at `:211560`.
+- `secretInjectionRegistry` (obf: `FRn`, `:209631`) — sentinel registry for the staged `mode:"mask"` injection; `allowPlaintextInject` gate at `:211560`.

@@ -29,7 +29,7 @@ body change owned by `36_background_agents`:
 
 | # | Delta | Class | 193 anchor | 183 before | Owner doc |
 |---|-------|-------|-----------|-----------|-----------|
-| 1 | Env block gains an **optional agent-proxy diagnostic line** (`${l}` slot) | **NET-NEW** (Remote/proxy-only) | env builder `W3f` :592845, slot :592873-592879; line builder `C3o` :616578 | slot absent (env `D_f` ends at `OS Version:` @ 580996-581004) | [`env_block_agent_proxy_line.md`](./env_block_agent_proxy_line.md) |
+| 1 | Env block gains an **optional agent-proxy diagnostic line** (`${l}` slot) | **NET-NEW** (Remote/proxy-only) | env builder `W3f` :592845, slot :592873-592878; line builder `C3o` :616578 | slot absent (env builder `L_f`@580976 ends at `OS Version:` @ 580996-581004; `D_f`@581006 is the unrelated 3-param sibling) | [`env_block_agent_proxy_line.md`](./env_block_agent_proxy_line.md) |
 | 2 | Reminder catalogue gains a Remote **"You are now running as ${Sr}" model-change reminder** | **NET-NEW** (Remote-only) | `le` Remote branch :705781-705789 | string count 0 | [`reminder_catalogue_delta_193.md`](./reminder_catalogue_delta_193.md) |
 | 3 | Memory prompt drops the **"## Recalled memories in tool results"** drift/trust subsection | **REFINEMENT** (dedup) | removed (`p0i`→`A$t` flow :152255-152263) | present (`_gi` @ 183:151568-151571) | [`reminder_catalogue_delta_193.md`](./reminder_catalogue_delta_193.md) |
 | 4 | Background launch-result text **no longer says "end your response"** | BODY-CHANGE (reminder-adjacent) | `async_launched` branch :431253-431264 | said it (183:424282-424293) | [`../36_background_agents/backgrounding_and_panel_fixes.md`](../36_background_agents/backgrounding_and_panel_fixes.md) |
@@ -70,7 +70,7 @@ asset:
 So the only two asset files that moved are `03_env_template` (delta #1) and `05_reminders.json`
 (deltas #2 + #3). Everything else in the system prompt is a re-mangle of 183 — **carryover, not a 193
 delta**. The model-info line `You are powered by the model named …` (built inside the same env
-builder `W3f`, :592852) is unchanged; the generic `/model`-replay model-switch mechanism (`XQl`,
+builder `W3f`, :592851) is unchanged; the generic `/model`-replay model-switch mechanism (`XQl`,
 :599667 — emits a replayed `/model` command, `Set model to …` count 4 in 193 / 5 in 183) is also
 carryover, with only the Remote reminder layered on top (delta #2).
 
@@ -80,7 +80,7 @@ carryover, with only the Remote reminder layered on top (delta #2).
 
 ### Delta #1 — env block agent-proxy line (NET-NEW, Remote/proxy-only)
 The env builder `W3f` (:592845) gained a trailing local `l = Nwn()` (:592865) and a conditional slot
-`${ l ? `${l}\n` : "" }` (:592873-592879) inserted between `OS Version:` and `</env>`. `Nwn()` reads
+`${ l ? `${l}\n` : "" }` (:592873-592878) inserted between `OS Version:` and `</env>`. `Nwn()` reads
 a module var (`Bki`) that is **only** populated by the agent-proxy enable path (`h$t(C3o(c, …))` at
 :616459/616464/616468) and cleared on proxy stop (`h$t(void 0)` :616690). The line text (`C3o`,
 :616578) tells the model that outbound HTTPS goes through a managed proxy and to
@@ -134,7 +134,7 @@ present in both builds (`Recalled memories appearing inside <system-reminder> bl
 > Per-feature additions for this round: [symbol_additions_v2_1_193_system_prompt.md](../00_overview/symbol_additions_v2_1_193_system_prompt.md)
 >
 > Key symbols in this module:
-> - `computeEnvInfo` (`W3f`, :592845) — env-block builder; gained `l = Nwn()` (:592865) and the `${l}` slot (:592873-592879); v2.1.88 `computeEnvInfo` @ `constants/prompts.ts:606`.
+> - `computeEnvInfo` (`W3f`, :592845) — env-block builder; gained `l = Nwn()` (:592865) and the `${l}` slot (:592873-592878); v2.1.88 `computeEnvInfo` @ `constants/prompts.ts:606`.
 > - `buildAgentProxyEnvLine` (`C3o`, :616578) — builds the agent-proxy diagnostic env line; NET-NEW.
 > - `getAgentProxyEnvLine` (`Nwn`, :151176) / `setAgentProxyEnvLine` (`h$t`, :151173) / `agentProxyEnvLine` (`Bki`, :151179) — the getter/setter/var the env line reads from.
 > - `buildAgentProxyReadme` (`Z8f`, :616595) — builds the `# Claude Code agent proxy` README; NET-NEW.

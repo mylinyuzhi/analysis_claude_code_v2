@@ -47,5 +47,5 @@
 | `YXu` | `MEMORY_TYPE_TINY` (`"tiny_memory"`) | cli_inner_pretty.js:147730 | constant |
 | `Hgi` | `buildPruningPrompt` — immutable "# Dream: Memory Pruning" builder (3-arg) | cli_inner_pretty.js:151520 | function |
 | `PQa` | `buildConsolidationPrompt` (183 name) — standard builder; survives as 193 `$_l` | cli_inner_pretty.js:455311 | function |
-| `FOa` | `RatingButton` — the `[Good]/[Bad]` `tiny_memory` survey button | cli_inner_pretty.js:378928 | function |
+| `FOa` | `RatingButton` — the `[Good]/[Bad]` `tiny_memory` survey button (decl line; its own `onRate` prop is read at :378928) | cli_inner_pretty.js:378926 | function |
 | `Zkt` | `truncateMemoryIndexForPrompt` (183 name) — survives as 193 `v$t` | cli_inner_pretty.js:151691 | function |

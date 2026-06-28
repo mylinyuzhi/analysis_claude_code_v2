@@ -36,7 +36,7 @@ The env builder is `computeEnvInfo` (obfuscated: `W3f`, :592845). v2.1.193 adds 
 ```javascript
 // ============================================
 // computeEnvInfo - env-block builder; NEW: conditional agent-proxy line via the `${l}` slot
-// Location: cli_inner_pretty.js:592845-592881 (slot at 592865 + 592873-592879)
+// Location: cli_inner_pretty.js:592845-592880 (slot at 592865 + 592873-592878)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -92,7 +92,9 @@ ${modelLine}${cutoffSuffix}`;
 //   bh→getModelDisplayName, N2o→getKnowledgeCutoff, Mt→getCwd, B2o→getShellInfoLine, Be→process.env
 ```
 
-The v2.1.183 builder (`D_f`, 183:580996-581004) has **no** `l` / `${l}`: the block went straight from
+The v2.1.183 builder (`L_f`, decl 183:580976; env body 580996-581004 — **not** `D_f`@581006, which is
+the 3-param `(e,t,n)` sibling = 193 `V3f`@592881; confirmed by the extracted asset filename
+`03_env_template_0_L_f.txt`) has **no** `l` / `${l}`: the block went straight from
 `OS Version: ${r}` to `</env>`. Confirmed by reading both bundles.
 
 ### 2. The getter / setter / module var that back the slot
@@ -292,7 +294,7 @@ turn.
 | `__agentproxy/status` | 3 (:615539, :616580, :616609) | **0** | NET-NEW |
 | `# Claude Code agent proxy` (README, `Z8f`) | 1 (:616598) | **0** | NET-NEW |
 | `## Failure classes and fixes` (README body) | 1 (:616618) | **0** | NET-NEW |
-| `${l}` slot in env builder | present (:592873-592879) | **absent** (183 env ends at `OS Version:` @ 580996-581004) | NET-NEW |
+| `${l}` slot in env builder | present (:592873-592878) | **absent** (183 env ends at `OS Version:` @ 580996-581004) | NET-NEW |
 | `03_env_template` asset size | **203 B** | 198 B | CHANGED (+5 B = the slot) |
 | env scaffold (working dir / git / platform / OS / model line / cutoff) | unchanged | unchanged | **CARRYOVER** |
 
@@ -328,7 +330,7 @@ fully traced into the env builder and the proxy enable/stop path).
 > Per-feature additions for this round: [symbol_additions_v2_1_193_system_prompt.md](../00_overview/symbol_additions_v2_1_193_system_prompt.md)
 >
 > Key symbols in this document:
-> - `computeEnvInfo` (`W3f`, :592845) — env-block builder; NEW `l = Nwn()` (:592865) + `${l}` slot (:592873-592879); v2.1.88 `computeEnvInfo` @ `constants/prompts.ts:606`.
+> - `computeEnvInfo` (`W3f`, :592845) — env-block builder; NEW `l = Nwn()` (:592865) + `${l}` slot (:592873-592878); v2.1.88 `computeEnvInfo` @ `constants/prompts.ts:606`.
 > - `buildAgentProxyEnvLine` (`C3o`, :616578) — the diagnostic line text; NET-NEW.
 > - `getAgentProxyEnvLine` (`Nwn`, :151176) — slot reader; returns `Bki`.
 > - `setAgentProxyEnvLine` (`h$t`, :151173) — push setter; called at :616459/616464/616468, cleared :616690.

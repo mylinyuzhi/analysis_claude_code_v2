@@ -32,17 +32,18 @@
 | `K3` | `getAgentDepth` (carryover of 183 `Gz`@103152) | cli_inner_pretty.js:103808 | function |
 | `Kl` | `isLocalAgentTask` (carryover of 183 `od`@445761) | cli_inner_pretty.js:453726 | function |
 | `RPe` | `SubagentLaunchError` (Error subclass thrown by depth cap) | cli_inner_pretty.js:430357 | class |
-| `Re` | `logToolEvent` (telemetry; `Re("subagent_launch","subagent_depth_cap")`) | cli_inner_pretty.js:430480 | function |
+| `Re` | `logFeatureError` (emits `tengu_feature_bad` with `feature_name`/`error_code`; call `Re("subagent_launch","subagent_depth_cap")`@430480) | cli_inner_pretty.js:44848 | function |
 
 ## Module: Background Agents — agent stop lifecycle (NET-NEW 2.1.191) + turn-end finalizer (CARRYOVER)
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `Mde` | `markAgentStoppedByUser` | cli_inner_pretty.js:431809 | function |
-| `CXp` | `persistStopMarker` | cli_inner_pretty.js:431817 | function |
+| `Mde` | `markAgentStoppedByUser` | cli_inner_pretty.js:431808 | function |
+| `CXp` | `persistStopMarker` | cli_inner_pretty.js:431816 | function |
 | `Hre` | `readAgentDiskState` | cli_inner_pretty.js:581895 | function |
 | `Tde` | `writeAgentDiskState` | cli_inner_pretty.js:581867 | function |
-| `Ou` | `agentDiskStatePath` | cli_inner_pretty.js:1792 | function |
+| `t7l` | `agentStateMetaPath` (builds `<agentId>.meta.json`; `Mx(e).replace(/\.jsonl$/, ".meta.json")` — the real path join) | cli_inner_pretty.js:581864 | function |
+| `Ou` | `agentDiskStatePath` (identity passthrough of agentId in this build; the `.meta.json` path is joined by `t7l`@581864 inside Hre/Tde) | cli_inner_pretty.js:1792 | function |
 | `Vht` | `AgentStoppedError` (thrown on resume of a stopped agent) | cli_inner_pretty.js:441779 | class |
 | `Exo` | `markReplayNoOp` / `finalizeStuckWorkingJob` (carryover of 183 `pgo`@456114) | cli_inner_pretty.js:464591 | function |
 | `Gaf` | `resetStartupJobState` (carryover) | cli_inner_pretty.js:464549 | function |

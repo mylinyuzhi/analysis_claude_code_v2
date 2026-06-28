@@ -27,7 +27,7 @@ The 2.1.187 "bg jobs stuck working" finalizer turned out to be **carryover** (by
 | D1 | idle bg-shell memory-pressure reaper | **NET-NEW** | `Mgl` :454354; `memoryPressure` :454363; `Ldu` :43175 | `memoryPressure`/reap = **0** | HIGH |
 | D2 | resume restores persisted `spawnDepth` | body-change | `:441544` `(Kl(_)?_.spawnDepth:b?.spawnDepth)??K3(...)+1` | else-branch was `void 0` :434085 | HIGH |
 | D3 | spawn-time depth-cap throw (forks counted) | **NET-NEW** | `:430477-430484`; `FBt=5` :229871 | `subagent_depth_cap` = **0** | HIGH |
-| D4 | stop is permanent (`stoppedByUser`) | **NET-NEW** | `Mde` :431809; `CXp` :431817; resume guard :441527 | `stoppedByUser` = **0** | HIGH |
+| D4 | stop is permanent (`stoppedByUser`) | **NET-NEW** | `Mde` :431808; `CXp` :431816; resume guard :441527 | `stoppedByUser` = **0** | HIGH |
 | D5 | carry-over-aware abandoned count | ISOLABLE | `oUo` :578073; `fze` :578006; UI :689578 | "would be abandoned" = **0** | HIGH |
 | D6 | bg launch result drops "end your response" | body-change | async_launched :431256-431261 | both branches had it :424285 | HIGH |
 | D7 | phantom "general-purpose (resumed)" guard | PARTIAL | `Lgl` :454100; adoption :688699; `main-session` 9→10 | guard count 9 | MED |
@@ -91,7 +91,7 @@ Headline functions/constants (full per-doc lists live in each companion's `## Re
 
 - `registerBgShellPressureReaper` (obf: `Mgl`, `:454354`) + `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP` (obf: `Ldu`, `:43175`) + `BG_SHELL_IDLE_REAP_MS` (obf: `eof`, `:454610`) — the memory-pressure reaper.
 - `SUBAGENT_DEPTH_LIMIT` (obf: `FBt`, `:229871`) + `getAgentDepth` (obf: `K3`, `:103808`) — depth cap/reader (carryover of 183 `v1i`/`Gz`); the 187 fixes are at `:441544` (resume-restore) and `:430477-430484` (spawn-time throw).
-- `markAgentStoppedByUser` (obf: `Mde`, `:431809`) + `persistStopMarker` (obf: `CXp`, `:431817`) — durable stop marker; resume refusal at `:441527`/`:441645`/`:442238`.
+- `markAgentStoppedByUser` (obf: `Mde`, `:431808`) + `persistStopMarker` (obf: `CXp`, `:431816`) — durable stop marker; resume refusal at `:441527`/`:441645`/`:442238`.
 - `countAbandonedBgTasks` (obf: `oUo`, `:578073`) + `computeCarryOverMap` (obf: `fze`, `:578006`) — carry-over-aware abandoned count.
 - `registerCompletedResumedAgent` (obf: `Lgl`, `:454100`) — phantom "(resumed)" card defaults; `main-session` guard 9→10.
 - `markReplayNoOp` (obf: `Exo`, `:464591`; 183 `pgo`@456114) — turn-end finalizer; **CARRYOVER**.

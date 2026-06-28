@@ -5,7 +5,7 @@
 
 ## TL;DR
 
-v2.1.193 teaches the MCP tool-call wrapper to **self-heal an expired auth token**: when a tool call to an `http`/`sse`/`ws` server that has a `headersHelper` returns **401** (or **403** when a `headersHelper` exists), the wrapper disconnects, reconnects (which re-runs `headersHelper` to pick up rotated credentials), and retries the tool call **once**. Concurrent calls to the same server share one reconnect via an in-flight map. If still unauthorized, it falls through to the existing "requires re-authorization" error and marks the server `needs-auth`, which the (carryover) startup notice surfaces as "run /mcp to authenticate". The re-auth branch is net-new (`grep -c "re-running headersHelper and retrying once"` = `0` in 183; the `mcp_headers_helper`/`reauth_retry` telemetry pair = `0` in 183).
+v2.1.193 teaches the MCP tool-call wrapper to **self-heal an expired auth token**: when a tool call to an `http`/`sse`/`ws` server that has a `headersHelper` returns **401** (or **403** when a `headersHelper` exists), the wrapper disconnects, reconnects (which re-runs `headersHelper` to pick up rotated credentials), and retries the tool call **once**. Concurrent calls to the same server share one reconnect via an in-flight map. If still unauthorized, it falls through to the existing "requires re-authorization" error and marks the server `needs-auth`, which the (carryover) startup notice surfaces as "run /mcp to authenticate". The re-auth branch is net-new (`grep -c "re-running headersHelper and retrying once"` = `0` in 183; the `reauth_retry` error_code = `0` in 183 — note the `mcp_headers_helper` feature_name itself is **pre-existing**, used since ≤183 for headersHelper config-validation errors via the generic `tengu_feature_sad` logger, so only the new `reauth_retry` value is the 193 delta).
 
 ---
 
@@ -59,7 +59,7 @@ if (hasHeadersHelper && !isAuthRetry) {                       // !isAuthRetry gu
   let reconnectInProgress = inflight !== undefined && err instanceof McpError && err.code === RpcCode.ConnectionClosed;
   if (isAuthError || reconnectInProgress) {
     sn(serverName, `Tool '${tool}' returned ${errCode ?? 401}; re-running headersHelper and retrying once`);
-    logMcpEvent("mcp_headers_helper", "reauth_retry");
+    logFeatureSadEvent("mcp_headers_helper", "reauth_retry");   // emits tengu_feature_sad{feature_name, error_code}
     if (!inflight) {                                          // first concurrent caller starts the reconnect
       inflight = (async () => (await disconnectAndClearCache(serverName, config), connectOrGetClient(serverName, config)))();
       inFlightReauthReconnects.set(cacheKey, inflight);
@@ -82,7 +82,7 @@ if (isAuthError) {                                            // unrecoverable: 
 
 // Mapping: bao→callToolWithWatchdog, _→err, v→errCode, C→hasHeadersHelper, x→isAuthError, g→isAuthRetry,
 //   aWe→serverCacheKey, pao→inFlightReauthReconnects, nT→disconnectAndClearCache, ID→connectOrGetClient,
-//   Ct→logMcpEvent, vR→McpAuthRequiredError, ai→McpError, pi→RpcCode, lWe→McpReauthError, Wce→authErrorTelemetryFields
+//   Ct→logFeatureSadEvent (tengu_feature_sad), vR→McpAuthRequiredError, ai→McpError, pi→RpcCode, lWe→McpReauthError, Wce→authErrorTelemetryFields
 ```
 
 1. **`headersHelper` is a config field** on `http`/`sse`/`ws` transports that produces dynamic auth headers; the SDK invokes it per request. `hasHeadersHelper` (`C`) is true only when one is configured.
@@ -121,7 +121,8 @@ if (isAuthError) {                                            // unrecoverable: 
 | String / symbol | 193 | 183 | verdict |
 |---|---|---|---|
 | `re-running headersHelper and retrying once` | 1 (`:293142`) | 0 | NET-NEW |
-| `mcp_headers_helper` / `reauth_retry` telemetry | 1 | 0 | NET-NEW |
+| `reauth_retry` error_code (on `tengu_feature_sad`/`mcp_headers_helper`) | 1 (`:293143`) | 0 | NET-NEW |
+| `mcp_headers_helper` feature_name (whole) | 7 | 6 | CARRYOVER (pre-existing config-validation logs; +1 = the new reauth_retry call) |
 | `headersHelper reconnect returned` | 1 (`:293166`) | 0 | NET-NEW |
 | `headersHelper` field uses | 21 | 18 | carryover field, +3 re-auth uses |
 | `Tool call returned 401 Unauthorized - token may have expired` | 1 (`:293170`) | 1 | CARRYOVER (re-auth sits *before* it) |
@@ -149,6 +150,6 @@ Key functions in this document:
 - `callToolWithWatchdog` (`bao`, `cli_inner_pretty.js:293017`) — tool-call wrapper; re-auth branch `:293132-293180`.
 - `serverCacheKey` (`aWe`) / `inFlightReauthReconnects` (`pao`) — per-server reconnect dedup map.
 - `disconnectAndClearCache` (`nT`) / `connectOrGetClient` (`ID`) — the reconnect primitives (carryover) that re-run `headersHelper`.
-- `logMcpEvent` (`Ct`) — emits `("mcp_headers_helper","reauth_retry")` (`:293143`).
+- `logFeatureSadEvent` (`Ct`, `cli_inner_pretty.js:44851`) — generic `tengu_feature_sad` logger; called `("mcp_headers_helper","reauth_retry")` (`:293143`). The `mcp_headers_helper` feature_name pre-existed (≤183); only the `reauth_retry` error_code is the 193 delta.
 - `McpReauthError` (`lWe`) — thrown `MCP server "X" requires re-authorization (token expired)` (`:293179`).
 - needs-auth (carryover): `needsAuthCachePath` (`$1n`, `:292219`), `readNeedsAuthCache` (`gao`, `:292222`), `isCachedNeedsAuth` (`oAa`, `:292230`), notice render `:504183`, startup warning `:504324`.

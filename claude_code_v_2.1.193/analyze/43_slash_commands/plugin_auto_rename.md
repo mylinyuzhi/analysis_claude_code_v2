@@ -331,7 +331,7 @@ So the orphan detector is **CARRYOVER**; the `renames` exclusion is a small REFI
 
 ### 4b. `/plugin` Installed "more above" indicator (2.1.186) — CARRYOVER / UI-only
 
-`grep -c "more above"` = **9 in both** 183 and 193. The shared windowed-list helper `computeListWindow` (`tKt`, `cli_inner_pretty.js:517886`) returns `moreAbove: windowStart`, and the list renders the chevron only when `moreAbove > 0` (`cli_inner_pretty.js:517998`). The same component drives the `/plugin` list, the settings list, and others in both bundles. The 183 render uses the identical `count > 0` guard (e.g. 183 `:484011`, `:500892`). **No isolable 193 code-delta** — the 2.1.186 fix is not separable from the unchanged windowed-list component by grep. **Verdict: CARRYOVER / UI-only, medium confidence.**
+`grep -c "more above"` = **9 in both** 183 and 193. The shared windowed-list helper `computeListWindow` (`tKt`, `cli_inner_pretty.js:517883`) returns `moreAbove: windowStart` (the return is at `:517886`), and the list renders the chevron only when `moreAbove > 0` (`cli_inner_pretty.js:517998`). The same component drives the `/plugin` list, the settings list, and others in both bundles. The 183 render uses the identical `count > 0` guard (e.g. 183 `:484011`, `:500892`). **No isolable 193 code-delta** — the 2.1.186 fix is not separable from the unchanged windowed-list component by grep. **Verdict: CARRYOVER / UI-only, medium confidence.**
 
 ---
 
@@ -377,4 +377,4 @@ Key functions/constants in this document:
 - `PLUGIN_ID_SCHEMA` (obf `jBe`, `cli_inner_pretty.js:55675`) — `plugin@marketplace` regex validator.
 - `findOrphanedConfiguredPlugins` (obf `S9f`, `cli_inner_pretty.js:612532`; 183 `lTf` `:600380`) — CARRYOVER + `renames` exclusion.
 - `getPluginStaleness` (obf `G1t`, `cli_inner_pretty.js:195014`) — CARRYOVER; thresholds `PLUGIN_STALE_DAYS` (`wAf`, `:518436`) = 14, `PLUGIN_STALE_SESSIONS` (`CAf`, `:518437`) = 10.
-- `computeListWindow` (obf `tKt`, `cli_inner_pretty.js:517886`) — CARRYOVER windowed-list helper; `moreAbove` chevron.
+- `computeListWindow` (obf `tKt`, `cli_inner_pretty.js:517883`) — CARRYOVER windowed-list helper; `moreAbove: windowStart` returned at `:517886`; chevron guard at `:517998`.

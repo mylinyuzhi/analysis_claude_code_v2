@@ -131,14 +131,14 @@ The else-branch was **`void 0`**. So in 183, resuming an agent with no live regi
 // READABLE (for understanding):
         let spawnerDepth = getAgentDepth(callerCtx.agentContext);          // K3
         if (spawnerDepth >= SUBAGENT_DEPTH_LIMIT) {                        // >= 5
-          logToolEvent("subagent_launch", "subagent_depth_cap");          // Re — NEW telemetry reason
+          logFeatureError("subagent_launch", "subagent_depth_cap");       // Re — emits tengu_feature_bad; subagent_depth_cap is the NEW error_code
           throw new SubagentLaunchError(                                  // RPe
             `Subagent nesting limit reached (depth ${spawnerDepth} of ${SUBAGENT_DEPTH_LIMIT}). ` +
             `Complete this task directly using your tools instead of spawning another agent.`,
           );
         }
 
-// Mapping: g→spawnerDepth, K3→getAgentDepth, FBt→SUBAGENT_DEPTH_LIMIT, Re→logToolEvent,
+// Mapping: g→spawnerDepth, K3→getAgentDepth, FBt→SUBAGENT_DEPTH_LIMIT, Re→logFeatureError (tengu_feature_bad logger @44848),
 //          RPe→SubagentLaunchError (Error subclass @430357), c.agentContext→callerCtx
 ```
 

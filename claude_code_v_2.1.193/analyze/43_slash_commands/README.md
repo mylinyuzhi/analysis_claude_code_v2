@@ -45,7 +45,7 @@ This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem
 | `resetSessionForClear` (`Jdr`) | the rewind delta | CARRYOVER — `/clear` already stashed `parentSessionId` in 183 | :2575 |
 | `/plugin` staleness sweep (`G1t`, `daysSinceLastUse`) | 2.1.187 "unused plugins" code | CARRYOVER — 8=8; thresholds inlined to 14d/10s | :195014 |
 | `/plugin` orphan detector (`S9f`/`lTf`) | renames net-new code | CARRYOVER body + a one-line `renames` exclusion (REFINEMENT) | :612532 (183 :600380) |
-| `"more above"` indicator (`tKt`) | 2.1.186 "/plugin more above" code | CARRYOVER / UI-only — 9=9, shared windowed-list | :517886 |
+| `"more above"` indicator (`tKt`) | 2.1.186 "/plugin more above" code | CARRYOVER / UI-only — 9=9, shared windowed-list | :517883 (return `:517886`) |
 | `CLAUDE_CODE_RETRY_WATCHDOG` (`jHe`) | new env in 2.1.186 | CARRYOVER env (2=2); only the MAX_RETRIES cap is new | :602803 |
 | `/btw` feature itself (`xpf`/`(+M earlier /btw)`) | 2.1.187 nav | CARRYOVER feature; only the ←/→ *selection* is net-new | :482363 (183 :473560) |
 | `x.matcher.split("|")` @240472 | the hooks comma fix | DIFFERENT FEATURE — `FileChanged` watch-path split, not the tool-name hook matcher | :240472 |

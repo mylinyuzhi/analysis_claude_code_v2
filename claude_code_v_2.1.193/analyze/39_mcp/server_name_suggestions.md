@@ -61,7 +61,7 @@ function suggestClosestServerName(typedName, configuredNames) {
 **Why fuzzy + truncate (not just "not found").** Server names are user-typed in a CLI; typos and half-remembered names are the common failure. Bare "not found" forces a second `claude mcp list` round-trip. Inlining the closest match (or the short list) collapses the recover loop to zero extra commands for the common cases, and the 8-cap + "list to see all" keeps it from becoming a wall of text for power users.
 
 **Callers.**
-- `mcpGetHandler` (`f9f`, `cli_inner_pretty.js:611549`) — on not-found returns `printError(formatNotFoundWithPending(typedName, names, pendingCount > 0))` (`:611560`).
+- `mcpGetHandler` (`f9f`, `cli_inner_pretty.js:611549`) — on not-found returns `printError(formatNotFoundWithPending(typedName, names, pendingCount > 0))` (`:611561`).
 - `mcpRemoveHandler` (`a9f`, `cli_inner_pretty.js:611388`) — on not-found returns `printError(suggestClosestServerName(typedName, configuredNames))` (`:611414`).
 
 **183 diff (NET-NEW).** `No MCP server named` = 0 in 183 (193:7). The generic `Did you mean "` exists elsewhere (193:3 / 183:2), but the MCP-specific `suggestClosestServerName`/`formatNotFoundWithPending` helpers and the truncate-at-8 logic are new for get/remove.

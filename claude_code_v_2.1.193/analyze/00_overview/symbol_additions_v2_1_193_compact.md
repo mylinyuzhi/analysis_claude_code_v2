@@ -29,13 +29,13 @@
 | `VZr` | `makeCompactedState` — success-state factory `{compacted:true, turnId, turnCounter:0, consecutiveFailures:0, consecutiveRapidRefills}`; extracted from 183 inline literal | cli_inner_pretty.js:235134 | function |
 | `wSl` | `streamCompactSummary` — summarize loop honoring `--fallback-model`; `query_source:"compact"` @469978 (183 `del`) | cli_inner_pretty.js:469797 | function |
 | `Xxo` | `isColdCompact` — `CLAUDE_CODE_COLD_COMPACT` env reader used by the proactive path | cli_inner_pretty.js:470235 | function |
-| `wYe` | `getLongContext1mCreditsBlocked` — getter for the 1M-credits-without-credits clamp flag | cli_inner_pretty.js:2876 | function |
+| `wYe` | `getLongContext1mCreditsBlocked` — getter for the 1M-credits-without-credits clamp flag (decl `function wYe()`; body `return Nt.longContext1mCreditsBlocked` @2876) | cli_inner_pretty.js:2875 | function |
 | `Lpr` | `setLongContext1mCreditsBlocked` — setter for the 1M-credits clamp flag | cli_inner_pretty.js:2878 | function |
 | `ISl` | `FAILURE_BREAKER_MAX` (`3`) — consecutive-failure circuit-breaker cap (183 `jgo`) | cli_inner_pretty.js:470357 | constant |
 | `VXi` | `RAPID_REFILL_WINDOW` (`3`) — rapid-refill turn window, used in the warn-log only (183 `Ggo`) | cli_inner_pretty.js:235137 | constant |
 | `qZr` | `THRASH_MESSAGE` — static "Autocompact is thrashing… within 3 turns… 3 times in a row…"; 183 template literal `wgo` (identical render) | cli_inner_pretty.js:235138 | constant |
 | `pOr` | `CONTEXT_HINT_BETA` — `pE("context_hint","context-hint-2026-04-09")` micro-compaction beta gate (carryover, no version bump) | cli_inner_pretty.js:102179 | object |
-| `BIo` | `shouldRunPostCompactBookkeeping` — post-loop helper now taking pre-derived `autocompactRan` boolean (183 `PAo` took raw `compactionResult`/`consecutiveFailures`) | cli_inner_pretty.js:466459 (callsite) | function |
+| `BIo` | `shouldRunPostCompactBookkeeping` — post-loop helper now taking pre-derived `autocompactRan` boolean (183 `PAo` took raw `compactionResult`/`consecutiveFailures`) | cli_inner_pretty.js:466460 (callsite; `if(` opens @466459, `autocompactRan` derived @466458) | function |
 
 ## Module: Compact — v2.1.183 before-picture (refactored/renamed in v2.1.193)
 

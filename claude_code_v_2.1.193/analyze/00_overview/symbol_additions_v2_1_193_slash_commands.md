@@ -44,7 +44,7 @@
 | `G1t` | `getPluginStaleness` (`{sessionsSinceLastUse, daysSinceLastUse}`; carryover) | cli_inner_pretty.js:195014 | function |
 | `wAf` | `PLUGIN_STALE_DAYS` (`14`; inlined in 193, was a param in 183) | cli_inner_pretty.js:518436 | constant |
 | `CAf` | `PLUGIN_STALE_SESSIONS` (`10`; inlined in 193) | cli_inner_pretty.js:518437 | constant |
-| `tKt` | `computeListWindow` (windowed-list helper; `{windowStart, windowEnd, moreAbove, moreBelow}`; carryover) | cli_inner_pretty.js:517886 | function |
+| `tKt` | `computeListWindow` (windowed-list helper; `{windowStart, windowEnd, moreAbove, moreBelow}`; carryover; `moreAbove: windowStart` returned at `:517886`) | cli_inner_pretty.js:517883 | function |
 
 ## Module: Hooks — comma-separated matcher fix (FIX 2.1.191)
 
@@ -53,8 +53,8 @@
 | `s3f` | `hookMatcherMatches` (comma-aware; 4th param `allowComma`; splits on `/[|,]/`) | cli_inner_pretty.js:589634 | function |
 | `qyf` *(183)* | `hookMatcherMatches` (183 predecessor; 3 params, pipe-only `/^[a-zA-Z0-9_|]+$/`) | cli_inner_pretty.js:577890 *(183)* | function |
 | `o3f` | `HOOK_EVENT_NAMES` (Set of all hook events; source of the `allowComma` flag via `.has`) | cli_inner_pretty.js:591335 | constant |
-| `Kcn` | `resolveAliases` (tool-alias expansion in the matcher path; 183 `wHt`) | cli_inner_pretty.js:589640 | function |
-| `KL` | `canonicalToolName` (normalize a matcher segment; 183 `eL`) | cli_inner_pretty.js:589640 | function |
+| `Kcn` | `resolveAliases` (tool-alias expansion in the matcher path; 183 `wHt`; used at `s3f` flatMap site) | cli_inner_pretty.js:589641 | function |
+| `KL` | `canonicalToolName` (normalize a matcher segment; 183 `eL`; used at `s3f` flatMap site) | cli_inner_pretty.js:589641 | function |
 | (allowComma site) | `a = o3f.has(r.hook_event_name)` feeds `s3f(i, x.matcher, a, l)` | cli_inner_pretty.js:589831 | variable |
 
 ## Module: Slash Commands — /add-dir message + /btw nav + /review + retries (2.1.193 / 2.1.187 / 2.1.186)
@@ -71,7 +71,7 @@
 | `oRf` | `reviewCommand` (`/review`; `effort:"medium"`, `argumentHint:"[pr number]"`, gh-pr prompt) | cli_inner_pretty.js:538534 | object |
 | `rRf` | `buildPrReviewPrompt` (`gh pr view`/`gh pr diff` PR-scoped prompt + review pipeline) | cli_inner_pretty.js:538510 | function |
 | `nRf` | `PR_REVIEW_FALLBACK_HINT` (no-PR-given fallback) | cli_inner_pretty.js:538509 | constant |
-| `Hzn` | review pipeline body (multi-phase; shared with `/code-review`) | cli_inner_pretty.js:538526 | variable |
+| `Hzn` | review pipeline body (medium-effort tier; shared with `/code-review`; declared at `:443362`, woven into `rRf` at `:538524`) | cli_inner_pretty.js:443362 | variable |
 | `Zrf` *(183)* | `reviewCommand` (183 predecessor; `"Review a pull request"`, no `effort`/`argumentHint`) | cli_inner_pretty.js:527336 *(183)* | object |
 | `O5f` | `getMaxRetries` (reads `CLAUDE_CODE_MAX_RETRIES`, clamps to `Ujo`) | cli_inner_pretty.js:603209 | function |
 | `Ujo` | `MAX_RETRIES_CAP` (`15`) | cli_inner_pretty.js:603244 | constant |

@@ -136,7 +136,7 @@ killedBy: Kl(te) ? te.killedBy : void 0,
 // ...
 (V("tengu_agent_tool_terminated", {
   /* ... */
-  kill_reason:
+  reason:
     te === "parent" ? Ve("parent_kill_async")
     : te === "system" ? Ve("system_kill_async")
     : Ve("user_kill_async"),
@@ -146,7 +146,7 @@ killedBy: Kl(te) ? te.killedBy : void 0,
 // READABLE (for understanding):
 killedBy: isLocalAgentTask(task) ? task.killedBy : undefined,   // pull persisted attribution
 // telemetry "tengu_agent_tool_terminated":
-kill_reason:
+reason:
     killedBy === "parent" ? "parent_kill_async"
   : killedBy === "system" ? "system_kill_async"
   :                         "user_kill_async";
@@ -201,7 +201,8 @@ function teammateIdleBanner({ displayName, inkColor, idleReason }) {
 | `"was stopped by Claude"` | 0 | 1 | NET-NEW |
 | `"was stopped by user"` | 0 | 1 | NET-NEW |
 | `Agent "…" finished` | 0 | 1 | NET-NEW wording |
-| `parent_kill_async` / `system_kill_async` / `user_kill_async` | 0 | 1 each | NET-NEW telemetry |
+| `parent_kill_async` / `system_kill_async` | 0 | 1 each | NET-NEW telemetry (the two new attribution reasons) |
+| `user_kill_async` | 1 | 1 | CARRYOVER — pre-existing kill reason (183 `:371804`, 156 `:279437`); the new `killedBy` plumbing now *also* feeds `parent`/`system` into the same enum |
 | `came to rest` | 4 | 0 | FIX (removed) |
 | `enqueueAgentNotification` / idle banner exist | yes | yes | CARRYOVER component, body edit |
 
@@ -239,4 +240,4 @@ Key functions in this doc:
 - `killAndNotifyTask` (obfuscated: `GSe`, `cli_inner_pretty.js:453871`) — `GSe(e,t,n="user")`; writes `{status:"killed", killedBy:n}` + forwards into `Eqe`.
 - async-completion path — `cli_inner_pretty.js:384633` reads `isLocalAgentTask(t) ? t.killedBy : undefined`; telemetry `tengu_agent_tool_terminated` @384650 maps `parent`/`system`/`user`_`kill_async` @384658.
 - `teammateIdleBanner` (obfuscated: `LEo`, `cli_inner_pretty.js:390965`) — idle banner; success arm "finished" @390969. 183 predecessor `Hao` (`(183) :379341`, "came to rest").
-- `markAgentStoppedByUser` (obfuscated: `Mde`, `cli_inner_pretty.js:431809`) — persists a disk stop-marker on user-source stops (Background-Agents lifecycle).
+- `markAgentStoppedByUser` (obfuscated: `Mde`, `cli_inner_pretty.js:431808`) — persists a disk stop-marker on user-source stops (Background-Agents lifecycle).

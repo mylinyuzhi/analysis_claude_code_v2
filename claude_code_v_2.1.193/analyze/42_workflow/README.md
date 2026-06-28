@@ -26,7 +26,7 @@ The Workflow VM (the sandbox, the builtins, the `agent({schema})` contract, the 
 | B1a | StructuredOutput success guard (stop re-calling after a captured result) | **NET-NEW** | guard `423840`, abort `423841`, catch `423852-423875` | runner only counted attempts (`417279`, 183) | high |
 | B1b | `requiresStructuredOutput` inline enforcement (replaces the 183 Stop-hook) | **NET-NEW** (refactor + fix) | `vbl` `465638`; `Ibl` `601998`; `Hbl` `465901` | Stop hook `zKn` `575795` (183); `grep -c requiresStructuredOutput`=0 (183) | high |
 | B2 | `agent({schema})` 5-failure retry cap → abort | **NET-NEW** wiring | cap `423782`, count `423819`, throw `423822-423826`; `NYp=5` `424307` | runner had no counter/cap (`417266-417272`, 183); cap string=0 (183) | high |
-| B2′ | print-mode `--json-schema` 5-retry cap | **CARRYOVER** | `704023-704054` | byte-equiv `685293-685320` (183); `error_max_structured_output_retries` 5× both | high |
+| B2′ | print-mode `--json-schema` 5-retry cap | **CARRYOVER** | `704023-704054` | logic-equiv (re-mangle only) `685293-685320` (183); `error_max_structured_output_retries` 5× both | high |
 | B3 | `/workflows` detail `f` status filter | **NET-NEW** filter on carryover host | state `542947`, cycle `543007`, key `543081`, hint `543128`, order `543272` | host component present; `f`/cycle/hint all grep=0 (183) | high |
 | — | Workflow VM spine (sandbox, builtins, `agent()` doc, `Workflow` tool, runner shape) | **CARRYOVER** | runner `wt` `423705`; `Rw="Workflow"` `229559` | runner line-for-line vs 183 `417238+` | high |
 
@@ -37,7 +37,7 @@ The Workflow VM (the sandbox, the builtins, the `agent({schema})` contract, the 
 - [`structured_output_call_control.md`](./structured_output_call_control.md) — bullets 1 + 2 together (they patch the same `wt` runner): the success guard, the `requiresStructuredOutput` inline enforcement and why it replaced the 183 Stop-hook, the `Ibl`/`Hbl` dedup, and the 5-failure retry cap (with the print-mode-carryover caveat).
 - [`workflows_detail_status_filter.md`](./workflows_detail_status_filter.md) — bullet 3: the `f`-key filter, `eYt` cycle order, empty-status skipping, footer hint, on a carryover detail component.
 
-Related sibling 193 deltas: workflow-spawned agents carry a `depth` (`K3(pe)+1` @`423707`) that feeds the shared 5-level subagent depth cap documented in [`../36_background_agents/subagent_depth_tracking.md`](../36_background_agents/subagent_depth_tracking.md). The Agent-tool teammate routing is in [`../30_agent_team/`](../30_agent_team/README.md).
+Related sibling 193 deltas: workflow-spawned agents carry a `depth` (`K3(pe)+1` @`423711`) that feeds the shared 5-level subagent depth cap documented in [`../36_background_agents/subagent_depth_tracking.md`](../36_background_agents/subagent_depth_tracking.md). The Agent-tool teammate routing is in [`../30_agent_team/`](../30_agent_team/README.md).
 
 ## Related Symbols
 

@@ -108,7 +108,7 @@ Do NOT ${Ls} or tail this file via the shell tool — it is the full subagent JS
 
 ### False-delta guard (scope)
 
-The **Cloud / remote** launch result (`remote_launched`) still says "end your response" in **both** versions (193 `:431248`, 183 identical): `…You will be notified automatically when it completes.\nBriefly tell the user what you launched and end your response.` So this change is **scoped to async/background launches only**, not cloud — do not claim the cloud path changed. (Separately, the `async_launched` agentId hint also gained a `summary:'<5-10 word recap>'` arg at `:431260` vs 183 `:424286` — that is the 2.1.191 SendMessage-summary work, not this item.) **Confidence: HIGH** — exact before/after located in both bundles.
+The **Cloud / remote** launch result (`remote_launched`) still says "end your response" in **both** versions (193 `:431248`, 183 identical): `…You will be notified automatically when it completes.\nBriefly tell the user what you launched and end your response.` So this change is **scoped to async/background launches only**, not cloud — do not claim the cloud path changed. (Separately, the `async_launched` agentId hint also gained a `summary:'<5-10 word recap>'` arg at `:431255` vs 183 `:424284` — that is the 2.1.191 SendMessage-summary work, not this item.) **Confidence: HIGH** — exact before/after located in both bundles.
 
 ---
 

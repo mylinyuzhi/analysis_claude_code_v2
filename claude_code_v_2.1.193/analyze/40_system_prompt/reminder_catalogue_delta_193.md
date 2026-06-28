@@ -208,11 +208,11 @@ In 193 the `## When to access memories` array (`p0i`, :152255) flows **directly*
 ]),
 
 // READABLE (for understanding):
-// whenToAccessMemories = [ "## When to access memories", …4 bullets…, recalledMemoriesGuidanceRef ];
+// whenToAccessMemories = [ "## When to access memories", …4 bullets…, memoryStalenessGuidance ];  // Kwn = "Memory records can become stale over time… verify the memory is still correct" (the drift/trust bullet; carryover of 183 UQu@151550)
 // beforeRecommending   = [ "## Before recommending from memory", "", "A memory that names a specific function/file/flag…", … ];
 // (the standalone "## Recalled memories in tool results" array is absent)
 
-// Mapping: p0i→whenToAccessMemories, A$t→beforeRecommendingFromMemory, Kwn→recalledMemoriesGuidanceRef,
+// Mapping: p0i→whenToAccessMemories, A$t→beforeRecommendingFromMemory, Kwn→memoryStalenessGuidance (the stale-memory drift/trust bullet @152092, carryover of 183 UQu@151550 — NOT the @152055 save-time literal),
 //   _gi (183)→removedRecalledMemoriesSubsection
 ```
 

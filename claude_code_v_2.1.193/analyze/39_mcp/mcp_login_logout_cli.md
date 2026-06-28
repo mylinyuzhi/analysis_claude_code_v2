@@ -83,7 +83,7 @@ mcpCommand.command("logout <name>")
 
 **Why dispatch on transport kind.** A single "log in" verb has to behave differently for a claude.ai connector (credentials live server-side on claude.ai), a header-auth server (no interactive login at all), and a true OAuth server (browser/redirect dance). Routing on `Z9(...)`'s `kind` keeps the *one* command coherent: every server name the user can type produces a sensible, specific message instead of a generic failure.
 
-**Success message.** On OAuth success (`:613452`) the handler prints either *`Authenticated with "X". Its tools are now available in Claude Code.`* or, if the server is currently disabled (`Bx(e)`), *`Authenticated with "X", but it's currently disabled. Enable it in /mcp for its tools to load.`*
+**Success message.** On OAuth success (`:613457-613458`) the handler prints either *`Authenticated with "X". Its tools are now available in Claude Code.`* or, if the server is currently disabled (`Bx(e)`), *`Authenticated with "X", but it's currently disabled. Enable it in /mcp for its tools to load.`*
 
 ---
 

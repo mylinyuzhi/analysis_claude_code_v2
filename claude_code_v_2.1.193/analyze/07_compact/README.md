@@ -329,7 +329,7 @@ Every lane below matched on **stable strings** with identical before/after count
 | Lane (delta origin) | 193 anchor (obf → readable) | 183 canonical doc | Diff evidence | Verdict |
 |---|---|---|---|---|
 | **`--fallback-model` honoring in summarize** (2.1.178) | `wSl` streamCompactSummary @`469797`; `query_source: Ve("compact")` @`469978` | [`fallback_model_in_compaction.md`](../../../claude_code_v_2.1.183/analyze/07_compact/fallback_model_in_compaction.md) | `query_source:"compact"` present; loop structure identical (spot-read §3.1) | CARRYOVER |
-| **1M-credits-without-credits clamp** (2.1.172) | get `wYe` @`2876` / set `Lpr` @`2878` (`Nt.longContext1mCreditsBlocked`) | [`one_million_credits_clamp.md`](../../../claude_code_v_2.1.183/analyze/07_compact/one_million_credits_clamp.md) | `longContext1mCreditsBlocked` get/set pair present @`2876`/`2879` | CARRYOVER |
+| **1M-credits-without-credits clamp** (2.1.172) | get `wYe` decl @`2875` / set `Lpr` decl @`2878` (`Nt.longContext1mCreditsBlocked`) | [`one_million_credits_clamp.md`](../../../claude_code_v_2.1.183/analyze/07_compact/one_million_credits_clamp.md) | `longContext1mCreditsBlocked` field read @`2876` / write @`2879` | CARRYOVER |
 | **Window resolver — 6 sources** (env/settings/clientdata/model-default/experiment/auto) | `WDn` resolveThresholdSource @`235039` | [`window_resolver_six_sources.md`](../../../claude_code_v_2.1.183/analyze/07_compact/window_resolver_six_sources.md) | precedence/source-set logic unchanged | CARRYOVER |
 | **Micro-compaction `context_hint` beta** | `pE("context_hint","context-hint-2026-04-09")` @`102179` | (183 baseline) | beta string `context-hint-2026-04-09` present (no version bump) | CARRYOVER |
 | **Prefix-overflow pre-check** | `acf` prefixOverflowProbe @`470203`; `tengu_auto_compact_prefix_overflow` @`470262`; `compact_auto_prefix_overflow` counter @`470261` | [`dispatcher_delta.md`](../../../claude_code_v_2.1.183/analyze/07_compact/dispatcher_delta.md) | event + counter present (now lives inside `Rxo`) | CARRYOVER |
@@ -392,6 +392,6 @@ Key functions/constants in this document (list format, per CLAUDE.md):
 - `FAILURE_BREAKER_MAX` (obfuscated: `ISl`, `cli_inner_pretty.js:470357`) — `3`; consecutive-failure circuit-breaker cap; 183 `jgo`.
 - `RAPID_REFILL_WINDOW` (obfuscated: `VXi`, `cli_inner_pretty.js:235137`) — `3`; rapid-refill turn window (warn-log only); 183 `Ggo`.
 - `THRASH_MESSAGE` (obfuscated: `qZr`, `cli_inner_pretty.js:235138`) — static thrash warning; 183 template literal `wgo` (`:461687`, identical render).
-- `getLongContext1mCreditsBlocked` / `setLongContext1mCreditsBlocked` (obfuscated: `wYe`/`Lpr`, `cli_inner_pretty.js:2876`/`2878`) — the 1M-credits-without-credits clamp flag accessors.
+- `getLongContext1mCreditsBlocked` / `setLongContext1mCreditsBlocked` (obfuscated: `wYe`/`Lpr`, `cli_inner_pretty.js:2875`/`2878`; field read/write @`2876`/`2879`) — the 1M-credits-without-credits clamp flag accessors.
 - `isColdCompact` (obfuscated: `Xxo`, `cli_inner_pretty.js:470235`) — `CLAUDE_CODE_COLD_COMPACT` env reader used by the proactive path.
 - 183 before-picture: `Ego` (dispatcher, 183 `:461531`), `Igo` (count, 183 `:461481`), `wgo` (thrash template, 183 `:461687`), `jgo`/`Ggo`/`cWn` (all `3`, 183 `:461663-461665`), `PAo` (post-loop helper, → 193 `BIo`).

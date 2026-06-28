@@ -280,7 +280,7 @@ Key functions/constants in this document:
   whenToUse, skillRoot, allowedTools}`.
 - Section grouping/sort (obfuscated locals `Cr`/`vt`, `cli_inner_pretty.js:519627`/`:519598`) —
   `Cr.set("skills", In)` when non-empty; `skills: 7` sort slot.
-- `skillOverrides` (config key) — user/policy/flag override layers, read at `:519548-519550`;
+- `skillOverrides` (config key) — user/policy/flag override layers, read at `:519550-519552`;
   carryover registry expanded for the new tab.
-- `skillUsage` (config key) — per-skill `{usageCount, lastUsedAt}`, read at `:519547`; carryover
+- `skillUsage` (config key) — per-skill `{usageCount, lastUsedAt}`, read at `:519548`; carryover
   registry surfaced as the new usage badge.

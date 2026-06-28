@@ -19,7 +19,7 @@
 | (cmd) | `mcp login <name>` registration | cli_inner_pretty.js:613582 | object |
 | (cmd) | `mcp logout <name>` registration | cli_inner_pretty.js:613593 | object |
 | `oX` | `runOAuthFlow` (shared; consumed by login with `skipBrowserOpen`/`onWaitingForCallback`) | cli_inner_pretty.js:281953 | function |
-| `Vj` | `OAuthAbort` (abort sentinel in the paste-URL flow; used `:613383`) | cli_inner_pretty.js:283086 | class |
+| `Vj` | `OAuthAbort` (runtime `.name = "AuthenticationCancelledError"`, msg `"Authentication was cancelled"`; abort sentinel in the paste-URL flow; used `:613383`) | cli_inner_pretty.js:283086 | class |
 
 ## Module: MCP — remote tool-call idle timeout (NET-NEW 2.1.187)
 
@@ -44,9 +44,9 @@
 | `pao` | `inFlightReauthReconnects` (Map, reconnect dedup; used `:293138`) | cli_inner_pretty.js:293460 | variable |
 | `nT` | `disconnectAndClearCache` (called `:293146`) | cli_inner_pretty.js:292489 | function |
 | `ID` | `connectOrGetClient` (re-runs headersHelper; called `:293146`) | cli_inner_pretty.js:293461 | function |
-| `Ct` | `logMcpEvent` (`("mcp_headers_helper","reauth_retry")` `:293143`) | cli_inner_pretty.js:44851 | function |
+| `Ct` | `logFeatureSadEvent` (generic `tengu_feature_sad` logger: `{feature_name, error_code}`; called `("mcp_headers_helper","reauth_retry")` `:293143` — note `mcp_headers_helper` is a **pre-existing** feature_name (193=7/183=6, the 6 carryover being headersHelper config-validation errors); only the `reauth_retry` error_code is net-new, 193=1/183=0) | cli_inner_pretty.js:44851 | function |
 | `vR` | `McpAuthRequiredError` (instanceof in isAuthError `:293135`) | cli_inner_pretty.js:138074 | class |
-| `lWe` | `McpReauthError` (`"requires re-authorization (token expired)"` thrown `:293179`) | cli_inner_pretty.js:293424 | class |
+| `lWe` | `McpReauthError` (runtime `.name = "McpAuthError"`; `"requires re-authorization (token expired)"` thrown `:293179`) | cli_inner_pretty.js:293424 | class |
 
 ## Module: MCP — capability-discovery retry + OAuth retry-once + 404 (2.1.191)
 

@@ -178,7 +178,7 @@ value the loader amplifies into an error log + a counted failure mode. The load 
 | `Gm` returns `parseError` | **NET-NEW** | `:149531` spread `...(l!==void 0 && {parseError:l})`; `grep -c 'parseError:'` = **0 in 183** |
 | `[skills] … failed to parse and was ignored` log | **NET-NEW** | `:451755`; `grep -c 'failed to parse and was ignored'` = **0 in 183, 1 in 193** |
 | `skill_load_yaml_failed` telemetry | **NET-NEW** | `:451756`; `grep -c 'skill_load_yaml_failed'` = **0 in 183, 1 in 193** |
-| Empty-metadata-and-body-loads behavior | **CARRYOVER** | `a={}` + `content:s` in both `Gm`@149517/:149531 and `CA`@148679/:148691 |
+| Empty-metadata-and-body-loads behavior | **CARRYOVER** | `a={}` + `content:s` in both `Gm`@149517/:149531 and `CA`@148681/:148693 |
 | Internal `warn` on parse failure | **CARRYOVER** | both parsers warn; 193 only *adds* the loader-level error |
 | 183 loader destructures `{frontmatter, content}` only | **before-picture** | `:443795` — no `parseError`, no skill-specific log |
 

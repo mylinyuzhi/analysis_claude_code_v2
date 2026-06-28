@@ -21,12 +21,12 @@ Makes "Stop" from the tasks panel a *terminal* decision for a background agent. 
 
 ### How it works — write the marker
 
-The panel-stop entry point `markAgentStoppedByUser` (`Mde`, `:431809`) flips the live registry entry's `stoppedByUser` flag, then persists the marker to disk via `persistStopMarker` (`CXp`, `:431817`):
+The panel-stop entry point `markAgentStoppedByUser` (`Mde`, `:431808`) flips the live registry entry's `stoppedByUser` flag, then persists the marker to disk via `persistStopMarker` (`CXp`, `:431816`):
 
 ```javascript
 // ============================================
 // markAgentStoppedByUser + persistStopMarker - record a permanent user-stop
-// Location: cli_inner_pretty.js:431809-431826
+// Location: cli_inner_pretty.js:431808-431826
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -188,7 +188,7 @@ The neighboring startup-state finalizers `resetStartupJobState` (`Gaf`, `:464549
 | Signal | 183 | 193 | Class |
 |--------|-----|-----|-------|
 | `grep -c "stoppedByUser"` | **0** | **9** | **NET-NEW** (stop-permanent) |
-| `markAgentStoppedByUser` / `persistStopMarker` | absent | `:431809` / `:431817` | NET-NEW |
+| `markAgentStoppedByUser` / `persistStopMarker` | absent | `:431808` / `:431816` | NET-NEW |
 | resume refusal `if (b?.stoppedByUser)` | absent | `:441527`, `:441645`, `:442238` | NET-NEW |
 | turn-end finalizer body | `pgo` `:456114` | `Exo` `:464591` (byte-equiv) | CARRYOVER |
 | finalizer call site `else <fin>().catch()` | `:675899` | `:689760` | CARRYOVER |
@@ -214,9 +214,9 @@ The neighboring startup-state finalizers `resetStartupJobState` (`Gaf`, `:464549
 
 Key functions/constants in this document:
 
-- `markAgentStoppedByUser` (obf: `Mde`, `:431809`) — flips the live flag + persists the marker; NET-NEW.
-- `persistStopMarker` (obf: `CXp`, `:431817`) — idempotent disk write of `stoppedByUser:true`; NET-NEW.
-- `readAgentDiskState` (obf: `Hre`, `:581895`) / `writeAgentDiskState` (obf: `Tde`, `:581867`) / `agentDiskStatePath` (obf: `Ou`, `:1792`) — the on-disk agent-state store.
+- `markAgentStoppedByUser` (obf: `Mde`, `:431808`) — flips the live flag + persists the marker; NET-NEW.
+- `persistStopMarker` (obf: `CXp`, `:431816`) — idempotent disk write of `stoppedByUser:true`; NET-NEW.
+- `readAgentDiskState` (obf: `Hre`, `:581895`) / `writeAgentDiskState` (obf: `Tde`, `:581867`) / `agentDiskStatePath` (obf: `Ou`, `:1792`; identity passthrough — the `.meta.json` join is in `t7l`@581864) — the on-disk agent-state store.
 - `AgentStoppedError` (obf: `Vht`, `:441779`) — thrown by the resume guards (`:441527`, `:441645`).
 - `markReplayNoOp` / `finalizeStuckWorkingJob` (obf: `Exo`, `:464591`; 183 `pgo`@456114) — turn-end working→blocked finalizer; CARRYOVER.
 - `resetStartupJobState` (obf: `Gaf`, `:464549`) / `armBgStartupWedge` (obf: `Waf`, `:464561`) — neighboring startup finalizers; CARRYOVER.

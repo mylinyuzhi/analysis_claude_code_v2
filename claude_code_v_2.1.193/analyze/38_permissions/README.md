@@ -16,7 +16,7 @@ The permissions subsystem is where most of the 2.1.187 + 2.1.191 + part of 2.1.1
 | 1 | `autoMode.classifyAllShell` — route ALL Bash/PowerShell through the classifier | **NET-NEW** (2.1.193) | schema `:55814`; gate `$Cr` `:58758`; predicate `r9e` `:416263` | `grep -c classifyAllShell`=0; `WGe` `:409907` no bypass | [classify_all_shell.md](./classify_all_shell.md) |
 | 2 | Auto-mode denial **reasons** surfaced (toast + Recently-denied + dark transcript) | **NET-NEW** surfacing (record carryover) | toast `:640271`; recent-denied `:546589`; `XKa`/`USe` `:382614` | record had `reason` `:627443`; renderers were `null`/`...{}` | [denial_reasons_surfacing.md](./denial_reasons_surfacing.md) |
 | 3 | `sandbox.credentials` — deny-read credential files / unset secret env | **NET-NEW** (2.1.187) | schema `:54069`; assembly `:219470`; enforce `Rqi` `:211660`→`Yjd` `:211677` | `grep -c denyReadPaths`=0 | [sandbox_credentials.md](./sandbox_credentials.md) |
-| 4 | Org entitlement model gate (picker/`--model`/`/model`/`ANTHROPIC_MODEL`) | **NET-NEW** gate (warning carryover) | `NFe` `:102814`; `tzt` `:487243`; `u_n` `:103211` | `rre` warning `:362631`; `denied_by_entitlement`=0 | [org_model_restrictions.md](./org_model_restrictions.md) |
+| 4 | Org entitlement model gate (picker/`--model`/`/model`/`ANTHROPIC_MODEL`) | **NET-NEW** gate (warning carryover) | `NFe` `:102814`; `tzt` `:487243`; `u_n` `:103212` | `rre` warning `:362631`; `denied_by_entitlement`=0 | [org_model_restrictions.md](./org_model_restrictions.md) |
 | 5 | Recently-denied **approve-persists-on-close** + session-allowed-hosts | **NET-NEW** (2.1.191) | close handler `:547334`; `_Wd`/`BLn` `:219238`/`:219833` | approved branch cosmetic `:536369`; `addSessionAllowedHost`=0 | [recent_denied_overlay.md](./recent_denied_overlay.md) |
 | 6 | `Agent(type)` upfront deny + `allowedAgentTypes` on named spawns | **REFINEMENT** (2.1.186; matcher carryover) | spawn block `:430515` | no upfront check `:423565` | [background_subagent_permission_forwarding.md](./background_subagent_permission_forwarding.md) §2 |
 | 7 | Background-subagent permission forwarding (`rdc`/`pendingWorkerRequest`/`M8n`) | **CARRYOVER** | `:640151`/`:426557` | identical (grep counts match) | [background_subagent_permission_forwarding.md](./background_subagent_permission_forwarding.md) §1 |
@@ -102,7 +102,7 @@ Things that look like 193 deltas but are **not** — stated explicitly with grep
 
 ## Cross-tree links
 
-- Background-agents subsystem (worker lifecycle the carryover forwarding rides on; the nested-subagent depth gate that bounds spawns): [../36_background_agents/README.md](../36_background_agents/README.md), [../36_background_agents/nested_subagent_depth_limit.md](../36_background_agents/nested_subagent_depth_limit.md).
+- Background-agents subsystem (worker lifecycle the carryover forwarding rides on; the nested-subagent depth gate that bounds spawns): [../36_background_agents/README.md](../36_background_agents/README.md), [../36_background_agents/subagent_depth_tracking.md](../36_background_agents/subagent_depth_tracking.md).
 - Agent-team / named-spawn routing (the `allowedAgentTypes` allow-list home): [../30_agent_team/](../30_agent_team/).
 - 183 before-pictures cited inline by line (`WGe` `:409907`, the 183 toast `:627452`, the 183 overlay close `:536350`, `rre` `:362631`, the 183 spawn body `:423565`).
 
@@ -123,7 +123,7 @@ Key functions/constants across this module (full per-doc lists in each file):
 - `SETTINGS_SOURCES` (obf: `Uys`, `:58827`) — the four settings sources.
 - `recordDenial` (`:640262`) / auto-mode-denied toast (`:640271`) / `classifyToolDenialKind` (obf: `XKa`, `:382614`) / `isToolDenialKindEnabled` (obf: `USe`, `:382624`, `return !1`) — denial-reason surfacing.
 - `sandboxCredentials` (obf: `IEu`, `:54069`) / `resolveCredentialProtection` (obf: `Rqi`, `:211660`) / `buildSandboxFsDenyRead` (obf: `Yjd`, `:211677`) — sandbox.credentials.
-- `isModelRestrictedByEntitlements` (obf: `NFe`, `:102814`) / `getOrgRestrictedModelSet` (obf: `Uge`, `:102820`) / `switchModel` (obf: `tzt`, `:487243`) / `resolveRestrictedModelFallback` (obf: `u_n`, `:103211`) — org model gate; carryover warning `rre` (`:374023`).
+- `isModelRestrictedByEntitlements` (obf: `NFe`, `:102814`) / `getOrgRestrictedModelSet` (obf: `Uge`, `:102820`) / `switchModel` (obf: `tzt`, `:487243`) / `resolveRestrictedModelFallback` (obf: `u_n`, `:103212`) — org model gate; carryover warning `rre` (`:374023`).
 - `ko` sandbox controller (`:219848`) / `addSessionAllowedHost` (obf: `_Wd`, `:219238`) / `sessionAllowedHosts` (obf: `BLn`, `:219833`) — controller + session-host cache.
 - `PermissionsOverlay` (obf: `H4l`, `:547100`) / close handler (`:547334`) — approve-persists-on-close.
 - `forwardWorkerPermissionRequest` (obf: `rdc`, `:640151`) / `buildWorkerPermissionRequest` (obf: `M8n`, `:426557`) — carryover worker forwarding.

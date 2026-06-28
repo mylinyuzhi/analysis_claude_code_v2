@@ -36,7 +36,7 @@ The changelog's "MEMORY.md compact reminder near the size limit" (attributed to 
 
 | Doc | Scope | Kind |
 |-----|-------|------|
-| [`billiard_aviary_immutable_memory_removal.md`](./billiard_aviary_immutable_memory_removal.md) | The deleted `tengu_billiard_aviary` immutable-memory / `tiny_memory` experiment: 11 gate sites in 183, the `Hgi` "Dream: Memory Pruning" builder, the `[Good]/[Bad]` rating widget, immutable write semantics — all gone in 193. The only substantive auto-memory delta this window. | **REFINEMENT** (item A) |
+| [`billiard_aviary_immutable_memory_removal.md`](./billiard_aviary_immutable_memory_removal.md) | The deleted `tengu_billiard_aviary` immutable-memory / `tiny_memory` experiment: 16 `aH()` gate call-sites in 183, the `Hgi` "Dream: Memory Pruning" builder, the `[Good]/[Bad]` rating widget, immutable write semantics — all gone in 193. The only substantive auto-memory delta this window. | **REFINEMENT** (item A) |
 | [`memory_reminder_and_dream_carryover.md`](./memory_reminder_and_dream_carryover.md) | Why the "2.1.186 MEMORY.md compact reminder" is carryover (the `v$t` truncation WARNING + dream Phase-4 instruction predate 183); the dream engine unchanged 183→193 (the 2-way builder branch collapsed to the single `$_l`, reverting toward the v2.1.88 `buildConsolidationPrompt`); `CLAUDE_MEMORY_STORES`/recall carryover; `findRelevantMemories` never existed. | **CARRYOVER** (items B/C/D) |
 
 ---
@@ -91,4 +91,4 @@ Key functions/constants in this module (list format, per CLAUDE.md):
 - `initAutoDream` / `executeAutoDream` (obf: `G_l` / `j_l`, `cli_inner_pretty.js:463837` / `:463839`) — dream firing closure; logic carryover, the `aH()` branch removed.
 - `getDreamThrottleConfig` (obf: `Daf`, `cli_inner_pretty.js:463818`) — reads `tengu_onyx_plover` for `minHours`/`minSessions`; carryover.
 - `parseMemoryStoresEnv` (obf: `qae`, `cli_inner_pretty.js:151593`) — `CLAUDE_MEMORY_STORES` JSON parse/validate; carryover (10/10).
-- 183 before-picture (removed in 193): gate `aH` = `tengu_billiard_aviary` (183 `:147673`); memory-type selector `XXu` (183 `:147670`) → `YXu="tiny_memory"` (183 `:147730`) vs `KXu="memory"` (183 `:147729`); immutable dream builder `Hgi` "Dream: Memory Pruning" (183 `:151520`); `[Good]/[Bad]` rating widget `FOa` (183 `:378928`).
+- 183 before-picture (removed in 193): gate `aH` = `tengu_billiard_aviary` (183 `:147673`); memory-type selector `XXu` (183 `:147670`) → `YXu="tiny_memory"` (183 `:147730`) vs `KXu="memory"` (183 `:147729`); immutable dream builder `Hgi` "Dream: Memory Pruning" (183 `:151520`); `[Good]/[Bad]` rating widget `FOa` (183 `:378926`).

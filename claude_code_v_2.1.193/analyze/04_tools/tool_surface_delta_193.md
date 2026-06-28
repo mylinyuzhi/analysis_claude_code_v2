@@ -96,7 +96,7 @@ The built-in tool registry is structurally identical to 183 (@436518): same gate
 ```javascript
 // ============================================
 // getAvailableTools — hidden-tool exclusion set grew from 3 to 4 (the +1 = ReadMcpResourceDirTool)
-// Location: cli_inner_pretty.js:444239    (183: zR @436634)
+// Location: cli_inner_pretty.js:444237    (183: zR set @436634)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -186,7 +186,7 @@ So for the *tool surface*, the Bash/PowerShell description angle is a **false de
 | `assets/tools/*.md` count | — | 50 → 51 (+ReadMcpResourceDirTool.md, 0 removed) | **+1 tool** |
 | `ReadMcpResourceDirTool` name (`iX`) | :283504 | grep 193=2 / 183=0 | **NET-NEW** |
 | tool object `_ne` (deferred) | :283585 | absent in 183 | **NET-NEW** |
-| `a$` exclusion set (3→4, +`_ne.name`) | :444239 | 183 `zR` set = 3 names | **NET-NEW (body change = the new tool)** |
+| `a$` exclusion set (3→4, +`_ne.name`) | :444237 | 183 `zR` set = 3 names @436634 | **NET-NEW (body change = the new tool)** |
 | sibling-desc cross-refs `${iX}` | :284345, :451562 | 193=1 each / 183=0 | **NET-NEW** |
 | `resources/directory/read` (protocol) | — | 193=5 / 183=4 (+1 = the tool) | **CARRYOVER (client)** |
 | `getBuiltinToolRegistry` (`b4`) | :444127 | gate-conditional entries unchanged | **CARRYOVER** |

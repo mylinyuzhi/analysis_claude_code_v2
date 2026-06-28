@@ -10,7 +10,7 @@ Two changelog bullets patch the **same** function — the Workflow per-agent run
 
 1. **Stop re-calling StructuredOutput after success (2.1.187).** Once the runner has *captured* a `structured_output` attachment (`dt`), a 3rd+ StructuredOutput tool call aborts the agent with reason `"stalled"`; the catch handler recognizes `"stalled" && dt !== void 0` as a **success** and returns the already-captured output cleanly — instead of letting the model loop forever re-emitting StructuredOutput. In parallel, a brand-new `requiresStructuredOutput` query option drives an **inline, gated nudge** (`vbl`) that injects "You MUST call the StructuredOutput tool" *only until a call has succeeded*, then stops. This inline path **replaces** the 183 **Stop hook** (`zKn`) that re-fired every time the model tried to end its turn with no per-success dedup — the exact behavior this bullet fixes.
 
-2. **Abort after 5 schema-validation failures (2.1.186).** A failure counter `Mr` increments for each StructuredOutput `tool_use` whose `tool_result` came back `is_error`; once `Mr >= kn` (`kn = MAX_STRUCTURED_OUTPUT_RETRIES ?? NYp`, `NYp = 5`) with no valid output captured, the runner throws a `DualError`. Caveat: the *cap concept* already existed for `--json-schema` **print mode** (CARRYOVER, byte-equivalent); what 2.1.186 ships is wiring that cap into the **in-process workflow loop**, which previously had none.
+2. **Abort after 5 schema-validation failures (2.1.186).** A failure counter `Mr` increments for each StructuredOutput `tool_use` whose `tool_result` came back `is_error`; once `Mr >= kn` (`kn = MAX_STRUCTURED_OUTPUT_RETRIES ?? NYp`, `NYp = 5`) with no valid output captured, the runner throws a `DualError`. Caveat: the *cap concept* already existed for `--json-schema` **print mode** (CARRYOVER, logic-equivalent — same code, only the obfuscated tokens are re-mangled); what 2.1.186 ships is wiring that cap into the **in-process workflow loop**, which previously had none.
 
 ---
 
@@ -445,11 +445,11 @@ The cap is `Be.MAX_STRUCTURED_OUTPUT_RETRIES ?? NYp` with `NYp = 5` (`cli_inner_
 
 ### Adversarial nuance — the cap is NOT new for print mode (CARRYOVER)
 
-The SDK/print-mode `--json-schema` StructuredOutput retry cap **already existed in 183 and is byte-equivalent in 193** — it is not a 193 delta. `error_max_structured_output_retries` appears **5× in both** bundles, and the print-mode block is the same logic, only re-mangled:
+The SDK/print-mode `--json-schema` StructuredOutput retry cap **already existed in 183 and is logic-equivalent in 193** (same code; only the obfuscated tokens are re-mangled, so it is NOT literally byte-equivalent) — it is not a 193 delta. `error_max_structured_output_retries` appears **5× in both** bundles, and the print-mode block is the same logic, only re-mangled:
 
 ```javascript
 // ============================================
-// printModeRetryCap (CARRYOVER) - SDK --json-schema 5-retry cap; byte-equivalent to 183
+// printModeRetryCap (CARRYOVER) - SDK --json-schema 5-retry cap; logic-equivalent to 183 (re-mangle only)
 // Location: cli_inner_pretty.js:704023-704054 (193)  |  685293-685320 (183)
 // ============================================
 
@@ -491,7 +491,7 @@ So the "5-attempt cap" was already enforced for `--json-schema` print mode in 18
 | `"StructuredOutput retry cap"` string | 2 (`:423823/:423825`) | 0 | NET-NEW (2.1.186) |
 | runner failure counter `Mr` + `is_error` accounting | present (`:423819`) | absent (`:417266-417272`) | NET-NEW |
 | `NYp = 5` workflow SO retry cap | present (`:424307`) | absent in loop | NET-NEW |
-| print-mode `error_max_structured_output_retries` cap | 5× (`:704023+`) | 5× (`:685293+`) | CARRYOVER (byte-equiv) |
+| print-mode `error_max_structured_output_retries` cap | 5× (`:704023+`) | 5× (`:685293+`) | CARRYOVER (logic-equiv, re-mangle only) |
 | `Ep`/`$Qr`/`qVd`/`Fi` StructuredOutput core | present | present (re-mangled) | CARRYOVER |
 
 (Counts above are `grep -c` over each whole bundle; line citations are 193 unless tagged 183.)
@@ -500,7 +500,7 @@ So the "5-attempt cap" was already enforced for `--json-schema` print mode in 18
 
 - Sibling 193 doc: [`workflows_detail_status_filter.md`](./workflows_detail_status_filter.md) (bullet 3, `/workflows` UI).
 - Module overview: [`README.md`](./README.md).
-- The workflow-agent `depth: K3(pe)+1` (`:423707`) stamped inside this same `wt` runner feeds the shared subagent depth cap: [`../36_background_agents/subagent_depth_tracking.md`](../36_background_agents/subagent_depth_tracking.md).
+- The workflow-agent `depth: K3(pe)+1` (`:423711`) stamped inside this same `wt` runner feeds the shared subagent depth cap: [`../36_background_agents/subagent_depth_tracking.md`](../36_background_agents/subagent_depth_tracking.md).
 - 183 canonical runtime/VM (unchanged sandbox + builtins + `agent()` contract): [`../../../claude_code_v_2.1.183/analyze/42_workflow/README.md`](../../../claude_code_v_2.1.183/analyze/42_workflow/README.md).
 
 ## Related Symbols

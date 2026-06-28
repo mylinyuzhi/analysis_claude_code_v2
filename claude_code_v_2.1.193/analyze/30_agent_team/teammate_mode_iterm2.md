@@ -142,7 +142,7 @@ if ((log("[BackendRegistry] Starting backend detection..."), getTeammateModeFrom
 //          svo→createITermBackend, Re→recordSwarmOpFailure, Ie→recordSwarmOpSuccess, e→registry, o→backend
 ```
 
-1. **`zRe() === "iterm2"`** — `getTeammateModeFromSnapshot` reads the captured teammate mode (default `$jt = "in-process"`, `cli_inner_pretty.js:302921`). Only an explicit `"iterm2"` setting enters this branch; `"auto"` falls through to the (carryover) heuristic detector below.
+1. **`zRe() === "iterm2"`** — `getTeammateModeFromSnapshot` reads the captured teammate mode (default `$jt = "in-process"`, `cli_inner_pretty.js:302920`). Only an explicit `"iterm2"` setting enters this branch; `"auto"` falls through to the (carryover) heuristic detector below.
 2. **`!R8()` → throw warning A.** `isInsideITerm2` (`cli_inner_pretty.js:363523`) is a cached env probe: `TERM_PROGRAM === "iTerm.app" || !!ITERM_SESSION_ID || terminal === "iTerm.app"`. If you pinned iTerm2 but are not actually in iTerm2, you get a *specific* error telling you to launch from iTerm2 or change the setting — not a silent fallback.
 3. **`!(await Rft())` → throw warning B.** `isIt2CliReachable` (`cli_inner_pretty.js:363533`) runs `command -v it2` in the login shell, then `it2 session list`; it returns `false` (with a Python-API-disabled hint logged) if the API isn't enabled. The binary name is the constant `xft = "it2"` (`cli_inner_pretty.js:363571`). Warning B tells you exactly how to fix it (`pip install it2` + enable the Python API).
 4. **Force + cache.** `svo(e)` (`createITermBackend`, `cli_inner_pretty.js:429181`) instantiates the registered `ITermBackend` class (`rvo`, `cli_inner_pretty.js:429024`; `type="iterm2"`, `displayName="iTerm2"`), the result is cached as `{ backend, isNative: true, needsIt2Setup: false }`, and detection short-circuits.
@@ -203,11 +203,11 @@ function emitPaneFallbackHint(emit) {
 | `'teammateMode is set to "iterm2"'` (two distinct messages) | 0 | 2 | NET-NEW |
 | `'it2 CLI is not reachable'` | 0 | 1 | NET-NEW |
 | `'To force iTerm2 panes'` (iterm2 arm of fallback hint) | 0 | 1 | NET-NEW |
-| `"iterm2"` literal (whole bundle) | 9 | 16 | widened |
+| `"iterm2"` literal (whole bundle) | 9 | 20 | widened |
 | `ITermBackend` class / iTerm2 backend subsystem | present | present | CARRYOVER |
 | auto-detect error `"iTerm2 detected but it2 CLI not installed…"` | 1 | 1 | CARRYOVER |
 
-Re-verified in the live 193 bundle: `uhs`@54136, schema enum@56919 + describe@56922, UI options@488457, flag help@714421, choices@714422, parser@714758, `kPe`@429186, the explicit branch + two warnings@429192-429213, `R8`@363523, `Rft`@363533, `xft`@363571, `svo`@429181, `rvo`@429024, `zRe`@302915 (`$jt="in-process"`@302921), `iXp`@429964. 183 counts confirmed against the 183 bundle (`Its`@53727, parser@695523, all four NET-NEW strings = 0 in 183).
+Re-verified in the live 193 bundle: `uhs`@54136, schema enum@56919 + describe@56922, UI options@488457, flag help@714421, choices@714422, parser@714758, `kPe`@429186, the explicit branch + two warnings@429192-429213, `R8`@363523, `Rft`@363533, `xft`@363571, `svo`@429181, `rvo`@429024, `zRe`@302915 (`$jt="in-process"`@302920), `iXp`@429964. 183 counts confirmed against the 183 bundle (`Its`@53727, parser@695523, all four NET-NEW strings = 0 in 183).
 
 **Carryover precision.** The iTerm2 backend class, the BackendRegistry singleton, the `createTeammatePaneInSwarmView` method, and the *auto-detection* path (the heuristic detector that `"auto"` still uses) are all carryover that pre-date 183 — the auto-detect error `"iTerm2 detected but it2 CLI not installed. Install it2 with: pip install it2"` is byte-identical in both bundles. Do **not** attribute the iTerm2 backend itself to 2.1.186; only the *explicit pin* (enum value + the `kPe` branch + the two warnings + the iterm2 arm of `iXp`) is the delta. The 183 detection function (`(183) eLe`, `cli_inner_pretty.js:422316`) is the same shape as 193 `kPe` **minus** the new top branch.
 
@@ -233,7 +233,7 @@ Key functions/constants in this doc:
 
 - `EXEC_MODE_ENUM` (obfuscated: `uhs`, `cli_inner_pretty.js:54136`) — `["auto","tmux","iterm2","in-process"]`; 183 `Its` lacked `"iterm2"`.
 - `detectAndGetBackend` (obfuscated: `kPe`, `cli_inner_pretty.js:429186`) — BackendRegistry detector; new explicit-iterm2 branch @429192-429213. 183 predecessor `eLe` (`(183) :422316`).
-- `getTeammateModeFromSnapshot` (obfuscated: `zRe`, `cli_inner_pretty.js:302915`) — default `$jt="in-process"` (`:302921`).
+- `getTeammateModeFromSnapshot` (obfuscated: `zRe`, `cli_inner_pretty.js:302915`) — default `$jt="in-process"` (`:302920`).
 - `isInsideITerm2` (obfuscated: `R8`, `cli_inner_pretty.js:363523`) — env probe (`TERM_PROGRAM`/`ITERM_SESSION_ID`/`terminal`).
 - `isIt2CliReachable` (obfuscated: `Rft`, `cli_inner_pretty.js:363533`) — `command -v it2` + `it2 session list`; binary const `IT2_BIN` (`xft`, `:363571`).
 - `createITermBackend` (obfuscated: `svo`, `cli_inner_pretty.js:429181`) / `ITermBackend` class (obfuscated: `rvo`, `cli_inner_pretty.js:429024`).

@@ -239,7 +239,7 @@ function rre(e, t) {
 | `denied_by_entitlement` telemetry | `:487247` | absent | `grep -c` 183=**0**, 193=**1** |
 | Picker filter `Ia` `NFe` clause | `:102880` | clause absent | net-new clause |
 | Default-model filters | `:103166`,`:103185` | clause absent | net-new |
-| Fallback resolver `u_n` | `:103211` | absent | net-new |
+| Fallback resolver `u_n` | `:103212` | absent | net-new |
 | Effective-model resolver `aw` | `:103207` | uses new `u_n` | refined |
 | **"Using X instead" warning `rre`** | `:374023` | present **(183)** `:362631` | **CARRYOVER** |
 
@@ -267,7 +267,7 @@ Key functions in this document:
 - `isModelRestrictedByEntitlements` (obf: `NFe`, `:102814`) — membership test w/ alias resolution; size-0 fast-path.
 - `getOrgRestrictedModelSet` (obf: `Uge`, `:102820`) — empty unless `firstParty`/`gateway` auth.
 - `switchModel` (obf: `tzt`, `:487243`) — `/model` denial + `denied_by_entitlement`.
-- `resolveRestrictedModelFallback` (obf: `u_n`, `:103211`) — downgrade opus→sonnet→haiku.
+- `resolveRestrictedModelFallback` (obf: `u_n`, `:103212`) — downgrade opus→sonnet→haiku.
 - `getEffectiveModel` (obf: `aw`, `:103207`) — `u_n(r) ?? r`; covers `ANTHROPIC_MODEL`/env.
 - `isModelAvailable` (obf: `Ia`, `:102880`) — picker filter; net-new `NFe` clause.
 - `formatModelRestrictedWarning` (obf: `rre`, `:374023`) — **carryover** "Using X instead" warning (183 `:362631`).

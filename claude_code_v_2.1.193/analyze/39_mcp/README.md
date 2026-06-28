@@ -95,7 +95,7 @@ For the unchanged pre-2.1.183 MCP foundation, consult the v2.1.88 named-TS ances
 
 ## Cross-tree links
 
-- Telemetry events touched (`tengu_mcp_login`/`logout`/`get`/`delete`, `tengu_mcp_tool_call_auth_error`, `tengu_mcp_list_paginated`, `mcp_headers_helper`): see [`../44_telemetry/`](../44_telemetry/).
+- Telemetry events touched (`tengu_mcp_login`/`logout` are NET-NEW; `tengu_mcp_get`/`delete`, `tengu_mcp_tool_call_auth_error`, `tengu_mcp_list_paginated` are carryover; `mcp_headers_helper` is a **pre-existing** `tengu_feature_sad` feature_name whose new `reauth_retry` error_code is the only 193 delta): see [`../44_telemetry/`](../44_telemetry/).
 - Per-feature symbol additions: [`../00_overview/symbol_additions_v2_1_193_mcp.md`](../00_overview/symbol_additions_v2_1_193_mcp.md) (routes to `symbol_index_infra_platform.md`).
 
 ## Related Symbols

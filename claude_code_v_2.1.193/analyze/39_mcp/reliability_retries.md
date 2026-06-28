@@ -130,7 +130,7 @@ function isRetryableError(err) {
 - `isNetworkTransientError` (`ppp`, `cli_inner_pretty.js:292140`) — string-matches `ECONNRESET`/`ETIMEDOUT`/`EPIPE`/`EHOSTUNREACH`/`ECONNREFUSED`/`Body Timeout Error`/`terminated`/`SSE stream disconnected`/`Failed to reconnect SSE stream`, plus `AbortError`.
 - `isSessionExpiredError` (`fAa`, `cli_inner_pretty.js:292133`) — a 404 (non-SSE-stream) or a 400 with `Server not initialized`/`No valid session ID`/`Mcp-Session-Id header is required` → session expired, reconnect.
 
-**183 diff (BODY CHANGE / NET-NEW).** The 183 list path (`aOt`, 183 `:283328`) was a single `try { do…while } catch { throw }` — **no retry loop**. The pagination + `tengu_mcp_list_paginated` telemetry existed (193:1 / 183:1), but the `for(;;)` retry wrapper, `mpp` backoff, and `gpp` classifier are net-new. `gpp` has no 183 counterpart in the list path.
+**183 diff (BODY CHANGE / NET-NEW).** The 183 list path (`aOt`, 183 `:283324`) was a single `try { do…while } catch { throw }` — **no retry loop** (the 183 `catch` just rethrows; no `for(;;)` wrapper). The pagination + `tengu_mcp_list_paginated` telemetry existed (193:1 / 183:1), but the `for(;;)` retry wrapper, `mpp` backoff, and `gpp` classifier are net-new. `gpp` has no 183 counterpart in the list path.
 
 ---
 
@@ -216,7 +216,7 @@ if (config.type === "http" && errorCode === "404" && initState?.sessionId === un
 
 | Path | 193 | 183 | verdict |
 |---|---|---|---|
-| discovery retry loop (`mpp` `[250,500,1000]`, `gpp`) | present (`:292155`,`:293455`) | absent (`aOt` single-try, 183 `:283328`) | BODY-CHANGE / NET-NEW |
+| discovery retry loop (`mpp` `[250,500,1000]`, `gpp`) | present (`:292155`,`:293455`) | absent (`aOt` single-try, 183 `:283324`) | BODY-CHANGE / NET-NEW |
 | OAuth retry-once wrapper `AOn` around `m_a` | present (`:281573`) | `qxn` single fetch (183 `:273095`) | NET-NEW (retry) |
 | `ENDPOINT_NOT_FOUND` / `MCP endpoint not found at` | 2 / 1 | 0 / 0 | NET-NEW |
 | token-refresh retry `Token refresh failed, retrying in` | 1 | 1 | CARRYOVER (don't count) |

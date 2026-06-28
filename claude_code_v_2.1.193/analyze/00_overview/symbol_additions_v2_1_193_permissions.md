@@ -63,15 +63,15 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `kwr` | credentialFileEntry schema `{path, mode:"deny"}` | cli_inner_pretty.js:54048 | function |
-| `Rwr` | secretEnvEntry schema `{name:/^[A-Za-z_]\w*$/, mode:"deny"}` | cli_inner_pretty.js:54059 | function |
+| `Rwr` | secretEnvEntry schema `{name:/^[A-Za-z_]\w*$/, mode:"deny"}` | cli_inner_pretty.js:54058 | function |
 | `IEu` | sandboxCredentials schema `{files?, envVars?}` | cli_inner_pretty.js:54069 | function |
-| `Lwr` | sandboxRootSchema (wires `credentials: IEu()` `:54096`) | cli_inner_pretty.js:54079 | function |
+| `Lwr` | sandboxRootSchema (wires `credentials: IEu()` `:54095`) | cli_inner_pretty.js:54079 | function |
 | credentials assembly | per-source path-resolved merge over `jT` | cli_inner_pretty.js:219470 | object |
 | `jT` | SETTINGS_SOURCES (merge iteration) | cli_inner_pretty.js:219471 (use) | constant |
 | `p3e` | resolvePath (per-source settings path resolution) | cli_inner_pretty.js:219474 (use) | function |
 | `Rqi` | resolveCredentialProtection `{denyReadPaths, unsetEnvVars, setEnvVars}` | cli_inner_pretty.js:211660 | function |
 | `Yjd` | buildSandboxFsDenyRead (folds `denyReadPaths` into `filesystem.denyRead`) | cli_inner_pretty.js:211677 | function |
-| `FRn` | secretInjectionRegistry (staged `mode:"mask"` sentinel registry) | cli_inner_pretty.js:212031 (inst), 209633 (register) | variable |
+| `FRn` | secretInjectionRegistry (staged `mode:"mask"` sentinel registry) | cli_inner_pretty.js:212031 (inst), 209631 (register method; call site `:211671`) | variable |
 | `Ya` | sandboxConfig (resolved sandbox config object) | cli_inner_pretty.js:211677 (use) | variable |
 | `allowPlaintextInject` | credentials.allowPlaintextInject gate (staged mask) | cli_inner_pretty.js:211560 | object |
 
@@ -104,7 +104,7 @@
 | `Uge` | getOrgRestrictedModelSet (empty unless firstParty/gateway) | cli_inner_pretty.js:102820 | function |
 | `Ia` | isModelAvailable (picker filter; NET-NEW `NFe` clause `:102880`) | cli_inner_pretty.js:102873 | function |
 | `tzt` | switchModel (`/model` denial + `denied_by_entitlement`) | cli_inner_pretty.js:487243 | function |
-| `u_n` | resolveRestrictedModelFallback (opus→sonnet→haiku downgrade) | cli_inner_pretty.js:103211 | function |
+| `u_n` | resolveRestrictedModelFallback (opus→sonnet→haiku downgrade) | cli_inner_pretty.js:103212 | function |
 | `aw` | getEffectiveModel (`u_n(r) ?? r`; covers `ANTHROPIC_MODEL`/env) | cli_inner_pretty.js:103207 | function |
 | `rre` | formatModelRestrictedWarning ("Using X instead"; **CARRYOVER**, 183 `:362631`) | cli_inner_pretty.js:374023 | function |
 | `Qft` | sanitizeModelNameForDisplay (used by `rre`) | cli_inner_pretty.js:374018 | function |

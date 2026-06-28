@@ -304,7 +304,7 @@ Jc("user_prompt", { prompt_length: String(C.length), prompt: V1t(C), "prompt.id"
 // Mapping: Jc→logOTelEvent, V1t→redactIfDisabled, e/C→promptText, X→promptId
 ```
 
-The two events differ on five axes — and each difference is intentional:
+The two events differ on six axes — and each difference is intentional:
 
 | Aspect | `user_prompt` (carryover) | `assistant_response` (NEW) |
 |---|---|---|
