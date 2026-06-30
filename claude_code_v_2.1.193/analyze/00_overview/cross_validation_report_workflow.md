@@ -122,13 +122,13 @@ Each NET-NEW / CARRYOVER / REFINEMENT claim was re-confirmed by `grep -c` of a s
 1. **`depth: K3(pe)+1` cross-link cited the wrong line (4-line drift).** Both `README.md` (Related sibling 193 deltas line) and `structured_output_call_control.md` (Cross-links list) cited `@423707`, but line 423707 in 193 is `de(Pt);`. The `depth: K3(pe) + 1,` field is at **423711**. Fixed both cites to `423711`.
 2. **"byte-equivalent" mischaracterized the print-mode carryover.** The print-mode `--json-schema` cap is genuine CARRYOVER, but it is NOT byte-equivalent: the obfuscated tokens are re-mangled (`Mjo`≠`Y0o`, `Cr`≠`_n`, `Ti`≠`en`, `wr`≠`Yt`, `Ep`≠`Em`), as the doc's own re-mangle mapping shows. Replaced "byte-equivalent / byte-equiv" with "logic-equivalent (re-mangle only)" in all 5 occurrences: `README.md` table row B2′; `structured_output_call_control.md` TL;DR caveat, the §2 adversarial-nuance sentence, the `printModeRetryCap` snippet header comment, and the Evidence-note table row.
 
-Total: 7 Edit operations across 2 files, resolving 2 logical defects. The `workflows_detail_status_filter.md` doc and the `symbol_additions_v2_1_193_workflow.md` file required **no** edits (every anchor and count verified).
+Total: 7 original edit operations across 2 files, resolving 2 logical defects. A later post-audit cleanup clarified the local-variable rows in `symbol_additions_v2_1_193_workflow.md` by adding declaration+use pairs for `dt`, `sr`, `Mr`, and `Ko`; no behavior or delta classification changed. The `workflows_detail_status_filter.md` doc stayed unchanged because every anchor and count verified.
 
 ---
 
 ## C5 — Residuals (honest)
 
-- **Local-variable anchors cite a representative usage, not the `let`-head.** `symbol_additions` cites `dt`@423804 (the `= Gn.attachment.data` assignment), `sr`@423840 (`sr++`), `Mr`@423819 (`Mr++`), `Ko`@423819 (`Ko.delete`); the actual `let`-block declarations are 423775/423778/423779/423781. These are explicitly labelled "(local …)" and each cited line is a real, meaning-carrying use of that token, so they are not misleading — left as-is.
+- **Local-variable anchors are now declaration+use pairs.** `symbol_additions` cites the declaration line and the meaning-carrying use for each local: `dt` `:423775`/`:423804`, `sr` `:423778`/`:423840`, `Mr` `:423779`/`:423819`, and `Ko` `:423781`/`:423819`+`:423840`. The earlier local-anchor caveat is therefore resolved.
 - **`Ke.key` → `key.name` rename.** The `f`-key handler READABLE renders `Ke.key === "f"` as `key.name === "f"`; the ORIGINAL correctly shows `Ke.key`, and the `// Mapping` line documents the `Ke.key→key.name` rename, so the source claim is accurate. Left as-is.
 - **CLAUDE.md compliance:** no obf→readable mapping tables were introduced into module docs; the cross-version Role/183-obf/193-obf re-mangle tables that already exist are the allowed kind; every doc retains its list-format `## Related Symbols` section.
 

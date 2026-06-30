@@ -70,7 +70,7 @@
 | `jT` | SETTINGS_SOURCES (merge iteration) | cli_inner_pretty.js:219471 (use) | constant |
 | `p3e` | resolvePath (per-source settings path resolution) | cli_inner_pretty.js:219474 (use) | function |
 | `Rqi` | resolveCredentialProtection `{denyReadPaths, unsetEnvVars, setEnvVars}` | cli_inner_pretty.js:211660 | function |
-| `Yjd` | buildSandboxFsDenyRead (folds `denyReadPaths` into `filesystem.denyRead`) | cli_inner_pretty.js:211677 | function |
+| `Yjd` | buildSandboxFsDenyRead (folds `denyReadPaths` into `filesystem.denyRead`) | cli_inner_pretty.js:211675 (decl) / 211677 (merge) | function |
 | `FRn` | secretInjectionRegistry (staged `mode:"mask"` sentinel registry) | cli_inner_pretty.js:212031 (inst), 209631 (register method; call site `:211671`) | variable |
 | `Ya` | sandboxConfig (resolved sandbox config object) | cli_inner_pretty.js:211677 (use) | variable |
 | `allowPlaintextInject` | credentials.allowPlaintextInject gate (staged mask) | cli_inner_pretty.js:211560 | object |

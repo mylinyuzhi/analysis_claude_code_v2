@@ -4,7 +4,7 @@
 - **Docs base:** `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.193/analyze/40_system_prompt/`
 - **Docs audited:** `README.md`, `env_block_agent_proxy_line.md`, `reminder_catalogue_delta_193.md`
 - **Additions file:** `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.193/analyze/00_overview/symbol_additions_v2_1_193_system_prompt.md`
-- **TARGET bundle (v2.1.193):** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines; `VERSION:"2.1.193"`, build `a1938d2a`, `BUILD_TIME 2026-06-25T18:18:11Z` — re-confirmed at :162,214)
+- **TARGET bundle (v2.1.193):** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines; `VERSION:"2.1.193"`, build `a1938d2a`, `BUILD_TIME 2026-06-25T18:18:11Z` — re-confirmed in metadata blocks at :162, :196, and :211-214)
 - **BEFORE-PICTURE bundle (v2.1.183):** `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js` (699,346 lines)
 - **EARLIER BASELINE (v2.1.156):** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
 - **v2.1.88 named-TS reference:** `/lyz/codespace/3rd/claude-code/src/`
@@ -12,7 +12,7 @@
 
 **Verdict (one line):** **PASS WITH FIXES.** Every load-bearing 193 anchor, every NET-NEW string, and every CARRYOVER survival claim reproduced exactly at the cited lines and grep-counts. The set-diff of the two `05_reminders.json` assets confirms the catalogue moved by **exactly one add and one remove**, matching the doc verbatim. Two genuine **mislabels** were found and fixed in place: (1) the 183 carryover env builder was cited as `D_f` — it is actually `L_f@580976` (`D_f@581006` is the unrelated 3-param sibling = 193 `V3f`); independently confirmed by the extracted asset filename `03_env_template_0_L_f.txt`. (2) `Kwn@152092` was described as "the @152055 save-time guidance" — it is actually the stale-memory drift/trust bullet (carryover of 183 `UQu@151550`). Three minor cite drifts (slot range, model-line line, function-range end) were tightened to the exact lines. No false deltas survived.
 
-**Sample:** 35 distinct v2.1.193 anchors re-read in the live bundle · 11 before-pictures re-read (9 in v2.1.183, plus the 156 baseline for the dedup) · 18 grep-count diffs re-run across BOTH the 183 and 156 bundles, plus an authoritative Python set-diff of the two reminder assets.
+**Sample:** 35 distinct v2.1.193 anchors re-read in the live bundle · 11 before-pictures re-read (9 in v2.1.183, plus the 156 baseline for the dedup) · 1 v2.1.88 named-TS lineage function re-read line-by-line · 18 grep-count diffs re-run across BOTH the 183 and 156 bundles, plus an authoritative Python set-diff of the two reminder assets.
 
 ---
 
@@ -137,7 +137,28 @@ Highest-value check. Every NET-NEW / REMOVED / CARRYOVER string was grepped in B
 
 ## C4 — Lineage (v2.1.88 named-TS)
 
-- `computeEnvInfo` @ `constants/prompts.ts:606`: the docs cite this as the named ancestor of `W3f`. The v2.1.88 env builder exists and ends the `<env>` block directly at `OS Version:` (no proxy slot) — consistent with the doc's "the `${l}` slot is the only structural change since 88". `grep -rEc 'agentproxy|Outbound HTTPS'` over `/3rd/claude-code/src` = 0 (no ancestor for delta #1), matching the doc. PASS (lineage claims framed honestly; not re-deep-read line-by-line as it is out of the 193-delta critical path).
+### `computeEnvInfo` named-ancestor check
+
+**What it does:** Confirms that the 193 `W3f` env-block builder evolved from the v2.1.88 named `computeEnvInfo`, and that the agent-proxy slot is not an older named-source feature.
+
+**How it works:**
+1. Read `/lyz/codespace/3rd/claude-code/src/constants/prompts.ts:606-648`: `computeEnvInfo(modelId, additionalWorkingDirectories?)` awaits `[getIsGit(), getUnameSR()]`, builds the same model-description branch, the same additional-working-directories line, and the same knowledge-cutoff suffix.
+2. Compare the v2.1.88 return literal at `constants/prompts.ts:640-648` to the 183 and 193 bundle builders. The 88 literal emits `Working directory`, `Is directory a git repo`, `Platform`, `getShellInfoLine()`, `OS Version: ${unameSR}`, then immediately `</env>`.
+3. Compare the 183 before-picture `L_f` at `cli_inner_pretty.js:580976-581004`: it has the same direct `OS Version` → `</env>` ending, proving the no-slot shape survived through 183.
+4. Compare the 193 target `W3f` at `cli_inner_pretty.js:592845-592880`: the only structural insertion in that tail is `l = Nwn()` and the conditional `${l ? ... : ""}` slot between `OS Version` and `</env>`.
+5. Run a focused absence search over the v2.1.88 source for `agentproxy`, `Outbound HTTPS`, and `__agentproxy/status`; all are absent, so the line text, status endpoint, and env-slot contract have no v2.1.88 ancestor.
+
+**Why this approach:**
+- The named TypeScript source provides semantic function names (`computeEnvInfo`, `getIsGit`, `getUnameSR`, `getShellInfoLine`) that the obfuscated bundles cannot preserve.
+- The 183 bundle remains the immediate before-picture for the 183→193 delta, while the 88 source is used to verify lineage and rule out an older hidden agent-proxy prompt contract.
+- The key comparison is the rendered literal tail, not local variable names, because local names differ across source and bundles.
+
+**Key insight:** v2.1.88 and v2.1.183 both terminate the env block directly after `OS Version`; v2.1.193 is the first checked source that inserts a dynamic slot at that position. That makes the agent-proxy prompt line a surgical post-183 addition to an otherwise stable env scaffold, not a rediscovered old prompt feature.
+
+- `constants/prompts.ts:606-648` — v2.1.88 `computeEnvInfo` exists and has no proxy slot.
+- `constants/prompts.ts:646-647` — direct `OS Version: ${unameSR}` → `</env>` ending.
+- Focused `rg` over `/lyz/codespace/3rd/claude-code/src` found no `agentproxy`, `Outbound HTTPS`, or `__agentproxy/status`.
+- PASS: the README/env-block lineage claim is now line-by-line confirmed, not merely shape-confirmed.
 
 ---
 
@@ -174,5 +195,5 @@ The 40_system_prompt delta analysis is well-grounded: all 35 sampled v2.1.193 an
 
 **Residuals (honest):**
 - Delta #4 ("background launch-result no longer says 'end your response'") is a cross-link owned by `36_background_agents`; it was only sanity-checked here (`end your response` 193=2 vs 183=4; `async_launched` branch @431253 present) and is not deep-audited in this theme.
-- The v2.1.88 `computeEnvInfo @ constants/prompts.ts:606` lineage cite was confirmed for shape/absence-of-proxy-slot but not line-by-line deobfuscated (out of the 193-delta critical path).
+- The v2.1.88 `computeEnvInfo @ constants/prompts.ts:606-648` lineage cite was line-by-line checked for the env-block scaffold and absence of the proxy slot; focused 88 greps found no `agentproxy`, `Outbound HTTPS`, or `__agentproxy/status`.
 - The README sub-agent asset sizes are quoted as `2656/2497/2059/1288/549` (the extraction's char-length convention from the filenames) vs `wc -c` byte counts `2664/.../553` (UTF-8 multibyte `—` em-dashes). The load-bearing claim — 183 and 193 sub-agent assets are **identical to each other** — holds on both measures; not a defect, noted for transparency.

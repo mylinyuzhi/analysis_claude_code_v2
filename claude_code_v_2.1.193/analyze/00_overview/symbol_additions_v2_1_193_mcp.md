@@ -73,7 +73,8 @@
 |------------|----------|-----------|------|
 | `t3o` | `suggestClosestServerName` (fuzzy + truncate-at-8) | cli_inner_pretty.js:610416 | function |
 | `psr` | `formatNotFoundWithPending` | cli_inner_pretty.js:610430 | function |
-| `fde` | `fuzzyClosestMatch` (Levenshtein; t3o calls it with maxEditDistance 2 `:610418`) | cli_inner_pretty.js:382122 | function |
+| `fde` | `fuzzyClosestMatch` (bounded closest match over name+aliases; `t3o` calls it with maxEditDistance 2 `:610418`) | cli_inner_pretty.js:382122 | function |
+| `z5t` | `editDistanceWithAdjacentTransposition` (DP edit distance; delete/insert/substitute + adjacent swap) | cli_inner_pretty.js:382133 | function |
 | `f9f` | `mcpGetHandler` | cli_inner_pretty.js:611549 | function |
 | `a9f` | `mcpRemoveHandler` | cli_inner_pretty.js:611388 | function |
 | (cmd) | `mcp get <name>` registration | cli_inner_pretty.js:613570 | object |

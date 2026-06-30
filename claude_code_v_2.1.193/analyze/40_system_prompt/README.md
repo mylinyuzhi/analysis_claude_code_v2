@@ -9,7 +9,7 @@
 >
 > TARGET bundle: `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js`
 > (718,679 lines; `VERSION:"2.1.193"`, build `a1938d2a`, `BUILD_TIME 2026-06-25T18:18:11Z` —
-> verified `cli_inner_pretty.js:162,214`). Every `cli_inner_pretty.js:<line>` citation below is a
+> verified in the metadata blocks at `cli_inner_pretty.js:162`, `:196`, and `:211-214`). Every `cli_inner_pretty.js:<line>` citation below is a
 > **v2.1.193** line unless explicitly tagged `(183)` or `(v2.1.88)`.
 > Obfuscated names were **re-mangled** by the bundler for this build — a 183 obf token is **never**
 > reused. Where a symbol is carryover, the 183 obf token is given for traceability only.

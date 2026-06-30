@@ -83,17 +83,22 @@ NET-NEW (2.1.191) agent stop lifecycle (user-stop marker persisted to disk, `Age
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
+| `$Kr` | `currentBgCwdOverride` (refreshed bg cwd consumed by classifier state writes) | cli_inner_pretty.js:193511 | function |
 | `Mde` | `markAgentStoppedByUser` (also drives Agent Team user-source stop) | cli_inner_pretty.js:431808 | function |
 | `CXp` | `persistStopMarker` | cli_inner_pretty.js:431816 | function |
 | `Hre` | `readAgentDiskState` | cli_inner_pretty.js:581895 | function |
 | `Tde` | `writeAgentDiskState` | cli_inner_pretty.js:581867 | function |
 | `t7l` | `agentStateMetaPath` (builds `<agentId>.meta.json`) | cli_inner_pretty.js:581864 | function |
 | `Vht` | `AgentStoppedError` (thrown on resume of a stopped agent) | cli_inner_pretty.js:441779 | class |
+| `dSc` | `mapAgentPanelChildRows` (panel child rows; 193 maps `frame` children, 183 `JJl` filtered them) | cli_inner_pretty.js:674897 | function |
+| `Eim` | `measureChildArtifactWidth` (artifact-width fallback for frame-only child lists) | cli_inner_pretty.js:674539 | function |
 | `oUo` | `countAbandonedBgTasks` | cli_inner_pretty.js:578073 | function |
 | `fze` | `computeCarryOverMap` | cli_inner_pretty.js:578006 | function |
+| `k3i` | `refreshBgJobCwdAfterCd` (bg-only `cwd`/`originCwd` metadata refresh after `/cd`) | cli_inner_pretty.js:193514 / call 484488 | function |
 | `Lgl` | `registerCompletedResumedAgent` | cli_inner_pretty.js:454100 | function |
 | `JKl` | `readJobDir` | cli_inner_pretty.js:577927 | function |
 | `QKl` | `linkAdoptedAgentTranscript` | cli_inner_pretty.js:577951 | function |
+| `R3i` | `refreshBgJobResumePointers` (bg-only `resumeSessionId`/`linkScanPath` refresh after conversation reset) | cli_inner_pretty.js:193529 / call 485419 | function |
 
 ## Module: Compact — refactored dispatcher (discriminated-union return)
 

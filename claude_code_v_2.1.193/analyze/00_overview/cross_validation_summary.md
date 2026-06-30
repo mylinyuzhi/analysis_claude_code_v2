@@ -45,8 +45,8 @@ this summary) and the `by_version/` digest. The reports rolled up here are:
 - [`cross_validation_report_telemetry.md`](./cross_validation_report_telemetry.md)
 - [`cross_validation_report_skills.md`](./cross_validation_report_skills.md)
 
-**Headline: 12 / 12 PASS WITH FIXES, HIGH confidence. 591 distinct v2.1.193 anchors re-read at their exact cited
-lines; 41 defects fixed in place; 2 false-deltas caught and reclassified as carryover; 0 FAIL.**
+**Headline: 12 / 12 PASS WITH FIXES, HIGH confidence. 625 distinct v2.1.193 anchors re-read at their exact cited
+lines; 42 defects fixed in place; 2 false-deltas caught and reclassified as carryover; 0 FAIL.**
 
 ---
 
@@ -61,11 +61,11 @@ delta-classification corrections, **never a wrong symbol or a fabricated line**.
 
 | Theme | Anchors (193) | Anchors resolved | Defects fixed | False-deltas | Verdict | Confidence |
 |---|---:|---|---:|---:|---|---|
-| `04_tools` | 49 | 49 / 49 | 1 | 0 | PASS WITH FIXES | HIGH |
+| `04_tools` | 53 | 53 / 53 | 1 | 0 | PASS WITH FIXES | HIGH |
 | `07_compact` | 30 | 30 / 30 | 2 | 0 | PASS WITH FIXES | HIGH |
 | `30_agent_team` | 33 | 33 / 33 (2 drift-corrected) | 5 | 1 | PASS WITH FIXES | HIGH |
-| `31_auto_memory` | 22 | 22 / 22 | 3 | 0 | PASS WITH FIXES | HIGH |
-| `36_background_agents` | 73 | 73 / 73 | 5 | 0 | PASS WITH FIXES | HIGH |
+| `31_auto_memory` | 30 | 30 / 30 | 3 | 0 | PASS WITH FIXES | HIGH |
+| `36_background_agents` | 95 | 95 / 95 | 6 | 0 | PASS WITH FIXES | HIGH |
 | `38_permissions` | ~85 | ~85 / ~85 | 4 | 0 | PASS WITH FIXES | HIGH |
 | `39_mcp` | 85 | 85 / 85 | 7 | 1 | PASS WITH FIXES | HIGH |
 | `40_system_prompt` | 35 | 35 / 35 | 5 | 0 | PASS WITH FIXES | HIGH |
@@ -73,26 +73,26 @@ delta-classification corrections, **never a wrong symbol or a fabricated line**.
 | `43_slash_commands` | 55 | 55 / 55 | 3 | 0 | PASS WITH FIXES | HIGH |
 | `44_telemetry` | 33 | 33 / 33 | 1 | 0 | PASS WITH FIXES | HIGH |
 | `45_skills` | 45 | 45 / 45 | 3 | 0 | PASS WITH FIXES | HIGH |
-| **Total** | **591** | **591 / 591** | **41** | **2** | **PASS (12/12)** | **HIGH** |
+| **Total** | **625** | **625 / 625** | **42** | **2** | **PASS (12/12)** | **HIGH** |
 
-**Aggregate: 591 / 591 sampled v2.1.193 anchors resolved to the claimed symbol on re-read; 41 in-place defects
-fixed; 2 false-deltas caught and reclassified to carryover; 0 FAIL.** Beyond the 591 TARGET anchors, the twelve
+**Aggregate: 625 / 625 sampled v2.1.193 anchors resolved to the claimed symbol on re-read; 42 in-place defects
+fixed; 2 false-deltas caught and reclassified to carryover; 0 FAIL.** Beyond the 625 TARGET anchors, the twelve
 passes re-read **150+ before-pictures** in the 183/156/88 trees and re-ran **230+ grep-count diffs** (each in 193,
-183, and 156) plus six asset cross-checks — none of which is counted in the 591.
+183, and 156) plus six asset cross-checks — none of which is counted in the 625.
 
-> The "591" is the sum of distinct 193 anchors per report
-> (49 + 30 + 33 + 22 + 73 + 85 + 85 + 35 + 46 + 55 + 33 + 45). The two themes reported as "~85"/"85+" (permissions,
+> The "625" is the sum of distinct 193 anchors per report
+> (53 + 30 + 33 + 30 + 95 + 85 + 85 + 35 + 46 + 55 + 33 + 45). The two themes reported as "~85"/"85+" (permissions,
 > MCP) and the two reported as "55+"/"~45"/"~45" (slash_commands, skills, tools') are taken at their stated
 > base figure for the sum; the roll-up is therefore a conservative floor, not an inflated count.
 
 ---
 
-## 2. Failure / defect taxonomy (all 41 now fixed)
+## 2. Failure / defect taxonomy (all 42 now fixed)
 
-Every one of the 41 fixes is a precision, label, count, or classification defect: in each case the obfuscated
+Every one of the 42 fixes is a precision, label, count, or classification defect: in each case the obfuscated
 identifier exists, the declaration/string text is what the doc says, and the underlying delta finding holds. **No
-pass found a single invented symbol, a fabricated line, a wrong-token mapping, or a wrong-direction delta.** The 41
-group cleanly into five categories that re-add to 41 from two independent angles (per-theme sum and per-category
+pass found a single invented symbol, a fabricated line, a wrong-token mapping, or a wrong-direction delta.** The 42
+group cleanly into five categories that re-add to 42 from two independent angles (per-theme sum and per-category
 sum):
 
 | Category | Count | What it is |
@@ -101,9 +101,9 @@ sum):
 | Obf→readable mapping mislabel | ~8 | The symbol is correct but the readable name or signature description was wrong; corrected to match the decl body |
 | Grep-count / enumeration correction | ~2 | A reported count was off (the symbol and direction were right) |
 | False-delta → reclassified carryover | 2 | A "NET-NEW" claim that was actually present pre-window; reclassified CARRYOVER (see §3) |
-| Source-text / prose content fix | ~3 | A snippet field or a prose number disagreed with the source/its own table |
+| Source-text / prose content fix | ~4 | A snippet field, stale anchor, or prose number disagreed with the source/its own table |
 
-**Per-theme breakdown of the 41** (each reconciles to its report's "Defects fixed" section):
+**Per-theme breakdown of the 42** (each reconciles to its report's "Defects fixed" section):
 
 - **`30_agent_team` (5).** 2 decl-line drifts (`$jt` `302921→302920`, `Mde` `431809→431808`); 1 grep-count fix
   (`"iterm2"` literal `16→20`, re-counted at `cli_inner_pretty.js:` whole-bundle `grep -o` = 20 in 193 / 9 in 183);
@@ -116,10 +116,11 @@ sum):
   independently proven by the extracted asset filename `03_env_template_0_L_f.txt`), and the `Kwn`@`152092`
   save-time→staleness-bullet description; plus 3 ±1 cite drifts (slot range `592873-592879→-592878`, function range
   end `…592881→…592880`, model-info line `592852→592851`).
-- **`36_background_agents` (5).** 2 +1 drifts (`Mde` `431809→431808`, `CXp` `431817→431816`); 1 mislabel (`Re`@`44848`
+- **`36_background_agents` (6).** 2 +1 drifts (`Mde` `431809→431808`, `CXp` `431817→431816`); 1 mislabel (`Re`@`44848`
   is a `tengu_feature_bad` emitter — relabeled `logFeatureError`, not "logToolEvent"); 1 identity-passthrough
   clarification (`Ou`@`1792` is `(e)=>e`; the real `.meta.json` path builder `t7l`@`581864` added to the index); 1
-  parenthetical `summary`-arg drift (`431260→431255`).
+  parenthetical `summary`-arg drift (`431260→431255`); 1 stale panel schema pointer replaced by `dSc`/`Eim` and the
+  child-row overflow slice anchors.
 - **`38_permissions` (4).** Four ±1–2 cite drifts, each naming a decl whose exact line was off by one or two
   (`credentials: IEu()` `54096→54095`; `Rwr` `54059→54058`; `FRn.register` method `209633→209631`; `u_n`
   `103211→103212`). The 18-grep-diff false-delta hunt across all three bundles found **zero** false deltas.
@@ -169,6 +170,9 @@ row; only `grep -c` in 183 **and** 156 exposed the pre-existing uses.
 - **Background Agents.** The turn-end "working" finalizer is correctly flagged **CARRYOVER, not a 183→193 delta**:
   183 `pgo`@`456114` is byte-equivalent to 193 `Exo`@`464591` (identical guard and `tempo:"blocked"` write; only the
   re-mangled `needs` sentinel and two added `[reply-on-resume]` debug strings differ). The doc's honesty flag holds.
+  A later focused pass also upgraded the pinned-reprompt area: the `WWn` resume-prompt call sites are still carryover,
+  but 193 adds an isolable bg-job metadata refresh (`k3i`/`R3i`/`$Kr`) after `/cd` and conversation reset, with no
+  equivalent in the 183 reset/classifier windows.
 - **Compaction.** The whole `Ego`→`Rxo` change is correctly characterized as a **behavior-preserving shape change**
   (flat `{wasCompacted}` → discriminated `{kind}` union), proven by the six-exit-point map and the two diagnostic
   greps `wasCompacted` 10→0 and `rapid_refill_breaker_tripped` 0→2 — not a behavior change.
@@ -194,7 +198,7 @@ ones most rigorously down-scoped, each backed by evidence.
 
 ## 4. Methodology — what made the passes adversarial
 
-A 99.x% first-read anchor-resolution rate could still surface 41 real defects and 2 false-deltas because every pass
+A 99.x% first-read anchor-resolution rate could still surface 42 real defects and 2 false-deltas because every pass
 ran the same multi-layer self-check:
 
 1. **Three-bundle physical re-read, never memory.** The 193 bundle (718,679 lines) is line-shifted ~19k vs 183
@@ -216,8 +220,16 @@ ran the same multi-layer self-check:
    `logOTelEvent` `events.ts:21`, `MAX_CONTENT_SIZE = 60*1024` `betaSessionTracing.ts:70`) and confirmed
    `assistant_response` absent from the 88 tree; auto_memory confirmed `buildConsolidationPrompt`
    `consolidationPrompt.ts:10`; agent_team confirmed `getTeammateMode` has no `iterm2` and `buildInheritedCliFlags`
-   never took `effortValue`. Non-existence assertions (background "no 88 ancestor for the disk-resume model") were
-   verified by `grep`=0 over `src/`, so there is nothing to falsify.
+   never took `effortValue`; skills confirmed the 88 `frontmatterParser.ts` / `loadSkillsDir.ts` shape has literal
+   field readers, body-preserving YAML failure behavior, no `parseError`, and no `normalizeKeys` parser option.
+   MCP confirmed the 88 client already had direct list calls, headersHelper, the absolute `MCP_TOOL_TIMEOUT`, legacy
+   401 needs-auth surfacing, and the needs-auth cache, while lacking `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`,
+   `reauth_retry`, `mcpLoginHandler`, and `ENDPOINT_NOT_FOUND`. Tools confirmed 88 already had Bash
+   `processBashCommand`, List/Read MCP resource tools, ToolSearch, TeamCreate/TeamDelete, and non-bash `@` path
+   completion, while lacking `respondToBashCommands`, `"bash-path"`, and `ReadMcpResourceDirTool` /
+   `resources/directory/read`.
+   Non-existence assertions (background "no 88 ancestor for the disk-resume model") were verified by `grep`=0 over
+   `src/`, so there is nothing to falsify.
 
 4. **Asset cross-checks.** System_prompt's `05_reminders.json` set-diff (one add / one remove) and env-template
    byte sizes (198→203 B); telemetry's `env_vars.json` (the new var absent from the asset, bundle authoritative);
@@ -296,36 +308,42 @@ Carried forward for any future pass:
 2. **Compaction — refactor commit boundaries.** The `VZr` extraction and the `autocompactRan` pre-derivation are
    plausibly part of the same commit as the discriminated-union change but are not separable without intermediate
    bundles; behavior-preserving regardless.
-3. **Background — soft naming and un-isolable UI items.** `Tr`@`3061` is literally `!isInteractive` (named
-   `isRemoteMode`); `Ie`/`Re` are generic `tengu_feature_ok`/`_bad` emitters; the pinned-re-prompt guard, panel
-   sibling-hide/row-jump, and channel-drop fix are correctly flagged NOT ISOLABLE / LOW with no fabricated anchors.
-4. **MCP — runtime vs role names and algorithm depth.** `lWe`/`Vj` readable names differ from their runtime `.name`
-   ("McpAuthError"/"AuthenticationCancelledError"), annotated rather than renamed; `fde` is characterized as
-   Levenshtein/edit-distance but not re-derived to the algorithm level; the notice strings are carryover-vs-183 but
-   absent in 156 (added in the prior window).
+3. **Background — soft naming and bounded UI items.** `Tr`@`3061` is literally `!isInteractive` (named
+   `isRemoteMode`); `Ie`/`Re` are generic `tengu_feature_ok`/`_bad` emitters. The pinned-reprompt area now has an
+   isolated bg-job metadata-refresh mechanism (`$Kr`/`k3i`/`R3i`), but the direct pin-specific UI guard, panel
+   sibling-hide/row-jump, and channel-drop fix remain bounded as inferred / LOW with no fabricated anchors.
+4. **MCP — runtime vs role names and prior-window notices.** `lWe`/`Vj` readable names differ from their runtime
+   `.name` ("McpAuthError"/"AuthenticationCancelledError"), annotated rather than renamed; `fde`/`z5t` is now
+   re-derived as a bounded name+alias matcher over an adjacent-transposition-aware DP edit distance; the notice
+   strings are carryover-vs-183 but absent in 156 (added in the prior window).
 5. **Tools — the `--tools` cold-launch gate fix (T4) is un-isolable / LOW.** No `flagsLoaded`/`ensureFlags`/
-   `waitForFlags` symbol exists (0 in both bundles) and the `Sjo`/`b4` machinery is carryover-identical; a
-   `38_permissions` startup-ordering follow-up is the right call.
-6. **Auto Memory — recall builder sub-roles + asset-range edges.** The `m0i`/`g0i`/`VVr` private-vs-team-vs-single-dir
-   sub-roles are carryover and out of the 193 scope, so were not independently re-derived; the `billiard…§2`
-   code-snippet header range is the createElement call range (±2).
+   `waitForFlags` symbol exists (0 in both bundles), `Sjo`/`b4` are carryover-identical, and the explicit
+   GrowthBook `gb-before-tools` await occurs after `Sjo` in both 183 and 193. The visible `SendUserMessage`
+   `--tools` opt-in latch (`FXp`/`Jfe`) also predates this window, so a `38_permissions` startup-ordering
+   follow-up remains the right call.
+6. **Auto Memory — carryover recall builders + asset-range edges.** The `m0i`/`g0i`/`VVr` private+team,
+   team-only/multi-dir/read-only, and single-dir roles were re-derived from their 193 bodies and `w$t` dispatcher,
+   then matched to 183 `mgi`/`Agi`/`UNr`; they remain carryover and out of the 193 behavioral delta. The
+   `billiard…§2` code-snippet header range is the createElement call range (±2).
 7. **System Prompt — cross-theme + lineage edges.** Delta #4 ("background launch-result no longer says 'end your
    response'") is owned by `36_background_agents` and only sanity-checked here; the v2.1.88 `computeEnvInfo`
-   `constants/prompts.ts:606` lineage was shape-confirmed (no proxy slot) but not line-by-line deobfuscated; the
-   sub-agent asset sizes are quoted in the extractor's char-length convention vs `wc -c` bytes (load-bearing claim —
-   183≡193 sub-agent assets — holds on both measures).
-8. **Cosmetic cross-doc naming variance.** Telemetry's `lIt` is named `coerceEnvValue` in one doc and
-   `envValuePreprocessor` in the additions file (same `@36039`, cosmetic); skills' `yJu` 183 cite lands on the
-   forward-declaration line (within ±3); workflow's local-var anchors cite a representative usage, not the `let`-head
-   (explicitly labelled). None affects a delta finding.
+   `constants/prompts.ts:606-648` lineage was line-by-line checked for the env scaffold and direct `OS Version` →
+   `</env>` ending; the sub-agent asset sizes are quoted in the extractor's char-length convention vs `wc -c` bytes
+   (load-bearing claim — 183≡193 sub-agent assets — holds on both measures).
+8. **Cosmetic cross-doc naming variance.** The telemetry `lIt` variance is resolved: the deep doc now uses the same
+   `envValuePreprocessor` readable name as the additions file (`lIt` at `@36039`, body
+   `return e === void 0 ? void 0 : String(e);`). The Skills `yJu` before-picture is also resolved: published docs
+   now cite both its 183 declaration (`:148571`) and list assignment range (`:148574-148628`). The Workflow local-var
+   anchor caveat is resolved too: additions now cite declaration+use pairs for `dt`, `sr`, `Mr`, and `Ko`. No
+   remaining item in this bucket affects a delta finding.
 
 ---
 
 ## 7. Overall conclusion
 
-- **Citation accuracy:** 591 / 591 sampled v2.1.193 anchors resolved to the claimed symbol on physical re-read;
-  the 41 in-place fixes were ~26 line-precision drifts, ~8 mapping-label corrections, ~2 count corrections, 2
-  false-delta reclassifications, and ~3 source-text/prose fixes — **zero fabricated symbols, zero wrong tokens, zero
+- **Citation accuracy:** 625 / 625 sampled v2.1.193 anchors resolved to the claimed symbol on physical re-read;
+  the 42 in-place fixes were ~26 line-precision drifts, ~8 mapping-label corrections, ~2 count corrections, 2
+  false-delta reclassifications, and ~4 source-text/prose fixes — **zero fabricated symbols, zero wrong tokens, zero
   wrong-direction deltas.**
 - **Delta correctness:** every headline delta is corroborated at the cited 193 lines and proven absent in **both**
   183 and 156 — Tools (`"bash-path"` autocomplete, `respondToBashCommands` auto-respond, `ReadMcpResourceDirTool`

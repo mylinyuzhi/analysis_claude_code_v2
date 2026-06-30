@@ -29,10 +29,10 @@
 | `NYp` | `DEFAULT_SO_RETRIES` (`5`; workflow `agent({schema})` schema-failure cap) | cli_inner_pretty.js:424307 | constant |
 | `kol` | `STALL_RETRY_CAP` (`5`; separate outer stall-retry cap — do NOT conflate with `NYp`) | cli_inner_pretty.js:424306 | constant |
 | (local `kn`) | `retryCap` (`Be.MAX_STRUCTURED_OUTPUT_RETRIES ?? NYp`) | cli_inner_pretty.js:423782 | variable |
-| (local `Mr`) | `failedStructuredOutputCalls` (counts `is_error` StructuredOutput `tool_result`s) | cli_inner_pretty.js:423819 | variable |
-| (local `Ko`) | `structuredOutputCallIds` (Set of in-flight StructuredOutput `tool_use` ids) | cli_inner_pretty.js:423819 | variable |
-| (local `dt`) | `capturedStructuredOutput` (set from the `structured_output` attachment) | cli_inner_pretty.js:423804 | variable |
-| (local `sr`) | `structuredOutputAttempts` (StructuredOutput `tool_use` count this run) | cli_inner_pretty.js:423840 | variable |
+| (local `Mr`) | `failedStructuredOutputCalls` (counts `is_error` StructuredOutput `tool_result`s) | cli_inner_pretty.js:423779 (decl) / 423819 (increment) | variable |
+| (local `Ko`) | `structuredOutputCallIds` (Set of in-flight StructuredOutput `tool_use` ids) | cli_inner_pretty.js:423781 (decl) / 423819 and 423840 (delete/add) | variable |
+| (local `dt`) | `capturedStructuredOutput` (set from the `structured_output` attachment) | cli_inner_pretty.js:423775 (decl) / 423804 (capture) | variable |
+| (local `sr`) | `structuredOutputAttempts` (StructuredOutput `tool_use` count this run) | cli_inner_pretty.js:423778 (decl) / 423840 (increment) | variable |
 
 ## Module: Workflow — `requiresStructuredOutput` inline enforcement (NET-NEW 2.1.187, replaces 183 Stop-hook)
 

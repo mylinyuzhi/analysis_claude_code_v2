@@ -9,7 +9,7 @@ This tree is a **focused source delta** of the **v2.1.183 → v2.1.193** window,
 | # | Theme | Module dir | Headline delta (v2.1.183 → v2.1.193) |
 |---|-------|------------|--------------------------------------|
 | 1 | Permissions & Auto-mode | [`38_permissions/`](38_permissions/) | `autoMode.classifyAllShell` (route ALL shell through the classifier), denial-reason surfacing, `sandbox.credentials`, org model-entitlement restrictions, approve-persists, `Agent(type)` named-spawn enforcement |
-| 2 | Background Agents | [`36_background_agents/`](36_background_agents/) | Memory-pressure idle bg-shell reaping, fork-aware subagent depth tracking, permanent agent stop, backgrounding/panel fixes |
+| 2 | Background Agents | [`36_background_agents/`](36_background_agents/) | Memory-pressure idle bg-shell reaping, fork-aware subagent depth tracking, permanent agent stop, bg-job metadata refresh, backgrounding/panel fixes |
 | 3 | MCP | [`39_mcp/`](39_mcp/) | `claude mcp login/logout` CLI, headersHelper 401/403 self-healing re-auth, discovery/OAuth retries + 404 rewrite, get/remove name suggestions, tool-call idle timeout |
 | 4 | Telemetry / OTEL | [`44_telemetry/`](44_telemetry/) | The `claude_code.assistant_response` OTEL log event + the `OTEL_LOG_USER_PROMPTS` inheritance gotcha |
 | 5 | Workflow / StructuredOutput | [`42_workflow/`](42_workflow/) | StructuredOutput post-success lockout + inline enforcement (replaces the 183 Stop-hook), `agent({schema})` 5-attempt retry cap, `/workflows` `f` status filter |
@@ -100,7 +100,7 @@ The frontmatter pipeline learns **multi-case key tolerance** (`normalizeFrontmat
 
 ### 8. Tools — input UX + tool-surface delta → [`04_tools/`](04_tools/)
 
-`!` bash commands now **auto-trigger a model response** (`respondToBashCommands` schema field default-on at `cli_inner_pretty.js:56492`, processed by `y6f` at `cli_inner_pretty.js:617562`) — an upgrade-behavior change. Bash-input mode gains **live path autocomplete** (the `"bash-path"` completion kind at `cli_inner_pretty.js:629396`, reusing the carryover path-completion machinery at `cli_inner_pretty.js:188582`). The tool surface gains the deferred **`ReadMcpResourceDirTool`** (`_ne`, `shouldDefer:!0`, `cli_inner_pretty.js:283585`), bumping the `getAvailableTools` exclusion set 3→4 (`cli_inner_pretty.js:444225`); `TeamCreate`/`TeamDelete` remain absent (carryover removal).
+`!` bash commands now **auto-trigger a model response** (`respondToBashCommands` schema field default-on at `cli_inner_pretty.js:56492`, processed by `y6f` at `cli_inner_pretty.js:617562`) — an upgrade-behavior change. Bash-input mode gains **live path autocomplete** (the `"bash-path"` completion kind at `cli_inner_pretty.js:629396`, reusing the carryover path-completion machinery at `cli_inner_pretty.js:188582`). The tool surface gains the deferred **`ReadMcpResourceDirTool`** (`_ne`, `shouldDefer:!0`, decl `cli_inner_pretty.js:283549`, object `:283584-283585`), bumping the `getAvailableTools` exclusion set 3→4 (`cli_inner_pretty.js:444225`); `TeamCreate`/`TeamDelete` remain absent (carryover removal).
 
 ### 9. Slash Commands / Plugins / Hooks / CLI → [`43_slash_commands/`](43_slash_commands/)
 
@@ -192,12 +192,12 @@ Every obfuscated → readable mapping and every NET-NEW / CARRYOVER / REFINEMENT
 2. **193 anchor re-read.** Every load-bearing decl, string, schema body, switch-case, and constant cited in the twelve modules + their additions tables was re-read directly from the 2.1.193 bundle via `sed -n`.
 3. **Before-picture re-read.** Every `(183)` / `(156)` before-picture (removed Stop-hook, flat `{wasCompacted}` dispatcher, the `## Recalled memories` subsection, predecessor decls) was re-opened in the prior bundles.
 
-**Outcome: 12/12 themes PASS (confidence HIGH).** Across the twelve passes, **~591 distinct 193 anchors were re-read** plus ~150 before-pictures and ~280 grep-count diffs re-run in both 183 and 156. **Two genuine false deltas were caught and corrected:**
+**Outcome: 12/12 themes PASS (confidence HIGH).** Across the twelve passes, **~625 distinct 193 anchors were re-read** plus ~150 before-pictures and ~280 grep-count diffs re-run in both 183 and 156. **Two genuine false deltas were caught and corrected:**
 
 - **MCP** — the `mcp_headers_helper` telemetry was claimed NET-NEW (`1|0`), but it is a *pre-existing* `tengu_feature_sad` `feature_name` (193=7 / 183=6); only the `reauth_retry` `error_code` is new. Relabeled, and the obf→readable mislabel `Ct→logMcpEvent` corrected to `logFeatureSadEvent`.
 - **Agent Team** — `user_kill_async` telemetry was labeled NET-NEW, but it pre-dates the window (present at 183 `cli_inner_pretty.js:371804` and 156 `cli_inner_pretty.js:279437`). The row was split: `parent_kill_async`/`system_kill_async` are genuinely NET-NEW (0→1), `user_kill_async` is CARRYOVER (1→1).
 
-The remaining **~41 defects were all line-precision / transcription / labeling drift** — `±1–2` citation drifts pointing at the right declaration region, a handful of obf→readable mislabels (`Ct→logFeatureSadEvent`; `Re` as the `tengu_feature_bad` logger; the 183 env builder `L_f@580976` vs the sibling `D_f@581006`), a `"iterm2"` grep count corrected 16→20, an `aH()` call-site count corrected 11→16, and a `getAvailableTools` exclusion-set cite snapped `444239→444237`. **Never a wrong symbol, a fabricated line, or an incorrect delta classification**, and all were fixed in place. Full logs: the twelve [`00_overview/cross_validation_report_*.md`](00_overview/).
+The remaining **~42 defects were all line-precision / transcription / labeling drift** — `±1–2` citation drifts pointing at the right declaration region, a handful of obf→readable mislabels (`Ct→logFeatureSadEvent`; `Re` as the `tengu_feature_bad` logger; the 183 env builder `L_f@580976` vs the sibling `D_f@581006`), a stale background-panel schema pointer replaced by real panel-render anchors, a `"iterm2"` grep count corrected 16→20, an `aH()` call-site count corrected 11→16, and a `getAvailableTools` exclusion-set cite snapped `444239→444237`. **Never a wrong symbol, a fabricated line, or an incorrect delta classification**, and all were fixed in place. Full logs: the twelve [`00_overview/cross_validation_report_*.md`](00_overview/).
 
 ---
 

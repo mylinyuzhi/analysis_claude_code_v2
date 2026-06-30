@@ -14,7 +14,7 @@ The bg-agents machine is structurally the same as 183. This window's genuine, so
 1. **NET-NEW (2.1.193): memory-pressure reaping of idle bg shells.** A `process.on("memoryPressure")` listener kills long-idle (≥30 min) top-level backgrounded `local_bash` tasks under OS memory pressure, behind seven guards and a default-on disable env. `memoryPressure` / `task_local_shell_pressure_reap` are **0 in 183**. → [`bg_shell_pressure_reap.md`](./bg_shell_pressure_reap.md)
 2. **NET-NEW + body-change (2.1.187): subagent depth tracking.** Resume now restores the persisted `spawnDepth` (183 lost it via a `void 0` fallback), and a net-new spawn-time `subagent_depth_cap` **throw** at the Agent-tool call entry makes **forks count toward** the 5-level cap (183 enforced only by tool-removal). `subagent_depth_cap` is **0 in 183**. → [`subagent_depth_tracking.md`](./subagent_depth_tracking.md)
 3. **NET-NEW (2.1.191): stop is permanent.** Stopping a bg agent writes a durable `stoppedByUser` marker; all resume/continue paths refuse to resurrect it unless force-resumed (which clears the marker). `stoppedByUser` is **0 in 183, 9 in 193**. → [`agent_stop_lifecycle.md`](./agent_stop_lifecycle.md)
-4. **ISOLABLE fixes + honestly-flagged UI items (2.1.193/191):** the carry-over-aware "N tasks would be abandoned" count fix, the "end your response" launch-result drop, the phantom "general-purpose (resumed)" subagent guard, plus three non-isolable UI/channel items. → [`backgrounding_and_panel_fixes.md`](./backgrounding_and_panel_fixes.md)
+4. **ISOLABLE fixes + honestly-flagged UI items (2.1.193/191):** the carry-over-aware "N tasks would be abandoned" count fix, the "end your response" launch-result drop, the phantom "general-purpose (resumed)" subagent guard, the 193-only bg-job cwd/resume metadata refresh after `/cd` and conversation reset, plus remaining non-isolable UI/channel items. → [`backgrounding_and_panel_fixes.md`](./backgrounding_and_panel_fixes.md)
 
 The 2.1.187 "bg jobs stuck working" finalizer turned out to be **carryover** (byte-equivalent to 183, call site pre-exists) — documented as such in [`agent_stop_lifecycle.md`](./agent_stop_lifecycle.md) §2 to prevent false-delta drift.
 
@@ -32,7 +32,8 @@ The 2.1.187 "bg jobs stuck working" finalizer turned out to be **carryover** (by
 | D6 | bg launch result drops "end your response" | body-change | async_launched :431256-431261 | both branches had it :424285 | HIGH |
 | D7 | phantom "general-purpose (resumed)" guard | PARTIAL | `Lgl` :454100; adoption :688699; `main-session` 9→10 | guard count 9 | MED |
 | D8 | turn-end "working" finalizer | **CARRYOVER** | `Exo` :464591; call :689760 | `pgo` :456114; call :675899 (byte-equiv) | HIGH (that it's carryover) |
-| — | pinned re-prompt / panel rows / channel drop | NOT ISOLABLE | — | — | LOW |
+| D9 | bg-job cwd/resume metadata refresh | **NET-NEW metadata fix** | `k3i` :193514 / call :484488; `R3i` :193529 / call :485419; classifier consumes `$Kr` :465236/:465238 | no equivalent between reset and `NW(...)`; classifier wrote stale `T?.cwd`/`T?.originCwd` | MED-HIGH |
+| — | pin-specific re-prompt guard / panel rows / channel drop | PARTIAL / UI-BOUNDED / NOT ISOLABLE | `WWn` unchanged; metadata fix isolated; panel frame rows bounded at `dSc`/`Eim` | — | MED for panel render mechanism; LOW for direct UI/channel guard |
 
 ---
 
@@ -94,4 +95,5 @@ Headline functions/constants (full per-doc lists live in each companion's `## Re
 - `markAgentStoppedByUser` (obf: `Mde`, `:431808`) + `persistStopMarker` (obf: `CXp`, `:431816`) — durable stop marker; resume refusal at `:441527`/`:441645`/`:442238`.
 - `countAbandonedBgTasks` (obf: `oUo`, `:578073`) + `computeCarryOverMap` (obf: `fze`, `:578006`) — carry-over-aware abandoned count.
 - `registerCompletedResumedAgent` (obf: `Lgl`, `:454100`) — phantom "(resumed)" card defaults; `main-session` guard 9→10.
+- `refreshBgJobCwdAfterCd` (obf: `k3i`, `:193514`) + `refreshBgJobResumePointers` (obf: `R3i`, `:193529`) + `currentBgCwdOverride` (obf: `$Kr`, `:193511`) — 193-only bg-job metadata refresh consumed by the classifier at `:465236`/`:465238`.
 - `markReplayNoOp` (obf: `Exo`, `:464591`; 183 `pgo`@456114) — turn-end finalizer; **CARRYOVER**.

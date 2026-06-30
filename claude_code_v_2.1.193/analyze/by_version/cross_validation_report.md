@@ -14,8 +14,8 @@ but never shipped to the channel and have no by_version file, which is correct.)
    (`30_agent_team` / `36_background_agents` / `38_permissions` / `39_mcp` / `42_workflow` / `43_slash_commands` /
    `44_telemetry` / `45_skills` / `04_tools` / `40_system_prompt` / `31_auto_memory` / `07_compact`), or (c) honestly
    flags it as a non-isolable timing/render/platform/server-side fix carrying **no** fabricated anchor.
-2. **Citation spot-check** — sampled **58** cited `cli_inner_pretty.js:<line>` anchors across the four substantive
-   releases (≥6 per release; 6 / 12 / 13 / 13 / 14 for .185 / .186 / .187 / .191 / .193), re-opened each at its exact
+2. **Citation spot-check** — sampled **58** cited `cli_inner_pretty.js:<line>` anchors across the five anchor-bearing
+   releases (.190 has no named surface to cite; 6 / 12 / 13 / 13 / 14 for .185 / .186 / .187 / .191 / .193), re-opened each at its exact
    line in the **2.1.193** bundle (`/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js`,
    718,679 lines) with `sed -n`, and required the literal declaration / string at the cited line to match the asserted
    meaning.
@@ -25,7 +25,7 @@ but never shipped to the channel and have no by_version file, which is correct.)
 4. **Format scan** — all 6 files for forbidden obf→readable mapping tables, `## See also`, prev/next nav,
    relative-link resolution, and English-only.
 
-**Verdict: PASS (no fixes required).** All **91** enumerated CHANGELOG bullets across the 6 published releases are
+**Verdict: PASS (no anchor fixes required).** All **91** enumerated CHANGELOG bullets across the 6 published releases are
 accounted for in their by_version files — anchored, depth-linked, or honestly flagged non-isolable. Every one of the
 58 sampled current-bundle anchors resolves to the declaration/string the doc claims, and all 4 before-picture anchors
 plus all 4 zero-in-183 claims hold. No citation drift was found, so **no in-place edits were made**. The corpus is
@@ -258,12 +258,12 @@ for completeness.
 
 ## 7. Verdict
 
-**PASS — no fixes required.** Under a default-to-FAIL re-audit, all **91** enumerated CHANGELOG bullets across the 6
+**PASS — no citation fixes required.** Under a default-to-FAIL re-audit, all **91** enumerated CHANGELOG bullets across the 6
 published releases (2.1.185 / .186 / .187 / .190 / .191 / .193) are accounted for in their by_version files: anchored,
 depth-linked to a module doc, or honestly flagged non-isolable with no fabricated line number. Every one of the 58
 sampled `cli_inner_pretty.js:<line>` current-bundle anchors resolves to the exact declaration or string claimed
 (including the trickier range-citations such as 2.1.191's `wt` handler), and all 4 before-picture (183) anchors plus
-all 4 zero-in-183 diff claims hold. No citation drift was found, so the by_version files were left unmodified. The
+all 4 zero-in-183 diff claims hold. No citation drift was found, so the by_version feature files required no anchor/content edits. The
 corpus is format-clean across all invariants — universal `## See also` + prev/next nav, no forbidden mapping tables,
 English-only, and every referenced module-doc target and relative link resolves. The one recorded prose imprecision
 (2.1.191 §3) does not affect any cited line number. No coverage failure and no unresolved citation failure remain.

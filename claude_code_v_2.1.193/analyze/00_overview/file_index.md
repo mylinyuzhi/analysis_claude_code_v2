@@ -90,7 +90,7 @@ extract/                                          (/lyz/codespace/claude-code-bo
    noise (`eval_registered________.md`, `explain_command.md`); `_index.json` lists `eval_registered__${...}` and an
    `mcp` pseudo-tool. Net real built-in/managed tool surface ≈ 48. Focus-feature signal: **`TeamCreate`/`TeamDelete`
    ABSENT** (carryover removal from the 2.1.178 redesign), **`WaitForMcpServers` PRESENT**, **`ReadMcpResourceDirTool`
-   NEW** (2.1.193 — the deferred MCP directory-listing tool, `_ne`@`cli_inner_pretty.js:283585`), `Cron*`/worktree
+   NEW** (2.1.193 — the deferred MCP directory-listing tool, `_ne` decl `cli_inner_pretty.js:283549`, object `:283584-283585`), `Cron*`/worktree
    tools present.
 4. **`feature_gates.json` confirms a removal.** `tengu_billiard_aviary` (the immutable-memory / `tiny_memory`
    experiment) is **ABSENT** from the 1,447-key list — the asset corroborates the 2.1.193 auto-memory removal.
@@ -154,7 +154,7 @@ and Agent named-spawn enforcement. Routes to `symbol_index_infra_platform.md` (P
 | `cli_inner_pretty.js:546166-546589` | denial store: `RecentDenialsProvider` `r4l`@546166, `useRecentDenials` `oSt`@546192, per-row reason spread `:546589` |
 | `cli_inner_pretty.js:640262-640271` | denial record w/ `reason` `:640262` + the NET-NEW auto-mode-denied toast (truncated reason line) `:640271` |
 | `cli_inner_pretty.js:54048-54095` | `sandbox.credentials` schema: `kwr`@54048 (files), `Rwr`@54058 (envVars), `IEu`@54069 (credentials), wired into root @54095 |
-| `cli_inner_pretty.js:211560-212031` | credential protection resolve: `Rqi`@211660 (`denyReadPaths`/`unsetEnvVars`), `Yjd`@211677 (fs denyRead fold), staged mask registry `FRn`@212031 |
+| `cli_inner_pretty.js:211560-212031` | credential protection resolve: `Rqi`@211660 (`denyReadPaths`/`unsetEnvVars`), `Yjd`@211675 / merge @211677 (fs denyRead fold), staged mask registry `FRn`@212031 |
 | `cli_inner_pretty.js:219238-219864` | `ko` sandbox controller @219848 + session hosts: `addSessionAllowedHost` `_Wd`@219238, `BLn`@219833 (merged 219287, cleared 219748), reset `kWd`@219864 |
 | `cli_inner_pretty.js:547100-547334` | recently-denied overlay: `PermissionsOverlay` `H4l`@547100, `RecentDeniedTab` `f4l`@546479, approve-persists close handler `wt`@547334 |
 | `cli_inner_pretty.js:102806-103212` | org model restrictions: `buildRestrictedModelSet` `d7u`@102809, `isModelRestrictedByEntitlements` `NFe`@102814, picker filter `Ia`@102873, fallback `u_n`@103212 |
@@ -180,6 +180,7 @@ agent stop lifecycle (permanent stop, 2.1.191), and backgrounding/panel fixes. R
 | `cli_inner_pretty.js:441779` | `AgentStoppedError` `Vht`@441779 (thrown on resume of a stopped agent) |
 | `cli_inner_pretty.js:578006-578073` | backgrounding fix: `computeCarryOverMap` `fze`@578006, `countCarryOverTasks` `H7t`@578070, `countAbandonedBgTasks` `oUo`@578073 |
 | `cli_inner_pretty.js:454100 / 577927-577951` | phantom-subagent + adopt fix: `registerCompletedResumedAgent` `Lgl`@454100, `readJobDir` `JKl`@577927, `linkAdoptedAgentTranscript` `QKl`@577951 |
+| `cli_inner_pretty.js:193511-193542 / 484488 / 485419 / 465236-465238` | bg-job metadata refresh: `$Kr` cwd override @193511, `k3i` cwd/originCwd refresh @193514 (called after `/cd` @484488), `R3i` resumeSessionId/linkScanPath refresh @193529 (called after conversation reset @485419), classifier consumes override @465236/@465238 |
 | `cli_inner_pretty.js:431253-431264` | `async_launched` tool-result text drops "…and end your response. Do not generate any other text…" so the agent keeps working while the bg agent runs ("end your response" 4→2 vs 183; cloud `remote_launched` path still says it) |
 
 ### 3. MCP → `../39_mcp/`
@@ -267,7 +268,7 @@ Frontmatter multi-case key tolerance + malformed-YAML `parseError` surfacing (2.
 | `cli_inner_pretty.js:617560-617611` | `!` auto-respond: `bashModeModule` `Mrc`@617560, `processBashCommand` `y6f`@617562 (read @617564, `respond` telemetry field @617565, gate @617604, `shouldQuery`@617611) |
 | `cli_inner_pretty.js:629382-629401` | bash-mode path autocomplete: `liveSuggestionCallback` `se`@629382, `"bash-path"` kind marker @629396 (accept handlers @629693/629874) |
 | `cli_inner_pretty.js:188582-188651` | path-completion machinery (CARRYOVER): `isPathLikeToken` `dKr`@188582, `scanDirectoryForCompletion` `QOd`@188593, `getPathCompletions` `pKr`@188612, scan cap `m4i`@188641 |
-| `cli_inner_pretty.js:283504-283585` | tool-surface delta: `ReadMcpResourceDirTool` name `iX`@283504, object `_ne`@283585 (`shouldDefer:!0`, NET-NEW 2.1.193) |
+| `cli_inner_pretty.js:283504-283585` | tool-surface delta: `ReadMcpResourceDirTool` name `iX`@283504, object `_ne` decl @283549 / assignment @283584-283585 (`shouldDefer:!0`, NET-NEW 2.1.193) |
 | `cli_inner_pretty.js:444127-444225` | registry: `getBuiltinToolRegistry` `b4`@444127 (carryover), `getAvailableTools` `a$`@444225 (exclusion set 3→4, `+_ne.name`) |
 
 ### 9. Slash Commands / Plugins / Hooks / CLI → `../43_slash_commands/`

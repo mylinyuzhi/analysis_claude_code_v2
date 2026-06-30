@@ -153,7 +153,7 @@ function resolveCredentialProtection(credentials, defaultInjectHosts) {
 ```javascript
 // ============================================
 // Yjd - fold credential denyReadPaths into the sandbox filesystem deny-read set
-// Location: cli_inner_pretty.js:211677-211687
+// Location: cli_inner_pretty.js:211675-211687
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -208,7 +208,7 @@ The companion machinery (`FRn.register` at `:209631`, `FRn.substituteInHeaders` 
 | Describe strings | `:54072`,`:54075` | absent | `grep -c` 183=**0**, 193=**2** |
 | Config assembly | `:219470` | absent | net-new |
 | Enforcement `Rqi` | `:211660` | absent | net-new |
-| Deny-read merge `Yjd` | `:211677` | n/a | net-new merge clause |
+| Deny-read merge `Yjd` | decl `:211675`; merge `:211677` | n/a | net-new merge clause |
 | `denyReadPaths`/`unsetEnvVars` symbols | 4+6 hits | absent | `grep -c denyReadPaths` 183=**0**, 193=**4**; `unsetEnvVars` 193=**6** |
 | Staged `mode:"mask"` + `FRn` | `:211667`,`:209631` | absent | net-new (not in schema) |
 
@@ -239,5 +239,5 @@ Key functions in this document:
 - `sandboxCredentials` (obf: `IEu`, `:54069`) — `{ files?, envVars? }`; wired into root `Lwr` at `:54095`.
 - credentials assembly (loop over `jT` at `:219470`) — per-source path-resolved merge via `p3e`.
 - `resolveCredentialProtection` (obf: `Rqi`, `:211660`) — `{denyReadPaths, unsetEnvVars, setEnvVars}`; deny/mask branches.
-- `buildSandboxFsDenyRead` (obf: `Yjd`, `:211677`) — folds `denyReadPaths` into `filesystem.denyRead`.
+- `buildSandboxFsDenyRead` (obf: `Yjd`, decl `:211675`; merge `:211677`) — folds `denyReadPaths` into `filesystem.denyRead`.
 - `secretInjectionRegistry` (obf: `FRn`, `:209631`) — sentinel registry for the staged `mode:"mask"` injection; `allowPlaintextInject` gate at `:211560`.

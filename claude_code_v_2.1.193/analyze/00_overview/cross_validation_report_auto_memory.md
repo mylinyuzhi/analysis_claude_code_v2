@@ -10,7 +10,7 @@
 - **Markdown files audited:** 3 (`README.md`, `billiard_aviary_immutable_memory_removal.md`, `memory_reminder_and_dream_carryover.md`) + 1 additions file.
 - **In-scope 193 deltas:** `tengu_billiard_aviary` immutable-memory / `tiny_memory` experiment FULL REMOVAL in 193; the "MEMORY.md compact reminder near size limit" (auto-memory, not compaction); dream telemetry carryover.
 
-**Sample:** 22 distinct **v2.1.193** anchors re-read at their cited lines; 18 **before-picture** declarations re-read in the v2.1.183 bundle (plus 156 grep evidence); 30 grep-count diffs re-run in BOTH 183 and 156 (and 193). One full body-diff of `$_l` (193) vs `PQa` (183), 68 lines each.
+**Sample:** 30 distinct **v2.1.193** anchors re-read at their cited lines; 24 **before-picture** declarations/branches re-read in the v2.1.183 bundle (plus 156 grep evidence); 30 grep-count diffs re-run in BOTH 183 and 156 (and 193). One full body-diff of `$_l` (193) vs `PQa` (183), 68 lines each.
 
 **Verdict (one line):** PASS WITH FIXES. The auto-memory delta analysis is accurate on its load-bearing skeleton: every cited 193 declaration, string, and grep-count reproduced exactly; the experiment-removal grep-tables (→ 0) reproduced exactly; and the "2.1.186 MEMORY.md compact reminder" is correctly proven to be CARRYOVER, not a 193 delta. Three real defects were found and fixed in place: a wrong `Hgi` signature description ("no memory-dir param" → it actually lacks the *transcripts* param), an under-counted "11 gate sites" (actual `aH()` call-sites = 16), and a +2 declaration drift on the `FOa` rating-button cite (378928 → 378926).
 
@@ -32,7 +32,9 @@ Every line below was opened at the exact cited line in the 193 bundle and the de
 | 463897-463907 | firing site: `y=tm()`, `b=Ph(mr())`, `H=$_l(y,b,S,p)` | exact match; `H = $_l(y, b, S, p),` at **463907** | PASS |
 | 233806 | `AutoMem` inject through `v$t` | `if (n === "AutoMem") d = v$t(c).content;` | PASS |
 | 151593 | `qae` → `parseMemoryStoresEnv` | `function qae() { let e = process.env.CLAUDE_MEMORY_STORES;` | PASS |
-| 152389 / 152460 / 152638 | `m0i` / `g0i` / `VVr` recall builders | `function m0i(e, t = !1)` / `g0i(e,t,n,r=!1)` / `VVr(e,t,n,r=!1,o=!1)`; m0i body emits memory prompt text | PASS |
+| 152389 / 152460 / 152638 | `m0i` / `g0i` / `VVr` recall builders | `function m0i(e, t = !1)` / `g0i(e,t,n,r=!1)` / `VVr(e,t,n,r=!1,o=!1)`; bodies separate private+team, team-only, and single-dir prompt variants | PASS |
+| 152769-152789 / 152792-152799 | `w$t` dispatcher selects `g0i` / `m0i` / `VVr` | custom team-only stores without writable user store → `g0i`; normal auto+team → `m0i`; auto-only → `VVr("auto memory", …)` | PASS |
+| 152698-152720 | `_0i` single-dir loader uses `VVr` | `let a = VVr(t, n, r, !1, !0);` then appends loaded/truncated `MEMORY.md` | PASS |
 | 375261-375264 | drift note: `b5t` = `permission_browser`, NOT memory | `var b5t; … b5t = hy({ kind: "permission_browser",` | PASS |
 | 350529 / 254126 | substring false-positives `organizationRateLimitTier` / `"AnimationRate"` | both confirmed (excluded from genuine onRate:) | PASS |
 
@@ -56,6 +58,8 @@ Every line below was opened at the exact cited line in the 193 bundle and the de
 | 220230 / 220243 | `aH() && LOi(e)` / `...(aH() && { created: Itt() })...` | exact | PASS |
 | 151881 / 151887 / 151952 | immutable write-path gate sites | `if (t && !aH() && Dg(e))` / `if (t && aH())` / `if (aH()) return !1;` | PASS |
 | 445405 | gated memory-attachment path | `!(aH() && PNp(l.attachment.memories))` | PASS |
+| 183:151194 / 151265 / 151756 | recall builders `mgi` / `Agi` / `UNr` | same three variant shapes as 193 `m0i` / `g0i` / `VVr` | PASS |
+| 183:151907-151932 | dispatcher selects `Agi` / `mgi` / `UNr` | same team-only / private+team / single-dir split as 193 | PASS |
 
 ## C3 — v2.1.88 lineage
 
@@ -127,7 +131,7 @@ No forbidden obf→readable mapping tables were introduced; the `## Related Symb
 
 ## Residuals (honest)
 
-- The recall builders `m0i` / `g0i` / `VVr` carry interpretive sub-role labels in the additions file (`_privateAndTeam` / `_teamMultiDir` / `_singleDir`). Their **line anchors and general role** (memory system-prompt builders, carryover) were verified at 152389 / 152460 / 152638; the precise private-vs-team-vs-single-dir distinctions were not independently re-derived (they are CARRYOVER and out of the 193 delta scope, so non-load-bearing for this window).
+- The recall builders `m0i` / `g0i` / `VVr` are now independently re-derived: `m0i` is the private+team prompt (`:152414-152436`), `g0i` is the team-only / multi-dir / read-only-store prompt (`:152460-152548`), and `VVr` is the single-directory prompt (`:152638-152696`). The dispatcher `w$t` selects the same roles at `:152769-152799`, and the 183 predecessors `mgi` / `Agi` / `UNr` plus `e0t` reproduce the same split. Still CARRYOVER and non-load-bearing for the 193 delta, but no longer un-derived.
 - The `billiard…§2` code-snippet header range "cli_inner_pretty.js:378866-378882 (the two rating buttons)" is the createElement **call** range; the `[Good]` `createElement(FOa,…)` actually starts at 378864 (±2). Left as-is — it points at the right region and is labelled as the call range, not a declaration.
 - `B_l` (`DREAM_THROTTLE_DEFAULTS`) is cited as "463818 (ref)" — it is referenced inside `Daf` at 463818, not declared there; this is honestly tagged "(ref)" in the additions file. No fix needed.
 

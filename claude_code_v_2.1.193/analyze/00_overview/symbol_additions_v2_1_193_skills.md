@@ -56,7 +56,7 @@
 |----------------|-------------|---------------|------|
 | `CA` | `Gm` | cli_inner_pretty.js:148675 | returns only `{frontmatter,content}` — no `parseError` |
 | `_Ju` | `KEd` | cli_inner_pretty.js:148568 | byte-identical normalizer |
-| `yJu` | `zEd` | cli_inner_pretty.js:148571 | lacks `displayName`/`defaultEnabled`/`fallback`/`evals` |
+| `yJu` | `zEd` | cli_inner_pretty.js:148571 (decl) / 148574-148628 (list) | lacks `displayName`/`defaultEnabled`/`fallback`/`evals` |
 | `kYA` | `uIh` | cli_inner_pretty.js:148629 | also VESTIGIAL in 183 (2 refs) |
 | `Q1r` | `tVr` | cli_inner_pretty.js:148478 | lacks `userConfig`/`defaultEnabled`/`displayName`/`author`/`homepage`/`repository`/`license`/`keywords` |
 | `GYp` | `OAf` | cli_inner_pretty.js:508267 | scope-label switch with NO `case "skills"` |

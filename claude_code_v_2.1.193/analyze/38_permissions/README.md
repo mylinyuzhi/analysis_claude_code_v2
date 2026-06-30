@@ -15,7 +15,7 @@ The permissions subsystem is where most of the 2.1.187 + 2.1.191 + part of 2.1.1
 |---|-------|------|-----------|-----------|-----|
 | 1 | `autoMode.classifyAllShell` — route ALL Bash/PowerShell through the classifier | **NET-NEW** (2.1.193) | schema `:55814`; gate `$Cr` `:58758`; predicate `r9e` `:416263` | `grep -c classifyAllShell`=0; `WGe` `:409907` no bypass | [classify_all_shell.md](./classify_all_shell.md) |
 | 2 | Auto-mode denial **reasons** surfaced (toast + Recently-denied + dark transcript) | **NET-NEW** surfacing (record carryover) | toast `:640271`; recent-denied `:546589`; `XKa`/`USe` `:382614` | record had `reason` `:627443`; renderers were `null`/`...{}` | [denial_reasons_surfacing.md](./denial_reasons_surfacing.md) |
-| 3 | `sandbox.credentials` — deny-read credential files / unset secret env | **NET-NEW** (2.1.187) | schema `:54069`; assembly `:219470`; enforce `Rqi` `:211660`→`Yjd` `:211677` | `grep -c denyReadPaths`=0 | [sandbox_credentials.md](./sandbox_credentials.md) |
+| 3 | `sandbox.credentials` — deny-read credential files / unset secret env | **NET-NEW** (2.1.187) | schema `:54069`; assembly `:219470`; enforce `Rqi` `:211660`→`Yjd` decl `:211675` / merge `:211677` | `grep -c denyReadPaths`=0 | [sandbox_credentials.md](./sandbox_credentials.md) |
 | 4 | Org entitlement model gate (picker/`--model`/`/model`/`ANTHROPIC_MODEL`) | **NET-NEW** gate (warning carryover) | `NFe` `:102814`; `tzt` `:487243`; `u_n` `:103212` | `rre` warning `:362631`; `denied_by_entitlement`=0 | [org_model_restrictions.md](./org_model_restrictions.md) |
 | 5 | Recently-denied **approve-persists-on-close** + session-allowed-hosts | **NET-NEW** (2.1.191) | close handler `:547334`; `_Wd`/`BLn` `:219238`/`:219833` | approved branch cosmetic `:536369`; `addSessionAllowedHost`=0 | [recent_denied_overlay.md](./recent_denied_overlay.md) |
 | 6 | `Agent(type)` upfront deny + `allowedAgentTypes` on named spawns | **REFINEMENT** (2.1.186; matcher carryover) | spawn block `:430515` | no upfront check `:423565` | [background_subagent_permission_forwarding.md](./background_subagent_permission_forwarding.md) §2 |
@@ -58,7 +58,7 @@ Settings are read via `readSettings` (obf: `_n`) and paths resolved per-source v
 - `getConfig` / `getFsReadConfig` / `getFsWriteConfig` — read the resolved filesystem deny/allow sets (which now include credential deny-read paths).
 - `wrapWithSandbox`, `getExcludedCommands`, `isSandboxRequired`, `areUnsandboxedCommandsAllowed`, `checkDependencies` — pre-existing controller methods (carryover).
 
-The credential-protection resolver `resolveCredentialProtection` (`Rqi`, `:211660`) and the deny-read merge `buildSandboxFsDenyRead` (`Yjd`, `:211677`) feed the controller's filesystem config; the session-host set `BLn` feeds its network `allowedDomains`. So **deltas 3 and 5 both land in the `ko` config-rebuild path** (`hJr`).
+The credential-protection resolver `resolveCredentialProtection` (`Rqi`, `:211660`) and the deny-read merge `buildSandboxFsDenyRead` (`Yjd`, decl `:211675`; merge `:211677`) feed the controller's filesystem config; the session-host set `BLn` feeds its network `allowedDomains`. So **deltas 3 and 5 both land in the `ko` config-rebuild path** (`hJr`).
 
 ---
 
@@ -122,7 +122,7 @@ Key functions/constants across this module (full per-doc lists in each file):
 - `isClassifyAllShellEnabled` (obf: `$Cr`, `:58758`) / `shouldSuspendAllShellAllowRules` (obf: `sTo`, `:416260`) / `isShellAllowRuleSuspended` (obf: `r9e`, `:416263`) — the classifyAllShell gate + suspend predicate.
 - `SETTINGS_SOURCES` (obf: `Uys`, `:58827`) — the four settings sources.
 - `recordDenial` (`:640262`) / auto-mode-denied toast (`:640271`) / `classifyToolDenialKind` (obf: `XKa`, `:382614`) / `isToolDenialKindEnabled` (obf: `USe`, `:382624`, `return !1`) — denial-reason surfacing.
-- `sandboxCredentials` (obf: `IEu`, `:54069`) / `resolveCredentialProtection` (obf: `Rqi`, `:211660`) / `buildSandboxFsDenyRead` (obf: `Yjd`, `:211677`) — sandbox.credentials.
+- `sandboxCredentials` (obf: `IEu`, `:54069`) / `resolveCredentialProtection` (obf: `Rqi`, `:211660`) / `buildSandboxFsDenyRead` (obf: `Yjd`, decl `:211675`; merge `:211677`) — sandbox.credentials.
 - `isModelRestrictedByEntitlements` (obf: `NFe`, `:102814`) / `getOrgRestrictedModelSet` (obf: `Uge`, `:102820`) / `switchModel` (obf: `tzt`, `:487243`) / `resolveRestrictedModelFallback` (obf: `u_n`, `:103212`) — org model gate; carryover warning `rre` (`:374023`).
 - `ko` sandbox controller (`:219848`) / `addSessionAllowedHost` (obf: `_Wd`, `:219238`) / `sessionAllowedHosts` (obf: `BLn`, `:219833`) — controller + session-host cache.
 - `PermissionsOverlay` (obf: `H4l`, `:547100`) / close handler (`:547334`) — approve-persists-on-close.

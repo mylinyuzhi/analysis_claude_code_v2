@@ -7,7 +7,7 @@
 
 Two unrelated 2.1.186 polish items grouped here because both touch "MCP server X is gone" messaging:
 
-1. **`mcp get`/`mcp remove` on an unknown server name** now suggests the closest configured name (Levenshtein, edit-distance ≤ 2), or lists the configured servers (truncated to 8 with "(and N more…)"), instead of a bare "not found". Net-new (`grep -c "No MCP server named"` = `0` in 183).
+1. **`mcp get`/`mcp remove` on an unknown server name** now suggests the closest configured name (Damerau/OSA edit-distance ≤ 2, including adjacent transpositions), or lists the configured servers (truncated to 8 with "(and N more…)"), instead of a bare "not found". Net-new (`grep -c "No MCP server named"` = `0` in 183).
 2. **The misleading "MCP server disconnected" notice on resume** — when resuming an older session whose `deferred_tools_delta` attachments referenced now-**retired** built-in tools (`Frame`/`FrameRead`/`TeamCreate`/`TeamDelete`/`SuggestBackgroundPR`), those tools were reported as "no longer available (their MCP server disconnected)". A new `RETIRED_TOOL_NAMES` skip in the deferred-tools delta producer keeps retired tools out of the "removed" set. Fix via a net-new guard (`grep -c "SuggestBackgroundPR"` = `0` in 183).
 
 > **Drift fixed vs the scout dossier:** the dossier put `mcpGetHandler` at `:613315` and `mcpRemoveHandler` at `:613469` — those are the *login/logout* handler neighbours. The live 193 bundle has `mcpGetHandler` (`f9f`) at **`:611549`** and `mcpRemoveHandler` (`a9f`) at **`:611388`** (a separate module); the `get`/`remove` *command registrations* are at `:613570`/`:613544`. Re-verified by reading the bodies.
@@ -51,8 +51,97 @@ function suggestClosestServerName(typedName, configuredNames) {
 // Mapping: t3o→suggestClosestServerName, e→typedName, t→configuredNames, fde→fuzzyClosestMatch
 ```
 
+### Fuzzy matcher internals (`fde` + `z5t`)
+
+**What it does:** Finds the closest configured server name/alias to the typed name, bounded by an edit-distance ceiling.
+
+```javascript
+// ============================================
+// fuzzyClosestMatch - bounded closest match using adjacent-transposition edit distance
+// Location: cli_inner_pretty.js:382122-382150
+// ============================================
+
+// ORIGINAL (for source lookup):
+function fde(e, t, { maxEditDistance: n = 1 } = {}) {
+  let r = t.flatMap((i) => [i.name, ...(i.aliases ?? [])]), o, s = n + 1;
+  for (let i of r) {
+    if (Math.abs(i.length - e.length) > n) continue;
+    let a = z5t(e, i);
+    if (a < s) ((s = a), (o = i));
+  }
+  return o;
+}
+function z5t(e, t) {
+  if (e === t) return 0;
+  let n = e.length, r = t.length,
+    o = Array.from({ length: n + 1 }, (s, i) =>
+      Array.from({ length: r + 1 }, (a, l) => (i === 0 ? l : l === 0 ? i : 0)));
+  for (let s = 1; s <= n; s++)
+    for (let i = 1; i <= r; i++) {
+      let a = e[s - 1] === t[i - 1] ? 0 : 1;
+      if (((o[s][i] = Math.min(o[s - 1][i] + 1, o[s][i - 1] + 1, o[s - 1][i - 1] + a)),
+        s > 1 && i > 1 && e[s - 1] === t[i - 2] && e[s - 2] === t[i - 1]))
+        o[s][i] = Math.min(o[s][i], o[s - 2][i - 2] + 1);
+    }
+  return o[n][r];
+}
+
+// READABLE (for understanding):
+function fuzzyClosestMatch(typedName, candidates, { maxEditDistance = 1 } = {}) {
+  let candidateStrings = candidates.flatMap((candidate) => [candidate.name, ...(candidate.aliases ?? [])]);
+  let bestMatch, bestDistance = maxEditDistance + 1;
+  for (let candidate of candidateStrings) {
+    if (Math.abs(candidate.length - typedName.length) > maxEditDistance) continue;
+    let distance = editDistanceWithAdjacentTransposition(typedName, candidate);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = candidate;
+    }
+  }
+  return bestMatch;
+}
+function editDistanceWithAdjacentTransposition(left, right) {
+  if (left === right) return 0;
+  let rows = left.length, cols = right.length;
+  let dp = Array.from({ length: rows + 1 }, (_, row) =>
+    Array.from({ length: cols + 1 }, (_, col) => (row === 0 ? col : col === 0 ? row : 0)));
+  for (let row = 1; row <= rows; row++) {
+    for (let col = 1; col <= cols; col++) {
+      let substitutionCost = left[row - 1] === right[col - 1] ? 0 : 1;
+      dp[row][col] = Math.min(
+        dp[row - 1][col] + 1,
+        dp[row][col - 1] + 1,
+        dp[row - 1][col - 1] + substitutionCost,
+      );
+      if (row > 1 && col > 1 && left[row - 1] === right[col - 2] && left[row - 2] === right[col - 1]) {
+        dp[row][col] = Math.min(dp[row][col], dp[row - 2][col - 2] + 1);
+      }
+    }
+  }
+  return dp[rows][cols];
+}
+
+// Mapping: fde→fuzzyClosestMatch, z5t→editDistanceWithAdjacentTransposition,
+//   e→typedName/left, t→candidates/right, n→maxEditDistance, r→candidateStrings, o→bestMatch, s→bestDistance
+```
+
+**How it works:**
+1. Expand each candidate object to every searchable string: its canonical `name` plus any `aliases`.
+2. Keep `bestDistance = maxEditDistance + 1`, so only candidates strictly inside the allowed edit budget can win.
+3. Skip candidates whose length difference alone exceeds the allowed edit distance; no insert/delete/substitute/transposition sequence can recover from that cheaply enough.
+4. Compute a dynamic-programming distance matrix. Base row/column costs represent inserting or deleting all preceding characters.
+5. For each cell, take the cheapest of delete, insert, substitute/match, or one adjacent transposition when the two neighboring characters are swapped.
+6. Return the first candidate with the smallest distance. Ties keep the earlier sorted candidate because the update is `distance < bestDistance`, not `<=`.
+
+**Why this approach:**
+- It catches the two common CLI typo classes: one missing/extra/wrong character and adjacent-letter swaps (`gihub`→`github`), while the `maxEditDistance: 2` call in `suggestClosestServerName` prevents distant names from producing noisy suggestions.
+- The length-difference prefilter is a cheap guard before allocating the dynamic-programming matrix.
+- The matcher itself is carryover (`Dct`/`S2t` in 183, `OtH`/`O0$` in 156); the 193-window delta is MCP's new `t3o`/`psr` wrapper that applies it to `mcp get`/`remove` not-found messages.
+
+**Key insight:** This is not plain Levenshtein: the `row-2`/`col-2` branch gives a one-edit cost to adjacent transpositions. That is exactly the typo pattern users make in short server names, and it explains why a small threshold of 2 can still feel useful without suggesting unrelated servers.
+
 **How it works (decision order).**
-1. **Fuzzy match first** — `fuzzyClosestMatch` (`fde`) with `maxEditDistance: 2` finds the closest configured name within 2 edits. A 2-edit ceiling means `githubb`→`github` or `lineaer`→`linear` suggests, but an unrelated typo doesn't produce a noisy false "did you mean". When it hits, that single best name is the whole message — the most actionable possible output.
+1. **Fuzzy match first** — `fuzzyClosestMatch` (`fde`) with `maxEditDistance: 2` finds the closest configured name within 2 edits using the adjacent-transposition-aware distance above. A 2-edit ceiling means `githubb`→`github` or `lineaer`→`linear` suggests, but an unrelated typo doesn't produce a noisy false "did you mean". When it hits, that single best name is the whole message — the most actionable possible output.
 2. **Empty config** — if nothing is configured, the "did you mean" is meaningless; point the user at `claude mcp add` instead.
 3. **Truncated list** — otherwise list up to **8** configured names, then "(and N more — run `claude mcp list` to see all)". Sorting (`[...names].sort()`) makes the truncated list deterministic; the 8-cap keeps the error one line even for a user with dozens of servers, while still pointing at the full list.
 
@@ -166,7 +255,8 @@ Key functions/constants in this document:
 
 - `suggestClosestServerName` (`t3o`, `cli_inner_pretty.js:610416`) — fuzzy "did you mean" + truncate-at-8 list.
 - `formatNotFoundWithPending` (`psr`, `cli_inner_pretty.js:610430`) — wraps `t3o` with a pending-`.mcp.json`-approval note.
-- `fuzzyClosestMatch` (`fde`) — Levenshtein closest match, `maxEditDistance: 2`.
+- `fuzzyClosestMatch` (`fde`) — bounded closest match over name+aliases; `t3o` calls it with `maxEditDistance: 2`.
+- `editDistanceWithAdjacentTransposition` (`z5t`) — dynamic-programming edit distance with delete/insert/substitute plus adjacent transposition.
 - `mcpGetHandler` (`f9f`, `cli_inner_pretty.js:611549`) — calls `psr` on not-found; `get` command reg `:613570`.
 - `mcpRemoveHandler` (`a9f`, `cli_inner_pretty.js:611388`) — calls `t3o` on not-found (`:611414`); `remove` command reg `:613544`.
 - `RETIRED_TOOL_NAMES` (`HBt`, `cli_inner_pretty.js:228300`) — `Set(["Frame","FrameRead","TeamCreate","TeamDelete","SuggestBackgroundPR"])`.

@@ -67,6 +67,22 @@ The following are byte-identical (modulo re-mangling) in 183 and are **not** 193
 
 For the unchanged pre-2.1.183 MCP foundation, consult the v2.1.88 named-TS ancestor under `/lyz/codespace/3rd/claude-code/src` and earlier-version analyses; this tree documents only the .183→.193 delta.
 
+### v2.1.88 named-TS lineage snapshot
+
+The v2.1.88 source tree confirms that 193 is hardening an existing MCP subsystem, not introducing MCP from scratch:
+
+- `src/services/mcp/client.ts:1743-1755` already fetches tools with a direct `client.client.request({ method: "tools/list" }, ListToolsResultSchema)` call. The 193 `listWithPaginationAndRetry` wrapper (`P1n`, `cli_inner_pretty.js:292176`) is therefore a retry/pagination hardening layer over an older direct-list call.
+- `src/services/mcp/client.ts:2000-2012` similarly fetches resources through a direct `resources/list` request; 193 routes resources/prompts/templates/tools list calls through the same retry helper.
+- `src/services/mcp/client.ts:205-229` has only `DEFAULT_MCP_TOOL_TIMEOUT_MS = 100_000_000` and `MCP_TOOL_TIMEOUT`. Focused 88 greps for `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`, `sent no response or progress`, and `MCP tool idle timeout` return 0, so the 193 idle-silence watchdog is genuinely post-88.
+- `src/services/mcp/client.ts:3029-3118` races `client.callTool(...)` against the absolute timeout and forwards SDK progress, but has no separate idle timer. `src/services/mcp/client.ts:3194-3207` maps 401/`UnauthorizedError` directly to `McpAuthError` with the familiar `"requires re-authorization (token expired)"` message. The 193 headersHelper re-auth branch is the new pre-fallthrough path.
+- `src/services/mcp/headersHelper.ts:32-138` already executes `headersHelper`, applies the trust check, validates the returned JSON object, and merges dynamic headers over static headers. Focused 88 greps for `reauth_retry` return 0: 193 reuses this helper but adds a retry-once caller around it.
+- `src/services/mcp/client.ts:261-287` and `:2301-2316` already implement `mcp-needs-auth-cache.json` and `"Skipping connection (cached needs-auth)"`; the needs-auth cache is old infrastructure that 193 feeds more accurately after mid-call auth expiry.
+- Focused 88 greps for `mcpLoginHandler`, `tengu_mcp_login`, `Authenticate with an MCP server`, `Clear stored OAuth credentials for an MCP server`, and `ENDPOINT_NOT_FOUND` return 0, matching the 193 classification of CLI login/logout and endpoint-not-found URL rewrite as later additions.
+
+**What it does:** This lineage check separates the stable MCP spine from the .183→.193 deltas. It proves that tool listing, resource listing, headersHelper execution, OAuth/auth failure handling, and the needs-auth cache all predate this window, while the idle watchdog, retry wrappers, CLI auth commands, self-healing headersHelper re-auth, and endpoint-specific 404 rewrite are later hardening layers.
+
+**Why this matters:** MCP has many carryover strings that look like deltas if read only in the 193 bundle. The 88 ancestor prevents false inflation: when 193 still says `"requires re-authorization (token expired)"`, that is legacy surfacing; when 193 logs `reauth_retry`, that is the actual new behavior.
+
 ---
 
 ## Files in this module

@@ -7,10 +7,11 @@
 - **TARGET bundle:** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines, build `a1938d2a`)
 - **Before-picture bundle:** `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js` (699,346 lines)
 - **Earlier baseline:** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
+- **v2.1.88 named-TS reference:** `/lyz/codespace/3rd/claude-code/src/`
 
-**Sample:** 49 distinct v2.1.193 `cli_inner_pretty.js:<line>` anchors re-read in the TARGET bundle + 10 before-picture declarations re-read in 183 + 3 zero/equality checks re-read in 156 + 27 grep-count diffs re-run across both/all bundles + 2 asset-directory counts + 2 `assets/tools/*.md` cross-version diffs (Bash.md, PowerShell.md).
+**Sample:** 53 distinct v2.1.193 `cli_inner_pretty.js:<line>` anchors re-read in the TARGET bundle + 12 before-picture declarations re-read in 183 + 3 zero/equality checks re-read in 156 + 27 grep-count diffs re-run across both/all bundles + 2 asset-directory counts + 2 `assets/tools/*.md` cross-version diffs (Bash.md, PowerShell.md) + 15 v2.1.88 named-TS lineage anchors/absence checks.
 
-**Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 declaration, body, grep-count and before-picture in the three deep docs reproduced at the cited lines; all three headline deltas (T1 `"bash-path"` wiring, T2 `respondToBashCommands` auto-respond, T3 `ReadMcpResourceDirTool` 50→51) and both disambiguations (T4 un-isolable `--tools` fix, T5 `classifyAllShell` false-delta) are correctly classified against 183 **and** 156. One citation drift was found and fixed in place: the `getAvailableTools` exclusion-set `new Set([…])` is at `:444237`, not the doc's `:444239` (which points at `o = Rre(r, e)`).
+**Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 declaration, body, grep-count and before-picture in the three deep docs reproduced at the cited lines; all three headline deltas (T1 `"bash-path"` wiring, T2 `respondToBashCommands` auto-respond, T3 `ReadMcpResourceDirTool` 50→51) and both disambiguations (T4 un-isolable `--tools` fix, T5 `classifyAllShell` false-delta) are correctly classified against 183 **and** 156. The v2.1.88 named-TS lineage also supports the same split: old registry/resource/bash primitives existed, while the stable 193 delta tokens were absent. One citation drift was found and fixed in place: the `getAvailableTools` exclusion-set `new Set([…])` is at `:444237`, not the doc's `:444239` (which points at `o = Rre(r, e)`).
 
 ---
 
@@ -70,7 +71,7 @@ Every line below was opened at the exact cited line in the 193 bundle and the de
 | 283504 | `ReadMcpResourceDirToolName` (`iX`) | `var iX = "ReadMcpResourceDirTool",` | PASS |
 | 283505 | description (`D_a`) | `D_a = \`\nList the direct children of a directory resource on an MCP server.…` | PASS |
 | 283549 | `dlp`/`plp`/`_ne` decl | `var dlp, plp, _ne;` | PASS |
-| 283585 | `ReadMcpResourceDirTool` object (`_ne`) | `(_ne = Xs({ … shouldDefer: !0, name: iX, aliases: ["ReadMcpResourceDir"] …}))` | PASS |
+| 283549 / 283584-283585 | `ReadMcpResourceDirTool` object (`_ne`) | `var dlp, plp, _ne;` at 283549; `(_ne = Xs({` begins at 283584 and first property `isConcurrencySafe()` is at 283585 | PASS |
 | 151125 | `defineTool` (`Xs`) | `function Xs(e) { return Object.defineProperties({ ...vHd, userFacingName: () => e.name }, …)` | PASS |
 | 444127 | `getBuiltinToolRegistry` (`b4`) | `function b4() { return [ l6n, …` | PASS |
 | 444225 | `getAvailableTools` (`a$`) | `a$ = (e, t) => {` | PASS |
@@ -134,11 +135,40 @@ Every NET-NEW / REFINEMENT / CARRYOVER claim was re-greped in **both** 183 and 1
 | `toolsNarrowing` permission source | CARRYOVER | 8 | 8 | — | **CONFIRMED carryover** |
 | `classifyAllShell` (false delta → permissions) | NET-NEW but not tool-surface | 2 | 0 | — | **CONFIRMED net-new**, and Bash/PowerShell descriptions byte-identical (below) |
 | `flagsLoaded` / `ensureFlags` / `waitForFlags` | absent (un-isolable `--tools` fix) | 0/0/0 | 0/0/0 | — | **CONFIRMED absent** — supports "un-isolable" honesty |
+| `shouldToolsListOptInToBrief` / `setUserMsgOptIn` | CARRYOVER visible opt-in latch | `FXp`/`Jfe` | `tPp`/`Rde` | named TS `main.tsx:1722-1725` | **CONFIRMED carryover** — not the .186 patch |
+| explicit `gb-before-tools` await order | after `Sjo` | `Sjo` call `:712994-713003`, await `:713130-713135` | `_rc` call `:693838-693850`, await `:693973-693978` | — | **CONFIRMED after permission context** |
 | `assets/tools/*.md` count | 50 → 51 | 51 | 50 | — | **CONFIRMED** (`diff` = `+ReadMcpResourceDirTool.md`, 0 removed) |
 | `Bash.md` description block 183↔193 | CARRYOVER (false delta) | — | — | — | **CONFIRMED identical** — only `Offset:` + schema token `AJa()`→`fyl()` differ |
 | `PowerShell.md` description block 183↔193 | CARRYOVER (false delta) | — | — | — | **CONFIRMED identical** — only `Offset:` + schema token `V1p()`→`Qnf()` differ |
 
 No claim was refuted. Every "carryover" was proven present in 183; every "net-new" was proven absent in 183 (and 156 where the doc made a 156 claim). The two genuine false-delta disambiguations the docs already make (`classifyAllShell` → permissions; compgen Tab completion → carryover) both held up.
+
+---
+
+## C3b — v2.1.88 named-TS lineage spot-check
+
+### Named-Ancestor Tool Surface Split
+
+**What it does:** Uses the v2.1.88 named TypeScript source as a semantic ancestor check, separate from the immediate 183 before-picture.
+
+**How it works:**
+1. `src/tools.ts:193-250` establishes that v2.1.88 already had the main builtin registry path, including `BashTool`, `ListMcpResourcesTool`, `ReadMcpResourceTool`, conditional `TeamCreateTool`/`TeamDeleteTool`, and conditional `ToolSearchTool`.
+2. `src/tools.ts:300-307` establishes the v2.1.88 hidden/special exclusion set: `ListMcpResourcesTool.name`, `ReadMcpResourceTool.name`, and `SYNTHETIC_OUTPUT_TOOL_NAME`. There is no `ReadMcpResourceDirTool` entry in that set.
+3. `src/tools/ReadMcpResourceTool/ReadMcpResourceTool.ts:49-101` confirms the old resource reader was a deferred `ReadMcpResourceTool` that called `resources/read` with `{ uri }`.
+4. `src/tools/ListMcpResourcesTool/ListMcpResourcesTool.ts:40-100` confirms the old lister returned flat resources through `fetchResourcesForClient`, not directory children.
+5. `src/utils/processUserInput/processBashCommand.tsx:17-135` confirms the old `!` command path returned `{ messages, shouldQuery: false }` on success and all visible error exits, and `src/utils/messages.ts:566-569` confirms the no-response caveat already existed.
+6. `src/hooks/useTypeahead.tsx:593-596` and `:817-831` confirm v2.1.88 skipped bash mode for `@` suggestions; path completion existed there only for non-bash `@` tokens.
+
+**Why this approach:**
+- The named source identifies old concepts without relying on 183/193 obfuscated symbols.
+- The immediate 183 bundle remains the authoritative delta boundary; v2.1.88 is used only to classify "evolved from older named code" versus "newer stable token absent from the ancestor."
+- Stable absence strings (`respondToBashCommands`, `"bash-path"`, `ReadMcpResourceDirTool`, `ReadMcpResourceDir`, `resources/directory/read`) avoid false negatives caused by renamed local symbols.
+
+**Key insight:** The older TypeScript source already had the tool registry, Bash execution, MCP resource list/read tools, Team tools, ToolSearch, and path completion machinery. It lacked the three later Tools-specific stable surfaces that matter for this window: bash-mode live path marker/wiring, bash auto-response setting/telemetry, and the MCP resource directory-read tool.
+
+- `rg` over `/lyz/codespace/3rd/claude-code/src` found no `respondToBashCommands`, `"bash-path"`, `ReadMcpResourceDirTool`, `ReadMcpResourceDir`, or `resources/directory/read`.
+- The v2.1.88 `processBashCommand` telemetry emitted `tengu_input_bash` with `{ powershell }`, not the 193 `{ powershell, respond }` shape.
+- The v2.1.88 resource-tool pair was `ListMcpResourcesTool` + `ReadMcpResourceTool`; the 193 `ReadMcpResourceDirTool` remains a later tool-surface addition.
 
 ---
 
@@ -175,6 +205,6 @@ No other edits were required — the remaining ~48 anchors, all grep-count diffs
 
 - **`bash_mode_autocomplete.md` accept-handler range `:629693-629707`** is a 3-line-wide bounding box: the shown `if (te.current === "bash-path")` actually starts at 629696 (629693 = the enclosing `let tt = c[yt];`). This is within ±5 and the range correctly bounds the accept statement block, so it was **left as-is** (not a wrong-decl cite). Noted for completeness.
 - **Tangential (out of theme scope, no doc claim):** the 193 `defaultShell` describe text says "no Windows auto-flip", yet `Psr()` body still has `if (e === "bash" && !Su()) return "powershell"`. This is carryover shell-selection plumbing owned by `38_permissions/`-adjacent input code; the tools docs make no behavioral claim about it, so it is not a defect here.
-- **T4 (`--tools` cold-launch gate fix)** remains correctly flagged LOW confidence / un-isolable. The absence of any `flagsLoaded`/`ensureFlags`/`waitForFlags` symbol (0 in both bundles) and the carryover-identical `Sjo`/`b4` machinery were re-confirmed — the doc's honesty here holds; a `38_permissions/` startup-ordering follow-up is the right call.
+- **T4 (`--tools` cold-launch gate fix)** remains correctly flagged LOW confidence / un-isolable. The absence of any `flagsLoaded`/`ensureFlags`/`waitForFlags` symbol (0 in both bundles), the carryover-identical `Sjo`/`b4` machinery, the carryover `FXp`/`Jfe` opt-in latch, and the explicit `gb-before-tools` await being after `Sjo` in both bundles were re-confirmed. A `38_permissions/` startup/gate-ordering follow-up is still the right call.
 
 **Final verdict:** PASS WITH FIXES. **Confidence:** HIGH for deltas T1/T2/T3/T5 (each reproduced with a before/after read against 183 and, where claimed, 156); the single fixed citation drift was cosmetic (right region, wrong-by-2 line). T4 stays honestly LOW by its own (verified) reasoning.

@@ -58,7 +58,7 @@ front-and-center in the deep doc).
 
 | # | Delta | Kind | v2.1.193 anchor | v2.1.183 before | Confidence |
 |---|-------|------|-----------------|-----------------|:----------:|
-| S1 | Skill schema `tVr` + canonical list `zEd` recognize `displayName`/`defaultEnabled`/`fallback`/`evals` | **REFINEMENT** (schema) | `tVr` :149302 (`defaultEnabled` :149335, `displayName` :149339); `zEd` :149406 | `Q1r` :148478 / `yJu` :148571 lack them | high |
+| S1 | Skill schema `tVr` + canonical list `zEd` recognize `displayName`/`defaultEnabled`/`fallback`/`evals` | **REFINEMENT** (schema) | `tVr` :149302 (`defaultEnabled` :149335, `displayName` :149339); `zEd` :149406 | `Q1r` :148478 / `yJu` list :148574-148628 lack them | high |
 | S1b | Generic case-normalizer (`KEd`/`uIh`/`Gm` `normalizeKeys`) | **CARRYOVER + VESTIGIAL** (built, never read) | `KEd` :149400, `uIh` :149465, `Gm` ignores arg | `_Ju` :148568 / `kYA` :148629 identical, also dead | high (it's dead in both) |
 | S2 | Malformed YAML → `parseError` propagated + logged + counted | **REFINEMENT** (net-new plumbing) | `Gm` returns `parseError` :149531; `uyt` consumes :451753; `skill_load_yaml_failed` :451756 | `CA` :148675 returns no `parseError`; loader :443795 no log | high |
 | S2b | Malformed YAML → loads body with empty metadata (skill not dropped) | **CARRYOVER** | `Gm` `a={}` + `content:s` :149517/:149531 | identical in `CA` :148681/:148693 | high |
@@ -79,7 +79,7 @@ Summary here; the full What/How/Why/Key-insight lives in
   two are carryover; verified `Q1r` @`:148478` already has them.)
 - The canonical-key list `CANONICAL_FRONTMATTER_KEYS` (obfuscated: `zEd`, `:149406`) gained
   `displayName`/`defaultEnabled`/`fallback`/`evals`. `grep -c '"defaultEnabled"'` = **0 in 183, 1 in
-  193**; the 183 list `yJu` (`:148571`) contains none of the four.
+  193**; the 183 list `yJu` (`:148574-148628`, decl `:148571`) contains none of the four.
 - **The dead-normalizer gotcha.** The only `replace(/[-_]/g,"")` key-normalizer `KEd` (`:149400`) is
   called *exactly once* — to build the map `uIh` (`:149465`), which is itself referenced *exactly
   twice* (declaration + that build). `grep -cn 'uIh'` = **2**. Nothing reads the map. And the parser
@@ -193,7 +193,7 @@ Key functions/constants in this module (re-derived v2.1.193 names):
 - `parseMarkdownFrontmatter` (obfuscated: `Gm`, `cli_inner_pretty.js:149511`) — shared frontmatter
   parser; ignores its `{normalizeKeys}` arg; returns `parseError` as of 193. (183 `CA` @148675.)
 - `normalizeFrontmatterKey` (obfuscated: `KEd`, `cli_inner_pretty.js:149400`) — `replace(/[-_]/g,"").toLowerCase()`; only builds the dead map. (183 `_Ju` @148568.)
-- `CANONICAL_FRONTMATTER_KEYS` (obfuscated: `zEd`, `cli_inner_pretty.js:149406`) — +`displayName`/`defaultEnabled`/`fallback`/`evals`. (183 `yJu` @148571.)
+- `CANONICAL_FRONTMATTER_KEYS` (obfuscated: `zEd`, `cli_inner_pretty.js:149406`) — +`displayName`/`defaultEnabled`/`fallback`/`evals`. (183 `yJu` decl `:148571`, list `:148574-148628`.)
 - `normalizedKeyToCanonical` (obfuscated: `uIh`, `cli_inner_pretty.js:149465`) — Map; **VESTIGIAL** (2 refs). (183 `kYA` @148629.)
 - `skillFrontmatterSchema` (obfuscated: `tVr`, `cli_inner_pretty.js:149302`) — +`defaultEnabled`@149335/`displayName`@149339 + 6 `@internal`. (183 `Q1r` @148478.)
 - `frontmatterShadowSchemasByKind` (obfuscated: `qEd`, `cli_inner_pretty.js:149393`) — `{skill,agent,output-style}` `.strict()`.

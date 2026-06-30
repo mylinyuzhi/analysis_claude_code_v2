@@ -54,11 +54,20 @@
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `oUo` | `countAbandonedBgTasks` | cli_inner_pretty.js:578073 | function |
+| `$Kr` | `currentBgCwdOverride` (returns the bg-session cwd refreshed by `/cd`) | cli_inner_pretty.js:193511 | function |
+| `dSc` | `mapAgentPanelChildRows` (193 maps `kind:"frame"` children into visible child rows; 183 `JJl` filtered frames out) | cli_inner_pretty.js:674897 | function |
+| `Eim` | `measureChildArtifactWidth` (193 reserves fallback width for frame-only child lists; 183 `wBf` returned `0`) | cli_inner_pretty.js:674539 | function |
+| `ESc` | `buildAgentPanelRows` (headers/jobs/folds row builder for the agents panel) | cli_inner_pretty.js:674574 | function |
 | `fze` | `computeCarryOverMap` | cli_inner_pretty.js:578006 | function |
+| `FSc` | `agentPeekPanel` (peek/detail panel; slices child rows by overflow budget) | cli_inner_pretty.js:675223 | function |
 | `H7t` | `countCarryOverTasks` | cli_inner_pretty.js:578070 | function |
-| `y_t` | `countBackgroundTasks` | cli_inner_pretty.js:485964 | function |
-| `Lgl` | `registerCompletedResumedAgent` | cli_inner_pretty.js:454100 | function |
+| `Him` | `computeAgentPanelColumns` (age/label/artifact column width calculator) | cli_inner_pretty.js:674550 | function |
 | `JKl` | `readJobDir` | cli_inner_pretty.js:577927 | function |
+| `k3i` | `refreshBgJobCwdAfterCd` (bg-only state write of `cwd`/`originCwd`; called after successful `/cd`) | cli_inner_pretty.js:193514 / call 484488 | function |
+| `Lgl` | `registerCompletedResumedAgent` | cli_inner_pretty.js:454100 | function |
+| `oUo` | `countAbandonedBgTasks` | cli_inner_pretty.js:578073 | function |
+| `Qim` | `agentRosterRow` (job row renderer; receives `childRows` from `dSc`) | cli_inner_pretty.js:675696 | function |
 | `QKl` | `linkAdoptedAgentTranscript` | cli_inner_pretty.js:577951 | function |
+| `R3i` | `refreshBgJobResumePointers` (bg-only state write of `resumeSessionId`/`linkScanPath`/`linkScanOffset:0`; called after conversation reset) | cli_inner_pretty.js:193529 / call 485419 | function |
 | `WWn` | `getResumePrompt` (carryover) | cli_inner_pretty.js:371461 | function |
+| `y_t` | `countBackgroundTasks` | cli_inner_pretty.js:485964 | function |

@@ -61,7 +61,7 @@ re-run across all three bundles; 13 defects fixed in place; 3 NEW false-deltas c
 0 FAIL.** None of the 659 anchors resolved to a wrong symbol or a fabricated line — every defect is a precision,
 attribution, count, or NET-NEW-vs-CARRYOVER classification correction.
 
-> These 659 anchors and 292 grep diffs are **disjoint from** the first pass's 591 module-doc anchors: this pass
+> These 659 anchors and 292 grep diffs are **disjoint from** the first pass's 625 module-doc anchors: this pass
 > re-derived the overview + by_version layer that the first pass never independently opened.
 
 ---
@@ -211,9 +211,9 @@ under fully independent re-derivation.
 - **`00_overview/README.md:37`** — asset count: `tools_index.json (51 tools)`. The literal top-level
   `tools_index.json` is a legacy flat index (1 entry); the authoritative `assets/tools/_index.json` lists **50**
   tools (51 is the `.md` file count). **Fix:** → `tools/_index.json (50 tools)`.
-- **`00_overview/README.md:115`** — background_agents row said "6 anchor defects fixed." The report's C4 enumerates
-  **5** distinct defects (the "Six" prose double-counted the one summary-arg drift applied at two line numbers).
-  **Fix:** `6 → 5`, matching the authoritative 41-defect roll-up.
+- **`00_overview/README.md:115`** — background_agents row originally said "6 anchor defects fixed" while the report's
+  then-current C4 enumerated **5** distinct defects. **Fix at the time:** `6 → 5`. A later focused panel-render audit
+  added a real sixth background-agents defect, so the current authoritative roll-up is 42 defects.
 - **`README.md:43`** (tree front-door) — false arithmetic: `(23,434 files = 11,547 var-decl + 11,892
   var-decl-empty)`. The `vars/` dir has 23,434 `.js` files but the manifest lists `11,547 + 11,892 = 23,439`
   entries (5 more). **Fix:** reworded to "(23,434 files; 11,547 var-decl + 11,892 var-decl-empty **entries** in
@@ -279,10 +279,12 @@ are all reclassified with grep evidence.
 3. **Scout-dossier scratch files carry stale lines** (`_pp@292228`, `Mil@429446`) that the **published** docs
    already override with explicit "Drift fixed vs the scout dossier" notes pointing at the verified lines — a
    scratch-file artifact, not a published-tree inconsistency.
-4. **Minor sub-tolerance drifts left as-is** (≤2–3 lines, within the ≤5 tolerance): `VERSION:'2.1.193'` 2nd
-   instance `:211` vs doc's `214`; `_ne@283585` 1-line off the var-decl; `Yjd@211677` 2 lines into the body;
-   `2.1.190.md` "versions dir contains only 156/183/193 (for this delta)" though 132/142 also exist as unrelated
-   older builds (defensible under the qualifier).
+4. **Minor sub-tolerance drift left as-is** (within the ≤5 tolerance): `2.1.190.md` says "versions dir contains only
+   156/183/193 (for this delta)" though 132/142 also exist as unrelated older builds (defensible under the
+   qualifier). The earlier `VERSION:'2.1.193'` line-role ambiguity is now resolved in the published docs as metadata
+   blocks at `:162`, `:196`, and `:211-214`. The earlier `_ne` and `Yjd` line-role ambiguities are also resolved:
+   `_ne` is documented as decl `:283549` plus object assignment `:283584-283585`; `Yjd` is documented as decl
+   `:211675` plus merge `:211677`.
 5. **Runtime-vs-role names annotated, not renamed** (e.g. `Vht` readable "AgentStoppedError" abbreviates runtime
    "AgentStoppedByUserError"; MCP `lWe`/`Vj`), consistent with the tree convention.
 
@@ -321,11 +323,10 @@ glyphs.
 
 ### Fix applied during this sweep
 
-One additional in-place consistency fix, beyond the 13 surface defects: the first-pass
-`cross_validation_report_background_agents.md` prose said "**Six**"/"**six**" anchor defects (lines 14 and 165)
-while its own C4 enumerates "**5 distinct defects**" and both the README and `cross_validation_summary.md` roll it
-up as **5** (keeping the authoritative tree-wide total at **41**). The two "Six"/"six" instances were corrected to
-"Five"/"five" so the report no longer contradicts its own C4 and the 41 roll-up. No other invariant required a fix.
+One additional in-place consistency fix, beyond the 13 surface defects, originally reconciled the background-agents
+report's defect count with its C4 section. A later focused panel-render audit superseded that count: the report now
+has a sixth fixed defect for replacing a stale panel schema pointer with verified render anchors, and the
+authoritative tree-wide total is **42**. No other invariant required a fix.
 
 **Final sweep result: (a) 0 forbidden tables / 47-of-47 `## Related Symbols`; (b) 1,033 relative links, 0 genuine
 broken (1 documented `file.md` quoted-example false positive); (c) English-only PASS. The tree is internally

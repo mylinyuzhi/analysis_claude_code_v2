@@ -61,7 +61,7 @@ NET-NEW (2.1.193) deferred `ReadMcpResourceDirTool` (added to the `a$` exclusion
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `iX` | `ReadMcpResourceDirToolName` (`"ReadMcpResourceDirTool"`; NET-NEW) | cli_inner_pretty.js:283504 | constant |
-| `_ne` | `ReadMcpResourceDirTool` (tool object; `shouldDefer:!0`; the new `a$` exclusion entry) | cli_inner_pretty.js:283585 | object |
+| `_ne` | `ReadMcpResourceDirTool` (tool object; `shouldDefer:!0`; the new `a$` exclusion entry) | cli_inner_pretty.js:283549 (decl) / 283584-283585 (object) | object |
 | `dlp` | `readMcpResourceDirInputSchema` (Zod `{ server, uri }`) | cli_inner_pretty.js:283549 | function |
 | `plp` | `readMcpResourceDirOutputSchema` (Zod `{ resources[], error }`) | cli_inner_pretty.js:283549 | function |
 | `D_a` | `readMcpResourceDirDescription` ("List the direct children… not recursive.") | cli_inner_pretty.js:283505 | constant |
@@ -69,6 +69,8 @@ NET-NEW (2.1.193) deferred `ReadMcpResourceDirTool` (added to the `a$` exclusion
 | `b4` | `getBuiltinToolRegistry` (CARRYOVER; gate-conditional entries unchanged) | cli_inner_pretty.js:444127 | function |
 | `a$` | `getAvailableTools` (exclusion set 3→4 names, `+_ne.name`; includes `Ep` "StructuredOutput", tabled in core_features; 183 `zR`) | cli_inner_pretty.js:444225 | function |
 | `Sjo` | `initializeToolPermissionContext` (the `--tools` deny-universe builder; CARRYOVER) | cli_inner_pretty.js:598509 | function |
+| `FXp` | `shouldToolsListOptInToBrief` (`SendUserMessage`/`Brief` opt-in helper before `Sjo`; CARRYOVER, 183 `tPp`) | cli_inner_pretty.js:432268 | function |
+| `Jfe` | `setUserMsgOptIn` (sets session `SendUserMessage` opt-in before `Sjo`; CARRYOVER, 183 `Rde`) | cli_inner_pretty.js:2098 | function |
 
 > The `classifyAllShell` setting referenced in the tools additions routes to auto-mode, **not** the tool surface — it is tabled under **Module: Permissions / Auto-mode** in [`symbol_index_core_features.md`](symbol_index_core_features.md).
 

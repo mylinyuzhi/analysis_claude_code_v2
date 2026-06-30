@@ -9,9 +9,9 @@
 - **EARLIER BASELINE (156):** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
 - **v2.1.88 named-TS reference:** `/lyz/codespace/3rd/claude-code/src/`
 
-**Sample:** **73** distinct 193 anchors re-read at their exact cited lines in the TARGET bundle · **15** before-picture re-reads (5 decl/region reads in the 183 bundle + 10 zero/count confirmations in the 156 bundle) · **10** grep-count diffs re-run in all three bundles.
+**Sample:** **95** distinct 193 anchors re-read at their exact cited lines in the TARGET bundle · **25** before-picture re-reads (15 decl/region reads in the 183 bundle + 10 zero/count confirmations in the 156 bundle) · **10** grep-count diffs re-run in all three bundles.
 
-**Verdict (one line):** **PASS WITH FIXES.** Every load-bearing mechanism is real and correctly located. All three NET-NEW claims (memory-pressure reaper, subagent depth-cap throw, stop-is-permanent) and the CARRYOVER claim (turn-end "working" finalizer) are confirmed against live 183+156 grep evidence — **zero false deltas**. Five anchor-level defects were found and fixed in place: two +1 line drifts (`Mde`, `CXp`), one obf→readable mislabel (`Re` = `tengu_feature_bad` logger, not "logToolEvent"), one identity-passthrough clarification (`Ou`, with `t7l` added as the real path builder), and one off-by-a-few citation drift in a parenthetical aside (the `summary` arg, applied at two line numbers). No fabricated anchors, no false NET-NEW/CARRYOVER attributions.
+**Verdict (one line):** **PASS WITH FIXES.** Every load-bearing mechanism is real and correctly located. All three NET-NEW claims (memory-pressure reaper, subagent depth-cap throw, stop-is-permanent), the CARRYOVER claim (turn-end "working" finalizer), the bg-job metadata-refresh mechanism (`k3i`/`R3i`/`$Kr`), the bounded panel-render mechanism (`dSc`/`Eim`/child-row overflow slice), and the bounded channel-status boundary (`task_updated`/status snapshots/control-socket update replies) are confirmed against live 183+156 evidence — **zero false deltas**. Six anchor-level defects were found and fixed in place: two +1 line drifts (`Mde`, `CXp`), one obf→readable mislabel (`Re` = `tengu_feature_bad` logger, not "logToolEvent"), one identity-passthrough clarification (`Ou`, with `t7l` added as the real path builder), one off-by-a-few citation drift in a parenthetical aside (the `summary` arg, applied at two line numbers), and the stale panel pointer to the `subagentStatusLine` schema replaced with real panel-render anchors. No fabricated anchors, no false NET-NEW/CARRYOVER attributions.
 
 ---
 
@@ -99,11 +99,34 @@ Every line below was opened at the exact cited line in the 193 bundle and the de
 | `WWn` → getResumePrompt | 371461 | `function WWn(){ return process.env.CLAUDE_CODE_RESUME_PROMPT \|\| "Continue from where you left off."; }` | PASS |
 | resume-prompt inject (interrupted_turn) | 371503 | `Kb([Pn({content: WWn(), isMeta:!0})])` under `kind==="interrupted_turn"` | PASS |
 | resume-prompt inject (auto-resume deferred tool) | 706889 | `w_({mode:"prompt", … value: WWn(), …})` | PASS |
+| `$Kr` → currentBgCwdOverride | 193511 | `function $Kr() { return x3i; }` | PASS |
+| `k3i` → refreshBgJobCwdAfterCd | 193514 | bg-only `CLAUDE_JOB_DIR`/`CLAUDE_CODE_SESSION_KIND` guard, writes `cwd`/`originCwd` | PASS |
+| `R3i` → refreshBgJobResumePointers | 193529 | bg-only guard, writes `resumeSessionId`, `linkScanPath`, `linkScanOffset: 0` | PASS |
+| `/cd` call to `k3i` | 484488 | `if (r) await k3i(Mt());` after successful chdir/transcript move | PASS |
+| conversation reset call to `R3i` | 485419 | `if ((await BJ(), await R3i(xt(), jf()), l)) ...` after new session id | PASS |
+| classifier consumes cwd override | 465236 / 465238 | `cwd: $Kr() ?? v?.cwd ?? Mt()` and non-worktree `originCwd: ... ($Kr() ?? v?.originCwd)` | PASS |
+| 183 reset before-picture | 476579 | `if ((await lX(), l)) await NW(...)` — no bg-job resume pointer refresh between reset and prompt replay | PASS |
+| 183 classifier before-picture | 456715 / 456717 | `cwd: T?.cwd ?? Pt()`, `originCwd: T?.originCwd` — no cwd override | PASS |
 | `agentType:"main-session"` sentinel | 441096 | exact | PASS |
 | main-session exclude filters | 453732 / 453735 | both `Kl(…) && …agentType !== "main-session"` | PASS |
 | async_launched body (drops "end your response") | 431253–431261 | exact (both branches lose the stop directive) | PASS |
 | remote_launched still says "end your response" | 431248 | `Briefly tell the user what you launched and end your response.` | PASS |
 | `summary:'<5-10 word recap>'` arg | ~~431260~~ → **431255** | exact (193) | FIXED (cite drift) |
+| `Eim` → measureChildArtifactWidth | 674539 | `function Eim(e)`; 193 returns fallback width for frame-only child lists at `:674548` | PASS (supplemental panel audit) |
+| `Him` → computeAgentPanelColumns | 674550 | column calculator consumes `Eim(a.state)` for artifact width | PASS (supplemental panel audit) |
+| `ESc` → buildAgentPanelRows | 674574 | headers/jobs/folds row builder for the panel | PASS (supplemental panel audit) |
+| `dSc` → mapAgentPanelChildRows | 674897 | maps `kind==="frame"` to a visible child-row object instead of filtering it out | PASS (supplemental panel audit) |
+| `FSc` → agentPeekPanel | 675223 | detail/peek component receives `childRows: l` | PASS (supplemental panel audit) |
+| detail-panel child-row budget | 675425 / 675427 / 675565 | computes visible row budget, slices `l.slice(0, qe)`, renders `"… N more"` for hidden rows | PASS (supplemental panel audit) |
+| `Qim` → agentRosterRow | 675696 | roster-row renderer receives `childRows: d` | PASS (supplemental panel audit) |
+| roster passes mapped child rows | 678001 | `childRows: Xl.state.children ? dSc(Xl.state.children, x) : []` | PASS (supplemental panel audit) |
+| peek panel passes focused child rows | 678193 | `childRows: Koe` into `FSc` | PASS (supplemental panel audit) |
+| 183 child mapper before-picture | 661843–661864 | `JJl` filtered `.filter((n) => n.kind !== "frame")`; 183 artifact width `wBf` returned `0` for frame-only child lists at `:661521` | PASS (before-picture) |
+| `task_updated` event schema | 700169 | wire-safe task status patch subset (`status`, `description`, `end_time`, `total_paused_ms`, `error`, `is_backgrounded`) | PASS (supplemental channel audit) |
+| `task_updated` output filter | 705474 | streaming/headless output explicitly allows `task_updated` through | PASS (supplemental channel audit) |
+| agents-view status snapshots | 677134 / 677136 / 677169 / 677171 | open/attach state carries `loopKicks`, `statuses`, `statusesTs` | PASS (supplemental channel audit) |
+| `knownAlive` freshness hint | 678593 | `Date.now() - statusesTs < 1500 && statusForJob(...) !== void 0` before respawn/reattach | PASS (supplemental channel audit) |
+| daemon update compatibility replies | 715740 / 715852 | stale client/control-key update rejection + "job is restarting on the updated Claude Code" attach retry | PASS (supplemental channel audit; matching 183 strings at 696483 / 696585) |
 
 ---
 
@@ -147,8 +170,9 @@ The docs make only a *negative* 88 claim (subagent_depth_tracking.md §Evidence)
 3. **`Re` obf→readable mislabel.** `subagent_depth_tracking.md` (snippet READABLE + Mapping) and `symbol_additions` labeled `Re` as `logToolEvent` and cited the call line `:430480` for a "function". `Re`@**44848** is `function Re(e,t,n){ V("tengu_feature_bad", {…feature_name:$e(e), error_code:t}); }` — a feature-**error** telemetry emitter (confirmed across 10+ `Re("subagent_launch","…")` error-code call sites). Relabeled to `logFeatureError`, noted it emits `tengu_feature_bad`, and moved the `function` cite to the decl line 44848 (call at 430480 noted).
 4. **`Ou` identity-passthrough clarification + `t7l` added.** `Ou`@1792 is `function Ou(e){ return e; }` (identity), not a path builder; the real `<agentId>.meta.json` join lives in `t7l`@581864 (`Mx(e).replace(/\.jsonl$/, ".meta.json")`), called inside `Hre`/`Tde`. Annotated the `Ou` rows in `symbol_additions` and `agent_stop_lifecycle.md` Related Symbols, and added a `t7l` → `agentStateMetaPath` row to `symbol_additions` so the actual path builder is indexed.
 5. **`summary` arg citation drift.** `backgrounding_and_panel_fixes.md` parenthetical cited the `summary:'<5-10 word recap>'` arg at `:431260` (193) / `:424286` (183); the actual lines are **431255** (193) / **424284** (183). Fixed.
+6. **Panel schema-anchor replacement.** The panel sibling-hiding note cited the `subagentStatusLine` settings schema. Replaced it with the verified panel-render region: `dSc@674897` maps frame children into visible rows, `Eim@674539` reserves frame-only artifact width, and the detail panel slices child rows at `:675425-675428` with the hidden-tail row at `:675565-675568`.
 
-(5 distinct defects across 8 Edit operations. No content was churned where the docs were already correct.)
+(6 distinct defects across 9 Edit operations. No content was churned where the docs were already correct.)
 
 ---
 
@@ -156,10 +180,10 @@ The docs make only a *negative* 88 claim (subagent_depth_tracking.md §Evidence)
 
 - **R1 — `Tr` → isRemoteMode is a soft abstraction.** `Tr`@3061 is literally `function Tr(){ return !Nt.isInteractive; }` (i.e. `isNonInteractive`). The reaper arms only when `!Tr()` ⇒ interactive sessions. Naming it `isRemoteMode` is defensible (remote/headless runs are non-interactive) and the behavioral description ("arm only for top-level interactive shells, not remote") is correct, so I left it — but a strict reader should note the literal predicate is `!isInteractive`.
 - **R2 — `Ie` → logEvent.** `Ie`@44845 is `V("tengu_feature_ok", …)` (sibling of `Re`'s `tengu_feature_bad`). The doc's generic `logEvent` rendering for the reap-signal telemetry is acceptable; the underlying event is `tengu_feature_ok` with `feature_name:"task_local_shell_pressure_reap"`. Not changed (generic name is not wrong).
-- **R3 — UI/channel items (panel-fixes §4–6).** The pinned-re-prompt guard, panel sibling-hiding/row-jump, and the channel-drop fix are correctly flagged in the doc as NOT ISOLABLE / LOW confidence with no fabricated anchors; the `EventSource` false-delta caution is verified (4=4 across all three bundles). Nothing to fix — the honesty flags are accurate.
+- **R3 — UI/channel items (panel-fixes §5–6).** The direct pin-specific UI guard remains correctly bounded as inferred / LOW confidence; the `EventSource` false-delta caution is verified (4=4 across all three bundles). The panel sibling-hiding/row-jump item is now bounded to the render mechanism (`dSc` maps frame children; `Eim` reserves frame-only artifact width; detail panel slices child rows), and the channel-drop item is bounded to `task_updated` delivery, status snapshots, and daemon update compatibility replies, but both exact changelog patch lines remain unisolated. The formerly low-confidence pinned-reprompt locus has a source-backed mechanism: 193 adds bg-job cwd/resume metadata refresh (`$Kr`/`k3i`/`R3i` plus calls `:484488`/`:485419`), while `WWn` itself remains carryover.
 
 ---
 
 ## Final verdict
 
-**PASS WITH FIXES — confidence HIGH.** The background_agents theme docs are substantively accurate: all 73 sampled 193 anchors resolve to the claimed declarations/strings, all three NET-NEW mechanisms are genuinely absent in 183 *and* 156, the one CARRYOVER (turn-end finalizer) is byte-equivalent to a pre-existing 183 function with a pre-existing call site, and there are **zero false deltas**. The five fixed defects were all low-severity (two +1 line drifts, one telemetry mislabel, one identity-function clarification, one parenthetical citation drift applied at two line numbers) and are corrected in place. Residuals R1–R3 are honest, non-blocking naming/UI nuances.
+**PASS WITH FIXES — confidence HIGH.** The background_agents theme docs are substantively accurate: all 95 sampled 193 anchors resolve to the claimed declarations/strings, all three headline NET-NEW mechanisms plus the bg-job metadata refresh are genuinely absent in the checked 183 windows, the one CARRYOVER (turn-end finalizer) is byte-equivalent to a pre-existing 183 function with a pre-existing call site, and there are **zero false deltas**. The six fixed defects were all low-severity (two +1 line drifts, one telemetry mislabel, one identity-function clarification, one parenthetical citation drift applied at two line numbers, and one stale schema anchor for the panel UI) and are corrected in place. Residuals R1–R3 are honest, non-blocking naming/UI nuances.

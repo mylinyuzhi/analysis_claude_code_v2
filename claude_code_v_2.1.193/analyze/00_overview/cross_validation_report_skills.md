@@ -7,9 +7,10 @@
 - **TARGET bundle (193):** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines, build `a1938d2a`)
 - **BEFORE-PICTURE (183):** `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js` (699,346 lines)
 - **EARLIER BASELINE (156):** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
+- **v2.1.88 named-TS reference:** `/lyz/codespace/3rd/claude-code/src/`
 - **In-scope 193 deltas:** (1) skill-frontmatter multi-case key recognition (`display-name`/`default-enabled`/`fallback`/`metadata.*`), (2) malformed `SKILL.md` YAML → loads body with empty metadata + surfaces `parseError`, (3) "Skills" section in the `/plugin` Installed tab.
 
-**Sample:** ~45 distinct 193 anchors re-read in the TARGET bundle · ~15 before-pictures re-read across the 183 + 156 bundles (183 ancestor decls + 156 baseline greps) · ~18 grep-count diffs re-run in BOTH 183 and 156.
+**Sample:** ~45 distinct 193 anchors re-read in the TARGET bundle · ~15 before-pictures re-read across the 183 + 156 bundles (183 ancestor decls + 156 baseline greps) · 8 v2.1.88 named-TS lineage anchors re-read · ~18 grep-count diffs re-run in BOTH 183 and 156.
 
 **Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 declaration, signature, schema body, switch-case, row-builder field, sort slot, and group-insert matched the docs at the cited lines, and every NET-NEW signature reproduced as `0 in 183 AND 0 in 156` → genuine 193 deltas (not 156/183 carryover). The honest "vestigial normalizer" gotcha in `frontmatter_case_tolerance.md` is exactly correct (`uIh`/`kYA` = 2 refs each, both dead; `Gm`/`CA` use identity transform; `display-name`/`default-enabled` = 0 in both builds). Three small line-cite drifts (±2 lines) were fixed in place; one defensible residual is noted.
 
@@ -80,7 +81,7 @@ Each line opened at the exact cited line in the v2.1.193 bundle; declaration / b
 |-----------|---------------|----------|----------|--------|
 | `Q1r` | `tVr` | 148478 | `(Q1r = we(() => mJu().extend({…}))`; has `fallback`@148494 + `metadata`@148512; **lacks** userConfig/defaultEnabled/displayName/author/homepage/repository/license/keywords | PASS |
 | `_Ju` | `KEd` | 148568 | `function _Ju(e){…}` byte-identical normalizer | PASS |
-| `yJu` | `zEd` | 148571 | `var yJu, kYA;`@148571 (list `yJu = [`@148574); list 148574–148628 contains **none** of displayName/defaultEnabled/fallback/evals | PASS (see residual) |
+| `yJu` | `zEd` | 148571 / 148574-148628 | `var yJu, kYA;`@148571; list assignment `yJu = [`@148574 through `]`@148628 contains **none** of displayName/defaultEnabled/fallback/evals | PASS |
 | `kYA` | `uIh` | 148629 | `kYA = new Map(yJu.map((e)=>[_Ju(e),e]))`; refs = 2 (148571 + 148629) → VESTIGIAL in 183 too | PASS |
 | `CA` | `Gm` | 148675 | `function CA(e,t,n){…}`; `i=(l)=>l` identity; inner catch only `v(…warn…)`; `a={}`@148681; `return { frontmatter:a, content:s };`@148693 — **no** `l`, **no** `parseError` | PASS |
 | `GYp` | `OAf` | 508267 | `function GYp(e){ switch… }` — flagged/project/local/user/enterprise/managed/builtin+dynamic/default — **no** `case "skills"` | PASS |
@@ -117,6 +118,39 @@ Every NET-NEW/REFINEMENT signature was grepped in all three bundles. A genuine 1
 
 ---
 
+## C2 — v2.1.88 named-TS lineage spot-check
+
+The 88 tree is not used as a delta baseline for obfuscated line numbers, but it is useful for checking whether the
+193 claims align with the older named source architecture.
+
+- `src/utils/frontmatterParser.ts:10-58` defines `FrontmatterData` with literal keys
+  `allowed-tools`, `description`, `argument-hint`, `when_to_use`, `user-invocable`, `context`,
+  `agent`, `paths`, and `shell`, plus `[key: string]: unknown`; it does **not** explicitly define
+  `displayName`, `defaultEnabled`, `fallback`, or `metadata`. This supports the doc's "literal readers, permissive
+  object" framing.
+- `src/utils/frontmatterParser.ts:61-64` defines `ParsedMarkdown` as only `{ frontmatter, content }`.
+  There is no `parseError` slot in the 88 parser return type.
+- `src/utils/frontmatterParser.ts:130-133` exposes `parseFrontmatter(markdown, sourcePath?)`; focused
+  `rg normalizeKeys /lyz/codespace/3rd/claude-code/src/utils/frontmatterParser.ts` returns 0. The generic
+  normalization option is therefore post-88, and the 193 report correctly treats it as vestigial because `Gm`
+  still ignores its third argument.
+- `src/utils/frontmatterParser.ts:153-168` shows the 88 YAML-failure path: retry after
+  `quoteProblematicValues`, then log `Failed to parse YAML frontmatter...`; `:171-174` still returns
+  `{ frontmatter, content }`. This confirms that "keep the body despite malformed YAML" predates 193; the
+  193 delta is the new `parseError` propagation and `skill_load_yaml_failed` event.
+- `src/skills/loadSkillsDir.ts:185-207` returns the parsed skill field shape with no `fallback`,
+  `declaredFields`, or `parseError`. The actual field readers are literal: `frontmatter.name` for
+  `displayName` at `:237-240`, `frontmatter["allowed-tools"]` at `:242-244`, and `frontmatter.when_to_use`
+  at `:252`.
+- `src/skills/loadSkillsDir.ts:447-450` destructures only `{ frontmatter, content: markdownContent }`
+  from `parseFrontmatter`; focused `rg skill_load_yaml_failed /lyz/codespace/3rd/claude-code/src` returns 0.
+
+**C2 result:** PASS. No 88 ancestor contradicts the 193 conclusions. The old named tree already had the permissive
+body-preserving parser and literal skill-field accessors; 193 adds schema/canonical-key recognition plus YAML
+diagnostic surfacing, not a universal key-normalization runtime.
+
+---
+
 ## D — Defects fixed in place
 
 | # | File | What was wrong | Fix |
@@ -132,9 +166,9 @@ No content/mapping errors were found: every obf→readable mapping (schema, pars
 ## E — Verdict, confidence, residuals
 
 **Verdict:** PASS WITH FIXES.
-**Confidence:** HIGH. All three deltas are corroborated by `0-in-183 AND 0-in-156` signatures; the parser/schema/loader/label-switch/row-builder bodies were read in full at the cited lines; the honest "vestigial normalizer / schema-recognition-only" framing of Bullet #1 is exactly what the code shows.
+**Confidence:** HIGH. All three deltas are corroborated by `0-in-183 AND 0-in-156` signatures; the parser/schema/loader/label-switch/row-builder bodies were read in full at the cited lines; the v2.1.88 named-TS lineage matches the older parser/loader shape; the honest "vestigial normalizer / schema-recognition-only" framing of Bullet #1 is exactly what the code shows.
 
 **Residuals (honest):**
-1. `yJu` (183 ancestor of `zEd`) is cited at `:148571`, which is the `var yJu, kYA;` forward declaration; the list assignment `yJu = [` is at `:148574` (the doc's scan range `148571–148628` is correct and the parallel 193 cite `zEd@149406` is the list line). Left as-is — `:148571` is a legitimate declaration line for `yJu` and within ±3; flagged here only for completeness.
+1. No Skills-specific residual remains for `yJu`: the published docs now cite both the 183 declaration (`:148571`) and the actual canonical-list assignment range (`:148574-148628`). The parallel 193 cite remains `zEd@149406`, the list assignment line.
 2. `parseError:` greps `2` in 193 (not 1): the second hit is the `uyt` destructure `parseError: m`@451753, which is expected and consistent with the docs ("1+ in 193"). Not a defect.
 3. The malformed-YAML location header in `malformed_yaml_handling.md` ("…(183: CA @148675-148694)") uses the closing-brace line 148694 for the CA range end — correct (CA's `}` is at 148694); the body's last logical line is the 148693 return now cited in the evidence note.

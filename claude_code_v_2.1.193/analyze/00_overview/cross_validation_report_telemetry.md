@@ -139,15 +139,20 @@ Every v2.1.88 ancestor the docs cite was re-located in `/lyz/codespace/3rd/claud
 - **(b) `## Related Symbols` blockquote.** PASS. Both docs end with the mandated blockquote pointing at the four `../00_overview/symbol_index_*.md` + the per-feature additions file, followed by a list-format key-symbol index.
 - **(c) Dual-version snippet template.** PASS. Every `====` header carries ReadableName + Location, followed by `ORIGINAL` → `READABLE` → `Mapping`. No ORIGINAL/READABLE labels wrapped in their own `====` bars. The 183 before-picture block (§0) is a correctly-labelled single-version `(183 before-picture)` excerpt with its own Mapping line.
 - **(d) English only.** PASS. No CJK. The only non-ASCII glyphs are `←`/`→`/`≤`/`—` in prose and the verbatim `[TRUNCATED - Content exceeds 60KB limit]` string copied from the bundle.
-- **Residual (tree-wide, not owned here):** the four `../00_overview/symbol_index_*.md` link targets are the standard tree-wide consolidation gap (the additions file `symbol_additions_v2_1_193_telemetry.md` resolves). Not a telemetry-specific defect.
+- **Routing-layer check:** the four `../00_overview/symbol_index_*.md` link targets now resolve in this tree, alongside `symbol_additions_v2_1_193_telemetry.md`. The earlier tree-wide consolidation residual is closed; no telemetry-specific link defect remains.
 
 ---
 
 ## Defects fixed in place
 
-1. **[LOW] `assistant_response_event.md` §4 count mismatch — FIXED.** Prose read "The two events differ on **five** axes" but the immediately-following table enumerates **six** genuinely-differing aspects (Length field, Body field, Redaction gate, Truncation, Correlation, OTEL body). Changed "five axes" → "six axes" so the prose matches the table. No other content touched.
+1. **[LOW] `assistant_response_event.md` §4 count mismatch — FIXED.** Prose read "The two events differ on **five** axes" but the immediately-following table enumerates **six** genuinely-differing aspects (Length field, Body field, Redaction gate, Truncation, Correlation, OTEL body). Changed "five axes" → "six axes" so the prose matches the table.
 
 No other defects: all 33 anchors, all 3 NET-NEW classifications, all 6 grep-count diffs, all 9 lineage ancestors, and the env_vars.json asset note were already accurate.
+
+**Post-audit residual resolved:** The deep doc's triBool snippet previously used a different readable name for
+`lIt` than the additions/index row. Re-reading `lIt` at `cli_inner_pretty.js:36039` shows the exact role
+`e === void 0 ? void 0 : String(e)`, so the canonical `envValuePreprocessor` name is clearer and now matches the
+central symbol table. This was documentation naming drift only and does not change the counted defect total.
 
 ---
 
@@ -155,6 +160,4 @@ No other defects: all 33 anchors, all 3 NET-NEW classifications, all 6 grep-coun
 
 **PASS WITH FIXES.** Confidence: **HIGH.**
 
-The 44_telemetry delta analysis is among the cleanest audited: the entire feature is correctly characterized as *one inserted emit block* (`@468659-468668`) on the existing `recordApiRequestTelemetry` (`cSl`) path, one NET-NEW gate (`dGi` `@195211`) with the `OTEL_LOG_ASSISTANT_RESPONSES ?? OTEL_LOG_USER_PROMPTS` inheritance (`@195212`), one NET-NEW tri-state env var registered at three sites (`@36266`/`@36424`/`@193053`), and a reused 60 KB cap (`CD`/`xcp=61440`) newly applied to the response body. All 33 sampled 193 declarations matched verbatim; all three NET-NEW tokens proved 0-in-183 **and** 0-in-156 (and absent from the v2.1.88 tree); all six grep-count diffs reproduced exactly with honest in-window scoping of the `61440`/`response_length` carryover; all nine v2.1.88 ancestors located at their cited lines; the upgrade-behavior gotcha (prompt-logging deployments begin emitting full response bodies on upgrade unless `OTEL_LOG_ASSISTANT_RESPONSES=0`) is logically sound given the verified `??`-on-undefined / tri-state-vs-bool parser asymmetry. The lone fix was a trivial five-vs-six prose miscount.
-
-**Honest residuals:** (1) the four `symbol_index_*.md` blockquote targets are the standard tree-wide consolidation gap, not owned by this module. (2) Minor naming variance between docs: the deep doc's triBool `Mapping:` line names `lIt→coerceEnvValue` while `symbol_additions` names it `envValuePreprocessor` — same function (`@36039`), cosmetic only, left as-is to avoid churn. Neither affects correctness.
+The 44_telemetry delta analysis is among the cleanest audited: the entire feature is correctly characterized as *one inserted emit block* (`@468659-468668`) on the existing `recordApiRequestTelemetry` (`cSl`) path, one NET-NEW gate (`dGi` `@195211`) with the `OTEL_LOG_ASSISTANT_RESPONSES ?? OTEL_LOG_USER_PROMPTS` inheritance (`@195212`), one NET-NEW tri-state env var registered at three sites (`@36266`/`@36424`/`@193053`), and a reused 60 KB cap (`CD`/`xcp=61440`) newly applied to the response body. All 33 sampled 193 declarations matched verbatim; all three NET-NEW tokens proved 0-in-183 **and** 0-in-156 (and absent from the v2.1.88 tree); all six grep-count diffs reproduced exactly with honest in-window scoping of the `61440`/`response_length` carryover; all nine v2.1.88 ancestors located at their cited lines; the upgrade-behavior gotcha (prompt-logging deployments begin emitting full response bodies on upgrade unless `OTEL_LOG_ASSISTANT_RESPONSES=0`) is logically sound given the verified `??`-on-undefined / tri-state-vs-bool parser asymmetry. The counted fix was a trivial five-vs-six prose miscount; the later `lIt` readable-name alignment removed the only telemetry-specific residual.

@@ -63,7 +63,7 @@ NET-NEW `sandbox.credentials` config: per-source path-resolved deny-read file li
 | `IEu` | `sandboxCredentials` schema (`{files?, envVars?}`) | cli_inner_pretty.js:54069 | function |
 | `Lwr` | `sandboxRootSchema` (wires `credentials: IEu()`) | cli_inner_pretty.js:54079 | function |
 | `Rqi` | `resolveCredentialProtection` (`{denyReadPaths, unsetEnvVars, setEnvVars}`) | cli_inner_pretty.js:211660 | function |
-| `Yjd` | `buildSandboxFsDenyRead` (folds `denyReadPaths` into `filesystem.denyRead`) | cli_inner_pretty.js:211677 | function |
+| `Yjd` | `buildSandboxFsDenyRead` (folds `denyReadPaths` into `filesystem.denyRead`) | cli_inner_pretty.js:211675 (decl) / 211677 (merge) | function |
 | `FRn` | `secretInjectionRegistry` (staged `mode:"mask"` sentinel registry) | cli_inner_pretty.js:212031 | variable |
 | `Ya` | `sandboxConfig` (resolved sandbox config object) | cli_inner_pretty.js:211677 | variable |
 | `jT` | `SETTINGS_SOURCES` (credential merge-iteration source list) | cli_inner_pretty.js:219471 | constant |
@@ -112,7 +112,8 @@ NET-NEW (2.1.186) `mcp login`/`mcp logout` paste-URL OAuth subcommands plus the 
 | `oX` | `runOAuthFlow` (shared; `skipBrowserOpen`/`onWaitingForCallback`) | cli_inner_pretty.js:281953 | function |
 | `Vj` | `OAuthAbort` (`AuthenticationCancelledError` abort sentinel) | cli_inner_pretty.js:283086 | class |
 | `t3o` | `suggestClosestServerName` (fuzzy + truncate-at-8) | cli_inner_pretty.js:610416 | function |
-| `fde` | `fuzzyClosestMatch` (Levenshtein, maxEditDistance 2) | cli_inner_pretty.js:382122 | function |
+| `fde` | `fuzzyClosestMatch` (bounded closest match over name+aliases; `t3o` passes `maxEditDistance:2`) | cli_inner_pretty.js:382122 | function |
+| `z5t` | `editDistanceWithAdjacentTransposition` (DP edit distance; delete/insert/substitute + adjacent swap) | cli_inner_pretty.js:382133 | function |
 | `f9f` | `mcpGetHandler` | cli_inner_pretty.js:611549 | function |
 | `a9f` | `mcpRemoveHandler` | cli_inner_pretty.js:611388 | function |
 

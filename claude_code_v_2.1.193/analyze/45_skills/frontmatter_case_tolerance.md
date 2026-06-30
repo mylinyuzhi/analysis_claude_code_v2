@@ -50,6 +50,45 @@ The 2.1.186 bullet touches the **schema** (`tVr`) and the **canonical list** (`z
 to the shadow validator and to the (dead) normalizer. It does **not** touch `UCo`'s accessors. Holding
 that distinction is the whole analysis.
 
+### v2.1.88 lineage — the named ancestor proves this is post-88 recognition plumbing
+
+The v2.1.88 named TypeScript tree has the same broad loader shape but lacks the 193 recognition layer:
+
+- `src/utils/frontmatterParser.ts:10-58` defines `FrontmatterData` with explicit keys such as
+  `allowed-tools`, `description`, `argument-hint`, `when_to_use`, `user-invocable`, `context`,
+  `agent`, `paths`, and `shell`, plus an open `[key: string]: unknown` escape hatch. It does **not**
+  declare `displayName`, `defaultEnabled`, `fallback`, or `metadata` as frontmatter fields.
+- `src/utils/frontmatterParser.ts:61-64` defines `ParsedMarkdown` as only `{ frontmatter, content }`.
+  There is no `parseError` return slot; the parser either fills `frontmatter` or leaves it `{}` and
+  still returns the body.
+- `src/utils/frontmatterParser.ts:130-133` has the old two-argument signature
+  `parseFrontmatter(markdown, sourcePath?)`; `rg normalizeKeys` in that file returns 0. This is a
+  useful named ancestor for the 193 vestigial-normalizer finding: 88 had no generic normalization API,
+  183/193 have a `{ normalizeKeys: true }` call convention, but 193's parser still ignores it.
+- `src/utils/frontmatterParser.ts:153-168` retries YAML after quoting problematic values and then
+  logs `Failed to parse YAML frontmatter...` on failure; `src/utils/frontmatterParser.ts:171-174`
+  still returns `{ frontmatter, content }`. So 88 already had the "keep the markdown body even when
+  YAML is broken" behavior, but not the 193 `parseError` plumbing.
+- `src/skills/loadSkillsDir.ts:185-207` returns the parsed skill field shape without `fallback`,
+  `declaredFields`, or `parseError`; the live field reader uses `frontmatter.name` for `displayName`
+  (`:237-240`), `frontmatter["allowed-tools"]` for tools (`:242-244`), and `frontmatter.when_to_use`
+  for activation guidance (`:252`). That matches the 193 conclusion: field consumption is literal,
+  not a generic key rewrite.
+- `src/skills/loadSkillsDir.ts:447-450` destructures only `{ frontmatter, content: markdownContent }`
+  from `parseFrontmatter`, with no `parseError` branch; `rg skill_load_yaml_failed` in the 88 tree
+  returns 0.
+
+**What it does:** The 88 lineage bounds the change precisely: 193 did not invent body-preserving YAML
+failure handling, and it did not make a long-standing normalizer suddenly live. It added recognition
+metadata (`displayName`/`defaultEnabled` in the schema + canonical list) and a diagnostic `parseError`
+path on top of the older parser/loader shape.
+
+**Why this matters:** Without the 88 check, the 193 `parseError` and normalizer findings could be
+over-attributed. The named ancestor shows the stable baseline: frontmatter was always permissive at
+the object level because of `[key: string]: unknown`, but only literal readers consumed values. The
+new 193 proof is therefore the schema/telemetry and diagnostics wiring, not a universal spelling
+normalization behavior.
+
 ---
 
 ## 1. The provable net-new: schema recognizes `defaultEnabled`/`displayName`
@@ -239,8 +278,8 @@ CANONICAL_FRONTMATTER_KEYS = [ /* …existing keys… */
 | `grep -c 'defaultEnabled: A.unknown'` (schema entry) | 0 | 1 |
 | `grep -c 'displayName: A.unknown'` (schema entry) | 0 | 1 |
 
-The 183 canonical list `yJu` (`:148571`) contains none of `displayName`/`defaultEnabled`/`fallback`/
-`evals` (verified by scanning `:148571-148629`). So both the schema and the canonical list grew by the
+The 183 canonical list `yJu` (decl `:148571`, list assignment `:148574-148628`) contains none of
+`displayName`/`defaultEnabled`/`fallback`/`evals`. So both the schema and the canonical list grew by the
 four named keys in 193.
 
 ---
@@ -415,7 +454,7 @@ wire exists, the *observable* delta is: (a) the camelCase keys stop tripping sha
 | Item | Verdict | Proof |
 |------|---------|-------|
 | `tVr` gains `defaultEnabled`/`displayName` (+6 `@internal`) | **NET-NEW** | `grep -c 'defaultEnabled: A.unknown'` 0→1, `'displayName: A.unknown'` 0→1; 183 `Q1r`@148478 lacks them |
-| `zEd` gains `displayName`/`defaultEnabled`/`fallback`/`evals` | **NET-NEW** | `grep -c '"defaultEnabled"'` 0→1; 183 `yJu`@148571 scan shows none |
+| `zEd` gains `displayName`/`defaultEnabled`/`fallback`/`evals` | **NET-NEW** | `grep -c '"defaultEnabled"'` 0→1; 183 `yJu` list `:148574-148628` scan shows none |
 | `fallback`/`metadata` in skill schema | **CARRYOVER** | already in 183 `Q1r` (`fallback`@148494-ish, `metadata`@148512-ish) |
 | `KEd` normalizer | **CARRYOVER + VESTIGIAL** | byte-identical to 183 `_Ju`@148568; only builds the dead map |
 | `uIh`/`kYA` normalize-map | **CARRYOVER + VESTIGIAL** | `grep -cn 'uIh'`=2 (193), `'kYA'`=2 (183); never read in either |
@@ -455,7 +494,7 @@ Key functions/constants in this document:
 - `frontmatterShadowSchemasByKind` (obfuscated: `qEd`, `cli_inner_pretty.js:149393`) — `{skill,agent,output-style}` `.strict()`.
 - `shadowValidateFrontmatter` (obfuscated: `ije`, `cli_inner_pretty.js:149238`) — telemetry-only validator; emits `tengu_frontmatter_shadow_unknown_key`/`_mismatch`.
 - `recordShadowTelemetryOnce` (obfuscated: `Yxi`, `cli_inner_pretty.js:149233`) — per-surface/key dedup emitter.
-- `CANONICAL_FRONTMATTER_KEYS` (obfuscated: `zEd`, `cli_inner_pretty.js:149406`) — +4 keys in 193. (183 `yJu`@148571.)
+- `CANONICAL_FRONTMATTER_KEYS` (obfuscated: `zEd`, `cli_inner_pretty.js:149406`) — +4 keys in 193. (183 `yJu` decl `:148571`, list `:148574-148628`.)
 - `normalizeFrontmatterKey` (obfuscated: `KEd`, `cli_inner_pretty.js:149400`) — `replace(/[-_]/g,"").toLowerCase()`; only builds the dead map. (183 `_Ju`@148568.)
 - `normalizedKeyToCanonical` (obfuscated: `uIh`, `cli_inner_pretty.js:149465`) — Map; **VESTIGIAL** (2 refs). (183 `kYA`@148629.)
 - `parseMarkdownFrontmatter` (obfuscated: `Gm`, `cli_inner_pretty.js:149511`) — ignores `normalizeKeys`; identity transform. (183 `CA`@148675.)

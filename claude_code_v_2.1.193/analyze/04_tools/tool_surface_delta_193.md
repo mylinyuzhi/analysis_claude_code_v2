@@ -11,7 +11,7 @@ Directory + content diff of `assets/tools/*.md` (183 vs 193): **50 → 51** tool
 
 Two adjacent items round out the picture:
 - The new tool is a **deferred** tool (`shouldDefer: !0`), and it is exactly the `+1` entry that v2.1.193 added to the `getAvailableTools` hidden-tool exclusion set — so the registry/permission change is *directly* the new tool, not an unrelated refinement.
-- The 2.1.186 changelog's `--tools` "feature-gated tools slip through on cold launch" fix is **not byte-isolable**: the deny-list builder and the built-in registry are carryover-identical, so the actual fix is a startup-ordering change that a grep-diff cannot pin. Documented honestly with low confidence.
+- The 2.1.186 changelog's `--tools` "feature-gated tools slip through on cold launch" fix is **not byte-isolable**: the deny-list builder, built-in registry, and visible `SendUserMessage` opt-in latch are carryover-equivalent, and the explicit `gb-before-tools` await is after permission-context construction in both bundles. Documented honestly with low confidence.
 
 ---
 
@@ -21,8 +21,8 @@ Two adjacent items round out the picture:
 
 ```javascript
 // ============================================
-// ReadMcpResourceDirTool — name const, description, and tool object
-// Location: cli_inner_pretty.js:283504 (name), 283505 (desc), 283585 (object), 283549 (schemas)
+// ReadMcpResourceDirTool - name const, description, schemas, and tool object
+// Location: cli_inner_pretty.js:283504 (name), 283505 (desc), 283549 (decl/schemas), 283584-283585 (object)
 // ============================================
 
 // ORIGINAL (for source lookup):
@@ -118,7 +118,7 @@ let available = getBuiltinToolRegistry().filter((t) => !hiddenFromDefaultList.ha
 //   b4→getBuiltinToolRegistry; 183 zR exclusion was [_G.name, kG.name, Em]
 ```
 
-> **Drift fix (vs scout dossier).** The dossier saw the 3→4 change and called it "most likely an unrelated refinement … flagged for deeper analysis." It is **not** unrelated: the new entry is `_ne.name`, and `_ne` (`:283585`) is the `ReadMcpResourceDirTool` object itself. So the `a$` change *is* the new tool being excluded from the default available list — exactly what `shouldDefer: !0` implies. This connects bullet "registry change" to bullet "new tool" cleanly. Verified by reading `_ne`'s definition (`name: iX`, `shouldDefer:!0`) at `:283585`.
+> **Drift fix (vs scout dossier).** The dossier saw the 3→4 change and called it "most likely an unrelated refinement … flagged for deeper analysis." It is **not** unrelated: the new entry is `_ne.name`, and `_ne` (decl `:283549`, object assignment `:283584`, first property `:283585`) is the `ReadMcpResourceDirTool` object itself. So the `a$` change *is* the new tool being excluded from the default available list — exactly what `shouldDefer: !0` implies. This connects bullet "registry change" to bullet "new tool" cleanly. Verified by reading `_ne`'s definition (`name: iX`, `shouldDefer:!0`) at `:283584-283585`.
 
 ### `initializeToolPermissionContext` (`Sjo`, :598509) — the `--tools` deny builder — CARRYOVER
 
@@ -160,11 +160,63 @@ This block is structurally identical to 183 (@586466 region). So the visible `--
 
 **Changelog item:** `--tools` could let feature-gated tools slip through before flags loaded on a cold first launch.
 
-**Mechanism (inferred).** `getBuiltinToolRegistry` (`b4`) includes feature-gated tools *conditionally* via gate functions. On a cold first launch the gate config has not been fetched, so a gate returns `false` → the gated tool is **absent from `b4()`** → absent from the `--tools` deny universe `z` (= `builtins − requested`) → it remains *allowed* once the flags later load. Hence "slips through."
+**Mechanism (inferred).** `getBuiltinToolRegistry` (`b4`) includes some tools conditionally. If the registry is sampled while a feature-gated tool is still disabled, that tool is **absent from `b4()`**, so it is also absent from the `--tools` deny universe `z` (= `builtins − requested`). The changelog's "slips through" wording fits that failure mode: a tool that was missing from the deny universe cannot be denied by the `toolsNarrowing` layer.
 
-**Why it is not isolable.** Both `Sjo` (the deny builder) and `b4` (the registry) are carryover-identical between 183 and 193, so the actual fix is a **startup-ordering change** (await the gate config before computing the tool-permission context), which does **not** surface as a discrete grep-diff. No `flagsLoaded`/`ensureFlags`/`waitForFlags`-style symbol exists in either bundle (all 0). 
+### Cold-start gate-order audit
 
-**Honest verdict:** the fix is real per the changelog but cannot be pinned to a byte-precise site from a tool-surface diff. **Recommend a focused follow-up** in `38_permissions/` tracing the gate-config bootstrap vs the `Sjo`/`initializeToolPermissionContext` call order on the cold `-p` path. Cross-link: `38_permissions/`.
+**What it does:** bounds the 2.1.186 `--tools` fix claim by tracing the CLI startup order around `--tools`, feature gates, and tool-permission construction.
+
+**How it works:**
+1. The CLI parses `--tools` into `baseTools` (`f`) at `:712639`.
+2. If `baseTools` is non-empty, a pre-permission opt-in helper runs at `:712990-712993`.
+3. Only after that helper does `initializeToolPermissionContext` (`Wvc` → `Sjo`) run at `:712994-713003`.
+4. The explicit GrowthBook cold await (`gb-before-tools`) is later, at `:713130-713135`, before `qvc`/`getAvailableTools`, not before `Sjo`.
+
+```javascript
+// ============================================
+// briefToolsOptInBeforePermissionContext - --tools opt-in latch before deny-universe construction
+// Location: cli_inner_pretty.js:712990-713003
+// ============================================
+
+// ORIGINAL (for source lookup):
+if (f.length > 0) {
+  let { shouldToolsListOptInToBrief: Jn } = (_4(), lo(wJ));
+  if (Jn(V1(f))) Jfe(!0);
+}
+let wr = performance.now(),
+  me = await Wvc({
+    allowedTools: m,
+    disallowedTools: g,
+    baseTools: f,
+    permissionMode: ct,
+    allowDangerouslySkipPermissions: p,
+    addDirs: b,
+  });
+
+// READABLE (for understanding):
+if (baseTools.length > 0) {
+  let { shouldToolsListOptInToBrief } = loadBriefToolGateModule();
+  if (shouldToolsListOptInToBrief(splitCliToolList(baseTools))) setUserMsgOptIn(true);
+}
+let permissionResult = await initializeCliToolPermissionContext({
+  allowedTools,
+  disallowedTools,
+  baseTools,
+  permissionMode,
+  allowDangerouslySkipPermissions,
+  addDirs,
+});
+
+// Mapping: f→baseTools, _4/lo(wJ)→loadBriefToolGateModule, FXp/Jn→shouldToolsListOptInToBrief, V1→splitCliToolList, Jfe→setUserMsgOptIn, Wvc→initializeCliToolPermissionContext
+```
+
+**Why this approach:** this is the only visible gate-adjacent `--tools` ordering hook in the 193 startup path. It specifically handles `SendUserMessage`/`Brief` opt-in before `Sjo` samples `b4()`, matching the named TypeScript comment in `src/main.tsx:1722-1725` ("Runs BEFORE initializeToolPermissionContext..."). However, the same helper body and call order already exist in 183 (`tPp` at `:425215`, call at `:693834-693850`), so it cannot be claimed as the 2.1.186 patch.
+
+**Key insight:** the previously tempting explanation "193 awaits gate config before computing the permission context" is **not supported** by the byte order. Both 183 and 193 compute `Sjo` before the explicit `gb-before-tools` await. The honest conclusion is narrower: the changelog fix is real, but this 183→193 bundle comparison only proves the relevant failure shape and the carryover pre-permission opt-in hook; it does not isolate the exact patch line.
+
+**Why it is not isolable.** `Sjo` (the deny builder), `b4` (the registry), `FXp`/`tPp` (`shouldToolsListOptInToBrief`), and `Jfe`/`Rde` (`setUserMsgOptIn`) are carryover-equivalent between 183 and 193. No `flagsLoaded`/`ensureFlags`/`waitForFlags`-style symbol exists in either bundle (all 0).
+
+**Honest verdict:** the fix is real per the changelog but cannot be pinned to a byte-precise site from the 183→193 tool-surface diff. Keep it LOW confidence and treat it as a `38_permissions/` / startup-ordering follow-up, with the corrected caveat that the explicit GrowthBook await is after `Sjo` in both bundles.
 
 ---
 
@@ -185,7 +237,7 @@ So for the *tool surface*, the Bash/PowerShell description angle is a **false de
 |------|-----------|---------------|---------|
 | `assets/tools/*.md` count | — | 50 → 51 (+ReadMcpResourceDirTool.md, 0 removed) | **+1 tool** |
 | `ReadMcpResourceDirTool` name (`iX`) | :283504 | grep 193=2 / 183=0 | **NET-NEW** |
-| tool object `_ne` (deferred) | :283585 | absent in 183 | **NET-NEW** |
+| tool object `_ne` (deferred) | decl `:283549`; object `:283584-283585` | absent in 183 | **NET-NEW** |
 | `a$` exclusion set (3→4, +`_ne.name`) | :444237 | 183 `zR` set = 3 names @436634 | **NET-NEW (body change = the new tool)** |
 | sibling-desc cross-refs `${iX}` | :284345, :451562 | 193=1 each / 183=0 | **NET-NEW** |
 | `resources/directory/read` (protocol) | — | 193=5 / 183=4 (+1 = the tool) | **CARRYOVER (client)** |
@@ -215,7 +267,7 @@ So for the *tool surface*, the Bash/PowerShell description angle is a **false de
 > - per-feature additions: [symbol_additions_v2_1_193_tools.md](../00_overview/symbol_additions_v2_1_193_tools.md)
 
 Key functions/constants in this document:
-- `ReadMcpResourceDirToolName` (`iX`, :283504) / `ReadMcpResourceDirTool` object (`_ne`, :283585) / input+output schemas (`dlp`/`plp`, :283549) / description (`D_a`, :283505) — NET-NEW.
+- `ReadMcpResourceDirToolName` (`iX`, :283504) / `ReadMcpResourceDirTool` object (`_ne`, decl `:283549`, object `:283584-283585`) / input+output schemas (`dlp`/`plp`, :283549) / description (`D_a`, :283505) — NET-NEW.
 - `defineTool` (`Xs`, :151125) — the tool-object wrapper.
 - `getBuiltinToolRegistry` (`b4`, :444127) — CARRYOVER.
 - `getAvailableTools` (`a$`, :444225) — exclusion set 3→4, `+_ne.name`; 183 `zR`@436622.

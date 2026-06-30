@@ -30,9 +30,9 @@
 | `G_l` | `initAutoDream` — installs the `executeAutoDream` closure | cli_inner_pretty.js:463837 | function |
 | `j_l` | `executeAutoDream` — dream firing closure (throttle → fire → telemetry → fork); `aH()` branch removed | cli_inner_pretty.js:463839 | function |
 | `qae` | `parseMemoryStoresEnv` — `CLAUDE_MEMORY_STORES` JSON parse/validate (NOT `b5t`, which is `permission_browser`@375261) | cli_inner_pretty.js:151593 | function |
-| `m0i` | `buildMemorySystemPrompt_privateAndTeam` — recall/system-prompt builder (carryover) | cli_inner_pretty.js:152389 | function |
-| `g0i` | `buildMemorySystemPrompt_teamMultiDir` — recall/system-prompt builder (carryover) | cli_inner_pretty.js:152460 | function |
-| `VVr` | `buildMemorySystemPrompt_singleDir` — recall/system-prompt builder (carryover) | cli_inner_pretty.js:152638 | function |
+| `m0i` | `buildMemorySystemPrompt_privateAndTeam` — combined private+team prompt; 183 `mgi`; selected by `w$t` normal auto+team branch | cli_inner_pretty.js:152389 | function |
+| `g0i` | `buildMemorySystemPrompt_teamMultiDir` — team-only / multi-dir / read-only-store prompt; 183 `Agi`; selected when no writable user store exists | cli_inner_pretty.js:152460 | function |
+| `VVr` | `buildMemorySystemPrompt_singleDir` — single-directory prompt; 183 `UNr`; selected for auto-only and agent memory loaders | cli_inner_pretty.js:152638 | function |
 
 ## Module: Auto Memory — v2.1.183 before-picture (REMOVED in v2.1.193)
 

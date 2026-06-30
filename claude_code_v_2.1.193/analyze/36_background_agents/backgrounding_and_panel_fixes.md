@@ -1,9 +1,9 @@
 # Backgrounding & Agent-Panel Fixes (2.1.193 / 2.1.191)
 
-> **Type:** mixed — one isolable carry-over-aware count fix, one prompt body-change, one partially-isolable adoption fix, three honestly-flagged non-isolable UI items · **Versions:** 2.1.193 / 2.1.191 · **Module:** `36_background_agents/` (EXTEND)
+> **Type:** mixed — one isolable carry-over-aware count fix, one prompt body-change, one partially-isolable adoption fix, one isolable bg-job metadata refresh, and two honestly-flagged non-isolable UI/channel items · **Versions:** 2.1.193 / 2.1.191 · **Module:** `36_background_agents/` (EXTEND)
 > **Target bundle:** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (VERSION `2.1.193`, build `a1938d2a`). `cli_inner_pretty.js:<line>` = a **193** line unless tagged *(183)*.
 
-This doc covers the cluster of backgrounding/panel UX fixes. Each item is tagged with how cleanly it isolates to source; the three UI-only items are flagged honestly rather than given fabricated anchors.
+This doc covers the cluster of backgrounding/panel UX fixes. Each item is tagged with how cleanly it isolates to source; the remaining UI-only/channel items are flagged honestly rather than given fabricated anchors.
 
 ---
 
@@ -160,25 +160,183 @@ The adoption machinery (`:688699` loop + `Lgl`) and the `main-session` sentinel 
 
 ---
 
-## 4. Pinned bg agents re-prompted "Continue from where you left off" after auto-update (NOT ISOLABLE, 2.1.193)
+## 4. Bg-job cwd/resume metadata refresh after `/cd` and `/clear` (ISOLABLE; likely root of the pinned re-prompt fix, 2.1.193)
 
-The resume prompt is `getResumePrompt` (`WWn`, `:371461`) — `process.env.CLAUDE_CODE_RESUME_PROMPT || "Continue from where you left off."`. It is injected on interrupted-turn resume (`:371503`, guarded by `kind === "interrupted_turn"`) and on auto-resume of a deferred tool in the print/headless path (`:706889`, which runs after `/update`). **`WWn` and both injection sites are carryover** — the function and the long-standing resume-prompt are unchanged.
+The resume prompt itself is still carryover: `getResumePrompt` (`WWn`, `:371461`) returns `process.env.CLAUDE_CODE_RESUME_PROMPT || "Continue from where you left off."`, and the two injection sites are still the interrupted-turn deserializer (`:371503`) and the print/headless deferred-tool auto-resume path (`:706889`). 183 has the same two surfaces (`zNn`, `:360198` / `:360237` / `:688092`). So the 2.1.193 "pinned bg agents re-prompted after auto-update" changelog item is **not** a change at the `WWn` call site.
 
-The bullet describes a *guard* fix: pinned background agents should not have the resume prompt re-injected on every auto-update cycle. I could **not** isolate a clean `isPinned`/`pin`-keyed guard adjacent to the `WWn` injection in 193 vs 183 (the `pinned` symbol space is dominated by notification-pin and model-pin code, not bg-agent pin). The fix is most likely a small conditional in the auto-update/resume orchestration that does not surface as a net-new symbol. **Confidence: LOW** — site located, fix not isolable; flagged honestly rather than inventing an anchor.
+What *is* isolable is a new bg-job metadata refresh layer that keeps the job's durable `state.json` in sync after directory/session resets. This is the first source-backed explanation for the prior low-confidence item: stale `cwd`, `originCwd`, `resumeSessionId`, or `linkScanPath` can make a resumed pinned job scan the wrong transcript boundary, which is exactly the class of bug that manifests as an unwanted synthetic "Continue..." on the next auto-resume/update cycle.
+
+### bgJobMetadataRefresh
+
+**What it does:** Updates the current background job's persisted cwd and resume/transcript pointers when the live session changes them.
+
+**How it works:**
+1. `/cd` calls `refreshBgJobCwdAfterCd` (`k3i`, `:193514`) after the chdir/transcript move succeeds (`:484488`).
+2. `k3i` is bg-only: it exits unless `CLAUDE_JOB_DIR` exists and `CLAUDE_CODE_SESSION_KIND === "bg"` (`:193515-193516`).
+3. It rereads the job state, preserves `originCwd` for worktree jobs, otherwise writes `{ cwd: currentCwd, originCwd: currentCwd, updatedAt }` (`:193518-193523`).
+4. Conversation reset (`/clear` and equivalent flows) calls `refreshBgJobResumePointers` (`R3i`, `:193529`) after the new session id is minted (`:485419`).
+5. `R3i` writes the new `{ resumeSessionId, linkScanPath, linkScanOffset: 0, updatedAt }` if either pointer changed (`:193533-193542`).
+6. The classifier/state writer consumes the refreshed cwd via `currentBgCwdOverride` (`$Kr`, `:193511`) when writing `cwd` and non-worktree `originCwd` (`:465236`, `:465238`), so subsequent bg state reflects the live cwd rather than stale persisted state.
+
+```javascript
+// ============================================
+// bgJobMetadataRefresh - keep bg job cwd and transcript pointers current
+// Location: cli_inner_pretty.js:193511-193542, 484488, 485419, 465236-465238
+// ============================================
+
+// ORIGINAL (for source lookup):
+function $Kr() { return x3i; }
+async function k3i(e) {
+  let t = Be.CLAUDE_JOB_DIR;
+  if (!t || Be.CLAUDE_CODE_SESSION_KIND !== "bg") return;
+  ((x3i = e), Bb(t));
+  let n = await ji(t), r = n?.worktreePath ? n.originCwd : e;
+  if (!n || (n.cwd === e && n.originCwd === r)) return;
+  Bb(t);
+  let o = (await ji(t)) ?? n;
+  await Bd(t, { ...o, cwd: e, originCwd: o.worktreePath ? o.originCwd : e, updatedAt: new Date().toISOString() }).catch(Nf);
+}
+async function R3i(e, t) {
+  let n = Be.CLAUDE_JOB_DIR;
+  if (!n || Be.CLAUDE_CODE_SESSION_KIND !== "bg") return;
+  Bb(n);
+  let r = await ji(n);
+  if (!r || (r.resumeSessionId === e && r.linkScanPath === t)) return;
+  Bb(n);
+  let o = (await ji(n)) ?? r;
+  await Bd(n, { ...o, resumeSessionId: e, linkScanPath: t, linkScanOffset: 0, updatedAt: new Date().toISOString() }).catch(Nf);
+}
+
+// READABLE (for understanding):
+function currentBgCwdOverride() { return currentBgCwd; }
+async function refreshBgJobCwdAfterCd(currentCwd) {
+  let jobDir = env.CLAUDE_JOB_DIR;
+  if (!jobDir || env.CLAUDE_CODE_SESSION_KIND !== "bg") return;
+  currentBgCwd = currentCwd;
+  invalidateJobStateCache(jobDir);
+  let state = await readJobState(jobDir);
+  let expectedOrigin = state?.worktreePath ? state.originCwd : currentCwd;
+  if (!state || (state.cwd === currentCwd && state.originCwd === expectedOrigin)) return;
+  let latest = (await readJobState(jobDir)) ?? state;
+  await writeJobState(jobDir, { ...latest, cwd: currentCwd, originCwd: latest.worktreePath ? latest.originCwd : currentCwd, updatedAt: now() });
+}
+async function refreshBgJobResumePointers(sessionId, transcriptPath) {
+  let jobDir = env.CLAUDE_JOB_DIR;
+  if (!jobDir || env.CLAUDE_CODE_SESSION_KIND !== "bg") return;
+  invalidateJobStateCache(jobDir);
+  let state = await readJobState(jobDir);
+  if (!state || (state.resumeSessionId === sessionId && state.linkScanPath === transcriptPath)) return;
+  let latest = (await readJobState(jobDir)) ?? state;
+  await writeJobState(jobDir, { ...latest, resumeSessionId: sessionId, linkScanPath: transcriptPath, linkScanOffset: 0, updatedAt: now() });
+}
+
+// Mapping: $Kr->currentBgCwdOverride, k3i->refreshBgJobCwdAfterCd, R3i->refreshBgJobResumePointers, x3i->currentBgCwd, Bb->invalidateJobStateCache, ji->readJobState, Bd->writeJobState, Be->env
+```
+
+**Why this approach:**
+- It updates the durable job state at the two points where the live session identity can diverge from the saved bg-job record: `/cd` changes cwd/origin cwd, while `/clear`/conversation reset changes session id and transcript path.
+- It avoids reclassifying the whole job immediately. Instead it performs a narrow state write and lets the existing classifier consume the corrected fields on the next write.
+- It preserves worktree `originCwd`, which is important because worktree jobs deliberately distinguish the worktree cwd from the original project root.
+
+**Key insight:** The prompt string did not change; the state boundary did. 193 adds the missing "tell the bg job what session/transcript/cwd it now represents" updates, while 183 only changed the live process state. That is why the old low-confidence `WWn` explanation was too narrow.
+
+### Before-picture and remaining limitation
+
+In 183, the equivalent `/clear` reset body jumps directly from `await lX()` to `NW(...)` (`:476579`) with no bg job pointer refresh, and the classifier writes `cwd: T?.cwd ?? Pt()` plus `originCwd: T?.originCwd` (`:456715`, `:456717`). There is no `currentBgCwdOverride` equivalent in the re-read 183 window.
+
+The literal **pin-specific UI guard** still does not isolate cleanly by searching `pinned`/`pin`: most matches belong to fleet-view ordering, notification pins, model pins, or the `pins.json` persistence layer. So this item is upgraded from "not isolable" to: **metadata-refresh fix isolated, pin-specific surface still inferred**. **Confidence: MED-HIGH** for the metadata mechanism; **LOW** for a direct `pinned` guard.
 
 ---
 
-## 5. Agent panel hiding siblings / jumping a row (UI-ONLY, NOT ISOLABLE; 2.1.193 / 2.1.191)
+## 5. Agent panel hiding siblings / jumping a row (UI render mechanism bounded; exact patch line not isolated; 2.1.193 / 2.1.191)
 
-The "agent panel hides sibling agents when viewing a subagent" (2.1.193) and "panel jumps a row past the overflow cap" (2.1.191) fixes live in the agents-panel React component's row-selection / visible-window computation (the per-subagent status line is at `:56569`). These are **presentational** changes (which rows render), not behavioral/data deltas, and they do not isolate to a single net-new symbol via grep on the pretty-printed bundle. **Confidence: LOW (UI-only).** No fabricated anchor.
+The "agent panel hides sibling agents when viewing a subagent" (2.1.193) and "panel jumps a row past the overflow cap" (2.1.191) fixes live in the agents-panel render pipeline, not in background-agent state or transport. The earlier schema reference was only the `subagentStatusLine` settings schema; the verified panel region is the roster/detail UI cluster at `cli_inner_pretty.js:674539-678193`.
+
+### Agent-panel child-row preservation
+
+**What it does:** Converts a job's child artifacts into rows rendered inside the agents panel and detail/peek panel.
+
+**How it works:**
+1. The roster row passes `childRows: Xl.state.children ? dSc(Xl.state.children, x) : []` to `agentRosterRow` (`Qim`) at `cli_inner_pretty.js:678001`.
+2. The detail/peek panel passes the currently focused job's memoized `childRows` into `agentPeekPanel` (`FSc`) at `cli_inner_pretty.js:678193`.
+3. In 183, the equivalent mapper `JJl` first ran `.filter((n) => n.kind !== "frame")`, so frame children were removed before row rendering (`183:661843-661864`).
+4. In 193, `mapAgentPanelChildRows` (`dSc`) maps every child. For `kind === "frame"`, it now creates a visible fallback row with `label: n.id`, no PR number, no status, no diff stats, and `color: "claude"` (`:674897-674910`).
+5. The detail panel still enforces a terminal-height cap: it computes `qe = Math.max(cSc, Se - fe - Ne)`, takes `ct = l.slice(0, qe)`, and renders an `"N more"` row for the hidden tail (`:675425-675428`, `:675565-675568`).
+
+**Why this approach:**
+- Mapping frame children into normal row objects fixes the "siblings disappear" class without adding a separate branch to the row renderer. The rest of the panel can keep treating PR rows and frame rows as one `childRows` list.
+- The overflow cap remains a render-time slice, which keeps the detail panel bounded by terminal height. That matches the 2.1.191 row-jump symptom, but the exact one-line patch for the jump is still not isolated from the large carried-over component.
+- The artifact-column width helper changed in the same cluster: 183 `wBf` returned `0` when all children were frames (`183:661512-661521`), while 193 `measureChildArtifactWidth` (`Eim`) reserves fallback width using the generic artifact label (`:674539-674548`). This prevents frame-only child sets from collapsing the artifact column.
+
+**Key insight:** The source-backed part is the child-row data shape, not a new background-agent state transition. 193 stops dropping frame children before rendering and gives frame-only child lists layout width, which explains the sibling/row-display class. The precise changelog patch line remains UI-only and not independently isolable, so confidence is **MED** for the bounded render mechanism and **LOW** for assigning the exact bullet to one line.
+
+```javascript
+// ============================================
+// mapAgentPanelChildRows - Preserve frame children as visible panel rows
+// Location: cli_inner_pretty.js:674897-674928
+// ============================================
+
+// ORIGINAL (for source lookup):
+function dSc(e, t) {
+  return Nim(
+    e.map((n) => {
+      if (n.kind === "frame")
+        return { row: n, prNumber: void 0, label: n.id, status: [], diffStat: void 0, isDraft: !1, color: "claude", sortRank: 0 };
+      let r = t.get(n.href), o = r ? aBn(r) : void 0;
+      return { row: n, prNumber: r?.number ?? xSc(n), label: r?.title ?? "", status: r ? RSc(r) : [], diffStat: r && r.state !== "MERGED" && r.state !== "CLOSED" ? { additions: r.additions, deletions: r.deletions } : void 0, isDraft: r?.state === "DRAFT", color: r ? AVo(r) : void 0, sortRank: r?.state === "OPEN" && o ? (Oim[o] ?? 0) : 0 };
+    }),
+  );
+}
+
+// READABLE (for understanding):
+function mapAgentPanelChildRows(children, pullRequestByHref) {
+  return sortChildRows(
+    children.map((child) => {
+      if (child.kind === "frame") {
+        return { row: child, prNumber: undefined, label: child.id, status: [], diffStat: undefined, isDraft: false, color: "claude", sortRank: 0 };
+      }
+      let pr = pullRequestByHref.get(child.href);
+      let prState = pr ? classifyPullRequest(pr) : undefined;
+      return {
+        row: child,
+        prNumber: pr?.number ?? extractPullRequestNumber(child),
+        label: pr?.title ?? "",
+        status: pr ? formatPullRequestStatus(pr) : [],
+        diffStat: pr && pr.state !== "MERGED" && pr.state !== "CLOSED" ? { additions: pr.additions, deletions: pr.deletions } : undefined,
+        isDraft: pr?.state === "DRAFT",
+        color: pr ? pullRequestColor(pr) : undefined,
+        sortRank: pr?.state === "OPEN" && prState ? (OPEN_PR_SORT_RANK[prState] ?? 0) : 0,
+      };
+    }),
+  );
+}
+
+// Mapping: dSc->mapAgentPanelChildRows, e->children, t->pullRequestByHref, Nim->sortChildRows, aBn->classifyPullRequest, xSc->extractPullRequestNumber, RSc->formatPullRequestStatus, AVo->pullRequestColor, Oim->OPEN_PR_SORT_RANK
+```
 
 ---
 
-## 6. Channel connections dropping after `/bg` `/tui` `/update` (NOT ISOLABLE; false-delta caution, 2.1.187)
+## 6. Channel connections dropping after `/bg` `/tui` `/update` (NOT ISOLABLE; bounded negative evidence, 2.1.187)
 
-The "channel" is the live status channel for `claude agents` / remote-agent updates. The agents-view toggle and the `/tui` / `/bg` slash handling are present, but the actual agents-channel teardown/reconnect on view navigation could not be isolated to a clean 193-specific patch.
+The "channel" is the live status path for `claude agents` / remote-agent updates. The agents-view toggle and the `/tui` / `/bg` slash handling are present, but the actual agents-channel teardown/reconnect on view navigation could not be isolated to a clean 193-specific patch.
 
-**False-delta caution:** the obvious `EventSource` sites in the bundle are the **feature-gate / StatSig streaming SDK** (`/sub/<clientKey>`, `backgroundSync`), which is **unrelated** to the agents channel and **identical in 183** (`EventSource` count 4 = 4). Do **not** attribute the channel-drop fix to the feature-gate EventSource — that would be a false delta. **Confidence: LOW** — not isolable.
+### Agents status-channel boundary
+
+**What it does:** Carries task status changes from the running session/supervisor into streaming clients and the `claude agents` view.
+
+**How it works:**
+1. The wire event is `system` / `task_updated`: schema at `cli_inner_pretty.js:700169` with a wire-safe patch subset (`status`, `description`, `end_time`, `total_paused_ms`, `error`, `is_backgrounded`).
+2. The event sanitizer keeps only the public task id plus patch status for compact event views (`:702429-702432`).
+3. The headless/streaming output filter explicitly allows `task_updated` through (`:705470-705475`), alongside `task_started`, `task_progress`, `notification`, and related system events.
+4. The agents view carries liveness/status snapshots through open/attach state (`loopKicks`, `statuses`, `statusesTs` at `:677134-677171`), then uses `Date.now() - statusesTs < 1500 && statusForJob(...) !== void 0` as a `knownAlive` hint before respawning/reattaching (`:678593`).
+5. The daemon control socket has update compatibility paths for stale clients and updated workers: reply without a control key gets the "older than the daemon (left open across an update?)" rejection (`:715740`), and attach can return `"job is restarting on the updated Claude Code; retry attach"` (`:715852`).
+
+**Why this is still not isolated:**
+- The same `task_updated`/status-snapshot/control-socket machinery exists in 183 (`183:683717`, `183:686725`, `183:663975-664012`, `183:665331`, `183:696483`, `183:696585`), so these are verified channel boundaries, not the patch itself.
+- The obvious `EventSource` sites in the bundle are the **feature-gate / StatSig streaming SDK** (`/sub/<clientKey>`, `backgroundSync`), which is **unrelated** to the agents channel and **identical in 183** (`EventSource` count 4 = 4).
+- The MCP/plugin `claude/channel` paths are also unrelated to the agents status channel; they handle plugin-origin messages and `--channels`, not `claude agents` task liveness.
+
+**Key insight:** The fix should be looked for around `task_updated` delivery, status-snapshot freshness, or daemon-control reconnect semantics, not in `EventSource` or MCP plugin channels. The boundary is now source-bounded, but the exact 2.1.187 patch line remains unisolated. **Confidence: MED for the channel boundary / LOW for the exact patch.**
 
 ---
 
@@ -189,9 +347,9 @@ The "channel" is the live status channel for `claude agents` / remote-agent upda
 | 1 | carry-over-aware abandoned count | 2.1.193 | "would be abandoned" 0→present; `oUo = total − H7t` | ISOLABLE | HIGH |
 | 2 | bg launch result drops "end your response" | 2.1.193 | both async_launched branches lose the directive (cloud unchanged) | ISOLABLE body-change | HIGH |
 | 3 | phantom "general-purpose (resumed)" subagent | 2.1.193 | `main-session` guard 9→10; `Lgl` defaults | PARTIAL | MED |
-| 4 | pinned re-prompt after auto-update | 2.1.193 | `WWn` carryover; guard not isolable | NOT ISOLABLE | LOW |
-| 5 | panel hides siblings / jumps a row | 2.1.193/191 | UI render only | UI-ONLY | LOW |
-| 6 | channel drops after `/bg /tui /update` | 2.1.187 | EventSource = feature-gate SDK (false delta) | NOT ISOLABLE | LOW |
+| 4 | bg-job cwd/resume metadata refresh (likely pinned re-prompt root) | 2.1.193 | `k3i`/`R3i` 193-only call sites; `WWn` unchanged | ISOLABLE mechanism / pin-specific inferred | MED-HIGH |
+| 5 | panel hides siblings / jumps a row | 2.1.193/191 | `dSc` maps frame children; `Eim` reserves frame-only artifact width; exact bullet line not isolated | UI render | MED for mechanism / LOW for exact line |
+| 6 | channel drops after `/bg /tui /update` | 2.1.187 | `task_updated` event/status snapshots/control-socket update paths bounded; exact patch not isolated | NOT ISOLABLE | MED for boundary / LOW for exact line |
 
 ---
 
@@ -216,5 +374,6 @@ Key functions/constants in this document:
 - `countCarryOverTasks` (obf: `H7t`, `:578070`) / `countBackgroundTasks` (obf: `y_t`, `:485964`) — the two count inputs.
 - `registerCompletedResumedAgent` (obf: `Lgl`, `:454100`) — source of the "general-purpose (resumed)" card defaults.
 - `readJobDir` (obf: `JKl`, `:577927`) / `linkAdoptedAgentTranscript` (obf: `QKl`, `:577951`) — the adoption loop helpers (`:688699`).
-- `getResumePrompt` (obf: `WWn`, `:371461`) — `"Continue from where you left off."`; carryover (pinned-guard not isolable).
+- `getResumePrompt` (obf: `WWn`, `:371461`) — `"Continue from where you left off."`; carryover prompt surface.
+- `currentBgCwdOverride` (obf: `$Kr`, `:193511`) / `refreshBgJobCwdAfterCd` (obf: `k3i`, `:193514`) / `refreshBgJobResumePointers` (obf: `R3i`, `:193529`) — 193-only bg-job metadata refresh after `/cd` and conversation reset.
 - `main-session` sentinel (`:441096`; filters `:453732`/`:453735`/`:578022`) — guard count 9→10 across the window.

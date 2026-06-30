@@ -214,13 +214,13 @@ QJc = Ce(() =>
 
 // READABLE (for understanding):
 triBoolParser = memoize(() =>
-  zod.preprocess(coerceEnvValue, zod.string().optional().transform((raw) => {
+  zod.preprocess(envValuePreprocessor, zod.string().optional().transform((raw) => {
     if (isEnvTruthy(raw)) return true;    // "1"/"true"/"yes"/"on"
     if (isEnvFalsy(raw))  return false;   // "0"/"false"/"no"/"off"
     return undefined;                     // ← the third state: env unset or unrecognized
   })));
 
-// Mapping: QJc→triBoolParser, Ce→memoize, yn→zod, lIt→coerceEnvValue, at→isEnvTruthy(@1934), ul→isEnvFalsy(@1940)
+// Mapping: QJc→triBoolParser, Ce→memoize, yn→zod, lIt→envValuePreprocessor, at→isEnvTruthy(@1934), ul→isEnvFalsy(@1940)
 ```
 
 `isEnvTruthy` (`at`, `:1934`) matches `["1","true","yes","on"]`; `isEnvFalsy` (`ul`, `:1940`) matches `["0","false","no","off"]`. `OTEL_LOG_ASSISTANT_RESPONSES` is the **only** OTEL_* env in the schema block bound with `Fe.triBool()` — every sibling `OTEL_LOG_*` (including `OTEL_LOG_USER_PROMPTS` `BZc = Fe.bool()` `:36423`, `OTEL_LOG_TOOL_DETAILS`, `OTEL_LOG_TOOL_CONTENT`, `OTEL_LOG_RAW_API_BODIES`) uses `Fe.bool()`. The tri-state machinery itself predates this window (it is carryover); 2.1.193 is the first place it is wired to an OTEL logging toggle.

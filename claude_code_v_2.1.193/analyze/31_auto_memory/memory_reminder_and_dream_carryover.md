@@ -156,6 +156,25 @@ function getDreamThrottleConfig() {
 
 The recall guidance strings (`"You MUST access memory when the user explicitly asks you to check, recall, or remember"`, `"Recalled memories appearing inside <system-reminder> blocks are background context…"`, `"Memory records can become stale over time…"`) are present in 193 and were present in 183. The surviving recall/system-prompt builders `m0i` (`:152389`, private+team), `g0i` (`:152460`, team-only/multi-dir), and `VVr` (`:152638`, single-dir) are carryover.
 
+### Recall Builder Variant Selection
+
+**What it does:** Chooses which memory system prompt to emit based on whether the session has local auto memory, team memory, custom `CLAUDE_MEMORY_STORES`, and a writable user-scope store.
+
+**How it works:**
+1. `w$t` reads `CLAUDE_MEMORY_STORES` through `TAd()` / `qae()` (`cli_inner_pretty.js:152722-152745`), then converts service-provided team indexes into extra prompt context (`:152747-152761`).
+2. If team memory is available (`xR()` true) and the custom memory-store config exists but has **no** writable `scope:"user"` store, `w$t` splits the stores into writable team (`mode:"rw"`) and read-only team (`mode:"ro"`) entries and calls `g0i(m.map(f), g.map(f), u, r)` (`:152769-152781`).
+3. Otherwise, if team memory is available on the normal auto+team path, `w$t` ensures the team directory exists and calls `m0i(u, r)` (`:152784-152789`).
+4. If auto memory is enabled but team memory is not, `w$t` calls `VVr("auto memory", d, u, r).join("\n")` (`:152792-152799`).
+5. `VVr` is also reused by the agent/single-directory prompt loader `_0i`: it calls `VVr(displayName, memoryDir, extraGuidelines, false, true)` and then appends the loaded `MEMORY.md` content or empty-index message (`:152698-152720`).
+
+**Why this approach:**
+- `m0i` is the combined private+team prompt: it names the private directory and shared team directory, includes a `## Memory scope` section, and tells the model the single private `MEMORY.md` indexes both private and team memories with `team/file.md` paths (`:152414-152436`).
+- `g0i` is the team-store-only prompt: it accepts writable and read-only team store lists, handles zero/one/many writable directories, warns when memory is read-only, and explicitly says there is no separate private memory directory (`:152460-152548`).
+- `VVr` is the single-directory prompt: it takes a display name and optional directory path, has no private/team scope split, and writes to one `MEMORY.md` index (`:152638-152696`).
+- The 183 dispatcher has the same variant split: `mgi` (`183:151194`) = `m0i`, `Agi` (`183:151265`) = `g0i`, and `UNr` (`183:151756`) = `VVr`; `e0t` selects them at `183:151907-151920` and `183:151921-151932`.
+
+**Key insight:** The `# Memory` fragment count drop is not caused by these builders changing roles. The private+team, team-only, and single-dir builders are stable carryover surfaces; the measurable prompt drop comes from removing the separate immutable-memory variant, not from changing recall routing.
+
 **`findRelevantMemories` / `findRelevant` does not exist** in either bundle (grep-count 0/0) — it was a guessed name, not a real symbol.
 
 The only measurable recall-side drop is the `# Memory` system-prompt fragment count (19 → 13), which is **fully accounted for by the removed immutable-mode memory-builder variant** (the `tengu_billiard_aviary` cleanup) — not by any change to recall behaviour.

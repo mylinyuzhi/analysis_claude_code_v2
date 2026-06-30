@@ -9,7 +9,7 @@
 - **Earlier baseline (156):** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
 - **v2.1.88 named-TS reference:** `/lyz/codespace/3rd/claude-code/src/`
 
-**Sample:** 85+ distinct `cli_inner_pretty.js:<line>` anchors re-read directly from the 193 bundle (every load-bearing decl, string, and switch-case across all 6 docs + additions file); 14 before-pictures re-read from the 183 / 156 bundles (notice/warning renders, `aOt`/`qxn`/`Qgo` predecessors, `mcp_headers_helper` config-validation context, `--no-browser` `ant` doc string); 38 grep-count diffs re-run in BOTH 183 and 156.
+**Sample:** 90+ distinct `cli_inner_pretty.js:<line>` anchors re-read directly from the 193 bundle (every load-bearing decl, string, switch-case, and the `fde`/`z5t` matcher body across all 6 docs + additions file); 16 before-pictures re-read from the 183 / 156 bundles (notice/warning renders, `aOt`/`qxn`/`Qgo` predecessors, `Dct`/`S2t` and `OtH`/`O0$` matcher predecessors, `mcp_headers_helper` config-validation context, `--no-browser` `ant` doc string); 12 v2.1.88 named-TS lineage anchors/absence checks re-read; 38 grep-count diffs re-run in BOTH 183 and 156.
 
 **Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 anchor and obf→readable mapping verified at the cited line; every NET-NEW string reproduced as 0-in-183 and 0-in-156; every CARRYOVER string reproduced as present-in-183. One genuine **false delta** was caught and fixed (the `mcp_headers_helper` telemetry was claimed NET-NEW `1|0` but it is a pre-existing `tengu_feature_sad` feature_name, 193=7/183=6 — only the `reauth_retry` error_code is new), plus one mapping mislabel (`Ct→logMcpEvent` → `logFeatureSadEvent`), two readable-name runtime-`.name` notes, and three small line-cite drifts. All fixed in place.
 
@@ -113,6 +113,7 @@ Each line opened at the exact cited line in the 193 bundle; declaration/string c
 | 610416 | `t3o` → `suggestClosestServerName` | `function t3o(e,t){ …fde(…,{maxEditDistance:2}); if(r)return \`…Did you mean…\`; if(n.length===0)…; let o=8; …}` | PASS |
 | 610430 | `psr` → `formatNotFoundWithPending` | `function psr(e,t,n){ if(n&&t.length===0)return …awaiting approval…; return t3o(e,t)+(n?…:""); }` | PASS |
 | 382122 | `fde` → `fuzzyClosestMatch` | `function fde(e,t,{maxEditDistance:n=1}={}){ let r=t.flatMap((i)=>[i.name,...(i.aliases??[])]), …}` | PASS |
+| 382133 | `z5t` → `editDistanceWithAdjacentTransposition` | DP matrix; delete/insert/substitute minimum plus adjacent-transposition branch `o[s-2][i-2]+1` | PASS |
 | 611388 | `a9f` → `mcpRemoveHandler` | `async function a9f(e,t,n){ let r=Uj(t), …}` | PASS |
 | 611414 | remove not-found `tg(t3o(t, es(p)))` | `(await zu("cli_mcp_remove","cli_mcp_remove_not_found"), tg(t3o(t, es(p))…))` | PASS |
 | 611549 | `f9f` → `mcpGetHandler` | `async function f9f(e,t){ (await Jh("tengu_mcp_get",{name:t}), …) …}` | PASS |
@@ -196,6 +197,51 @@ Carryover sanity: `tengu_mcp_get` 193=1/183=1, `tengu_mcp_delete` (the remove ha
 
 183 predecessor `Qgo` confirmed at 183 `:462359`: `for (let T of b.attachment.addedNames) if ((o.add(T), !S.has(T))) s.add(T);` — **no `HBt.has` skip**, byte-matching the doc's stated before-picture. The 193 producer `oko` adds `if (HBt.has(v)) continue;` at `:471050`. ✅
 
+### get/remove fuzzy-match algorithm — re-derived
+
+The earlier report wording called `fde` "Levenshtein" at a high level. Re-reading `fde` and its helper `z5t` shows the exact algorithm is adjacent-transposition-aware edit distance:
+
+- `fde` (`:382122-382131`) expands each candidate object to `[name, ...aliases]`, initializes `bestDistance = maxEditDistance + 1`, skips any candidate where `abs(candidate.length - typed.length) > maxEditDistance`, then keeps the first candidate whose `z5t(...)` distance is strictly smaller than the current best.
+- `z5t` (`:382133-382150`) builds a `(left.length+1) × (right.length+1)` dynamic-programming matrix. The base row/column model insertion/deletion cost; each inner cell takes `min(delete, insert, substitute/match)`.
+- The extra branch at `:382145-382147` recognizes adjacent swaps (`left[row-1] === right[col-2] && left[row-2] === right[col-1]`) and allows `dp[row-2][col-2] + 1`, so `gihub` can be one edit away from `github`.
+- The same generic matcher exists before the window: 183 has `Dct`/`S2t` at `:385448-385480`, and 156 has `OtH`/`O0$` at `:350222-350254`. Therefore the matcher is carryover; the 193-window MCP delta is the new `t3o`/`psr` wrapper applying it to `mcp get`/`remove` not-found messages (`No MCP server named` 193=7 / 183=0 / 156=0).
+
+---
+
+## C2b — v2.1.88 named-TS lineage spot-check
+
+The 88 tree confirms that MCP is a pre-existing subsystem and helps separate carryover spine from the 193 hardening
+layers.
+
+- `src/services/mcp/client.ts:1743-1755` already has `fetchToolsForClient` issuing a direct
+  `client.client.request({ method: "tools/list" }, ListToolsResultSchema)` call. `src/services/mcp/client.ts:2000-2012`
+  similarly issues a direct `resources/list` call. This matches the 193 docs: `P1n` is a retry/pagination wrapper
+  added around old list calls, not a brand-new discovery subsystem.
+- `src/services/mcp/client.ts:205-229` defines `DEFAULT_MCP_TOOL_TIMEOUT_MS = 100_000_000` and
+  `getMcpToolTimeoutMs()` reading `process.env.MCP_TOOL_TIMEOUT`. Focused greps over the 88 tree for
+  `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`, `sent no response or progress`, and `MCP tool idle timeout` return 0.
+  The 193 idle-silence watchdog is therefore a later addition, distinct from the old absolute timeout.
+- `src/services/mcp/client.ts:3029-3118` shows the 88 `callMCPTool` path racing `client.callTool(...)` against the
+  absolute timeout and forwarding SDK progress. It has no separate idle timer or `armedAt`-style silence reset.
+- `src/services/mcp/client.ts:3194-3207` maps 401/`UnauthorizedError` directly to `McpAuthError` after logging
+  `"Tool call returned 401 Unauthorized - token may have expired"` and throwing the familiar
+  `"requires re-authorization (token expired)"` message. This confirms the 193 report's carryover classification
+  for the legacy fallthrough and the newness of the pre-fallthrough `reauth_retry` branch.
+- `src/services/mcp/headersHelper.ts:32-138` already executes `headersHelper`, checks workspace trust for
+  project/local configs, validates the JSON object, and merges dynamic headers over static headers. Focused grep for
+  `reauth_retry` in `/lyz/codespace/3rd/claude-code/src` returns 0: 193 reuses this helper but adds the retry-once
+  caller around it.
+- `src/services/mcp/client.ts:261-287` already implements the `mcp-needs-auth-cache.json` read/TTL path, and
+  `src/services/mcp/client.ts:2301-2316` already skips with `"Skipping connection (cached needs-auth)"`. This
+  validates the docs' repeated warning that the needs-auth cache/notice is carryover infrastructure.
+- Focused greps over the 88 tree for `mcpLoginHandler`, `tengu_mcp_login`, `Authenticate with an MCP server`,
+  `Clear stored OAuth credentials for an MCP server`, `reauth_retry`, and `ENDPOINT_NOT_FOUND` all return 0,
+  matching the 193 NET-NEW classifications for CLI login/logout, headersHelper reauth retry, and the 404 URL rewrite.
+
+**C2b result:** PASS. No 88 ancestor contradicts the 193 delta map. The old named tree had MCP transport/listing,
+headersHelper, absolute tool timeout, legacy 401 needs-auth surfacing, and the needs-auth cache; 193 adds reliability
+wrappers and CLI UX on top of that existing spine.
+
 ---
 
 ## C3 — Obf→readable mapping audit
@@ -233,8 +279,11 @@ No forbidden obf→readable mapping tables were introduced into module docs; all
 - All 6 module docs + the additions file are anchor-accurate against the live 193 bundle: every cited decl, string, switch-case, and constant was confirmed at the exact line (or corrected by ≤5 lines where it drifted).
 - The NET-NEW vs CARRYOVER ledger is sound after one genuine false delta was caught and corrected (`mcp_headers_helper`), proving the value of the dual-bundle grep step: a per-file read would have accepted the `1|0` row, but `grep -c` in 183 **and** 156 exposed the 6 pre-existing config-validation uses.
 - The two heaviest deltas (idle watchdog Δ1, re-auth catch Δ2) both live in `bao`/`callToolWithWatchdog` exactly as documented; the carryover spine (needs-auth cache, startup notice, legacy 401 surfacing, transport-drop watchdog) is byte-identical in 183 as claimed.
+- The v2.1.88 named-TS lineage confirms the same high-level split: MCP itself, direct list calls, headersHelper,
+  absolute timeout, and needs-auth cache predate this window; the idle watchdog, retry wrappers, CLI auth commands,
+  and `reauth_retry` self-healing path do not.
 
 **Residuals (honest):**
 - The notice strings (`to authenticate, retry, or see details`, `Run /mcp to authenticate, retry, or inspect the server`) are 183 carryover but are **absent in 156** (added between 156 and 183). The docs correctly call them "carryover" relative to the 193 window; no action needed, noted here for completeness.
 - `lWe`/`Vj` readable names are role-based aliases that differ from their runtime `.name` ("McpAuthError"/"AuthenticationCancelledError"); kept the descriptive names for cross-doc consistency and annotated the runtime names rather than renaming.
-- `fde`→`fuzzyClosestMatch` is characterized as "Levenshtein"; the body is an edit-distance matcher over name+aliases with a default `maxEditDistance` of 1 (t3o passes 2) — consistent with the doc, not independently re-derived to the algorithm level.
+- `fde`→`fuzzyClosestMatch` and `z5t`→`editDistanceWithAdjacentTransposition` are now algorithm-level re-derived: name+aliases expansion, length-difference prefilter, bounded best-match tracking, and a DP edit-distance matrix with adjacent-swap cost. The matcher is carryover (183 `Dct`/`S2t`, 156 `OtH`/`O0$`); MCP's `t3o`/`psr` wrapper is the 193-window delta.

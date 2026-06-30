@@ -11,7 +11,7 @@
 > - `QOd`/scanDirectoryForCompletion `188597` → **188593**.
 > - `oYf`/runShellCompletion `628303` → **628299**.
 > - `--tools` flag def `712387` → **712389**.
-> - `a$` exclusion +1 was flagged "most likely unrelated refinement" → the new entry is **`_ne.name`** = the new `ReadMcpResourceDirTool` object (`_ne`@283585), i.e. the `a$` change *is* the new tool being hidden from the default available list (a deferred tool). Not unrelated.
+> - `a$` exclusion +1 was flagged "most likely unrelated refinement" → the new entry is **`_ne.name`** = the new `ReadMcpResourceDirTool` object (`_ne` decl `:283549`, object assignment `:283584`, first property `:283585`), i.e. the `a$` change *is* the new tool being hidden from the default available list (a deferred tool). Not unrelated.
 
 ## Module: Tools — bash-mode live path autocomplete (NET-NEW wiring 2.1.193; machinery CARRYOVER)
 
@@ -54,7 +54,7 @@
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
 | `iX` | `ReadMcpResourceDirToolName` (`"ReadMcpResourceDirTool"`; NET-NEW, 183=0) | cli_inner_pretty.js:283504 | constant |
-| `_ne` | `ReadMcpResourceDirTool` (tool object; `shouldDefer:!0`, `name:iX`) — also the new `a$` exclusion entry | cli_inner_pretty.js:283585 | object |
+| `_ne` | `ReadMcpResourceDirTool` (tool object; `shouldDefer:!0`, `name:iX`) — also the new `a$` exclusion entry | cli_inner_pretty.js:283549 (decl) / 283584-283585 (object) | object |
 | `dlp` | `readMcpResourceDirInputSchema` (Zod `{ server, uri }`) | cli_inner_pretty.js:283549 | function |
 | `plp` | `readMcpResourceDirOutputSchema` (Zod `{ resources[], error }`) | cli_inner_pretty.js:283549 | function |
 | `D_a` | `readMcpResourceDirDescription` (`"List the direct children… not recursive."`) | cli_inner_pretty.js:283505 | constant |
@@ -63,5 +63,7 @@
 | `a$` | `getAvailableTools` (body change: exclusion set 3→4 names, `+_ne.name`; 183 `zR`@436622) | cli_inner_pretty.js:444225 | function |
 | `Ep` | `"StructuredOutput"` (tool-name string in the `a$` exclusion set) | cli_inner_pretty.js:229498 | constant |
 | `Sjo` | `initializeToolPermissionContext` (the `--tools` deny-universe builder; CARRYOVER) | cli_inner_pretty.js:598509 | function |
+| `FXp` | `shouldToolsListOptInToBrief` (`SendUserMessage`/`Brief` opt-in helper before `Sjo`; CARRYOVER, 183 `tPp`@425215) | cli_inner_pretty.js:432268 | function |
+| `Jfe` | `setUserMsgOptIn` (session opt-in latch set before `Sjo`; CARRYOVER, 183 `Rde` export @2201) | cli_inner_pretty.js:2098 | function |
 | `classifyAllShell` | `autoMode.classifyAllShell` setting schema (NET-NEW 2.1.193; routes to permissions/auto-mode — NOT a tool-surface change) | cli_inner_pretty.js:55814 | constant |
 | `classifyAllShell` | `classifyAllShell` reader (`autoMode?.classifyAllShell === !0`) | cli_inner_pretty.js:58759 | function |
