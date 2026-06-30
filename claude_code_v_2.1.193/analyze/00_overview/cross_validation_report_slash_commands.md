@@ -1,20 +1,20 @@
 # Cross-Validation Report — 43_slash_commands (v2.1.193 delta)
 
-- **Theme:** slash_commands (`/rewind` before `/clear`, hooks comma matcher fix, plugin marketplace `renames` auto-follow, `/review`→code-review medium, `/add-dir` message, `/btw` nav, MAX_RETRIES cap)
+- **Theme:** slash_commands (`/rewind` before `/clear`, hooks comma matcher fix, plugin marketplace `renames` auto-follow, `/review`→code-review medium, `/add-dir` message, `/btw` nav, MAX_RETRIES cap, plus current-version voice input addendum)
 - **Module dir:** `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.193/analyze/43_slash_commands/`
-- **Docs audited:** `README.md`, `rewind_before_clear.md`, `plugin_auto_rename.md`, `hook_matcher_comma_fix.md`, `cli_input_and_review_misc.md`
+- **Docs audited:** `README.md`, `rewind_before_clear.md`, `plugin_auto_rename.md`, `hook_matcher_comma_fix.md`, `cli_input_and_review_misc.md`, `voice_input.md`
 - **Additions file:** `/lyz/codespace/analysis_claude_code_v2/claude_code_v_2.1.193/analyze/00_overview/symbol_additions_v2_1_193_slash_commands.md`
 - **TARGET bundle (v2.1.193):** `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines, build a1938d2a)
 - **BEFORE-PICTURE (v2.1.183):** `/lyz/codespace/claude-code-bomb/versions/2.1.183/extract/cli_inner_pretty.js` (699,346 lines)
 - **EARLIER BASELINE (v2.1.156):** `/lyz/codespace/claude-code-bomb/versions/2.1.156/extract/cli_inner_pretty.js` (649,979 lines)
 
-**Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 declaration, body, and every NET-NEW / CARRYOVER grep-count claim reproduced exactly in the live bundles. The four deltas (rewind-before-clear, plugin `renames` auto-follow, hooks comma matcher fix, the four CLI/review/retry items) are all materially correct. Three citation drifts were fixed in place (a `tKt` cite landing on a return line, a `Kcn`/`KL` cite off by one, an `Hzn` cite landing on a blank line ~95k lines from the real declaration). No mislabels, no fabricated lines, no false deltas.
+**Verdict (one line):** PASS WITH FIXES. Every load-bearing 193 declaration, body, and every NET-NEW / CARRYOVER grep-count claim reproduced exactly in the live bundles. The four deltas (rewind-before-clear, plugin `renames` auto-follow, hooks comma matcher fix, the four CLI/review/retry items) are all materially correct. Three citation drifts were fixed in place (a `tKt` cite landing on a return line, a `Kcn`/`KL` cite off by one, an `Hzn` cite landing on a blank line ~95k lines from the real declaration). The later `voice_input.md` addendum is also source-backed, but is intentionally labeled as current-version subsystem analysis rather than a net-new 183→193 delta. No mislabels, no fabricated lines, no false deltas.
 
 ---
 
 ## Sample
 
-- **193 anchors re-read (sed at exact cited line, declaration/body/string confirmed): 55+** distinct `cli_inner_pretty.js:<line>` citations across all five docs + the additions file.
+- **193 anchors re-read (sed at exact cited line, declaration/body/string confirmed): 80+** distinct `cli_inner_pretty.js:<line>` citations across all six docs + the additions file.
 - **Before-picture decls re-read: 8** in the 183 bundle (`qyf`@577890, `VZe`@176903/176914, `Zrf`@527334/527336, `vEf`@591059, `pWp`@473560, `lTf`@600380, watchdog reader@590654, watchdog export@43455).
 - **Grep-count diffs re-run: 22 distinct patterns, each in 193 AND 183 AND 156 (66 grep invocations).** Every count in the docs matched.
 
@@ -148,9 +148,26 @@ No prose was churned; no obf→readable mapping tables were introduced into modu
 
 ## C4 — Format / CLAUDE.md compliance
 
-- No "Symbol Mapping Reference" / "Symbol Index Reference" sections or obf→readable mapping tables exist in any of the five module docs. The tables present are delta summaries (`# | Delta | Kind | …`), carryover ledgers, and `Token | 183 | 193 | Verdict` evidence tables — none forbidden.
+- No "Symbol Mapping Reference" / "Symbol Index Reference" sections or obf→readable mapping tables exist in any of the six module docs. The tables present are delta summaries (`# | Delta | Kind | …`), carryover ledgers, and `Token | 183 | 193 | Verdict` evidence tables — none forbidden.
 - Each module doc retains its list-format `## Related Symbols` section; the fixes preserved list format.
 - Code snippets retain the dual-version `====` header → ORIGINAL → READABLE → Mapping structure; no snippet bodies were altered (only out-of-snippet cite numbers).
+
+## C5 — Voice input addendum (current-version subsystem, not a false delta claim)
+
+`voice_input.md` was added after the original delta report to answer how voice input is supported in the current 2.1.193 bundle. It does **not** claim the voice subsystem is net-new in the 183→193 window; the by-version file still isolates the real 2.1.191 delta as the org-policy explanation branch.
+
+193 anchors re-read and confirmed:
+
+- `/voice` parser/handler and policy message: `_Ff` / `bFf` at `cli_inner_pretty.js:572478-572545`; command metadata at `cli_inner_pretty.js:572562-572573`.
+- Account/auth/policy gates: `KYt`/`Cnr`/`Inr`/`jSt` at `cli_inner_pretty.js:571873-571889`, policy explainer `gG` at `cli_inner_pretty.js:148824-148829`, entitlement table row `allow_voice_mode` at `cli_inner_pretty.js:148870-148875`, React gate `pfe` at `cli_inner_pretty.js:626058-626075`.
+- Voice state and keybinding surface: `VoiceProvider` / `useVoiceState` / default state at `cli_inner_pretty.js:178028-178080`, default Space binding at `cli_inner_pretty.js:178315-178327`, custom-letter binding warning at `cli_inner_pretty.js:178999-179009`.
+- Remote STT stream: `connectVoiceStream` `knr` at `cli_inner_pretty.js:571951-572153`, path/timeout constants at `cli_inner_pretty.js:572155-572176`; query params confirm `linear16`, 16 kHz, mono, typed interims, conversation engine, and `deepgram-nova3`.
+- Local recording service: dependency/microphone checks and recorder dispatch at `cli_inner_pretty.js:572330-572408`, SoX/arecord fallbacks at `cli_inner_pretty.js:572410-572448`, `stopRecording` at `cli_inner_pretty.js:572450-572455`.
+- Session orchestration and prompt integration: audio-level scoring and `useVoice` flow at `cli_inner_pretty.js:649447-649979`, prompt anchoring / final transcript insertion in `useVoiceIntegration` at `cli_inner_pretty.js:650026-650150`, hold/tap key handler at `cli_inner_pretty.js:650152-650358`.
+
+Old readable-source cross-checks were used only as semantic validation: the 2.1.88 source tree confirms the same broad architecture in `src/commands/voice/voice.ts`, `src/services/voice.ts`, `src/services/voiceStreamSTT.ts`, `src/hooks/useVoice.ts`, `src/hooks/useVoiceIntegration.tsx`, `src/voice/voiceModeEnabled.ts`, and `src/context/voice.tsx`. The 2.1.193 bundle remains the source of truth for changed/current behavior such as tap mode, double-tap submit, typed interim transcripts, and the current STT query parameters.
+
+Format audit for the addendum: `voice_input.md` contains no obfuscated→readable mapping table, uses the required `## Related Symbols` list format, and contains no code snippets, so the dual-version snippet template is not triggered.
 
 ---
 

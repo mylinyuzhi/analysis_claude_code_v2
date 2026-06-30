@@ -9,7 +9,7 @@
 
 ## TL;DR — two real subsystems, several tidy diffs, two carryovers
 
-This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem, one woven net-new capability, three single-symbol before/after diffs, and two carryovers documented honestly to prevent false-delta inflation:
+This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem, one woven net-new capability, three single-symbol before/after diffs, two carryovers documented honestly to prevent false-delta inflation, and one current-version subsystem deep dive:
 
 1. **NET-NEW (woven): `/rewind` resuming from before `/clear`** (2.1.191). A persisted `rewound` transcript marker (`hYt`/`MUo`) that the reader (`tde`) follows across the `parentSessionId` boundary, plus a `tengu_rewind_first_message` gate that lets the rewind anchor land on the **first** user message (`XRc` resolver). The user-visible strings are carryover; the persistence + gate are net-new (`rewound` 1→12, gate 0→1). → [`rewind_before_clear.md`](./rewind_before_clear.md)
 
@@ -18,6 +18,8 @@ This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem
 3. **FIX: hooks comma-separated matchers** (2.1.191). `"Bash,PowerShell"` silently never fired in 183 (comma rejected by the validation regex → compiled as a never-matching `RegExp`). 193's `s3f` adds an `allowComma` param that widens the regex and splits on `/[|,]/`. → [`hook_matcher_comma_fix.md`](./hook_matcher_comma_fix.md)
 
 4. **CLI / `/review` / retries miscellany** (four isolable items). `/add-dir` already-a-working-dir three-message refinement (`jot`, 2.1.193); `/btw` ←/→ answer navigation (2.1.187, net-new nav on a carryover feature); `/review <pr>` → code-review medium engine (`oRf`/`rRf`, 2.1.186); `CLAUDE_CODE_MAX_RETRIES` cap 15 + `CLAUDE_CODE_RETRY_WATCHDOG` redirect (`O5f`/`Ujo`/`jHe`, 2.1.186, upgrade-gotcha). → [`cli_input_and_review_misc.md`](./cli_input_and_review_misc.md)
+
+5. **Current-version subsystem deep dive: voice input support.** `/voice` gates user intent on Claude.ai OAuth, `allow_voice_mode`, local recorder availability, microphone permission, and STT reachability; the runtime records 16 kHz mono PCM locally and streams it to `/api/ws/speech_to_text/voice_stream`. This is not counted as a whole-window net-new delta; it documents 2.1.193 behavior with 2.1.88 readable-source cross-validation, including current `hold`/`tap` modes and double-tap submit. → [`voice_input.md`](./voice_input.md)
 
 **Confidence:** high for items 2, 3, and each sub-item of 4; medium-high for item 1 (provable piece-by-piece, but woven through session/transcript persistence rather than a single function).
 
@@ -64,8 +66,10 @@ This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem
 │                                       surfacing & "more above" (CARRYOVER). NET-NEW subsystem (richest item).
 ├── hook_matcher_comma_fix.md       ← s3f comma-aware matcher (allowComma + /[|,]/ split); o3f event set;
 │                                       183 qyf pipe-only before-picture. FIX.
-└── cli_input_and_review_misc.md    ← /add-dir 3-message (jot); /btw ←/→ nav; /review medium (oRf/rRf);
-                                        MAX_RETRIES cap 15 + RETRY_WATCHDOG (O5f/Ujo/jHe). Four isolable items.
+├── cli_input_and_review_misc.md    ← /add-dir 3-message (jot); /btw ←/→ nav; /review medium (oRf/rRf);
+│                                       MAX_RETRIES cap 15 + RETRY_WATCHDOG (O5f/Ujo/jHe). Four isolable items.
+└── voice_input.md                  ← current-version voice subsystem: /voice gate, local audio capture,
+                                        voice_stream WebSocket STT, hold/tap key handling, transcript insertion.
 ```
 
 ## Reading order
@@ -75,6 +79,7 @@ This window's slash/CLI/plugin/hooks diff is a mix of one rich net-new subsystem
 3. **`rewind_before_clear.md`** — the woven net-new capability; read after plugins since it spans session/transcript persistence.
 4. **`hook_matcher_comma_fix.md`** — a tidy two-character fix with important `allowComma` plumbing.
 5. **`cli_input_and_review_misc.md`** — four independent before/after diffs; read per item as needed.
+6. **`voice_input.md`** — current-version subsystem deep dive; read when tracing `/voice`, audio capture, STT streaming, or prompt insertion.
 
 ## Note on version attribution
 
@@ -101,3 +106,7 @@ Headline functions/constants (full per-symbol lists live in each deep doc):
 - `formatAddDirResult` (obf `jot`, `cli_inner_pretty.js:177994`) — three-message add-dir branch.
 - `reviewCommand` (obf `oRf`, `cli_inner_pretty.js:538534`) — `/review <pr>` at `effort:"medium"`.
 - `getMaxRetries` (obf `O5f`, `cli_inner_pretty.js:603209`) — clamp to `Ujo`=15 (`:603244`).
+- `voiceCommandHandler` (obf `bFf`, `cli_inner_pretty.js:572485`) — `/voice` auth/policy/dependency gate and `hold`/`tap` settings toggle.
+- `useVoice` (obf `wtm`, `cli_inner_pretty.js:649459`) — recording, voice-stream connection, retry, replay, and transcript orchestration.
+- `useVoiceIntegration` (obf `Zar`, `cli_inner_pretty.js:650026`) — prompt anchoring, interim/final transcript insertion, auto-submit, double-tap submit.
+- `useVoiceKeybindingHandler` (obf `elr`, `cli_inner_pretty.js:650152`) — hold/tap keybinding state machine.

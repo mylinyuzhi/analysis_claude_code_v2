@@ -16,10 +16,12 @@ This tree is a **focused source delta** of the **v2.1.183 → v2.1.193** window,
 | 6 | Agent Team | [`30_agent_team/`](30_agent_team/) | `teammateMode: "iterm2"` explicit pin, `--effort` inheritance into pane teammates, stop-notification attribution |
 | 7 | Skills | [`45_skills/`](45_skills/) | Frontmatter multi-case key tolerance, malformed-YAML `parseError` surfacing, `/plugin` Installed-tab "Skills" section |
 | 8 | Tools | [`04_tools/`](04_tools/) | `!` bash-command auto-respond, bash-mode live path autocomplete, `ReadMcpResourceDirTool` tool-surface delta |
-| 9 | Slash Commands / Plugins / Hooks / CLI | [`43_slash_commands/`](43_slash_commands/) | `/rewind` before `/clear`, marketplace `renames` plugin auto-follow, hooks comma-separated matcher fix, `/add-dir` · `/btw` · `/review`→`/code-review medium` · retry cap |
+| 9 | Slash Commands / Plugins / Hooks / CLI | [`43_slash_commands/`](43_slash_commands/) | `/rewind` before `/clear`, marketplace `renames` plugin auto-follow, hooks comma-separated matcher fix, `/add-dir` · `/btw` · `/review`→`/code-review medium` · retry cap, current-version voice input deep dive |
 | 10 | System Prompt | [`40_system_prompt/`](40_system_prompt/) | Env-block agent-proxy diagnostic line, model-switch Remote reminder branch, memory-prompt dedup (removed `## Recalled memories`) |
 | 11 | Auto Memory & Dream | [`31_auto_memory/`](31_auto_memory/) | Removal of the `tengu_billiard_aviary` immutable-memory / `tiny_memory` experiment; `MEMORY.md` compact reminder + dream-throttle carryover |
 | 12 | Compact | [`07_compact/`](07_compact/) | Behavior-preserving refactor of the auto-compact dispatcher (flat `{wasCompacted}` → discriminated `{kind}` union) + helper extractions + carryover ledger |
+
+**Current-state appendix:** [`05_plan_mode/`](05_plan_mode/) documents Plan Mode's 2.1.193 tool pair, reminders, prompt surface, approval UI, compact carryover, and remote Ultraplan scaffolding. It is not counted as a thirteenth delta theme because the local `EnterPlanMode` / `ExitPlanMode` machinery is mostly carryover from 2.1.183, but it is included for Plan Mode-focused navigation.
 
 ---
 
@@ -106,6 +108,8 @@ The frontmatter pipeline learns **multi-case key tolerance** (`normalizeFrontmat
 
 `/rewind` learns to resume from **before `/clear`** (`resolveRewindAnchors` `XRc`, `cli_inner_pretty.js:705599`; the `/clear` session-reset `resetSessionForClear` `Jdr` at `cli_inner_pretty.js:2575`). Plugin marketplace **`renames` auto-follow** (`resolvePluginRename` `s_t`, `cli_inner_pretty.js:478428`, with `MAX_RENAME_CHAIN` at `cli_inner_pretty.js:478477`). The **hooks comma matcher** finally fires (`hookMatcherMatches` `s3f` gains a 4th `allowComma` param, `cli_inner_pretty.js:589634`, so `"Bash,PowerShell"` matches). Plus a cluster: `/add-dir` already-a-working-dir branch (`cli_inner_pretty.js:177994`), `/btw` ←/→ nav (`cli_inner_pretty.js:482757`), `/review`→`/code-review` with `effort:"medium"` (`oRf`, `cli_inner_pretty.js:538534`), and `MAX_RETRIES_CAP` = 15 (`Ujo`, `cli_inner_pretty.js:603244`).
 
+A current-version subsystem note, [`voice_input.md`](43_slash_commands/voice_input.md), traces `/voice` from entitlement/auth gate through local 16 kHz PCM capture, OAuth WebSocket STT (`/api/ws/speech_to_text/voice_stream`), hold/tap key handling, prompt insertion, and double-tap submit. It is framed as a 2.1.193 implementation deep dive rather than a net-new 183→193 delta.
+
 ### 10. System Prompt — env block + reminders → [`40_system_prompt/`](40_system_prompt/)
 
 The env-block builder `computeEnvInfo` (`W3f`, `cli_inner_pretty.js:592845`) gains an **agent-proxy diagnostic line** slot (`cli_inner_pretty.js:592873-592878`) fed by `setAgentProxyEnvLine`/`getAgentProxyEnvLine` (`cli_inner_pretty.js:151173`). The model-switch replay (`handleModelSwitchReplay` `le`, `cli_inner_pretty.js:705779`) gains a `CLAUDE_CODE_REMOTE` branch that pushes a net-new "now running as" reminder. The memory prompt is **de-duplicated** — the 183-only `## Recalled memories` subsection (`_gi`, `cli_inner_pretty.js:151568` (183)) is removed, leaving the staleness/when-to-access guidance (`cli_inner_pretty.js:152092`).
@@ -137,10 +141,11 @@ analyze/
 ├─ 30_agent_team/            Agent Team — iterm2 pin, effort inheritance, stop attribution (3 docs + README)
 ├─ 45_skills/                Skills — frontmatter tolerance, malformed YAML, /plugin Skills section (3 docs + README)
 ├─ 04_tools/                 Tools — ! auto-respond, bash-path autocomplete, tool-surface delta (3 docs + README)
-├─ 43_slash_commands/        Slash Commands / Plugins / Hooks / CLI — rewind, renames, comma matcher, misc (4 docs + README)
+├─ 43_slash_commands/        Slash Commands / Plugins / Hooks / CLI — rewind, renames, comma matcher, misc, voice input (5 docs + README)
 ├─ 40_system_prompt/         System Prompt — env-block agent-proxy line, reminder-catalogue delta (2 docs + README)
 ├─ 31_auto_memory/           Auto Memory & Dream — billiard_aviary removal, MEMORY.md/dream carryover (2 docs + README)
 ├─ 07_compact/               Compact — Ego→Rxo discriminated-union dispatcher refactor (README)
+├─ 05_plan_mode/             Plan Mode current-state appendix — lifecycle, reminders, prompts, UI, compact carryover (README + 4 deep dives)
 │
 └─ by_version/               Per-release breadth analysis — one file per published release (.185/.186/.187/.190/.191/.193) + index
 ```
@@ -160,7 +165,7 @@ analyze/
 | [`00_overview/symbol_index_infra_platform.md`](00_overview/symbol_index_infra_platform.md) | Symbol index — platform infra (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry) |
 | [`00_overview/symbol_index_infra_integration.md`](00_overview/symbol_index_infra_integration.md) | Symbol index — integration infra (Plugin, Shell Parser, Slash Commands, UI) |
 | [`00_overview/symbol_additions_v2_1_193_*.md`](00_overview/) | Twelve per-theme exhaustive new-symbol tables, each opening with a ROUTING NOTE naming its `symbol_index_*.md` |
-| [`00_overview/cross_validation_report_*.md`](00_overview/) | Twelve per-theme adversarial verification reports (anchor spot-checks, false-delta hunts, before-picture corroboration) |
+| [`00_overview/cross_validation_report_*.md`](00_overview/) | Twelve per-theme adversarial delta verification reports plus `cross_validation_report_plan_mode.md` for the current-state Plan Mode appendix |
 
 ### Per-release breadth analysis (`by_version/`)
 
@@ -186,7 +191,7 @@ For the full per-version enumeration of out-of-scope bullets, see the "Out of sc
 
 ## Cross-validation methodology
 
-Every obfuscated → readable mapping and every NET-NEW / CARRYOVER / REFINEMENT label in this tree was audited by an adversarial per-theme pass that defaulted to FAIL and re-opened every sampled anchor at its exact cited line.
+Every obfuscated → readable mapping and every NET-NEW / CARRYOVER / REFINEMENT label in this tree was audited by an adversarial per-theme pass that defaulted to FAIL and re-opened every sampled anchor at its exact cited line. The Plan Mode appendix has a separate current-state validation report because it is intentionally not part of the twelve-delta roll-up.
 
 1. **Dual-bundle (183 + 156) grep discipline.** The core check for any delta claim is a grep-count diff re-run in **both** the v2.1.183 before-picture bundle *and* the v2.1.156 baseline. A "NET-NEW" symbol must reproduce as `0 in 183 AND 0 in 156`; a "CARRYOVER" symbol must match the 183 count. This is what catches false deltas — a string that *looks* new but pre-dates the window.
 2. **193 anchor re-read.** Every load-bearing decl, string, schema body, switch-case, and constant cited in the twelve modules + their additions tables was re-read directly from the 2.1.193 bundle via `sed -n`.
@@ -197,7 +202,7 @@ Every obfuscated → readable mapping and every NET-NEW / CARRYOVER / REFINEMENT
 - **MCP** — the `mcp_headers_helper` telemetry was claimed NET-NEW (`1|0`), but it is a *pre-existing* `tengu_feature_sad` `feature_name` (193=7 / 183=6); only the `reauth_retry` `error_code` is new. Relabeled, and the obf→readable mislabel `Ct→logMcpEvent` corrected to `logFeatureSadEvent`.
 - **Agent Team** — `user_kill_async` telemetry was labeled NET-NEW, but it pre-dates the window (present at 183 `cli_inner_pretty.js:371804` and 156 `cli_inner_pretty.js:279437`). The row was split: `parent_kill_async`/`system_kill_async` are genuinely NET-NEW (0→1), `user_kill_async` is CARRYOVER (1→1).
 
-The remaining **~42 defects were all line-precision / transcription / labeling drift** — `±1–2` citation drifts pointing at the right declaration region, a handful of obf→readable mislabels (`Ct→logFeatureSadEvent`; `Re` as the `tengu_feature_bad` logger; the 183 env builder `L_f@580976` vs the sibling `D_f@581006`), a stale background-panel schema pointer replaced by real panel-render anchors, a `"iterm2"` grep count corrected 16→20, an `aH()` call-site count corrected 11→16, and a `getAvailableTools` exclusion-set cite snapped `444239→444237`. **Never a wrong symbol, a fabricated line, or an incorrect delta classification**, and all were fixed in place. Full logs: the twelve [`00_overview/cross_validation_report_*.md`](00_overview/).
+The remaining **~42 defects were all line-precision / transcription / labeling drift** — `±1–2` citation drifts pointing at the right declaration region, a handful of obf→readable mislabels (`Ct→logFeatureSadEvent`; `Re` as the `tengu_feature_bad` logger; the 183 env builder `L_f@580976` vs the sibling `D_f@581006`), a stale background-panel schema pointer replaced by real panel-render anchors, a `"iterm2"` grep count corrected 16→20, an `aH()` call-site count corrected 11→16, and a `getAvailableTools` exclusion-set cite snapped `444239→444237`. **Never a wrong symbol, a fabricated line, or an incorrect delta classification**, and all were fixed in place. Full logs: the twelve delta [`00_overview/cross_validation_report_*.md`](00_overview/) files plus [`00_overview/cross_validation_report_plan_mode.md`](00_overview/cross_validation_report_plan_mode.md) for the Plan Mode current-state appendix.
 
 ---
 
@@ -239,7 +244,7 @@ For names that never appear in changelog text (most internal helpers), work back
 | Trace a single changelog bullet to code | [`00_overview/changelog_to_code_map.md`](00_overview/changelog_to_code_map.md) — find the bullet, follow the decl pointer (or read its "Out of scope" row) |
 | Look up an obfuscated identifier | Pick the right `00_overview/symbol_index_*.md` by category, or grep the twelve [`00_overview/symbol_additions_v2_1_193_*.md`](00_overview/) tables |
 | Find which extracted asset/decl contains a feature | [`00_overview/file_index.md`](00_overview/file_index.md), or grep `cli_inner_pretty.js` for a stable string |
-| Verify a mapping's confidence | The "ROUTING NOTE" + count blocks in the relevant `00_overview/symbol_additions_v2_1_193_*.md`, or the matching [`00_overview/cross_validation_report_*.md`](00_overview/) |
+| Verify a mapping's confidence | The "ROUTING NOTE" + count blocks in the relevant `00_overview/symbol_additions_v2_1_193_*.md`, or the matching [`00_overview/cross_validation_report_*.md`](00_overview/); for Plan Mode use [`00_overview/cross_validation_report_plan_mode.md`](00_overview/cross_validation_report_plan_mode.md) |
 | Read the deobfuscated source directly | `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` + `cli_unpack_pretty/decls/{functions,vars,classes}/<id>.js` |
 
 ---

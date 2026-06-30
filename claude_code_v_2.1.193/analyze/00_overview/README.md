@@ -1,6 +1,6 @@
 # Overview — v2.1.183 → v2.1.193 (twelve-theme autonomy-hardening delta)
 
-This directory is the **navigation surface** for the v2.1.183 → v2.1.193 analysis tree. It is **not** where features get explained in depth (those live under `../XX_<module>/`); it is the routing layer — the changelog narrative, the per-bullet code-traceability index, the source/file inventory, the twelve per-theme symbol-addition tables, the four canonical symbol indexes, and the twelve adversarial cross-validation reports plus their roll-up. Unlike the prior (v2.1.156 → v2.1.183) tree, **this window has no Layer-2 readable-source reconstructions** — it is a pure delta tree, because almost every change here is a small surgical edit on machinery that the 183 trees already reconstructed and that this tree links to rather than re-derives.
+This directory is the **navigation surface** for the v2.1.183 → v2.1.193 analysis tree. It is **not** where features get explained in depth (those live under `../XX_<module>/`); it is the routing layer — the changelog narrative, the per-bullet code-traceability index, the source/file inventory, the twelve per-theme symbol-addition tables, the four canonical symbol indexes, the twelve adversarial delta cross-validation reports plus their roll-up, and the Plan Mode current-state validation report. Unlike the prior (v2.1.156 → v2.1.183) tree, **this window has no Layer-2 readable-source reconstructions** — it is a pure delta tree, because almost every change here is a small surgical edit on machinery that the 183 trees already reconstructed and that this tree links to rather than re-derives.
 
 ## What this tree IS (read this first)
 
@@ -16,10 +16,12 @@ This tree is a **FOCUSED delta analysis** of the **v2.1.183 → v2.1.193** windo
 | 6 | **Agent team** | [`../30_agent_team/`](../30_agent_team/) | `teammateMode:"iterm2"` (186), `--effort` inheritance (186), stop attribution (187) |
 | 7 | **Skills** | [`../45_skills/`](../45_skills/) | frontmatter case-tolerance (186), malformed-YAML diagnostics (186), `/plugin` Skills section (186) |
 | 8 | **Tools / CLI input** | [`../04_tools/`](../04_tools/) | `!` bash auto-respond (186), bash-mode path autocomplete (193), 50→51 tool surface |
-| 9 | **Slash commands / plugins** | [`../43_slash_commands/`](../43_slash_commands/) | `/rewind` before `/clear` (191), plugin `renames` auto-follow (193), hook comma matcher (191), `/add-dir`/`/btw`/`/review`/retry-cap miscellany |
+| 9 | **Slash commands / plugins** | [`../43_slash_commands/`](../43_slash_commands/) | `/rewind` before `/clear` (191), plugin `renames` auto-follow (193), hook comma matcher (191), `/add-dir`/`/btw`/`/review`/retry-cap miscellany, current-version voice input deep dive |
 | 10 | **System prompt** | [`../40_system_prompt/`](../40_system_prompt/) | env-block agent-proxy line, reminder-catalogue delta (one add, one remove vs 183) |
 | 11 | **Auto memory** | [`../31_auto_memory/`](../31_auto_memory/) | `tengu_billiard_aviary` immutable-memory removal; MEMORY.md compact reminder (carryover) |
 | 12 | **Compaction** | [`../07_compact/`](../07_compact/) | `Ego`→`Rxo` discriminated-union dispatcher refactor (behavior-preserving) |
+
+**Current-state appendix:** [`../05_plan_mode/`](../05_plan_mode/) covers Plan Mode tools, reminders, prompts, approval UI, compact carryover, and remote Ultraplan scaffolding. It is not counted as a delta theme because the local `EnterPlanMode` / `ExitPlanMode` machinery is mostly carryover, but its symbols are routed through [`symbol_index_core_features.md`](symbol_index_core_features.md).
 
 **Everything else is intentionally out of scope.** Many other subsystems changed in this same window — the large UI / terminal / Windows reliability tail, streaming-perf internals (~37% CPU drop), remote-control / update / share plumbing, model-picker stale-after-login, retry-cap tuning, and `claude agents` CLI-UX cosmetics — and they are **not** inventoried here. Each in-scope changelog bullet gets a `cli_inner_pretty.js:<line>` anchor; the out-of-scope bullets are named honestly (per-version "Out of scope" lines in [`changelog_to_code_map.md`](changelog_to_code_map.md), §13 of [`changelog_analysis.md`](changelog_analysis.md)) so nothing is silently dropped.
 
@@ -46,7 +48,7 @@ The canonical obfuscated → readable symbol mappings are split into four files 
 | [`symbol_index_core_execution.md`](symbol_index_core_execution.md) | Tools framework / registry / surface (50→51, the `ReadMcpResourceDirTool` deferred add, the `!` bash-mode input path) + the **Agent named-spawn enforcement** and **Subagent spawn / depth-cap throw** primitives that the 187 fork-aware depth work routes through |
 | [`symbol_index_core_features.md`](symbol_index_core_features.md) | The feature-level themes — **Auto-mode**, **Background Agents**, **Compact**, **Auto Memory**, **Workflow / StructuredOutput**, **Agent Team**, **Skills**. Carries the per-feature manifest links and feature-local anchors |
 | [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) | **MCP** (login/logout, re-auth, retries, idle timeout), **Permissions / Sandbox / Model** (the shell-suspend predicate + gate, `sandbox.credentials`, the session-host cache, org entitlement gate), **Prompt** building (env-block agent-proxy line), **Telemetry / OTEL** (`assistant_response` + the tri-state gate) |
-| [`symbol_index_infra_integration.md`](symbol_index_infra_integration.md) | **Slash Commands / Plugins / Hooks** and the CLI/UI surfaces they touch — `/rewind` markers, plugin `renames` resolver + settings migrator, the hooks comma matcher, the `/plugin` Skills-section render |
+| [`symbol_index_infra_integration.md`](symbol_index_infra_integration.md) | **Slash Commands / Plugins / Hooks / Voice Input** and the CLI/UI surfaces they touch — `/rewind` markers, plugin `renames` resolver + settings migrator, the hooks comma matcher, `/voice` command/state/recording/STT integration, the `/plugin` Skills-section render |
 
 When adding a new symbol, choose the file from its category in the routing matrix below.
 
@@ -76,7 +78,7 @@ Integration Infra (symbol_index_infra_integration.md):
   LSP · Chrome/Browser · IDE · UI Components · Plugin System
   Code Indexing · Shell Parser · Slash Commands · Hooks
   → in this tree: /rewind markers, plugin renames auto-follow, hook comma matcher,
-    the /plugin Installed-tab Skills section
+    /voice command/state/recording/STT integration, the /plugin Installed-tab Skills section
 ```
 
 Routing edge cases this window forced (recorded in each additions file's home-routing note):
@@ -104,7 +106,7 @@ One file per theme. Each gives the v2.1.193 obfuscated identifier, readable name
 | [`symbol_additions_v2_1_193_auto_memory.md`](symbol_additions_v2_1_193_auto_memory.md) | Auto Memory | the `tengu_billiard_aviary` immutable-memory / `tiny_memory` experiment **removal** (dream firing collapses 2-way → single `buildConsolidationPrompt` `$_l`), MEMORY.md compact-reminder proven **carryover** — runtime engine unchanged |
 | [`symbol_additions_v2_1_193_compact.md`](symbol_additions_v2_1_193_compact.md) | Compaction | the `Ego`→`Rxo` auto-compact dispatcher return-shape refactor (flat `{wasCompacted}` → discriminated `{kind}` union), `CSl`/`VDn` helper extractions, circuit-breaker emit 2→1 — behaviorally byte-for-byte carryover |
 
-### Cross-validation reports (one per theme + roll-up)
+### Cross-validation reports (one per delta theme + Plan Mode appendix + roll-up)
 
 Each theme received an independent **default-to-FAIL adversarial pass**: every sampled `cli_inner_pretty.js:<line>` was re-opened at the exact line in the cited bundle and matched against the claim; every **NET-NEW** classification was proven by a 0-count grep in *both* the 183 and 156 bundles; every **CARRYOVER** claim was proven by a present-in-183 grep; and each doc was format-audited (forbidden mapping tables, `## Related Symbols` presence, dual-version snippet template, relative-link depth, English-only). The false-delta hunt deliberately diffs **both** baselines, because "new vs the old tree" is often carryover, not a v2.1.193 change.
 
@@ -119,12 +121,13 @@ Each theme received an independent **default-to-FAIL adversarial pass**: every s
 | [`cross_validation_report_agent_team.md`](cross_validation_report_agent_team.md) | `30_agent_team` | 33 | PASS (HIGH) — 1 false delta fixed (`user_kill_async` pre-dates window) + grep-count + 2 decl-cite fixes |
 | [`cross_validation_report_skills.md`](cross_validation_report_skills.md) | `45_skills` | ~45 | PASS (HIGH) — the vestigial-normalizer gotcha confirmed exact; 3 small cite drifts fixed |
 | [`cross_validation_report_tools.md`](cross_validation_report_tools.md) | `04_tools` | 49 | PASS (HIGH) — all 3 headline deltas + both disambiguations classified against 183 **and** 156; 1 cite drift fixed |
-| [`cross_validation_report_slash_commands.md`](cross_validation_report_slash_commands.md) | `43_slash_commands` | 55+ | PASS (HIGH) — 0 false deltas; 3 citation drifts fixed |
+| [`cross_validation_report_slash_commands.md`](cross_validation_report_slash_commands.md) | `43_slash_commands` | 80+ | PASS (HIGH) — 0 false deltas in the original delta set; 3 citation drifts fixed; voice input addendum verified as current-version subsystem analysis |
 | [`cross_validation_report_system_prompt.md`](cross_validation_report_system_prompt.md) | `40_system_prompt` | 35 | PASS (HIGH) — reminder set-diff confirmed exactly one add + one remove; 2 mislabels + 3 cite drifts fixed |
 | [`cross_validation_report_auto_memory.md`](cross_validation_report_auto_memory.md) | `31_auto_memory` | 30 | PASS (HIGH) — experiment-removal → 0 greps reproduced exactly; MEMORY.md reminder proven carryover; 3 fixes |
 | [`cross_validation_report_compact.md`](cross_validation_report_compact.md) | `07_compact` | 30 | PASS (HIGH) — discriminated-union refactor + full carryover ledger reproduced byte-for-byte; 2 ±1 cite drifts fixed |
+| [`cross_validation_report_plan_mode.md`](cross_validation_report_plan_mode.md) | `05_plan_mode` | 45+ | PASS (HIGH) — current-state appendix validated against 193 anchors, 183 before-picture, and 2.1.88 named-source mirror; correctly classified as carryover, not a thirteenth delta theme |
 
-> The **625** roll-up is the sum of the distinct v2.1.193 anchors each report re-read at their exact cited lines (independent of the additional 150+ before-pictures re-read in the 183/156 bundles and the 230+ grep-count diffs re-run across all three). Every one of the twelve reports closes **PASS WITH FIXES** — meaning the load-bearing analysis was sound and the only corrections were line-precision drift or two carryover-vs-delta mislabels, all fixed in place. `cross_validation_summary.md` is the cross-theme roll-up + the tree-wide invariant re-check (forbidden-table scan, `## Related Symbols` presence, relative-link resolution sweep).
+> The **625** roll-up is the sum of the distinct v2.1.193 anchors each delta-theme report re-read at their exact cited lines (independent of the additional 150+ before-pictures re-read in the 183/156 bundles and the 230+ grep-count diffs re-run across all three). Every one of the twelve delta reports closes **PASS WITH FIXES** — meaning the load-bearing analysis was sound and the only corrections were line-precision drift or two carryover-vs-delta mislabels, all fixed in place. `cross_validation_report_plan_mode.md` is intentionally outside that 12-theme roll-up because it validates a current-state appendix rather than a changelog delta. `cross_validation_summary.md` is the cross-theme roll-up + the tree-wide invariant re-check (forbidden-table scan, `## Related Symbols` presence, relative-link resolution sweep).
 
 ## Where to Start
 
@@ -160,7 +163,7 @@ This tree mirrors the v2.1.183 overview's file classes, with the adaptations a f
 - **Twelve `symbol_additions_v2_1_193_*.md`, not five.** This window touched twelve themes (the 183 window scoped to five), so there are twelve per-theme additions tables. Each carries the **before-picture** (v2.1.183 obfuscated name or a 0-count grep, frequently re-checked in 156) inline, because the whole point of a delta tree is the change, not the static snapshot.
 - **No Layer-2 reconstructions.** The v2.1.183 tree carried full readable-source reconstructions of six subsystems (tools / system prompt / system reminder / slash commands / agent team / auto memory) at v2.1.183. **This window adds none** — nearly every change is a surgical edit on machinery already reconstructed in the 183 trees, so this tree *links* the unchanged foundations rather than re-deriving them.
 - **Thin four-file symbol indexes acting as a routing layer.** Because the exhaustive tables live in the per-theme additions files, the four `symbol_index_*.md` files here are deliberately compact — they record the most load-bearing shared anchors and route the reader to the additions file.
-- **Twelve `cross_validation_report_*.md` + one `cross_validation_summary.md`.** One adversarial report per theme plus the cross-theme roll-up (12/12 PASS HIGH, 625 anchors re-read, 2 false deltas caught, 42 fixes, 0 FAIL). All fixes were line-precision drift or two carryover-vs-delta mislabels.
+- **Twelve delta `cross_validation_report_*.md`, one Plan Mode current-state report, and one `cross_validation_summary.md`.** One adversarial report per delta theme plus the cross-theme roll-up (12/12 PASS HIGH, 625 anchors re-read, 2 false deltas caught, 42 fixes, 0 FAIL). `cross_validation_report_plan_mode.md` separately validates the Plan Mode appendix against 193 anchors, the 183 before-picture, and the 2.1.88 named-source mirror.
 - **Per-version `by_version/` set, one file per published release.** [`../by_version/`](../by_version/) carries one breadth-analysis file for each published release (`2.1.185.md`, `2.1.186.md`, `2.1.187.md`, `2.1.190.md`, `2.1.191.md`, `2.1.193.md`), indexed by [`../by_version/README.md`](../by_version/README.md). The `.185` and `.190` files are intentionally thin: `.185` analyzes the stream-stall hint string/timer delta, while `.190` documents the no-isolable-surface maintenance placeholder.
 - **Single-bundle build.** Like 183, the v2.1.193 build ships as one pretty-printed bundle (`cli_inner_pretty.js`, 718,679 lines) rather than a multi-`chunks.NN.mjs` split, so `file_index.md` maps the theme window onto `cli_inner_pretty.js:<line>` regions plus the `assets/` extract directories.
 

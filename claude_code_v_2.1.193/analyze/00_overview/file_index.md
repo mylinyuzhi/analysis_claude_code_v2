@@ -137,6 +137,22 @@ These are the load-bearing line regions for each theme. Anchors were grep/sed-ve
 exhaustive per-symbol tables see the matching `symbol_additions_v2_1_193_<theme>.md`; for the verification spot-checks
 see `cross_validation_report_<theme>.md`. The narrative module docs live under the numbered dirs.
 
+**Current-state appendix:** Plan Mode is documented in `../05_plan_mode/` even though it is not counted as a thirteenth
+delta theme. Its local tool pair is mostly carryover from 2.1.183, but the current 2.1.193 implementation spans tools,
+attachments/reminders, permission context, compact carryover, UI, teammate approval, and remote Ultraplan prompts.
+
+| Region | Plan Mode surface |
+|--------|-------------------|
+| `cli_inner_pretty.js:381500-381741` | `ExitPlanMode` schemas, approval flow, teammate leader approval, plan-file read/write, `prePlanMode` restore, and four tool-result branches |
+| `cli_inner_pretty.js:381733-381944` | `EnterPlanMode` prompt fragment, prompt body, UI result renderers, and tool object |
+| `cli_inner_pretty.js:3402-3417` | bootstrap flags: `hasExitedPlanMode`, `needsPlanModeExitAttachment`, and mode-crossing transition helper |
+| `cli_inner_pretty.js:598780-598805` | permission-context lifecycle: `prepareContextForPlanMode` and `transitionPlanAutoMode` for `prePlanMode` / auto-mode reconciliation |
+| `cli_inner_pretty.js:473394-473455` | plan-mode attachment cadence: count human turns, full/sparse reminder throttle, reentry attachment, exit attachment |
+| `cli_inner_pretty.js:601213-601532` | plan-mode attachment rendering: full, sparse, subagent, and reentry reminder text |
+| `cli_inner_pretty.js:470052-470064` | compact carryover: rebuild a full `plan_mode` attachment after compaction while still in plan mode |
+| `cli_inner_pretty.js:640625-641219 / 646536-646605` | exit and enter plan-mode permission dialogs |
+| `cli_inner_pretty.js:537540-537630` | remote Ultraplan lightweight, diagram-aware, and multi-agent planning reminders |
+
 ### 1. Permissions & Auto-mode → `../38_permissions/`
 
 The densest theme: auto-mode shell trust (`classifyAllShell`), denial-reason surfacing, `sandbox.credentials`, the `ko`
@@ -274,7 +290,8 @@ Frontmatter multi-case key tolerance + malformed-YAML `parseError` surfacing (2.
 ### 9. Slash Commands / Plugins / Hooks / CLI → `../43_slash_commands/`
 
 `/rewind` before `/clear` (2.1.191), marketplace `renames` plugin auto-follow (2.1.193), hooks comma-separated matcher
-fix (2.1.191), `/add-dir` message + `/btw` nav + `/review`→`/code-review medium` + retry cap (2.1.193/.187/.186).
+fix (2.1.191), `/add-dir` message + `/btw` nav + `/review`→`/code-review medium` + retry cap (2.1.193/.187/.186),
+plus a current-version `/voice` input subsystem deep dive.
 Routes to `symbol_index_infra_integration.md`.
 
 | Region | What lives there |
@@ -290,6 +307,11 @@ Routes to `symbol_index_infra_integration.md`.
 | `cli_inner_pretty.js:482363 / 482757` | `/btw` ←/→ nav: regex `xpf`@482363, key handler @482757 |
 | `cli_inner_pretty.js:538510-538534` | `/review`→code-review: `buildPrReviewPrompt` `rRf`@538510, `reviewCommand` `oRf`@538534 (`effort:"medium"`) |
 | `cli_inner_pretty.js:603209-603261` | retry cap: `getMaxRetries` `O5f`@603209, `MAX_RETRIES_CAP` `Ujo`@603244 (=15), `DEFAULT_MAX_RETRIES` `_5f`@603243 |
+| `cli_inner_pretty.js:571873-572545` | `/voice`: account/auth/policy availability gates, command parser `parseVoiceCommandMode` `_Ff`@572478, handler `voiceCommandHandler` `bFf`@572485 |
+| `cli_inner_pretty.js:571894-572176` | Voice STT stream: connectivity probe, `connectVoiceStream` `knr`@571951, WebSocket path `YBf`@572173, keepalive / transcript / finalization handling |
+| `cli_inner_pretty.js:572330-572455` | Local recording backend: dependency check, microphone permission, native recorder / SoX / arecord start paths, `stopRecording` `izl`@572450 |
+| `cli_inner_pretty.js:649447-650365` | Voice hooks and prompt integration: audio-level scoring, session orchestration, hold/tap key handler, prompt anchoring, interim/final transcript insertion |
+| `cli_inner_pretty.js:178028-179009` | Voice state/context and keybinding metadata: `VoiceProvider`, default voice state, default Space binding, custom-binding warning for letter keys |
 
 ### 10. System Prompt → `../40_system_prompt/`
 
@@ -378,8 +400,8 @@ guidelines, the agent-proxy README).
 
 ## Map: `analyze/` Module Dir → What It Documents
 
-Twelve theme dirs, plus `00_overview/` (this index + four `symbol_index_*.md` routing tables + twelve
-`symbol_additions_v2_1_193_*.md` exhaustive tables + twelve `cross_validation_report_*.md` verification reports +
+Twelve theme dirs, one current-state Plan Mode appendix, plus `00_overview/` (this index + four `symbol_index_*.md` routing tables + twelve
+`symbol_additions_v2_1_193_*.md` exhaustive tables + twelve delta `cross_validation_report_*.md` verification reports + one Plan Mode current-state validation report +
 `changelog_analysis.md` + `changelog_delta_scoping.md`). The `by_version/` dir is present but unpopulated in this tree.
 
 | Dir | Routes to (symbol index) | Scope (v2.1.183 → v2.1.193 delta) | Key docs |
@@ -392,10 +414,11 @@ Twelve theme dirs, plus `00_overview/` (this index + four `symbol_index_*.md` ro
 | `30_agent_team/` | core_features | `teammateMode: "iterm2"`, `--effort` inheritance, stop attribution | `teammate_mode_iterm2.md`, `effort_inheritance.md`, `stop_attribution.md` |
 | `45_skills/` | core_features | frontmatter case-tolerance, malformed-YAML handling, `/plugin` Installed Skills section | `frontmatter_case_tolerance.md`, `malformed_yaml_handling.md`, `plugin_installed_skills_section.md` |
 | `04_tools/` | core_execution | `!` bash auto-respond, bash-mode path autocomplete, tool-surface delta | `bash_input_respond.md`, `bash_mode_autocomplete.md`, `tool_surface_delta_193.md` |
-| `43_slash_commands/` | infra_integration | `/rewind` before `/clear`, hook comma matcher fix, plugin auto-rename, `/add-dir`+`/btw`+`/review`+retries | `rewind_before_clear.md`, `hook_matcher_comma_fix.md`, `plugin_auto_rename.md`, `cli_input_and_review_misc.md` |
+| `43_slash_commands/` | infra_integration | `/rewind` before `/clear`, hook comma matcher fix, plugin auto-rename, `/add-dir`+`/btw`+`/review`+retries, current-version voice input | `rewind_before_clear.md`, `hook_matcher_comma_fix.md`, `plugin_auto_rename.md`, `cli_input_and_review_misc.md`, `voice_input.md` |
 | `40_system_prompt/` | infra_platform (Prompt) | env-block agent-proxy line, system-reminder catalogue delta | `env_block_agent_proxy_line.md`, `reminder_catalogue_delta_193.md` |
 | `31_auto_memory/` | core_features | `tengu_billiard_aviary` immutable-memory removal, MEMORY.md compact reminder + dream carryover | `billiard_aviary_immutable_memory_removal.md`, `memory_reminder_and_dream_carryover.md` |
 | `07_compact/` | core_features | `Ego`→`Rxo` discriminated-union dispatcher refactor (behavior-preserving) + carryover ledger | `README.md` |
+| `05_plan_mode/` | core_features | current-state Plan Mode tool pair, lifecycle state machine, reminder cadence, prompt surface, approval UI, compact carryover, remote Ultraplan scaffolding | `README.md`, `lifecycle_state_machine.md`, `reminder_cadence.md`, `prompt_surface.md`, `ui_permission_flow.md` |
 
 ### `00_overview/` contents
 
@@ -405,11 +428,13 @@ Twelve theme dirs, plus `00_overview/` (this index + four `symbol_index_*.md` ro
 - `symbol_index_core_features.md` — Core feature routing (Background Agents, Workflow, Agent Team, Skills, Auto-mode,
   Auto-Memory, Compact symbols route here).
 - `symbol_index_infra_platform.md` — Platform routing (MCP, Permissions, Sandbox, Auth, Model, Prompt, Telemetry).
-- `symbol_index_infra_integration.md` — Integration routing (LSP, Chrome, IDE, UI, Plugin, Shell Parser, Slash Commands).
+- `symbol_index_infra_integration.md` — Integration routing (LSP, Chrome, IDE, UI, Plugin, Shell Parser, Slash Commands, Voice Input).
 - `symbol_additions_v2_1_193_{permissions,background_agents,mcp,telemetry,workflow,agent_team,skills,tools,slash_commands,system_prompt,auto_memory,compact}.md`
   — twelve per-theme exhaustive new-symbol tables, each opening with a ROUTING NOTE naming its `symbol_index_*.md`.
-- `cross_validation_report_<theme>.md` — twelve per-theme adversarial verification reports (citation spot-checks,
+- `cross_validation_report_<theme>.md` — twelve per-theme adversarial delta verification reports (citation spot-checks,
   forbidden-table scans, broken-link sweeps, v2.1.183 before-picture corroboration).
+- `cross_validation_report_plan_mode.md` — current-state Plan Mode appendix validation against 2.1.193 anchors,
+  2.1.183 before-picture evidence, and the 2.1.88 named-source mirror.
 - `changelog_analysis.md` — the source-cited narrative over the whole window.
 - `changelog_delta_scoping.md` — the changelog-derived plan (build facts + per-version theme map).
 
@@ -442,7 +467,8 @@ Twelve theme dirs, plus `00_overview/` (this index + four `symbol_index_*.md` ro
 - `symbol_index_core_execution.md` / `symbol_index_core_features.md` / `symbol_index_infra_platform.md` /
   `symbol_index_infra_integration.md` — the four canonical symbol-routing tables.
 - `symbol_additions_v2_1_193_<theme>.md` — exhaustive per-theme new-symbol tables (twelve files).
-- `cross_validation_report_<theme>.md` — per-theme verification reports (twelve files).
+- `cross_validation_report_<theme>.md` — per-theme delta verification reports (twelve files), plus
+  `cross_validation_report_plan_mode.md` for the Plan Mode current-state appendix.
 - `changelog_analysis.md` — the source-cited narrative for the whole v2.1.183 → v2.1.193 window.
 - `changelog_delta_scoping.md` — the changelog-derived plan + build facts.
 - `../CHANGELOG.md` — upstream changelog (bullet source of truth for the 2.1.185 → 2.1.193 window).

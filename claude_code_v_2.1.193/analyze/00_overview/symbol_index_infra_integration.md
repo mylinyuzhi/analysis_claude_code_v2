@@ -74,6 +74,41 @@ FIX (2.1.191): hook matchers now split on `/[|,]/` (comma-aware), gated by a 4th
 | `Kcn` | `resolveAliases` (tool-alias expansion in the matcher path; 183 `wHt`) | cli_inner_pretty.js:589641 | function |
 | `KL` | `canonicalToolName` (normalize a matcher segment; 183 `eL`) | cli_inner_pretty.js:589641 | function |
 
+## Module: Voice Input
+
+Current-version voice input subsystem: `/voice` settings gate, local audio capture, WebSocket STT, prompt integration, and hold/tap key handling. Deep-dive home: [`../43_slash_commands/voice_input.md`](../43_slash_commands/voice_input.md).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `_Ff` | `parseVoiceCommandMode` (`hold`/`tap`/`off`/empty/invalid parser) | cli_inner_pretty.js:572478 | function |
+| `AYe` | `normalizeLanguageForSTT` (settings language → supported STT code) | cli_inner_pretty.js:1982 | function |
+| `bFf` | `voiceCommandHandler` (`/voice` auth/policy/dependency gate and settings toggle) | cli_inner_pretty.js:572485 | function |
+| `Cnr` | `hasVoiceAuth` (Claude.ai auth provider + OAuth token check) | cli_inner_pretty.js:571876 | function |
+| `e0` | `useVoiceState` (selector hook for voice state store) | cli_inner_pretty.js:178051 | function |
+| `elr` | `useVoiceKeybindingHandler` (hold/tap keybinding state machine) | cli_inner_pretty.js:650152 | function |
+| `Etm` | `FIRST_PRESS_FALLBACK_MS` (`2000`; modifier-combo first-repeat fallback) | cli_inner_pretty.js:649989 | constant |
+| `Got` | `useSetVoiceState` (voice state setter hook) | cli_inner_pretty.js:178060 | function |
+| `Iye` | `voiceStateModule` (initializes default voice state/context) | cli_inner_pretty.js:178067 | variable |
+| `imc` | `computeAudioLevel` (RMS level from 16-bit PCM buffer) | cli_inner_pretty.js:649447 | function |
+| `Inr` | `isVoiceAllowedByPolicy` (`allow_voice_mode` entitlement check) | cli_inner_pretty.js:571884 | function |
+| `izl` | `stopRecording` (stop native recorder or child-process recorder) | cli_inner_pretty.js:572450 | function |
+| `jSt` | `isVoiceModeAvailable` (auth + build gate + org policy) | cli_inner_pretty.js:571887 | function |
+| `JRd` | `voiceDefaultState` (`idle`, interim transcript, levels, warmup, double-tap state) | cli_inner_pretty.js:178072 | object |
+| `knr` | `connectVoiceStream` (OAuth WebSocket STT client) | cli_inner_pretty.js:571951 | function |
+| `kxn` | `useGetVoiceState` (synchronous voice state reader hook) | cli_inner_pretty.js:178063 | function |
+| `KYt` | `isVoiceUserIntentEnabled` (`settings.voice.enabled ?? voiceEnabled`) | cli_inner_pretty.js:571873 | function |
+| `lFf` | `microphoneAuthorizationStatus` (native module microphone status bridge) | cli_inner_pretty.js:572244 | function |
+| `mFf` | `checkRecordingAvailability` (remote/device/WSL/SoX availability probe) | cli_inner_pretty.js:572351 | function |
+| `oFo` | `isVoiceStreamAvailable` (Claude.ai OAuth token present) | cli_inner_pretty.js:571929 | function |
+| `pfe` | `useVoiceEnabled` (React gate: user intent + auth + build/growth + policy) | cli_inner_pretty.js:626058 | function |
+| `pFf` | `checkVoiceDependencies` (native audio, `arecord`, or SoX dependency check) | cli_inner_pretty.js:572330 | function |
+| `QRd` | `VoiceProvider` (provider for voice state store) | cli_inner_pretty.js:178033 | function |
+| `rFo` | `probeVoiceConnectivity` (classifies voice-stream connectivity failure) | cli_inner_pretty.js:571909 | function |
+| `szl` | `startRecording` (native audio, `arecord`, or SoX recorder start) | cli_inner_pretty.js:572388 | function |
+| `wtm` | `useVoice` (recording, WebSocket, retry/replay, transcript orchestration) | cli_inner_pretty.js:649459 | function |
+| `YBf` | `voiceStreamPath` (`/api/ws/speech_to_text/voice_stream`) | cli_inner_pretty.js:572158 | constant |
+| `Zar` | `useVoiceIntegration` (prompt anchoring, transcript insertion, submit behavior) | cli_inner_pretty.js:650026 | function |
+
 ## Module: Slash Commands — `/add-dir`, `/btw` nav, `/review`, retry cap
 
 Misc slash/CLI deltas: the `/add-dir` already-a-working-dir three-message branch (2.1.193), `/btw` ←/→ answer navigation (2.1.187), `/review <pr>` → code-review medium engine (2.1.186), and the `CLAUDE_CODE_MAX_RETRIES` cap-15 + retry-watchdog fix (2.1.186). Exhaustive home: [`symbol_additions_v2_1_193_slash_commands.md`](symbol_additions_v2_1_193_slash_commands.md) ("/add-dir message + /btw nav + /review + retries").

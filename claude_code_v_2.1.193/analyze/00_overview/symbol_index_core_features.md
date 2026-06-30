@@ -1,6 +1,6 @@
 # Symbol Index — Core Features (v2.1.183 → v2.1.193)
 
-This index catalogs obfuscated → readable mappings for the **core feature** symbols that changed between v2.1.183 and v2.1.193 (published sub-versions 2.1.185 / .186 / .187 / .190 / .191 / .193). Scope for this delta tree: **Permissions / Auto-mode**, **Background Agents**, **Compact**, **Auto Memory**, **Workflow / StructuredOutput**, **Agent Team**, and **Skills**.
+This index catalogs obfuscated → readable mappings for the **core feature** symbols that changed between v2.1.183 and v2.1.193 (published sub-versions 2.1.185 / .186 / .187 / .190 / .191 / .193). Scope for this delta tree: **Permissions / Auto-mode**, **Plan Mode**, **Background Agents**, **Compact**, **Auto Memory**, **Workflow / StructuredOutput**, **Agent Team**, and **Skills**. Plan Mode is included as current-state coverage because the local tool pair is mostly carryover but the 2.1.193 analysis tree needs a central route for its prompts, reminders, UI, and permission-mode symbols.
 
 For other categories see:
 
@@ -25,7 +25,56 @@ This delta tree keeps the full per-symbol mapping tables in the **per-module add
 
 > The **Auto-mode** rows below (`classifyAllShell`, denial-kind taxonomy, worker-permission forwarding) are borrowed from [`symbol_additions_v2_1_193_permissions.md`](symbol_additions_v2_1_193_permissions.md); that file's manifest bullet lives in [`symbol_index_infra_platform.md`](symbol_index_infra_platform.md) (its Sandbox/Model/denial-store rows), and its named-spawn rows route to [`symbol_index_core_execution.md`](symbol_index_core_execution.md).
 
+> The **Plan Mode** rows below are current-state/carryover anchors rather than a 193 delta manifest. Deep-dive home: [`../05_plan_mode/README.md`](../05_plan_mode/README.md). The v2.1.183 before-picture is [`../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/PlanModeTools.ts`](../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/PlanModeTools.ts).
+
 ---
+
+## Module: Plan Mode — tools, reminders, permission restore, UI
+
+Current 2.1.193 Plan Mode implementation: `EnterPlanMode` enters the `"plan"` permission mode, cadenced `plan_mode` attachments enforce read-only planning and plan-file writes only, and `ExitPlanMode` restores `prePlanMode` after approval. Mostly carryover from 2.1.183, indexed here because it crosses tools, attachments, compact, permission context, teammate approval, and UI. Deep-dive home: [`../05_plan_mode/README.md`](../05_plan_mode/README.md).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `A4t` | `transitionPlanAutoMode` (reconcile auto-mode state while still in plan mode) | cli_inner_pretty.js:598796 | function |
+| `AQf` | `buildExitPlanModeOptions` (approval/rejection/context-clear/Ultraplan option list) | cli_inner_pretty.js:640541 | function |
+| `C7` | `ENTER_PLAN_MODE_TOOL_NAME` (`"EnterPlanMode"`) | cli_inner_pretty.js:229308 | constant |
+| `Ex` | `EXIT_PLAN_MODE_TOOL_NAME` (`"ExitPlanMode"`; prompt/reference alias) | cli_inner_pretty.js:153113 | constant |
+| `Fk_` | `exitPlanModeSdkInputSchema` (extends input with injected `plan`, `planFilePath`) | cli_inner_pretty.js:381508 | function |
+| `GQl` | `renderExitPlanModeProtocolFooter` (end turn with AskUserQuestion or ExitPlanMode) | cli_inner_pretty.js:601218 | function |
+| `HEl` | `buildPlanModeExitAttachment` | cli_inner_pretty.js:473445 | function |
+| `KKn` | `buildPlanModeAttachmentForCompact` (full plan reminder after compaction) | cli_inner_pretty.js:470052 | function |
+| `Kza` | `EXIT_PLAN_MODE_V2_TOOL_PROMPT` | cli_inner_pretty.js:380558 | constant |
+| `Pko` | `countHumanTurnsSinceLastPlanAttachment` | cli_inner_pretty.js:473394 | function |
+| `Pmt` | `prepareContextForPlanMode` (stashes `prePlanMode`, handles auto-on-plan entry) | cli_inner_pretty.js:598786 | function |
+| `Qpc` | `EnterPlanModePermissionRequest` UI dialog | cli_inner_pretty.js:646536 | function |
+| `Rko` | `PLAN_MODE_ATTACHMENT_CONFIG` (`TURNS_BETWEEN_ATTACHMENTS:5`, `FULL_REMINDER_EVERY_N_ATTACHMENTS:5`) | cli_inner_pretty.js:474654 | constant |
+| `Tar` | `mapExitPlanModeChoiceToPermissionResult` (UI option to permission result) | cli_inner_pretty.js:640586 | function |
+| `TTt` | `hasExitedPlanModeInSession` | cli_inner_pretty.js:3402 | function |
+| `UD` | `ExitPlanModeTool` (approval, teammate leader request, plan-file read, prePlanMode restore) | cli_inner_pretty.js:381532 | object |
+| `Z5n` | `EnterPlanModeTool` (deferred, read-only, agent-context blocked, sets mode to `plan`) | cli_inner_pretty.js:381889 | object |
+| `a5f` | `renderSparsePlanModeAttachment` | cli_inner_pretty.js:601311 | function |
+| `bse` | `setNeedsPlanModeExitAttachment` | cli_inner_pretty.js:3411 | function |
+| `cUl` | `remotePlanModeReminderWithDiagram` (Ultraplan diagram-aware prompt) | cli_inner_pretty.js:537576 | variable |
+| `eme` | `handlePlanModeTransition` (toggles plan-mode exit attachment flag on mode crossings) | cli_inner_pretty.js:3414 | function |
+| `fdc` | `ExitPlanModePermissionRequest` UI dialog/editor | cli_inner_pretty.js:640625 | function |
+| `fuf` | `countPlanModeAttachmentsSinceLastExit` | cli_inner_pretty.js:473410 | function |
+| `gGp` | `exitPlanModeOutputSchema` (`plan`, `isAgent`, `filePath`, `planWasEdited`, approval fields) | cli_inner_pretty.js:381511 | function |
+| `hGp` | `getWhatHappensInPlanMode` prompt fragment | cli_inner_pretty.js:381733 | function |
+| `i5f` | `renderFullPlanModeAttachment` (read-only preamble + five-phase workflow) | cli_inner_pretty.js:601224 | function |
+| `jQl` | `PLAN_MODE_READ_ONLY_PREAMBLE` | cli_inner_pretty.js:602488 | constant |
+| `kz` | `setHasExitedPlanMode` | cli_inner_pretty.js:3405 | function |
+| `l5f` | `renderSubagentPlanModeAttachment` | cli_inner_pretty.js:601316 | function |
+| `lUl` | `remotePlanModeReminderLight` (Ultraplan lightweight remote prompt) | cli_inner_pretty.js:537540 | variable |
+| `mGp` | `allowedPromptSchema` (`{ tool:"Bash", prompt }`) | cli_inner_pretty.js:381493 | function |
+| `muf` | `buildPlanModeAttachments` (full/sparse/reentry attachment generator) | cli_inner_pretty.js:473421 | function |
+| `o5f` | `renderPlanModeAttachment` (dispatches full/sparse/subagent reminders) | cli_inner_pretty.js:601213 | function |
+| `pKa` | `exitPlanModeInputSchema` (`allowedPrompts` plus passthrough) | cli_inner_pretty.js:381500 | function |
+| `qEo` | `PLAN_REJECTED_FEEDBACK_PREFIX` | cli_inner_pretty.js:602456 | constant |
+| `qfr` | `needsPlanModeExitAttachment` | cli_inner_pretty.js:3408 | function |
+| `s5f` | `FINAL_PLAN_PHASE_PROMPT` | cli_inner_pretty.js:602480 | constant |
+| `uD` | `EXIT_PLAN_MODE_V2_TOOL_NAME` (`"ExitPlanMode"`; tool-object name) | cli_inner_pretty.js:153114 | constant |
+| `uUl` | `remotePlanModeReminderMultiAgent` (Ultraplan multi-agent prompt) | cli_inner_pretty.js:537612 | variable |
+| `yGp` | `getEnterPlanModeToolPrompt` | cli_inner_pretty.js:381748 | function |
 
 ## Module: Permissions / Auto-mode — classifier + denial-kind taxonomy
 
