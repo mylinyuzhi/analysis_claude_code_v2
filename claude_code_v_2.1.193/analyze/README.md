@@ -23,6 +23,8 @@ This tree is a **focused source delta** of the **v2.1.183 → v2.1.193** window,
 
 **Current-state appendix:** [`05_plan_mode/`](05_plan_mode/) documents Plan Mode's 2.1.193 tool pair, reminders, prompt surface, approval UI, compact carryover, and remote Ultraplan scaffolding. It is not counted as a thirteenth delta theme because the local `EnterPlanMode` / `ExitPlanMode` machinery is mostly carryover from 2.1.183, but it is included for Plan Mode-focused navigation.
 
+**Current-state appendix:** [`46_todo_tasks/`](46_todo_tasks/) documents the task-tracking surface: legacy `TodoWrite`, V2 file-backed `TaskCreate` / `TaskGet` / `TaskUpdate` / `TaskList`, reminders, hooks, and the tasks UI. It is not counted as a thirteenth delta theme because the architecture is mostly carryover from 2.1.183, but it is included because it is the main progress-tracking subsystem used by agent workflows.
+
 ---
 
 ## The build under analysis

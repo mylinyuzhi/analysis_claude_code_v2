@@ -27,7 +27,57 @@ This delta tree keeps the full per-symbol mapping tables in the **per-module add
 
 > The **Plan Mode** rows below are current-state/carryover anchors rather than a 193 delta manifest. Deep-dive home: [`../05_plan_mode/README.md`](../05_plan_mode/README.md). The v2.1.183 before-picture is [`../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/PlanModeTools.ts`](../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/PlanModeTools.ts).
 
+> The **Todo / Tasks** rows below are current-state/carryover anchors rather than a 193 delta manifest. Deep-dive home: [`../46_todo_tasks/README.md`](../46_todo_tasks/README.md). The v2.1.183 before-picture is [`../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/TaskTools.ts`](../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/TaskTools.ts) and [`../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/TodoWriteTool.ts`](../../../claude_code_v_2.1.183/analyze/04_tools/reconstructed_source/tools/TodoWriteTool.ts).
+
 ---
+
+## Module: Todo / Tasks — V1 TodoWrite + V2 file-backed task list
+
+Current 2.1.193 task-tracking implementation: `TodoWrite` is the legacy app-state checklist enabled only when V2 task tools are disabled; `TaskCreate`/`TaskGet`/`TaskUpdate`/`TaskList` are the V2 file-backed task-list CRUD tools; reminder attachments nudge stale task management; `TaskCreated` / `TaskCompleted` hooks can block creation/completion; the UI task panel watches the file store. Mostly carryover from v2.1.183, indexed here because the task-tracking surface crosses tools, reminders, hooks, agent-team ownership, persistent state, and UI. Deep-dive home: [`../46_todo_tasks/README.md`](../46_todo_tasks/README.md).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AVa` | `RECENT_COMPLETED_TASK_TTL_MS` (=30000; recent-completion visibility window) | cli_inner_pretty.js:365279 | constant |
+| `aUp` | `TaskListV2TaskItem` (renders one task row with icon, owner, blockers, activity) | cli_inner_pretty.js:365188 | function |
+| `BR` | `TODO_WRITE_TOOL_NAME` (`"TodoWrite"`) | cli_inner_pretty.js:229407 | constant |
+| `Boc` | `mapTodoItemsForTaskSummary` (V1 app-state todos to task-summary items) | cli_inner_pretty.js:620030 | function |
+| `Buf` | `countTaskReminderTurns` (TaskCreate/TaskUpdate + `task_reminder` backward scan) | cli_inner_pretty.js:474335 | function |
+| `But` | `todoListSchema` (`TodoWrite` array schema) | cli_inner_pretty.js:308595 | function |
+| `CVa` | `TaskListV2ExternalStore` (watcher/polling store for V2 task panel snapshots) | cli_inner_pretty.js:365294 | class |
+| `DJt` | `restoreSessionStateFromTranscript` (restores goal/file history and V1 todos on resume) | cli_inner_pretty.js:641573 | function |
+| `Fuf` | `buildTaskReminderAttachments` (V2 stale-task reminder generator) | cli_inner_pretty.js:474368 | function |
+| `Foc` | `mapTaskV2ItemsForTaskSummary` (V2 durable tasks to task-summary items) | cli_inner_pretty.js:620040 | function |
+| `GIa` | `createTask` (locked next-id allocation + per-task JSON write) | cli_inner_pretty.js:308374 | function |
+| `GQf` | `extractLastTodoWriteTodos` (finds latest `TodoWrite` input in transcript) | cli_inner_pretty.js:641542 | function |
+| `gQf` | `toggleTodosPanel` (toggles `expandedView` between `"tasks"` and `"none"`) | cli_inner_pretty.js:639717 | function |
+| `Gyp` | `todoWriteOutputSchema` (`oldTodos`, `newTodos`) | cli_inner_pretty.js:308813 | function |
+| `h9t` | `executeTaskCreatedHooks` (`TaskCreated` hook input builder) | cli_inner_pretty.js:588674 | function |
+| `HWt` | `useTasksV2Snapshot` (gated `useSyncExternalStore` bridge for task panel state) | cli_inner_pretty.js:365367 | function |
+| `hWn` | `TaskListV2` (expanded/standalone task panel renderer and truncation algorithm) | cli_inner_pretty.js:365045 | function |
+| `Ine` | `getTask` (schema-validated task JSON read) | cli_inner_pretty.js:308391 | function |
+| `IVa` | `useVisibleTasksV2` (collapses task panel when V2 task snapshot is unavailable) | cli_inner_pretty.js:365372 | function |
+| `Jcl` | `TaskListTool` (read-only compact task scheduler view) | cli_inner_pretty.js:438299 | object |
+| `j6n` | `TaskOutputTool` (read-only background-task output retrieval; legacy aliases) | cli_inner_pretty.js:435497 | object |
+| `jcl` | `TaskGetTool` (read-only full-detail task lookup) | cli_inner_pretty.js:437888 | object |
+| `kco` | `blockTask` (writes both sides of `blocks` / `blockedBy`) | cli_inner_pretty.js:308465 | function |
+| `Lcl` | `coerceTaskCreateInput` (unwraps aliases / task wrapper) | cli_inner_pretty.js:437657 | function |
+| `M8t` | `taskSummaryItemsKey` (stable change key for status-summary items) | cli_inner_pretty.js:464299 | function |
+| `Nbe` | `updateTask` (locked patch write) | cli_inner_pretty.js:308414 | function |
+| `Ncl` | `TaskCreateTool` (single-task create + hook rollback) | cli_inner_pretty.js:437790 | object |
+| `n6t` | `TODO_REMINDER_CONFIG` (`TURNS_SINCE_WRITE:10`, `TURNS_BETWEEN_REMINDERS:10`) | cli_inner_pretty.js:474653 | constant |
+| `Nuf` | `buildTodoReminderAttachments` (V1 stale-TodoWrite reminder generator) | cli_inner_pretty.js:474313 | function |
+| `Ouf` | `countTodoReminderTurns` (`TodoWrite` + `todo_reminder` backward scan) | cli_inner_pretty.js:474288 | function |
+| `PWe` | `taskStatusSchema` (`pending` / `in_progress` / `completed`) | cli_inner_pretty.js:308579 | function |
+| `Qj` | `listTasks` (schema-validates and numerically sorts task files) | cli_inner_pretty.js:308453 | function |
+| `qcl` | `TaskUpdateTool` (field/status/owner/dependency update hub) | cli_inner_pretty.js:438067 | object |
+| `R9e` | `executeTaskCompletedHooks` (`TaskCompleted` hook input builder) | cli_inner_pretty.js:588686 | function |
+| `Rht` | `TaskStopTool` (background-task stop; passes `killedBy:"parent"`) | cli_inner_pretty.js:431902 | object |
+| `SD` | `TASK_STOP_TOOL_NAME` (`"TaskStop"`) | cli_inner_pretty.js:228816 | constant |
+| `tLe` | `TodoWriteTool` (legacy per-session checklist replacement) | cli_inner_pretty.js:308815 | object |
+| `vF` | `getTaskListId` (env / teammate / team / session list-id resolver) | cli_inner_pretty.js:308332 | function |
+| `yBn` | `deleteTask` (delete file + high-watermark + dependency cleanup) | cli_inner_pretty.js:308426 | function |
+| `z_l` | `setTaskSummaryState` (publishes derived task/status summary metadata) | cli_inner_pretty.js:464308 | function |
+| `ZH` | `isTodoV2Enabled` (V2 task-tools gate via `CLAUDE_CODE_ENABLE_TASKS`) | cli_inner_pretty.js:308309 | function |
 
 ## Module: Plan Mode — tools, reminders, permission restore, UI
 

@@ -141,6 +141,11 @@ see `cross_validation_report_<theme>.md`. The narrative module docs live under t
 delta theme. Its local tool pair is mostly carryover from 2.1.183, but the current 2.1.193 implementation spans tools,
 attachments/reminders, permission context, compact carryover, UI, teammate approval, and remote Ultraplan prompts.
 
+**Current-state appendix:** Todo / Tasks tracking is documented in `../46_todo_tasks/`. It is not counted as a thirteenth
+delta theme because the V1/V2 task-tracking architecture is mostly carryover from v2.1.183, but the current 2.1.193
+implementation is central to the agent work-tracking surface: legacy `TodoWrite`, V2 file-backed `TaskCreate` /
+`TaskGet` / `TaskUpdate` / `TaskList`, stale-task reminders, `TaskCreated` / `TaskCompleted` hooks, and the tasks UI.
+
 | Region | Plan Mode surface |
 |--------|-------------------|
 | `cli_inner_pretty.js:381500-381741` | `ExitPlanMode` schemas, approval flow, teammate leader approval, plan-file read/write, `prePlanMode` restore, and four tool-result branches |
@@ -152,6 +157,24 @@ attachments/reminders, permission context, compact carryover, UI, teammate appro
 | `cli_inner_pretty.js:470052-470064` | compact carryover: rebuild a full `plan_mode` attachment after compaction while still in plan mode |
 | `cli_inner_pretty.js:640625-641219 / 646536-646605` | exit and enter plan-mode permission dialogs |
 | `cli_inner_pretty.js:537540-537630` | remote Ultraplan lightweight, diagram-aware, and multi-agent planning reminders |
+
+| Region | Todo / Tasks tracking surface |
+|--------|-------------------------------|
+| `cli_inner_pretty.js:308309-308595` | V2 gate `isTodoV2Enabled` (`ZH`), task-list id/path resolver, `.highwatermark` / `.lock`, create/read/update/delete/list/dependency store, task schema, legacy todo item/list schemas |
+| `cli_inner_pretty.js:308599-308854` | `TodoWrite` V1 prompt selector, long/short prompts, input/output schemas, tool object, in-memory app-state replacement call |
+| `cli_inner_pretty.js:437657-437845` | `TaskCreate` coercion, validation steers, prompt, schema, tool object, hook rollback, auto-expand tasks panel |
+| `cli_inner_pretty.js:437854-437948` | `TaskGet` prompt, schema, read-only lookup, tool-result formatting |
+| `cli_inner_pretty.js:438029-438223` | `TaskUpdate` schema, field/status/metadata/owner/dependency update path, `TaskCompleted` hook veto, teammate assignment mailbox, completion nudge |
+| `cli_inner_pretty.js:438226-438355` | `TaskList` prompt, schema, read-only compact scheduler view, internal-task filtering, completed-blocker filtering |
+| `cli_inner_pretty.js:431888-431950` | `TaskStop` background-task lifecycle tool: validation, aliases, stop call, `killedBy:"parent"` attribution |
+| `cli_inner_pretty.js:435490-435562` | `TaskOutput` background-task output tool: aliases, deprecated prompt guidance, blocking/non-blocking retrieval |
+| `cli_inner_pretty.js:474288-474420 / 474653` | `todo_reminder` and `task_reminder` turn counters, 10/10 cadence config, attachment builders, and ToolSearch same-turn suppression |
+| `cli_inner_pretty.js:588674-588696 / 589954-589960` | `TaskCreated` / `TaskCompleted` hook input builders and blocking feedback renderers |
+| `cli_inner_pretty.js:601427-601454` | reminder attachment renderer text for V1 `TodoWrite` and V2 task tools |
+| `cli_inner_pretty.js:464295-464315 / 619945-620048 / 688029-688035` | V1/V2 task-summary item projection: runtime tasks, app-state todos, V2 durable tasks, summary hashing, and status publication |
+| `cli_inner_pretty.js:365045-365385` | `TaskListV2` task-panel renderer, truncation/ordering, row display, watcher-backed external store, and panel auto-hide |
+| `cli_inner_pretty.js:641542-641581` | V1 resume restore path: scan latest `TodoWrite` tool input from transcript and repopulate app-state todos when V2 is disabled |
+| `cli_inner_pretty.js:639567 / 639717-639719` | tasks panel keybinding/telemetry and `expandedView` toggle |
 
 ### 1. Permissions & Auto-mode → `../38_permissions/`
 
