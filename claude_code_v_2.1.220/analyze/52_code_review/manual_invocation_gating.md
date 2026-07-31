@@ -206,8 +206,22 @@ the honest statement is "2.1.215 applied an existing gate to the two review skil
 
 ## 4. `.218` — `/deep-research` starts only when invoked manually
 
-Deep research is not a slash command; it is a bundled **workflow**, registered by pushing a descriptor
-onto a module-level array:
+> **Round-3 correction and deep dive.** An earlier revision of this section said "Deep research is not
+> a slash command; it is a bundled workflow". The second half is right, the first half is not: every
+> non-`hidden` registry row is *projected into* a `type: "prompt"` slash command by
+> `createWorkflowCommand` (`Lep` `:506513-506557`), which is exactly why `/deep-research` is typable
+> and why it carries the `[dynamic workflow]` menu tag (`:744013`, `:744020`). The command's body
+> does not run anything — it emits text instructing the model to call
+> `Workflow({name:'deep-research', args})` (`:506528-506556`). That is what makes the restraint
+> below necessary on the *command projection* rather than in the script.
+>
+> Full analysis of the harness and its runtime now lives in
+> [`../42_workflow/deep_research_harness.md`](../42_workflow/deep_research_harness.md) and
+> [`../42_workflow/deep_research_runtime_contract.md`](../42_workflow/deep_research_runtime_contract.md)
+> (the latter's §4 enumerates all three enforcement layers of this bullet). This section remains the
+> owner of the changelog-bullet routing.
+
+Deep research is a bundled **workflow**, registered by pushing a descriptor onto a module-level array:
 
 ```javascript
 // registerBundledWorkflow  :385327-385335

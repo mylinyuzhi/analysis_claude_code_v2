@@ -1515,6 +1515,18 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `Zno` | expandPathsFrontmatter | cli_inner_pretty.js:158136 | function |
 | `ZNy` | elideDuplicateSkillInvocation | cli_inner_pretty.js:346748 | function |
 
+## Module: Skills — model-invocation gating and the skill listing
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `BLo` | buildModelVisibleSkillSet | cli_inner_pretty.js:441278-441285 | function |
+| `FLo` | renderSkillListingLines | cli_inner_pretty.js:441264-441276 | function |
+| `oin` | checkSkillInvocationBlocked (the `!userTypedThisTurn` refusal) | cli_inner_pretty.js:346456-346463 | function |
+| `oKe` | isModelInvocableCommand (filters `disableModelInvocation` out of the listing) | cli_inner_pretty.js:506851-506863 | function |
+| `YFo` | buildSkillListingReminder | cli_inner_pretty.js:499488-499499 | function |
+| `zL` | getModelInvocableCommands (memoised, applies `oKe`) | cli_inner_pretty.js:507331-507334 | variable |
+| `zNy` | didUserTypeCommandThisTurn | cli_inner_pretty.js:346566-346569 | function |
+
 ## Module: Steering / Message Provenance
 
 | Obfuscated | Readable | File:Line | Type |
@@ -1557,6 +1569,20 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `O6a` | `isLocalAgentTask` | cli_inner_pretty.js:725781-725783 | function |
 | `oOf` | `TRANSCRIPT_VIEW_EVICT_MS` (30,000) | cli_inner_pretty.js:725836 | constant |
 | `Yse` | `COMPLETED_EVICT_MS` (30,000) | cli_inner_pretty.js:341922 | constant |
+
+## Module: Workflow — bundled registry and command projection
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Dsn` | resolveWorkflowByName | cli_inner_pretty.js:388331-388333 | function |
+| `HM_` | getWorkflowCommands | cli_inner_pretty.js:506559-506562 | function |
+| `Jxo` | invalidateWorkflowCache | cli_inner_pretty.js:388334-388336 | function |
+| `ksn` | getBundledWorkflows | cli_inner_pretty.js:385336-385339 | function |
+| `Lep` | createWorkflowCommand | cli_inner_pretty.js:506513-506557 | function |
+| `Lft` | getAllWorkflows (memoised; built-in < plugin < user) | cli_inner_pretty.js:388346-388356 | function |
+| `Qxo` | redactWorkflowNameForTelemetry | cli_inner_pretty.js:388577-388580 | function |
+| `tMs` | isVerbatimBuiltInWorkflow | cli_inner_pretty.js:388574-388576 | function |
+| `Zxo` | redactWorkflowDescriptionForTelemetry | cli_inner_pretty.js:388581-388584 | function |
 
 ## Module: Workflow
 

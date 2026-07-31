@@ -577,23 +577,28 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | bpt | suggestNearestCommandName | cli_inner_pretty.js:326568-326582 | function |
 | Cv | resolveCommandByName | cli_inner_pretty.js:346396-346405 | function |
 | Edr | inputLooksLikeSlashCommand | cli_inner_pretty.js:326539-326546 | function |
+| GBo | loadAllSlashCommands (merges workflow commands in) | cli_inner_pretty.js:507314-507328 | variable |
 | H_r | builtinSlashCommandRegistry | cli_inner_pretty.js:507179 | variable |
 | Ic | resolveToolByNameOrAlias | cli_inner_pretty.js:224038-224048 | function |
+| JJa | buildCommandMenuRow (emits the `dynamic workflow` tag) | cli_inner_pretty.js:744010-744026 | function |
 | jQg | buildNameAndAliasMap | cli_inner_pretty.js:224028-224037 | function |
 | KIn | resolveLocalJsxCommandLoader | cli_inner_pretty.js:735719-735722 | function |
 | kpd | describeCommandNotModelInvocable | cli_inner_pretty.js:346451-346455 | function |
 | M$s | getBundledPromptCommands | cli_inner_pretty.js:419696-419699 | function |
 | nft | requireCommandByName | cli_inner_pretty.js:346419-346432 | function |
+| nw | loadCommandRegistry | cli_inner_pretty.js:506699 | function |
 | O7a | LOCAL_JSX_LOADERS | cli_inner_pretty.js:735728-735807 | object |
 | oai | commandUnavailableMessage | cli_inner_pretty.js:735723-735725 | function |
 | ou | registerBundledPromptCommand | cli_inner_pretty.js:419629-419695 | function |
 | P$s | bundledPromptCommandRegistry | cli_inner_pretty.js:419766 (decl), 419776 (init), 419694 (push) | variable |
+| PYe | describeCommandForListing (appends `(dynamic workflow)`) | cli_inner_pretty.js:506916-506918 | function |
 | qa | toolMatchesNameOrAlias | cli_inner_pretty.js:224019-224021 | function |
 | qM_ | fleetHostCallableCommands | cli_inner_pretty.js:507443 | variable |
 | qNy | matchesCommandNameOrAlias | cli_inner_pretty.js:346393-346395 | function |
 | R9H | LOCAL_JSX_LOADER_NAMES | cli_inner_pretty.js:735808 | variable |
 | RAo | commandExecutionContext | cli_inner_pretty.js:326547-326549 | function |
 | Sd | commandDisplayName | cli_inner_pretty.js:326533-326535 | function |
+| Uep | getWorkflowCommandsRef (late-bound `HM_`) | cli_inner_pretty.js:507313 | variable |
 | vdr | nearestNamesWithinEditDistance | cli_inner_pretty.js:326554-326567 | function |
 | vHd | KILL_SWITCH_SURVIVING_COMMANDS | cli_inner_pretty.js:419693 | variable |
 | yk | isCommandEnabled | cli_inner_pretty.js:326536-326538 | function |

@@ -430,6 +430,18 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `qw` | isLiveBackgroundedTask (`running`/`pending` and not foreground) | cli_inner_pretty.js:341660-341664 | function |
 | `zEe` | isAgentOrWorkflowTask (`local_agent` non-observer, or `local_workflow`) | cli_inner_pretty.js:341656-341659 | function |
 
+## Module: Core execution — structured output tool
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aPu` | STRUCTURED_OUTPUT_TOOL_CACHE (schema-identity keyed) | cli_inner_pretty.js:231147 | variable |
+| `dty` | STRUCTURED_OUTPUT_SCHEMA_NODE_CAP (= `1e5`) | cli_inner_pretty.js:231148 | constant |
+| `Eg` | STRUCTURED_OUTPUT_TOOL_NAME | cli_inner_pretty.js:231145 | constant |
+| `fty` | compileStructuredOutputToolUncached | cli_inner_pretty.js:231103 | function |
+| `pty` | STRUCTURED_OUTPUT_SCHEMA_DEPTH_CAP (= `1e4`) | cli_inner_pretty.js:231149 | constant |
+| `uPu` | schemaExceedsSizeBudget | cli_inner_pretty.js:231097-231102 | function |
+| `wir` | compileStructuredOutputTool (memoised) | cli_inner_pretty.js:231091-231096 | function |
+
 ## Module: Tools (WebSearch budget)
 
 | Obfuscated | Readable | File:Line | Type |

@@ -26,11 +26,19 @@
 | [workflow_state_and_ipc.md](workflow_state_and_ipc.md) | The one state model (three node kinds, index-keyed upsert, log-only trim) and its **seven** consumers; the batcher's two intervals; the RC `fan` projection; the `/workflows` grouping functions and the always-`null` phase stub; steering (skip/retry/kill); the completion notification's five blocks, the exactly-once claim, and the **NET_NEW `<diagnostics>` block + `agents_empty_result` census** |
 | [workflow_server_authored_launch.md](workflow_server_authored_launch.md) | **The largest undocumented workflow change in the window.** The `workflow_launch` carrier event and the `__remote-workflow` env path; the `allow_workflows` carve-out for review-origin sessions; the v1 length-prefixed bundle format and its sha256 pin; the ledger's final-vs-transient failure split; the destructive-read handoff slot and `/workflow-launch-exec`; the single-line result protocol with its injection defence and four-stage degradation ladder |
 
+### Bundled-workflow documents (round 3 — the `deep-research` harness and what it stands on)
+
+| Doc | Covers |
+|---|---|
+| [deep_research_harness.md](deep_research_harness.md) | The `deep-research` script line by line: why `VOTES_PER_CLAIM=3`/`REFUTATIONS_REQUIRED=2` is one constant doing two jobs; the five schemas and why they are what makes the ranking code *total*; the `.207` URL identity layer (the WHATWG `\`/`@` authority argument, the quote-lookalike strip set, the four-condition host trust ladder); **`MAX_FETCH` is a soft cap** — high-relevance results bypass it, so the fetch fan-out reaches 36; the `.196` three-way verdict with its full `(valid, refuted)` state table; the two salvage returns; the 119-agent worst case and the **undocumented WebSearch session-cap interaction**; a complete failure-mode matrix and the 3-row delta ledger vs 2.1.193 |
+| [deep_research_runtime_contract.md](deep_research_runtime_contract.md) | The layer underneath: the 9-line bundled registry and its lazy fill; `getAllWorkflows`' built-in < plugin < user precedence (**a user file named `deep-research` shadows the built-in silently**); `createWorkflowCommand`'s projection into a `type:"prompt"` command and the `[dynamic workflow]` tag; why `disableModelInvocation` is a **function** and therefore remotely reversible; the `.218` restraint's **three** independent enforcement layers and how each fails; the realm's complete 11-value global inventory (the evidence that `URL` is absent); the determinism shim and intrinsic hardening; `args` marshalling; `{schema}` → forced `StructuredOutput` + double memoisation; the `workflow-subagent` identity and its three denied tools; `pipeline`'s null short-circuit; phase pre-seeding from `meta.phases`; why the `.207` label rework did **not** invalidate resume journals; the built-in-only telemetry redaction |
+
 ### Symbol staging
 
 | Doc | Covers |
 |---|---|
 | [../00_overview/symbol_additions_v2_1_220_workflow.md](../00_overview/symbol_additions_v2_1_220_workflow.md) | every symbol table for this module, staged for merge into the four `symbol_index_*.md` files |
+| [../00_overview/symbol_additions_v2_1_220_deep_research.md](../00_overview/symbol_additions_v2_1_220_deep_research.md) | round-3 additions: the bundled registry, the command projection, the skill-listing/model-invocation gating chain, and the `StructuredOutput` compiler (**merged**) |
 
 ---
 
@@ -101,7 +109,7 @@ two bundles.
 | 15 | .206 | Left arrow not stepping back out of a phase or agent in the workflow detail view | **CARRYOVER** (workflow side) — scoping anchor is a mis-anchor | as #14; `tengu_left_arrow_editing_guard` `:559928` is the **prompt-input** empty-line guard, not this view | runtime §7.2 |
 | 16 | .195 | Duplicate recap lines: a schema-rejected `StructuredOutput` no longer renders with its retry | **ELSEWHERE** — `04_tools` (rendering half only) | strict-schema compiler `fty` `:231103-…`, `tengu_structured_output_strict_schema` `:231113` — the *schema* half is now runtime §8.6 | runtime §8.6 (partial) |
 | 17 | .205 | `--json-schema` silently unstructured on an invalid schema; `format` keyword rejected | **NET_NEW** (3 independent changes in `fty`) — **owned here**, was cycle C9 | `fty` `:231103-231141` vs `qVd` `:229472 (193)`; `validateFormats: !1` `:231106`; `schema too large` `:231105` (220=2/193=0); `dty=1e5`/`pty=1e4` `:231148-231149`; hard exit `:829680-829684` vs `:713209 (193)` | runtime §8 |
-| 18 | .208 | Deep research labelling every Fetch-phase agent "unknown" | **ELSEWHERE** — `52_code_review` | `deep-research: Scope → pipeline(...Fetch+Extract)` `:424458` (220=1/193=1) | not covered here (§5) |
+| 18 | .208 | Deep research labelling every Fetch-phase agent "unknown" | **NOW COVERED HERE (round 3)** | root cause: `new URL(...)` threw in the sandbox (`:443852-443857 (193)`, `:443938-443939 (193)`); fix = `URL_HOST_PATTERN` + label trust ladder, `URL_HOST_PATTERN` 220=3/**193=0** | [deep_research_harness.md §5](deep_research_harness.md) |
 | 19 | .210 | `ultracode` keyword firing on non-human input (webhooks, relayed PR comments) | **ELSEWHERE** — `40_system_prompt` | `isHumanTypedPrompt` 220=2/193=0 `:516671`; conjuncts `suppressWorkflowKeyword` 7/8 and `preExpansionInput` 4/4 are carryover | not covered here (§5) |
 | 20 | .207 | RC sessions hosted by the desktop app not showing bg agent and workflow progress on mobile/web | **ELSEWHERE** — `54_remote_control`; partially explained by runtime §3.3 (the emit gate widened from `isNonInteractive()` to `isNonInteractive() \|\| isReplBridgeActive()`, `:388553`) | `:388553`; 193 gate `!Tr()` `:424806 (193)` | runtime §3.3 (partial) |
 | 21 | .196 | Background session reliability: long-running commands and workflows survive process stop/restart/update | **ELSEWHERE** — `36_background_agents` | `tengu_bg_handoff_settle` `:869956` | not covered here (§5) |
@@ -218,9 +226,14 @@ Honest list of what this module did **not** analyse, and why.
   the strict-schema derivation `Bpo` and the send-time fallback at `:508171-508180`, which is the
   *schema* half. I did **not** trace the recap-duplication **rendering** path (the transcript component
   that drew a rejected `StructuredOutput` alongside its retry) — that belongs to `04_tools`.
-- **Bullet #18 (deep-research Fetch-phase agents labelled "unknown")** — the anchor
-  `deep-research: Scope → pipeline(...Fetch+Extract)` is `220=1 / 193=1`, i.e. the built-in workflow script
-  is carryover, so the delta is in the label-derivation path. Owned by `52_code_review`; not traced.
+- ~~**Bullet #18 (deep-research Fetch-phase agents labelled "unknown")** … Owned by `52_code_review`;
+  not traced.~~ **CLOSED by round 3** — see [deep_research_harness.md §5](deep_research_harness.md).
+  The old note was right that `deep-research: Scope → pipeline(...Fetch+Extract)` is `220=1 / 193=1`
+  and therefore useless as an anchor, but wrong to conclude the script is carryover: the *comment* is
+  carryover while the script around it changed in three places. The real anchors are
+  `URL_HOST_PATTERN` (220=3 / **193=0**), `quotedLabel` (220=3 / **193=0**) and `isCleanBareHost`
+  (220=2 / **193=0**), and the root cause is that `new URL(...)` throws in the workflow sandbox.
+  `52_code_review` still owns the *changelog-bullet routing*; the code analysis lives here.
 - **Bullet #19 (`ultracode` on non-human input)** — `isHumanTypedPrompt` is `220=2 / 193=0` at `:516671`
   and I read that line while tracing the attachment producer (it is the immediate neighbour of the
   size-guideline attachment), but the human-origin propagation chain is `40_system_prompt`'s.
