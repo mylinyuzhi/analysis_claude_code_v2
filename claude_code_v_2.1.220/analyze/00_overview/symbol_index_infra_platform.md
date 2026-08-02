@@ -1634,6 +1634,7 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `$e` | logFeatureSad (`tengu_feature_sad`) — soft degrade | cli_inner_pretty.js:47876-47878 | function |
 | `be` | logFeatureOk (`tengu_feature_ok`) | cli_inner_pretty.js:47870-47872 | function |
 | `Ke` | getFeatureValue (alias of `getFeatureValue_CACHED_MAY_BE_STALE`) | cli_inner_pretty.js:156667-156669 | function |
+| `O` | `logEvent` | cli_inner_pretty.js:4083-4090 | function |
 | `pe` | logFeatureBad (`tengu_feature_bad`) — hard refusal | cli_inner_pretty.js:47873-47875 | function |
 
 ## Module: Telemetry — workflow provenance attributes
@@ -1724,4 +1725,5 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 - [`symbol_additions_v2_1_220_subagent_limits.md`](symbol_additions_v2_1_220_subagent_limits.md)
 - [`symbol_additions_v2_1_220_system_prompt.md`](symbol_additions_v2_1_220_system_prompt.md)
 - [`symbol_additions_v2_1_220_telemetry.md`](symbol_additions_v2_1_220_telemetry.md)
+- [`symbol_additions_v2_1_220_todo_tasks.md`](symbol_additions_v2_1_220_todo_tasks.md)
 - [`symbol_additions_v2_1_220_workflow.md`](symbol_additions_v2_1_220_workflow.md)

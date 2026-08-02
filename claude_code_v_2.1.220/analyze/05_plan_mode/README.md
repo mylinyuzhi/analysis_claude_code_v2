@@ -1,14 +1,13 @@
-# Plan mode deltas (v2.1.193 → v2.1.220)
+# Plan Mode runtime and deltas (v2.1.220)
 
 **Target bundle:** `/lyz/codespace/claude-code-bomb/versions/2.1.220/extract/cli_inner_pretty.js`
 (872,596 lines, `build_sha 4073f595`). Baseline
 `/lyz/codespace/claude-code-bomb/versions/2.1.193/extract/cli_inner_pretty.js` (718,679 lines),
 always tagged `(193)`.
 
-This directory documents **only what changed** in plan mode across the 25-release window. The
-current-state description of the feature — the enter/exit state machine, the reminder cadence, the
-prompt surface, the UI flow — is the 2.1.193 tree's appendix and is still accurate for everything not
-listed here:
+This directory now contains both a **2.1.220 current-state reconstruction** and the detailed
+2.1.193 → 2.1.220 change analysis. The older 2.1.193 appendices remain useful comparison material,
+but they are no longer the only description of the lifecycle:
 
 - [`../../../claude_code_v_2.1.193/analyze/05_plan_mode/README.md`](../../../claude_code_v_2.1.193/analyze/05_plan_mode/README.md)
 - [`../../../claude_code_v_2.1.193/analyze/05_plan_mode/lifecycle_state_machine.md`](../../../claude_code_v_2.1.193/analyze/05_plan_mode/lifecycle_state_machine.md)
@@ -20,6 +19,8 @@ listed here:
 
 | Doc | Covers |
 |---|---|
+| [`lifecycle_and_approval_runtime.md`](lifecycle_and_approval_runtime.md) | 2.1.220 entry, `prePlanMode`, permission floor, plan artifact, local/team approval, approval choices, context-clear handoff, restore, and result branches |
+| [`reminder_prompt_and_compact_runtime.md`](reminder_prompt_and_compact_runtime.md) | 2.1.220 human-turn cadence, full/sparse/re-entry/exit prompts, workshop write carve-out, custom workflow contract, and compaction reconstruction |
 | [`readonly_auto_allow_198_199.md`](readonly_auto_allow_198_199.md) | `.198` born-in-plan sessions; `.199` the per-call browser read-only predicate and the `passthrough` plan floor |
 | [`bash_bypass_and_classifier_212_218.md`](bash_bypass_and_classifier_212_218.md) | `.212` the two plan-mode Bash bypasses; `.218` classifier adjudication instead of a dialog |
 | this README | window narrative, per-bullet ledger, the two small UI/dialog bullets (`.210`, `.212` #27), and the carryover traps |
@@ -274,9 +275,11 @@ Two things in the plan-mode surface have no bullet at all:
 - **`.210`'s exact changed line** — see §3.1. Recorded as partially anchored rather than guessed.
 - **Which release each `tcr` guard landed in** — not derivable from a two-point diff; see
   [`bash_bypass_and_classifier_212_218.md`](bash_bypass_and_classifier_212_218.md) §4.
-- **The plan-mode system reminder text and cadence** — unchanged surface as far as the literals go
-  (`--plan-mode-instructions` help text 1/1); the 2.1.193 tree's `reminder_cadence.md` and
-  `prompt_surface.md` still apply.
+- **Prompt-copy wording outside the current control flow** — the live 2.1.220 reminder cadence,
+  full/sparse/subagent render split, workshop extension, and compact reconstruction are now covered in
+  [`reminder_prompt_and_compact_runtime.md`](reminder_prompt_and_compact_runtime.md). The report does
+  not reproduce every line of the multi-page planning prompt; it analyzes each behavioral branch and
+  write boundary.
 
 ---
 
@@ -292,6 +295,8 @@ Two things in the plan-mode surface have no bullet at all:
 > [symbol_additions_v2_1_220_plan_mode.md](../00_overview/symbol_additions_v2_1_220_plan_mode.md).
 
 Key functions in this document:
+- `EnterPlanModeTool` (`IAo`, `:326287`) / `ExitPlanModeV2Tool` (`S6`, `:325968`) - 2.1.220 lifecycle entry and exit
+- `buildPlanModeAttachments` (`HN_`, `:516849`) / `buildPlanModeAttachmentAfterCompact` (`rks`, `:440904`) - current reminder and compact reconstruction
 - `isPlanMode` (`tcr`, `:289037`) - the two-line predicate inserted at four permission-bypass sites
 - `isReadOnlyBrowserCall` (`cOt`, `:288994`) - per-call browser read-only verdict
 - `browserBatchNeedsPermission` (`BEy`, `:289288`) - `some()` over `browser_batch` sub-actions

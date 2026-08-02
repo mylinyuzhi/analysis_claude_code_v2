@@ -1,4 +1,4 @@
-# Agent team deltas — v2.1.193 → v2.1.220
+# Agent Team runtime and deltas — v2.1.220
 
 Module owner: the **team / leader / teammate layer** — the mailbox transport between a lead and its
 teammates, the teammate lifecycle state machine, and the leader-facing notification and command
@@ -16,16 +16,22 @@ surfaces.
 
 Documents:
 
-1. **[`mailbox_transport_hardening.md`](mailbox_transport_hardening.md)** — the wire format, the file
+1. **[`team_orchestration_runtime.md`](team_orchestration_runtime.md)** — the current 2.1.220 control
+   plane: implicit startup teams, team/task identity, transactional teammate reservation, backend
+   selection, the persistent in-process state machine, autonomous task claiming, and session-owned
+   cleanup. It also establishes exactly where the older readable `TeamCreate`/`TeamDelete` lifecycle
+   does not describe 2.1.220.
+2. **[`mailbox_transport_hardening.md`](mailbox_transport_hardening.md)** — the wire format, the file
    layout, the `.207` crash loop derived end-to-end, and the ~90 lines of net-new validation, pruning,
    deduplicated telemetry and write-side refusal that fixed it. Also the undocumented
    `{msgV, msg_id}` message envelope.
-2. **[`teammate_lifecycle_and_notifications.md`](teammate_lifecycle_and_notifications.md)** — the
+3. **[`teammate_lifecycle_and_notifications.md`](teammate_lifecycle_and_notifications.md)** — the
    turn-failure classifier, the eviction hold, the retry-wake chain, the one-property fix for duplicate
    idle notifications, the `/model` `/fast` agent-view notice, the NFKC colon guard on agent names, the
    `SendMessage` tool-result truncation, and the undocumented headless teardown park.
 
-Everything below is a map into those two; nothing is asserted here that is not proven there.
+The first document describes the complete current runtime. The latter two prove the 2.1.193 → 2.1.220
+deltas and defensive fixes within that runtime.
 
 ---
 

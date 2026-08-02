@@ -167,6 +167,31 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | zvd | sendIdleNotificationToLead | cli_inner_pretty.js:396246 | function |
 | Zvd | buildTeammateSpawnFlags | cli_inner_pretty.js:397199 | function |
 
+## Module: Agent Team — Session initialization and spawn orchestration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $8y | spawnTmuxWindowTeammate | cli_inner_pretty.js:397418 | function |
+| $Dy | cleanupSessionTeams | cli_inner_pretty.js:324612 | function |
+| BiE | consumeInheritedTeamName | cli_inner_pretty.js:828663 | function |
+| Dko | startInProcessTeammate | cli_inner_pretty.js:396811 | function |
+| Gze | getTeamFilePath | cli_inner_pretty.js:324429 | function |
+| hAo | writeTeamFileAsync | cli_inner_pretty.js:324491 | function |
+| jiE | initializeSessionTeam | cli_inner_pretty.js:828674 | function |
+| JL | readTeamFileAsync | cli_inner_pretty.js:324432 | function |
+| Jvd | spawnInProcessHandler | cli_inner_pretty.js:397588 | function |
+| KEm | sessionTeamName | cli_inner_pretty.js:828660 | function |
+| KHe | updateTeamFile | cli_inner_pretty.js:324451 | function |
+| KMs | updateReservedTeammateBackend | cli_inner_pretty.js:397275 | function |
+| M8y | allocateUniqueTeammateName | cli_inner_pretty.js:397282 | function |
+| mc | isAgentSwarmsEnabled | cli_inner_pretty.js:318752 | function |
+| Mko | spawnInProcessTeammate | cli_inner_pretty.js:396869 | function |
+| N8y | spawnTeammateByBackend | cli_inner_pretty.js:397705 | function |
+| NDy | killOrphanedTeammatePanes | cli_inner_pretty.js:324623 | function |
+| O8y | spawnSplitPaneTeammate | cli_inner_pretty.js:397294 | function |
+| qCs | registerTeamForSessionCleanup | cli_inner_pretty.js:324609 | function |
+| wid | cleanupTeamDirectories | cli_inner_pretty.js:324643 | function |
+
 ## Module: Auto memory — CLAUDE.md / `.claude/rules` loading
 
 | Obfuscated | Readable | File:Line | Type |
@@ -178,6 +203,74 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `Nir` | `collectExternalMemoryParents` | cli_inner_pretty.js:236007 | function |
 | `pg` | `isSettingSourceEnabled` | cli_inner_pretty.js:57672 | function |
 | `ufo` | `loadNestedDirectoryMemoryFiles` (`.claude/rules` now inside the `projectSettings` guard) | cli_inner_pretty.js:235962 | function |
+
+## Module: Auto memory — extraction pipeline and path safety
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$My` | `hasMemoryWritesSince` — suppresses a redundant fork after direct Edit/Write memory updates | cli_inner_pretty.js:332441-332457 | function |
+| `$wo` | `DELETE_COMMAND_NAMES` (`rm\|remove-item\|ri\|del\|erase`) | cli_inner_pretty.js:332723 | constant |
+| `BMy` | `isAllowedPowerShellMemoryDelete` — conservative token/path validator | cli_inner_pretty.js:332487-332502 | function |
+| `Cst` | `isProtectedMemoryPath` — normalized protected-segment detector | cli_inner_pretty.js:156903-156912 | function |
+| `Dld` | `drainInFlightExtractions` — all in-flight work versus an unref'd timeout | cli_inner_pretty.js:332710-332713 | variable |
+| `eHs` | `isModelVisibleMessage` — user/assistant only | cli_inner_pretty.js:332424-332426 | function |
+| `FMy` | `DELETE_COMMAND_NAME_RE` | cli_inner_pretty.js:332755 | variable |
+| `GMy` | `executeExtractMemories` — public stop-hook dispatcher | cli_inner_pretty.js:332715-332717 | function |
+| `gVr` | `isPathInsideUnprotectedMemoryRoot` — exact-root containment plus protected-path rejection | cli_inner_pretty.js:157060-157065 | function |
+| `Hf` | `getAutoMemoryRoot` — memoized configured/default memory directory with trailing separator | cli_inner_pretty.js:157093-157102 | variable |
+| `Hld` | `isSubstantiveUserProse` — non-meta user text with at least three whitespace tokens | cli_inner_pretty.js:332461-332467 | function |
+| `jMy` | `extractWrittenPaths` — deduplicated, root-validated Edit/Write outputs | cli_inner_pretty.js:332577-332589 | function |
+| `kld` | `countWhitespaceTokens` | cli_inner_pretty.js:332458-332460 | function |
+| `Lld` | `activeMemoryExtractor` — initialized dispatcher tracked by the drain set | cli_inner_pretty.js:332701-332709 | variable |
+| `NMy` | `hasSubstantiveUserProseSince` — cursor-aware relevance filter | cli_inner_pretty.js:332468-332479 | function |
+| `Nwo` | `createAutoMemCanUseTool` — Read/Grep/Glob, read-only shell, and root-bound Markdown mutations | cli_inner_pretty.js:332536-332567 | function |
+| `OMy` | `countModelVisibleMessagesSince` — UUID cursor with compaction fallback | cli_inner_pretty.js:332427-332440 | function |
+| `Owo` | `denyAutoMemTool` — deny result plus sanitized telemetry | cli_inner_pretty.js:332480-332486 | function |
+| `Rld` | `getWrittenFilePath` — Edit/Write tool block decoder | cli_inner_pretty.js:332568-332576 | function |
+| `tHs` | `initExtractMemories` — closure-owned cursor, throttle, coalescing, fork, and drain | cli_inner_pretty.js:332590-332714 | function |
+| `Tld` | `buildMemoryExtractionPrompt` — manifest-first, limited-turn tool contract | cli_inner_pretty.js:332357-332407 | function |
+| `UMy` | `isAllowedPosixMemoryDelete` — parsed single `rm`, force-only, absolute safe Markdown paths | cli_inner_pretty.js:332503-332532 | function |
+| `W1t` | `isAllowedAutoMemWritePath` — `.md` plus exact safe-root containment | cli_inner_pretty.js:332533-332535 | function |
+| `WMy` | `drainPendingExtraction` — public bounded shutdown drain | cli_inner_pretty.js:332718-332720 | function |
+| `xld` | `MIN_SUBSTANTIVE_USER_PROSE_TOKENS` (`3`) | cli_inner_pretty.js:332722 | constant |
+
+## Module: Auto memory — Dream / Auto-Dream
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Ald` | `getAutoDreamFeatureConfig` — reads `tengu_onyx_plover` | cli_inner_pretty.js:332330-332332 | function |
+| `aOy` | `isAutoDreamGateOpen` — Remote Control, SDK, auto-memory, and preference gate | cli_inner_pretty.js:333167-333172 | function |
+| `Bld` | `listSessionsTouchedSince` — current-project transcript mtime census | cli_inner_pretty.js:333090-333093 | function |
+| `cOy` | `makeDreamProgressWatcher` — text/tool projection plus root-validated touched paths | cli_inner_pretty.js:333300-333326 | function |
+| `eOy` | `DREAM_LOCK_STALE_MS` (`3600000`) | cli_inner_pretty.js:333097 | constant |
+| `Fld` | `tryAcquireConsolidationLock` — current-memory-root wrapper | cli_inner_pretty.js:333046-333048 | function |
+| `Gld` | `completeDreamTask` — terminal state, metrics, and task event | cli_inner_pretty.js:333140-333144 | function |
+| `Gwo` | `rollbackConsolidationLock` — current-memory-root wrapper | cli_inner_pretty.js:333073-333075 | function |
+| `iOy` | `DREAM_DELETE_COMMAND_RE` | cli_inner_pretty.js:333372 | variable |
+| `Jld` | `executeAutoDream` — public stop-hook dispatcher | cli_inner_pretty.js:333336-333338 | function |
+| `jld` | `addDreamTurn` — path dedupe, phase flip, and 30-turn ring | cli_inner_pretty.js:333127-333139 | function |
+| `jwo` | `readLastConsolidatedAt` — lock mtime or zero | cli_inner_pretty.js:333039-333045 | function |
+| `lOy` | `isAutoDreamForced` — production stub returning false | cli_inner_pretty.js:333173-333175 | function |
+| `nHs` | `getConsolidationLockPath` | cli_inner_pretty.js:333036-333038 | function |
+| `nOy` | `MAX_DREAM_PROGRESS_TURNS` (`30`) | cli_inner_pretty.js:333150 | constant |
+| `oHs` | `isDreamTask` | cli_inner_pretty.js:333108-333110 | function |
+| `oOy` | `DREAM_SESSION_SCAN_INTERVAL_MS` (`600000`) | cli_inner_pretty.js:333341 | constant |
+| `Pld` | `buildConsolidationPrompt` — four-phase personal/team memory maintenance prompt | cli_inner_pretty.js:332757-332824 | function |
+| `Pwo` | `isAutoDreamEnabled` — availability, explicit setting, then server default | cli_inner_pretty.js:332337-332342 | function |
+| `Qks` | `isAutoDreamAvailable` — `enabled || available` | cli_inner_pretty.js:332333-332336 | function |
+| `qMy` | `TEAM_MEMORY_DREAM_GUIDANCE` — conservative shared-memory pruning rules | cli_inner_pretty.js:332825-332826 | constant |
+| `rOy` | `rollbackConsolidationLockAt` — unlink zero-state or restore prior mtime | cli_inner_pretty.js:333076-333089 | function |
+| `sOy` | `getAutoDreamScheduleConfig` — independently validated hours/session thresholds | cli_inner_pretty.js:333156-333166 | function |
+| `tOy` | `tryAcquireConsolidationLockAt` — PID claim, stale recovery, and read-back verification | cli_inner_pretty.js:333049-333072 | function |
+| `Uld` | `registerDreamTask` — visible cancellable background task | cli_inner_pretty.js:333111-333126 | function |
+| `uOy` | `countDreamDailyLogs` — recursive Markdown count below `logs/` | cli_inner_pretty.js:333327-333335 | function |
+| `Vko` | `DreamTask` — kill handler aborts and rolls the checkpoint back | cli_inner_pretty.js:399409-399427 | object |
+| `Vld` | `AUTO_DREAM_DEFAULTS` (`minHours: 24`, `minSessions: 5`) | cli_inner_pretty.js:333373 | object |
+| `VMy` | `CLAUDE_MD_RECONCILIATION_GUIDANCE` | cli_inner_pretty.js:332827-332835 | constant |
+| `Wld` | `failDreamTask` — terminal failure state, metrics, and task event | cli_inner_pretty.js:333145-333149 | function |
+| `Xld` | `initAutoDream` — gate ordering, scheduler, fork transaction, and telemetry | cli_inner_pretty.js:333176-333299 | function |
+| `Yld` | `autoDreamRunner` — closure-installed async runner | cli_inner_pretty.js:333178-333298 | variable |
+| `ZMy` | `DREAM_LOCK_FILENAME` (`.consolidate-lock`) | cli_inner_pretty.js:333096 | constant |
 
 ## Module: Auto memory — MEMORY.md index size budget
 
@@ -989,6 +1082,17 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `Yn_` | `isColdCompactEnabled` (`CLAUDE_CODE_COLD_COMPACT`; 193 `Xxo`) | cli_inner_pretty.js:441100 | function |
 | `zn_` | `isRecognisedCompactionFailure` (4-disjunct; 193 `icf`) | cli_inner_pretty.js:441051 | function |
 
+## Module: Compact — query-loop handoff helpers
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `H9` | `tokenCountFromLastAPIResponse` | cli_inner_pretty.js:442493 | function |
+| `qHs` | `finalContextTokensFromLastResponse` | cli_inner_pretty.js:442503 | function |
+| `w7r` | `addTotalTokensReminderUsage` | cli_inner_pretty.js:226342 | function |
+| `WHs` | `buildCompactionEmittedMessages` (excludes retained raw messages) | cli_inner_pretty.js:440196 | function |
+| `YNe` | `getTotalTokensReminderMode` | cli_inner_pretty.js:226378 | function |
+| `Yze` | `buildPostCompactMessages` | cli_inner_pretty.js:440193 | function |
+
 ## Module: Compact — extended-thinking inheritance
 
 | Obfuscated | Readable | File:Line | Type |
@@ -997,15 +1101,72 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `SXr` | `resolveEffectiveThinkingConfig` (**NEW** — replaced 193's `oVn(model) ? … : {type:"disabled"}`) | cli_inner_pretty.js:237866 | function |
 | `yBc` | `resolveSubagentThinkingDisplay` (**NEW**; overlaps `51_headless_sdk`; 193's `yBc` `:9245 (193)` is unrelated) | cli_inner_pretty.js:119662 | function |
 
-## Module: Compact — precomputed compaction
+## Module: Compact — precomputed and reactive compaction
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `nwo` | `runReactiveCompaction` (193 `jKn`) | cli_inner_pretty.js:329022 | function |
-| — | `validateRehydratedPrecompute` (**NEW** — `too_old` / `boundary_missing` / `grew_too_much` / `shrank_too_much`) | cli_inner_pretty.js:328486-328492 | function |
-| — | `tengu_precomputed_compact_rehydrated` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328512 | constant |
-| — | `tengu_precomputed_compact_rehydrate_rejected` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328523 | constant |
+| `BPy` | `computeReactivePreserveStep` (parsed gap → multi-group jump; otherwise one group; 193 `tKd`) | cli_inner_pretty.js:328173 | function |
+| `Bxs` | `MAX_PRECOMPACT_SIDECAR_BYTES` (`8000000`; **NEW**) | cli_inner_pretty.js:328429 | constant |
+| `Cnn` | `groupMessagesByApiRoundForReactiveCompact` (193 `DFt`) | cli_inner_pretty.js:327738 | function |
+| `FPy` | `runReactiveSummaryAttempt` (one-turn, no-tool compact fork; 193 `eKd`) | cli_inner_pretty.js:328092 | function |
+| `GPy` | `classifyPrecomputeFailure` (normalizes timeout/API-error cause; 193 `Fif`) | cli_inner_pretty.js:328441 | function |
+| `Hdr` | `getPrecompactSidecarPath` (`.jsonl` → `.precompact.json`; **NEW**) | cli_inner_pretty.js:328344 | function |
+| `Hnn` | `isPrecomputedCompactionEnabled` (auto + reactive + remote + setting gates; 193 `OKn`) | cli_inner_pretty.js:328456 | function |
+| `Idr` | `getPrecomputeAgentKey` (`agentId ?? "main"`; 193 `_8t`) | cli_inner_pretty.js:328453 | function |
+| `Inn` | `isManualCompactQuerySource` (delegates to `jir`; 193 `NKn`) | cli_inner_pretty.js:328462 | function |
+| `JAo` | `recordPrecomputedCompactionDiscard` (includes **NEW** `rehydrated` dimension; 193 `BKn`) | cli_inner_pretty.js:328894 | function |
+| `Jsd` | `MAX_PRECOMPUTE_CONSECUTIVE_FAILURES` (`3`; 193 `zyl`) | cli_inner_pretty.js:328922 | constant |
+| `Jxs` | `messagesAfterPrecomputeBoundary` (drops progress messages; 193 `GIo`) | cli_inner_pretty.js:328889 | function |
+| `KAo` | `deletePrecompactSidecar` (best-effort; **NEW**) | cli_inner_pretty.js:328383 | function |
+| `KPy` | `borrowPrecomputedCompaction` (waits without deleting; 193 `jif`) | cli_inner_pretty.js:328738 | function |
+| `Ksd` | `loadPrecompactSidecar` (size/JSON/version/schema validator; **NEW**) | cli_inner_pretty.js:328358 | function |
+| `Kxs` | `armPrecomputedCompaction` (pending → ready/failed producer; 193 `FIo`) | cli_inner_pretty.js:328578 | function |
+| `nwo` | `runReactiveCompaction` (hook/swap orchestrator; 193 `jKn`) | cli_inner_pretty.js:329022 | function |
+| `owo` | `finalizeReactiveCompaction` (restore state, annotate boundary, run PostCompact hook) | cli_inner_pretty.js:329187 | function |
+| `qAo` | `summarizeOldGroupsReactively` (adaptive suffix-preserving loop; 193 `ZPn`) | cli_inner_pretty.js:328177 | function |
+| `QAo` | `clearPrecomputedCompaction` (abort, discard, sidecar/counter cleanup; 193 `FKn`) | cli_inner_pretty.js:328905 | function |
+| `qPy` | `MAX_PRECOMPUTE_REHYDRATE_GROWTH_TOKENS` (`150000`; **NEW**) | cli_inner_pretty.js:328927 | constant |
+| `qsd` | `PRECOMPACT_SIDECAR_SUFFIX` (`.precompact.json`; **NEW**) | cli_inner_pretty.js:328430 | constant |
+| `qxs` | `recordPrecomputeArmGateOnce` (per-agent/reason telemetry dedupe; 193 `NIo`) | cli_inner_pretty.js:328445 | function |
+| `rad` | `deleteReadyPrecomputeSidecar` (current-session guard; **NEW**) | cli_inner_pretty.js:328563 | function |
+| `Rdr` | `recordManualPrecomputeConsumption` (manual-trigger telemetry; 193 `Ayt`) | cli_inner_pretty.js:328865 | function |
+| `tad` | `rehydratePrecomputedCompaction` (**NEW** live-history validator and ready-state reconstruction) | cli_inner_pretty.js:328471 | function |
+| `T9` | `precomputedCompactionStateByAgent` (`pending | ready | failed`; 193 `A5`) | cli_inner_pretty.js:328946 | variable |
+| `Uxs` | `PRECOMPACT_SIDECAR_VERSION` (`1`; **NEW**) | cli_inner_pretty.js:328428 | constant |
+| `VPy` | `persistReadyPrecomputedCompaction` (**NEW** sidecar payload builder and telemetry) | cli_inner_pretty.js:328529 | function |
+| `Vxs` | `isPrecomputePersistenceEnabled` (`tengu_amber_packet && !w1()`; **NEW**) | cli_inner_pretty.js:328465 | function |
+| `WPy` | `MAX_PRECOMPUTE_REHYDRATE_AGE_MS` (`604800000`, seven days; **NEW**) | cli_inner_pretty.js:328926 | constant |
+| `XAo` | `serializePrecompactSidecarIO` (promise-chain write/delete ordering; **NEW**) | cli_inner_pretty.js:328468 | function |
+| `Xxs` | `tryApplyPrecomputedCompaction` (borrow/consume and boundary splice; 193 `jIo`) | cli_inner_pretty.js:328794 | function |
+| `YAo` | `settlePendingPrecompute` (abort-controller identity guards stale completion; 193 `$Kn`) | cli_inner_pretty.js:328726 | function |
+| `Ysd` | `rehydratePrecompactResult` (payload + current retained messages; **NEW**) | cli_inner_pretty.js:328386 | function |
+| `Yxs` | `consumePrecomputedCompaction` (waits then deletes entry/sidecar; 193 `UIo`) | cli_inner_pretty.js:328763 | function |
+| `YPy` | `recordPrecomputeConsumption` (includes **NEW** borrowed/rehydrated dimensions; 193 `Gif`) | cli_inner_pretty.js:328843 | function |
+| `zPy` | `cloneToolContextForPrecompute` (independent abort; no UI callback; 193 `Uif`) | cli_inner_pretty.js:328567 | function |
+| `zsd` | `persistPrecompactSidecar` (8 MB bound + secure mode `0600`; **NEW**) | cli_inner_pretty.js:328348 | function |
+| `zxs` | `shouldArmPrecomputedCompaction` (threshold and recursion/transition guards; 193 `BIo`) | cli_inner_pretty.js:328570 | function |
+| `Zsd` | `getPrecomputedCompactionState` (normalizes agent key; 193 `Kyl`) | cli_inner_pretty.js:328735 | function |
 | — | `tengu_precomputed_compact_persisted` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328553 | constant |
+| — | `tengu_precomputed_compact_rehydrate_rejected` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328523 | constant |
+| — | `tengu_precomputed_compact_rehydrated` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328512 | constant |
+
+## Module: Compact — conversation pipeline and preservation
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Bn_` | `buildInvokedSkillsAttachment` (5k per skill, 25k aggregate) | cli_inner_pretty.js:440881 | function |
+| `FMd` | `partialCompactConversation` (selector-driven `from | up_to`) | cli_inner_pretty.js:440436 | function |
+| `Fn_` | `buildPlanFileAttachment` | cli_inner_pretty.js:440875 | function |
+| `iwo` | `buildPostCompactAttachments` (files, agents, plan, skills, tool/MCP deltas, SessionStart hooks) | cli_inner_pretty.js:440830 | function |
+| `MLo` | `mergeHookInstructions` (user guidance before hook guidance; 193 `Yxo`) | cli_inner_pretty.js:440212 | function |
+| `NMd` | `truncateHeadForCompactRetry` (gap-guided or 20% API-round removal; 193 `ASl`) | cli_inner_pretty.js:440166 | function |
+| `Nn_` | `restorePostCompactReadFiles` (five files, 5k each, 50k aggregate) | cli_inner_pretty.js:440846 | function |
+| `PLo` | `throwIfPreCompactBlocked` (manual notification, typed error; 193 `FYn`) | cli_inner_pretty.js:440182 | function |
+| `rks` | `buildPlanModeAttachmentAfterCompact` | cli_inner_pretty.js:440904 | function |
+| `tks` | `annotateBoundaryWithPreservedMessages` (`preservedSegment` + ordered/all UUIDs; 193 `YIo`) | cli_inner_pretty.js:440199 | function |
+| `UMd` | `streamCompactSummary` (cache-sharing attempt then direct model/fallback stream; 193 `wSl`) | cli_inner_pretty.js:440622 | function |
+| `Un_` | `buildAsyncAgentStatusAttachmentsAfterCompact` | cli_inner_pretty.js:440924 | function |
+| `xdr` | `groupMessagesByApiRoundForCompactRetry` | cli_inner_pretty.js:327721 | function |
 
 ## Module: Compact — request-size and resume diagnostics
 
@@ -1234,6 +1395,7 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `Va` | `createAttachmentMessage` **[export-table]** | cli_inner_pretty.js:516567 | function |
 | `vB` | `isWorkspacePersistedTrusted` **[export-table]** | cli_inner_pretty.js:535958 | function |
 | `wW` | `getWorkspacePersistedTrustKey` **[export-table]** | cli_inner_pretty.js:535965 | function |
+| `wue` | `readNumericEnvOrDefault` | cli_inner_pretty.js:14698 | function |
 | `yE` | `ControlStreamClosedError` (`class yE extends tl {}`) | cli_inner_pretty.js:19767 | class |
 | `yn` | `isNonInteractiveSession` | cli_inner_pretty.js:3286 | function |
 
@@ -1267,7 +1429,6 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `lud` | resolveRoundTripModel | cli_inner_pretty.js:336898 | function |
 | `O_l` | suggestNearestModelId | cli_inner_pretty.js:843110 | function |
 | `pxm` | classifyModelRequest | cli_inner_pretty.js:843087 | function |
-| `xud` | runQueryTurns | cli_inner_pretty.js:337348 | function |
 | `ypE` | classifyUnrecognizedModelShape | cli_inner_pretty.js:843101 | function |
 
 ## Module: Performance — installer/updater download retry
@@ -1371,6 +1532,33 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `Wqy` | `sandboxedBashAutoAllowPrefix` (plan guard `:393924`) | cli_inner_pretty.js:393923 | function |
 | `wrp` | `isFastPathExemptTool` | cli_inner_pretty.js:512923 | function |
 | `Y1_` | `modeStillEligibleForAutoDecision` (post-queue revalidation) | cli_inner_pretty.js:513125 | function |
+
+## Module: Plan Mode — lifecycle state
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Cid` | `findInProcessTeammateTaskId` | cli_inner_pretty.js:324678 | function |
+| `EK` | `setHasExitedPlanMode` | cli_inner_pretty.js:3652 | function |
+| `fNr` | `hasExitedPlanModeInSession` | cli_inner_pretty.js:3649 | function |
+| `IAo` | `EnterPlanModeTool` | cli_inner_pretty.js:326287 | object |
+| `qEi` | `needsPlanModeExitAttachment` | cli_inner_pretty.js:3655 | function |
+| `Sue` | `setNeedsPlanModeExitAttachment` | cli_inner_pretty.js:3658 | function |
+| `uOe` | `handlePlanModeTransition` | cli_inner_pretty.js:3661 | function |
+| `VCs` | `setAwaitingPlanApproval` | cli_inner_pretty.js:324682 | function |
+
+## Module: Plan Mode — reminders and compact carryover
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AU_` | `renderPlanModeAttachment` | cli_inner_pretty.js:532458 | function |
+| `CU_` | `renderSparsePlanModeAttachment` | cli_inner_pretty.js:532607 | function |
+| `HN_` | `buildPlanModeAttachments` | cli_inner_pretty.js:516849 | function |
+| `I8s` | `countHumanTurnsSinceLastPlanAttachment` | cli_inner_pretty.js:516816 | function |
+| `kN_` | `countPlanModeAttachmentsSinceLastExit` | cli_inner_pretty.js:516832 | function |
+| `TU_` | `renderFullPlanModeAttachment` | cli_inner_pretty.js:532482 | function |
+| `x8s` | `PLAN_MODE_ATTACHMENT_CONFIG` | cli_inner_pretty.js:518134 | object |
+| `xU_` | `renderSubagentPlanModeAttachment` | cli_inner_pretty.js:532613 | function |
+| `yop` | `buildPlanModeExitAttachment` | cli_inner_pretty.js:516887 | function |
 
 ## Module: SDK Control Requests
 
@@ -1702,6 +1890,7 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 - [`symbol_additions_v2_1_220_compact.md`](symbol_additions_v2_1_220_compact.md)
 - [`symbol_additions_v2_1_220_headless_sdk.md`](symbol_additions_v2_1_220_headless_sdk.md)
 - [`symbol_additions_v2_1_220_hooks.md`](symbol_additions_v2_1_220_hooks.md)
+- [`symbol_additions_v2_1_220_llm_core.md`](symbol_additions_v2_1_220_llm_core.md)
 - [`symbol_additions_v2_1_220_performance.md`](symbol_additions_v2_1_220_performance.md)
 - [`symbol_additions_v2_1_220_plan_mode.md`](symbol_additions_v2_1_220_plan_mode.md)
 - [`symbol_additions_v2_1_220_skills_plugins.md`](symbol_additions_v2_1_220_skills_plugins.md)

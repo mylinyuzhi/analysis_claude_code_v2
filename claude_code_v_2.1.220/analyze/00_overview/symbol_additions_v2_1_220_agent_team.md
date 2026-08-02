@@ -7,6 +7,7 @@ Staged for merge into **`symbol_index_core_features.md`** (per [`../_CONVENTIONS
 
 Source documents:
 [`../30_agent_team/README.md`](../30_agent_team/README.md),
+[`../30_agent_team/team_orchestration_runtime.md`](../30_agent_team/team_orchestration_runtime.md),
 [`../30_agent_team/mailbox_transport_hardening.md`](../30_agent_team/mailbox_transport_hardening.md),
 [`../30_agent_team/teammate_lifecycle_and_notifications.md`](../30_agent_team/teammate_lifecycle_and_notifications.md).
 
@@ -118,6 +119,37 @@ All five are net-new as a group; `msg_id` is **220=10 / 193=0**.
 
 **Net-new in 2.1.220** (220>0 / 193=0): `BMs`, `olp`, `HKf`, `OMs`, `Plp`, `xkm`, `_mt` (as this
 membership), plus the `retryWake` / `subscribeRetryWake` fields.
+
+---
+
+## Module: Agent Team — Session initialization and spawn orchestration
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| $8y | spawnTmuxWindowTeammate | cli_inner_pretty.js:397418 | function |
+| $Dy | cleanupSessionTeams | cli_inner_pretty.js:324612 | function |
+| BiE | consumeInheritedTeamName | cli_inner_pretty.js:828663 | function |
+| Dko | startInProcessTeammate | cli_inner_pretty.js:396811 | function |
+| Gze | getTeamFilePath | cli_inner_pretty.js:324429 | function |
+| hAo | writeTeamFileAsync | cli_inner_pretty.js:324491 | function |
+| jiE | initializeSessionTeam | cli_inner_pretty.js:828674 | function |
+| JL | readTeamFileAsync | cli_inner_pretty.js:324432 | function |
+| Jvd | spawnInProcessHandler | cli_inner_pretty.js:397588 | function |
+| KEm | sessionTeamName | cli_inner_pretty.js:828660 | function |
+| KHe | updateTeamFile | cli_inner_pretty.js:324451 | function |
+| KMs | updateReservedTeammateBackend | cli_inner_pretty.js:397275 | function |
+| M8y | allocateUniqueTeammateName | cli_inner_pretty.js:397282 | function |
+| mc | isAgentSwarmsEnabled | cli_inner_pretty.js:318752 | function |
+| Mko | spawnInProcessTeammate | cli_inner_pretty.js:396869 | function |
+| N8y | spawnTeammateByBackend | cli_inner_pretty.js:397705 | function |
+| NDy | killOrphanedTeammatePanes | cli_inner_pretty.js:324623 | function |
+| O8y | spawnSplitPaneTeammate | cli_inner_pretty.js:397294 | function |
+| qCs | registerTeamForSessionCleanup | cli_inner_pretty.js:324609 | function |
+| wid | cleanupTeamDirectories | cli_inner_pretty.js:324643 | function |
+
+All of the implicit-team initialization architecture is carryover from 2.1.193 under different
+mangling. These rows are recorded because they are the 2.1.220 current-state entry points, not because
+they are claimed as net-new symbols.
 
 ---
 

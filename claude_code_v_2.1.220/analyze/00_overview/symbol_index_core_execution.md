@@ -51,6 +51,39 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `vU_` | `joinUnwrappedReminderTexts` | cli_inner_pretty.js:532427 | function |
 | `Ww` | `wrapInSystemReminder` | cli_inner_pretty.js:532376 | function |
 
+## Module: Agent Loop — turn orchestration and streaming tools
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$Hs` | `handleTerminalStopHooks` (terminal tool/MCP path; hook blocks cannot reinvoke) | cli_inner_pretty.js:336319 | function |
+| `Aud` | `logFabricatedTurnCandidates` | cli_inner_pretty.js:337108 | function |
+| `BHs` | `isFailureTerminalReason` | cli_inner_pretty.js:336833 | function |
+| `Cud` | `isWithheldMaxOutputTokens` | cli_inner_pretty.js:337249 | function |
+| `dld` | `getToolEndTurnSource` (`toolEndsTurn` / MCP `claude/endTurn`; errors excluded) | cli_inner_pretty.js:331717 | function |
+| `dTo` | `shouldCancelCommandLifecycle` | cli_inner_pretty.js:336864 | function |
+| `e$y` | `finalizeToolEndedTurn` | cli_inner_pretty.js:337178 | function |
+| `gld` | `interleaveModelStreamWithToolDrain` | cli_inner_pretty.js:332081 | function |
+| `iud` | `QUERY_TERMINAL_REASONS` (SDK terminal-reason enum source) | cli_inner_pretty.js:336867-336887 | constant |
+| `Kir` | `applyToolContextLayers` | cli_inner_pretty.js:237877 | function |
+| `Kse` | `queryEntrypoint` | cli_inner_pretty.js:337283 | function |
+| `kud` | `findCurrentTurnStartIndex` | cli_inner_pretty.js:339319 | function |
+| `nud` | `productionDeps` | cli_inner_pretty.js:336815 | function |
+| `o$y` | `queryWithObserverTap` | cli_inner_pretty.js:337298 | function |
+| `oon` | `runToolUse` | cli_inner_pretty.js:425379 | function |
+| `Q1y` | `yieldMissingToolResults` | cli_inner_pretty.js:337148 | function |
+| `qpt` | `isAbortTerminalReason` | cli_inner_pretty.js:336830 | function |
+| `r$y` | `canResumeIncompleteThinking` | cli_inner_pretty.js:337252 | function |
+| `rwo` | `isAssistantRequestTooLargeMessage` | cli_inner_pretty.js:329009 | function |
+| `sud` | `failureReasonMetric` | cli_inner_pretty.js:336861 | function |
+| `t$y` | `MAX_OUTPUT_TOKENS_RECOVERY_LIMIT` (`3`) | cli_inner_pretty.js:339330 | constant |
+| `wg` | `queryCheckpoint` | cli_inner_pretty.js:332107 | function |
+| `Wks` | `StreamingToolExecutor` | cli_inner_pretty.js:331761 | class |
+| `xud` | `runQueryTurns` | cli_inner_pretty.js:337348 | function |
+| `Ycd` | `handleStopHooks` | cli_inner_pretty.js:336419 | function |
+| `Z1y` | `findLatestUserUuidAfterLastAssistant` | cli_inner_pretty.js:337174 | function |
+| `Zcd` | `createTurnAccumulator` | cli_inner_pretty.js:336776 | function |
+| `zr` | `createUserMessage` | cli_inner_pretty.js:530718 | function |
+
 ## Module: Agent Tool
 
 | Obfuscated | Readable | File:Line | Type |
@@ -74,6 +107,23 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 | `W8y` | AGENT_TOOL_FULL_SCHEMA (adds name/team_name/mode/isolation/cwd; `mode` deprecation text at `:398229`) | cli_inner_pretty.js:398212 | object |
 | `wIe` | AgentRefusalError (`AgentPreconditionError` name) | cli_inner_pretty.js:398187-398192 | class |
 | `yRo` | canFanOutViaAgentTool (prompt-level depth predicate) | cli_inner_pretty.js:423574-423579 | function |
+
+## Module: Agent Tool — runtime and terminal results
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aNt` | `AgentTypeError` (denied, missing, or ambiguous agent type) | cli_inner_pretty.js:398175 | class |
+| `Apd` | `recoverSyncAgentError` (eligible partial result or rethrow) | cli_inner_pretty.js:345905 | function |
+| `hIe` | `runAsyncAgentLifecycle` (watchdog, task state, completion/kill/failure notification) | cli_inner_pretty.js:345920 | function |
+| `Kus` | `buildForkedAgentMessages` (parent assistant + placeholder results + child directive) | cli_inner_pretty.js:231841 | function |
+| `m0o` | `AgentApiErrorTerminationError` (terminal API-error discriminator) | cli_inner_pretty.js:346382 | class |
+| `q8y` | `COMPLETED_AGENT_RESULT_SCHEMA` | cli_inner_pretty.js:398253 | object |
+| `QMs` | `RemoteAgentPreconditionError` | cli_inner_pretty.js:398181 | class |
+| `tin` | `classifySubagentHandoff` (auto-mode post-run safety review) | cli_inner_pretty.js:345816 | function |
+| `V8y` | `AGENT_TOOL_OUTPUT_SCHEMA` (`completed | async_launched | remote_launched`) | cli_inner_pretty.js:398261 | object |
+| `Wko` | `AgentTool` (preflight, route selection, execution, and result mapping) | cli_inner_pretty.js:398293 | object |
+| `XIs` | `finalizeAgentTool` (sanitized final text, usage, tool stats, telemetry) | cli_inner_pretty.js:345677 | function |
+| `ZMs` | `getAgentToolInputSchema` (surface-dependent omissions) | cli_inner_pretty.js:398249 | object |
 
 ## Module: Built-in Agents & Prompts
 
@@ -459,7 +509,9 @@ the 2.1.193 baseline and is never used as a `File:Line` value.
 
 ## Source documents
 
+- [`symbol_additions_v2_1_220_llm_core.md`](symbol_additions_v2_1_220_llm_core.md)
 - [`symbol_additions_v2_1_220_api_reliability.md`](symbol_additions_v2_1_220_api_reliability.md)
+- [`symbol_additions_v2_1_220_headless_sdk.md`](symbol_additions_v2_1_220_headless_sdk.md)
 - [`symbol_additions_v2_1_220_performance.md`](symbol_additions_v2_1_220_performance.md)
 - [`symbol_additions_v2_1_220_slash_cli.md`](symbol_additions_v2_1_220_slash_cli.md)
 - [`symbol_additions_v2_1_220_subagent_limits.md`](symbol_additions_v2_1_220_subagent_limits.md)

@@ -13,8 +13,9 @@ artefacts can I trust and which will lie to me, (3) given a feature, which line 
 **Scope note.** This file is a **bundle map, not a doc map** — it indexes what lives *where in the
 2.1.220 bundle*, so an analyst can start from a line range instead of from scratch.
 
-> ℹ️ It was written before the analysis passes ran, when the theme dirs were still empty. **The tree is
-> now complete** — 26 theme dirs / 111 module docs, 25 `by_version/` release files, and four
+> ℹ️ It was written before the analysis passes ran, when the theme dirs were still empty. **The tree now
+> contains** 26 delta-theme dirs plus the `03_llm_core` architecture module / 130 module docs, 25
+> `by_version/` release files, and four
 > `symbol_index_*.md` files. For a *document* map use [`README.md`](README.md) (overview layer) or
 > [`../README.md`](../README.md) (whole tree); to go from a changelog bullet to code use
 > [`changelog_to_code_map.md`](changelog_to_code_map.md). The bundle landmark table below is unaffected
@@ -365,6 +366,8 @@ Every row below was located by the grep anchor in the last column and the line w
 | `292900-300000` | **MCP connection manager**: connect, tool load, OAuth retry, needs-auth | `Ac("mcp_server_connection"` `:293007`; `tengu_mcp_server_connection_failed` `:293035` |
 | `303400-307600` | **LSP client**: diagnostics register/dedup/deliver, `didOpen` | `lsp_diagnostics_deliver` `:303555`; `"textDocument/didOpen"` `:307289` |
 | `310958-312200`, `323344-326400` | `Edit`/`Write`/`Glob`/`Grep`, then `AskUserQuestion`/`Exit`+`EnterPlanMode` tool objects | `_index.json` offsets; `ExitPlanMode inherently requests user approval` `:325829` |
+| `331706-332105` | **tool-turn runtime**: end-turn metadata, fallback sweep, `StreamingToolExecutor`, model/tool drain multiplexer | `_meta["claude/endTurn"]` `:331714`; `class Wks` `:331761`; `tool_drain_tick` `:332096` |
+| `336319-339330` | **agent/query loop**: Stop hooks, terminal taxonomy, observer wrapper, explicit turn state, fallback/recovery, tool-result commit | `async function* xud` `:337348`; `transition: { reason: "next_turn" }` `:339300`; `t$y = 3` `:339330` |
 | `363000-381000` | **embedded skill bundle #1**: Artifact/dataviz templates, workshop pages, plan template (id constants at `:318657-318659`) | `var CBe = "artifact-design"` `:318657`; `SKILL_MD: () => p4y` `:365279`; `PLAN_TEMPLATE: () => jGy` `:380704` |
 | `398289-439800` | **the tool-object belt** — 40+ tool objects in lexical order | `Agent` `:398293` (`Wko = Bi({`), `ReportFindings` `:403877`, `Bash` `:437927` (`bu = Bi({`, `name: ri` `:437928`), `Read` `:439787` (`KS = Bi({`, `name: zi` `:439788`) |
 | `441116-441200` | **auto-compact dispatcher** (discriminated `{kind}` union) | `if (Z.DISABLE_COMPACT) return { kind: "not_needed" }` `:441116` |

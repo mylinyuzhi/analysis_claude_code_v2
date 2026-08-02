@@ -1,7 +1,8 @@
 # Symbol additions — v2.1.220, theme `subagent_limits`
 
 Staged rows discovered while writing
-[`53_subagent_limits/`](../53_subagent_limits/README.md). **Every `File:Line` below is a line I read in
+[`53_subagent_limits/`](../53_subagent_limits/README.md), including
+[`agent_tool_runtime.md`](../53_subagent_limits/agent_tool_runtime.md). **Every `File:Line` below is a line I read in
 `/lyz/codespace/claude-code-bomb/versions/2.1.220/extract/cli_inner_pretty.js`** during this pass; rows sourced
 from 2.1.193 are marked in the Readable column and belong in no index (they are baseline-only, kept here so the
 carryover proofs in the module docs are traceable).
@@ -67,6 +68,25 @@ Baseline-only (2.1.193, for the carryover proof — do **not** add to any index)
 | `W8y` | AGENT_TOOL_FULL_SCHEMA (adds name/team_name/mode/isolation/cwd; `mode` deprecation text at `:398229`) | cli_inner_pretty.js:398212 | object |
 | `wIe` | AgentRefusalError (`AgentPreconditionError` name) | cli_inner_pretty.js:398187-398192 | class |
 | `yRo` | canFanOutViaAgentTool (prompt-level depth predicate) | cli_inner_pretty.js:423574-423579 | function |
+
+## Module: Agent Tool — runtime and terminal results
+
+> **Merge into `symbol_index_core_execution.md`** (agent/subagent execution flow).
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `aNt` | `AgentTypeError` (denied, missing, or ambiguous agent type) | cli_inner_pretty.js:398175 | class |
+| `Apd` | `recoverSyncAgentError` (eligible partial result or rethrow) | cli_inner_pretty.js:345905 | function |
+| `hIe` | `runAsyncAgentLifecycle` (watchdog, task state, completion/kill/failure notification) | cli_inner_pretty.js:345920 | function |
+| `Kus` | `buildForkedAgentMessages` (parent assistant + placeholder results + child directive) | cli_inner_pretty.js:231841 | function |
+| `m0o` | `AgentApiErrorTerminationError` (terminal API-error discriminator) | cli_inner_pretty.js:346382 | class |
+| `q8y` | `COMPLETED_AGENT_RESULT_SCHEMA` | cli_inner_pretty.js:398253 | object |
+| `QMs` | `RemoteAgentPreconditionError` | cli_inner_pretty.js:398181 | class |
+| `tin` | `classifySubagentHandoff` (auto-mode post-run safety review) | cli_inner_pretty.js:345816 | function |
+| `V8y` | `AGENT_TOOL_OUTPUT_SCHEMA` (`completed | async_launched | remote_launched`) | cli_inner_pretty.js:398261 | object |
+| `Wko` | `AgentTool` (preflight, route selection, execution, and result mapping) | cli_inner_pretty.js:398293 | object |
+| `XIs` | `finalizeAgentTool` (sanitized final text, usage, tool stats, telemetry) | cli_inner_pretty.js:345677 | function |
+| `ZMs` | `getAgentToolInputSchema` (surface-dependent omissions) | cli_inner_pretty.js:398249 | object |
 
 Baseline-only (2.1.193):
 

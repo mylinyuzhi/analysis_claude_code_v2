@@ -13,7 +13,9 @@ the File:Line value.
 
 Source documents: [`../07_compact/README.md`](../07_compact/README.md),
 [`dispatcher_and_failure_breakers.md`](../07_compact/dispatcher_and_failure_breakers.md),
-[`context_accounting_and_context_command.md`](../07_compact/context_accounting_and_context_command.md).
+[`context_accounting_and_context_command.md`](../07_compact/context_accounting_and_context_command.md),
+[`precomputed_and_reactive_compaction.md`](../07_compact/precomputed_and_reactive_compaction.md), and
+[`compact_conversation_pipeline.md`](../07_compact/compact_conversation_pipeline.md).
 
 **Duplicate check performed** against the eighteen existing `symbol_additions_v2_1_220_*.md` files.
 Two deliberate overlaps are noted inline: `yBc` (also touched by `51_headless_sdk`, which supplied the
@@ -60,17 +62,76 @@ Two deliberate overlaps are noted inline: `yBc` (also touched by `51_headless_sd
 | `SXr` | `resolveEffectiveThinkingConfig` (**NEW** — replaced 193's `oVn(model) ? … : {type:"disabled"}`) | cli_inner_pretty.js:237866 | function |
 | `yBc` | `resolveSubagentThinkingDisplay` (**NEW**; overlaps `51_headless_sdk`; 193's `yBc` `:9245 (193)` is unrelated) | cli_inner_pretty.js:119662 | function |
 
-## Module: Compact — precomputed compaction
+## Module: Compact — precomputed and reactive compaction
 
 > Merge into: `symbol_index_core_features.md`
 
 | Obfuscated | Readable | File:Line | Type |
 |------------|----------|-----------|------|
-| `nwo` | `runReactiveCompaction` (193 `jKn`) | cli_inner_pretty.js:329022 | function |
-| — | `validateRehydratedPrecompute` (**NEW** — `too_old` / `boundary_missing` / `grew_too_much` / `shrank_too_much`) | cli_inner_pretty.js:328486-328492 | function |
+| `BPy` | `computeReactivePreserveStep` (parsed gap → multi-group jump; otherwise one group; 193 `tKd`) | cli_inner_pretty.js:328173 | function |
+| `Bxs` | `MAX_PRECOMPACT_SIDECAR_BYTES` (`8000000`; **NEW**) | cli_inner_pretty.js:328429 | constant |
+| `Cnn` | `groupMessagesByApiRoundForReactiveCompact` (193 `DFt`) | cli_inner_pretty.js:327738 | function |
+| `FPy` | `runReactiveSummaryAttempt` (one-turn, no-tool compact fork; 193 `eKd`) | cli_inner_pretty.js:328092 | function |
+| `GPy` | `classifyPrecomputeFailure` (normalizes timeout/API-error cause; 193 `Fif`) | cli_inner_pretty.js:328441 | function |
+| `Hdr` | `getPrecompactSidecarPath` (`.jsonl` → `.precompact.json`; **NEW**) | cli_inner_pretty.js:328344 | function |
+| `Hnn` | `isPrecomputedCompactionEnabled` (auto + reactive + remote + setting gates; 193 `OKn`) | cli_inner_pretty.js:328456 | function |
+| `Idr` | `getPrecomputeAgentKey` (`agentId ?? "main"`; 193 `_8t`) | cli_inner_pretty.js:328453 | function |
+| `Inn` | `isManualCompactQuerySource` (delegates to `jir`; 193 `NKn`) | cli_inner_pretty.js:328462 | function |
+| `JAo` | `recordPrecomputedCompactionDiscard` (includes **NEW** `rehydrated` dimension; 193 `BKn`) | cli_inner_pretty.js:328894 | function |
+| `Jsd` | `MAX_PRECOMPUTE_CONSECUTIVE_FAILURES` (`3`; 193 `zyl`) | cli_inner_pretty.js:328922 | constant |
+| `Jxs` | `messagesAfterPrecomputeBoundary` (drops progress messages; 193 `GIo`) | cli_inner_pretty.js:328889 | function |
+| `KAo` | `deletePrecompactSidecar` (best-effort; **NEW**) | cli_inner_pretty.js:328383 | function |
+| `KPy` | `borrowPrecomputedCompaction` (waits without deleting; 193 `jif`) | cli_inner_pretty.js:328738 | function |
+| `Ksd` | `loadPrecompactSidecar` (size/JSON/version/schema validator; **NEW**) | cli_inner_pretty.js:328358 | function |
+| `Kxs` | `armPrecomputedCompaction` (pending → ready/failed producer; 193 `FIo`) | cli_inner_pretty.js:328578 | function |
+| `nwo` | `runReactiveCompaction` (hook/swap orchestrator; 193 `jKn`) | cli_inner_pretty.js:329022 | function |
+| `owo` | `finalizeReactiveCompaction` (restore state, annotate boundary, run PostCompact hook) | cli_inner_pretty.js:329187 | function |
+| `qAo` | `summarizeOldGroupsReactively` (adaptive suffix-preserving loop; 193 `ZPn`) | cli_inner_pretty.js:328177 | function |
+| `QAo` | `clearPrecomputedCompaction` (abort, discard, sidecar/counter cleanup; 193 `FKn`) | cli_inner_pretty.js:328905 | function |
+| `qPy` | `MAX_PRECOMPUTE_REHYDRATE_GROWTH_TOKENS` (`150000`; **NEW**) | cli_inner_pretty.js:328927 | constant |
+| `qsd` | `PRECOMPACT_SIDECAR_SUFFIX` (`.precompact.json`; **NEW**) | cli_inner_pretty.js:328430 | constant |
+| `qxs` | `recordPrecomputeArmGateOnce` (per-agent/reason telemetry dedupe; 193 `NIo`) | cli_inner_pretty.js:328445 | function |
+| `rad` | `deleteReadyPrecomputeSidecar` (current-session guard; **NEW**) | cli_inner_pretty.js:328563 | function |
+| `Rdr` | `recordManualPrecomputeConsumption` (manual-trigger telemetry; 193 `Ayt`) | cli_inner_pretty.js:328865 | function |
+| `tad` | `rehydratePrecomputedCompaction` (**NEW** live-history validator and ready-state reconstruction) | cli_inner_pretty.js:328471 | function |
+| `T9` | `precomputedCompactionStateByAgent` (`pending | ready | failed`; 193 `A5`) | cli_inner_pretty.js:328946 | variable |
+| `Uxs` | `PRECOMPACT_SIDECAR_VERSION` (`1`; **NEW**) | cli_inner_pretty.js:328428 | constant |
+| `VPy` | `persistReadyPrecomputedCompaction` (**NEW** sidecar payload builder and telemetry) | cli_inner_pretty.js:328529 | function |
+| `Vxs` | `isPrecomputePersistenceEnabled` (`tengu_amber_packet && !w1()`; **NEW**) | cli_inner_pretty.js:328465 | function |
+| `WPy` | `MAX_PRECOMPUTE_REHYDRATE_AGE_MS` (`604800000`, seven days; **NEW**) | cli_inner_pretty.js:328926 | constant |
+| `XAo` | `serializePrecompactSidecarIO` (promise-chain write/delete ordering; **NEW**) | cli_inner_pretty.js:328468 | function |
+| `Xxs` | `tryApplyPrecomputedCompaction` (borrow/consume and boundary splice; 193 `jIo`) | cli_inner_pretty.js:328794 | function |
+| `YAo` | `settlePendingPrecompute` (abort-controller identity guards stale completion; 193 `$Kn`) | cli_inner_pretty.js:328726 | function |
+| `Ysd` | `rehydratePrecompactResult` (payload + current retained messages; **NEW**) | cli_inner_pretty.js:328386 | function |
+| `Yxs` | `consumePrecomputedCompaction` (waits then deletes entry/sidecar; 193 `UIo`) | cli_inner_pretty.js:328763 | function |
+| `YPy` | `recordPrecomputeConsumption` (includes **NEW** borrowed/rehydrated dimensions; 193 `Gif`) | cli_inner_pretty.js:328843 | function |
+| `zPy` | `cloneToolContextForPrecompute` (independent abort; no UI callback; 193 `Uif`) | cli_inner_pretty.js:328567 | function |
+| `zsd` | `persistPrecompactSidecar` (8 MB bound + secure mode `0600`; **NEW**) | cli_inner_pretty.js:328348 | function |
+| `zxs` | `shouldArmPrecomputedCompaction` (threshold and recursion/transition guards; 193 `BIo`) | cli_inner_pretty.js:328570 | function |
+| `Zsd` | `getPrecomputedCompactionState` (normalizes agent key; 193 `Kyl`) | cli_inner_pretty.js:328735 | function |
 | — | `tengu_precomputed_compact_persisted` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328553 | constant |
 | — | `tengu_precomputed_compact_rehydrate_rejected` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328523 | constant |
 | — | `tengu_precomputed_compact_rehydrated` (**NEW**, 220=1/193=0) | cli_inner_pretty.js:328512 | constant |
+
+## Module: Compact — conversation pipeline and preservation
+
+> Merge into: `symbol_index_core_features.md`
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Bn_` | `buildInvokedSkillsAttachment` (5k per skill, 25k aggregate) | cli_inner_pretty.js:440881 | function |
+| `FMd` | `partialCompactConversation` (selector-driven `from | up_to`) | cli_inner_pretty.js:440436 | function |
+| `Fn_` | `buildPlanFileAttachment` | cli_inner_pretty.js:440875 | function |
+| `iwo` | `buildPostCompactAttachments` (files, agents, plan, skills, tool/MCP deltas, SessionStart hooks) | cli_inner_pretty.js:440830 | function |
+| `MLo` | `mergeHookInstructions` (user guidance before hook guidance; 193 `Yxo`) | cli_inner_pretty.js:440212 | function |
+| `NMd` | `truncateHeadForCompactRetry` (gap-guided or 20% API-round removal; 193 `ASl`) | cli_inner_pretty.js:440166 | function |
+| `Nn_` | `restorePostCompactReadFiles` (five files, 5k each, 50k aggregate) | cli_inner_pretty.js:440846 | function |
+| `PLo` | `throwIfPreCompactBlocked` (manual notification, typed error; 193 `FYn`) | cli_inner_pretty.js:440182 | function |
+| `rks` | `buildPlanModeAttachmentAfterCompact` | cli_inner_pretty.js:440904 | function |
+| `tks` | `annotateBoundaryWithPreservedMessages` (`preservedSegment` + ordered/all UUIDs; 193 `YIo`) | cli_inner_pretty.js:440199 | function |
+| `UMd` | `streamCompactSummary` (cache-sharing attempt then direct model/fallback stream; 193 `wSl`) | cli_inner_pretty.js:440622 | function |
+| `Un_` | `buildAsyncAgentStatusAttachmentsAfterCompact` | cli_inner_pretty.js:440924 | function |
+| `xdr` | `groupMessagesByApiRoundForCompactRetry` | cli_inner_pretty.js:327721 | function |
 
 ## Module: Compact — auto-compact window resolution
 

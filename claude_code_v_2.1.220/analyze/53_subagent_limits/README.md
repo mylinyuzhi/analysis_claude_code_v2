@@ -68,6 +68,7 @@ monotone counters, one is a live gauge, one is a stack depth. None of that asymm
 | [`spawn_depth_gate.md`](spawn_depth_gate.md) | the `.217`→`.219` flip-flop; the three-tier `env → tengu_hazel_trellis → 3` resolver and its memoisation; the three enforcement layers (tool-schema filter, prompt text, runtime refusal); the forked-skill degrade-to-inline variant and its spawn-counter ratchet; `getAgentDepth`'s fail-open |
 | [`concurrency_and_session_caps.md`](concurrency_and_session_caps.md) | the three plain-constant caps; the complete 14-site env-var inventory; the settings-`env` allow-list asymmetry; the task-registry counter surface (closure counters vs app-state gauge, idempotent slot lease); check ordering and the TOCTOU double-check with worktree teardown; the two concurrency bypasses; the WebSearch soft refusal; `/clear`'s conditional reset |
 | [`budget_and_delegation_hardening.md`](budget_and_delegation_hardening.md) | `--max-budget-usd` spawn denial + running-agent halt; the one-line `.203` re-delegation prompt delta; the Explore-inherit three-stage rollout; `isolation: 'worktree'` shell/git containment (four refusal reasons, the fail-closed git-redirect analyzer); the indirect-prompt-injection scrubber and its flag/neutralize/neutralize-silent taxonomy; the Task `mode` deprecation |
+| [`agent_tool_runtime.md`](agent_tool_runtime.md) | the 2.1.220 Agent tool end to end: route selection, worker tool/context construction, zero-tool refusal, foreground/background ownership, transcript/cleanup lifecycle, API-error termination, partial recovery, sanitization, and 193/readable-source verification |
 
 Nothing was merged away — all three planned docs had ample source substance. Symbol tables are staged in
 [`../00_overview/symbol_additions_v2_1_220_subagent_limits.md`](../00_overview/symbol_additions_v2_1_220_subagent_limits.md).
@@ -87,13 +88,13 @@ it (only used where the bullet is out of this module's scope).
 | 1 | Subagents now run in the background by default (previously gradual rollout) | `.198` | NET_NEW | `:397986` prose + `:398208` `run_in_background` description ("Agents run in the background by default…"); 193's description at `:430376 (193)` is "Set to true to run this agent in the background." | not covered here — see the window story; owned by `36_background_agents`. Verified by reading both descriptions |
 | 2 | Built-in Explore agent inherits the session model (capped at opus) instead of haiku | `.198` | **DELTA** (gate graduated) | descriptor `:269303` `model:"inherit"` vs `:384851 (193)` `model:"haiku"`; resolver `:269267`; gate `tengu_quartz_heron` **220=0/193=1** (`:384817 (193)`); kill switch `CLAUDE_CODE_DISABLE_EXPLORE_INHERIT_CAP` **220=2/193=0** (`:32695`, `:269269`) | `budget_and_delegation_hardening.md` §3 |
 | 3 | Removed the `/agents` wizard | `.198` | NET_NEW | `:500583` `The /agents wizard has been removed.` (220=1/193=0) | not covered — a UI removal, no limit mechanism. Anchor read |
-| 4 | Subagents cut off by a rate limit or server error return their partial work | `.199` | NET_NEW | `:345902` cutoffNote "…PARTIAL output recovered from the agent…"; builder `jNy` `:345891` | referenced in `budget_and_delegation_hardening.md` §5 (the cutoffNote is one of the five scrub surfaces); the recovery path itself is not covered |
-| 5 | Subagents no longer report API errors as successful results | `.199` | NET_NEW | `:346385-346387` `AgentApiErrorTerminationError` / `Agent terminated early due to an API error` (220=1/193=0) | not covered — error-reporting path, no limit |
-| 6 | Subagent rate-limited before any text returned an empty result | `.200` | UNANCHORED | `no text output` 220=4/193=4, `produced no output` 1/1 — literals identical | not covered; recorded as unanchored |
+| 4 | Subagents cut off by a rate limit or server error return their partial work | `.199` | NET_NEW | `:345902` cutoffNote "…PARTIAL output recovered from the agent…"; builder `jNy` `:345891` | `agent_tool_runtime.md` §6 |
+| 5 | Subagents no longer report API errors as successful results | `.199` | NET_NEW | `:346122-346131` rejects the terminal API-error assistant; `AgentApiErrorTerminationError` `:346382-346388` (220=1/193=0) | `agent_tool_runtime.md` §6 |
+| 6 | Subagent rate-limited before any text returned an empty result | `.200` | DELTA (shared mechanism with `.199`) | `jNy` requires prior text at `:345895`; `Apd` rethrows API errors/no-text at `:345909-345912`; 193 finalized immediately at `:384564-384570 (193)` | `agent_tool_runtime.md` §6 |
 | 7 | Returning to `claude agents` stopped running subagents; work now carries over | `.203` | NET_NEW | `:413945-413946` `…waiting for ${n} running subagent(s) so the work carries over…`; consumed by the ← deferral at `:823534` with `tengu_defer_cap_refused_restartable` (`:823533`), cap `tengu_defer_cap_ms` default `1e4` (`:823520`), queue refusal `:823527` — all three gates **220>0/193=0** | not covered — see "Chased and reclassified" below; owned by `36_background_agents` |
 | 8 | Worktree-isolated subagents running shell commands in the parent checkout | `.203` | NET_NEW | `tengu_agent_worktree_cwd_escape_blocked` **220=4/193=0**, reasons `context_lost` `:314164`, `worktree_gone` `:314192`, `shared_checkout` `:314210` | `budget_and_delegation_hardening.md` §4 |
 | 9 | Subagents less likely to re-delegate their entire task | `.203` | NET_NEW | `:269324` `…do not re-delegate your entire assignment…` (`already the dedicated agent` **220=1/193=0**); rest of the prompt byte-identical to `:396327-396342 (193)` | `budget_and_delegation_hardening.md` §2 |
-| 10 | Agent tool launching with no tools when `tools` resolves to nothing | `.208` | NET_NEW | `:344437` `O("tengu_subagent_zero_tools", { isBuiltIn, invalidCount, … })` (220=1/193=0) | not covered — tool-resolution error path. Anchor read |
+| 10 | Agent tool launching with no tools when `tools` resolves to nothing | `.208` | NET_NEW | `:344423-344460`; `tengu_subagent_zero_tools` (220=1/193=0), with intent-sensitive refusal predicate | `agent_tool_runtime.md` §2 |
 | 11 | `isolation:'worktree'` subagents running git-mutating commands on the main repo | `.210` | NET_NEW (not separable from #8) | same gate; I could not isolate `.210` from `.203` by any literal — both map to `context_lost`/`worktree_gone`/`shared_checkout` | `budget_and_delegation_hardening.md` §4, with the non-separability stated |
 | 12 | Agent tool hardened against indirect prompt injection via read content | `.210` | NET_NEW | `:345393` marker prefix; pattern table `:345398-345460`; scrubber `:345363`; telemetry `tengu_subagent_output_flagged` `:345381` — `neutralize-silent`/`escalation-pattern`/`control-tag`/`marker-prefix-forgery` all **193=0** | `budget_and_delegation_hardening.md` §5 |
 | 13 | `--forward-subagent-text` + `CLAUDE_CODE_FORWARD_SUBAGENT_TEXT` for stream-json | `.211` | NOT_RE_VERIFIED | scoping pass: `:829537` (220=2/193=0) | not covered — owned by `51_headless_sdk` |
@@ -112,11 +113,11 @@ it (only used where the bullet is out of this module's scope).
 | 26 | Nested subagent forwarding in stream-json at depth-2+ with `--forward-subagent-text` | `.219` | NOT_RE_VERIFIED (secondary tag) | scoping pass: `tengu_remote_subagent_frame_nested`, `:757401` | not covered — owned by `51_headless_sdk` |
 | 27 | Subagents can spawn nested subagents up to depth 3 by default (was 1) | `.219` | NET_NEW value, carryover mechanism | `ZDu = 3` `:230906`; gate `sty = "tengu_hazel_trellis"` `:230907` (**220=1/193=0**, in the 326-new-gate list); memo `Dus` `:230908` | `spawn_depth_gate.md` §2, including an explicit statement of what the bundle **cannot** prove about `.217` |
 
-**Totals for this theme:** 27 bullets — **15 NET_NEW**, **4 DELTA**, **1 CARRYOVER-TRAP**, **2 UNANCHORED**,
+**Totals for this theme:** 27 bullets — **15 NET_NEW**, **5 DELTA**, **1 CARRYOVER-TRAP**, **1 UNANCHORED**,
 **2 NOT_RE_VERIFIED** (secondary tags owned elsewhere), plus **3 NET_NEW-but-out-of-scope** (anchors read in the
 2.1.220 bundle, but the bullet carries no limit mechanism). Every one of the 25 anchored rows cites a line I
 read in the 2.1.220 bundle; the 2 NOT_RE_VERIFIED rows are labelled as inherited from the scoping pass.
-**11 of the 27 are covered in depth in this module's three docs.**
+**15 of the 27 are covered in depth in this module's four docs.**
 
 ---
 
@@ -205,6 +206,8 @@ Key entry points for this module:
 - `getMaxSubagentSpawnDepth` (`hee`, `:230896`) - depth resolver, gate-backed
 - `getMaxConcurrentSubagents` (`gPu`, `:231399`) / `getMaxSubagentsPerSession` (`Q7r`, `:231402`) / `getMaxWebSearchesPerSession` (`yPu`, `:231405`) - the three plain-constant caps
 - `chargeSessionBudget` (`$`, `:398378`) / `checkConcurrencyCeiling` (`D`, `:398402`) / `acquireConcurrencySlot` (`U`, `:398415`) - the Agent tool's spawn gates
+- `AgentTool` (`Wko`, `:398293`) / `runAgent` (`oG`, `:344277`) / `runAsyncAgentLifecycle` (`hIe`, `:345920`) - the launch, worker, and task-lifecycle layers
+- `finalizeAgentTool` (`XIs`, `:345677`) / `recoverSyncAgentError` (`Apd`, `:345905`) - safe terminal result construction
 - `filterToolsForAgent` (`MNy`, `:345484`) - schema-level depth enforcement
 - `clearConversation` (`kcn`, `:449427`) - the only budget reset path
 - `shouldHaltRunningAgentsForBudget` (`$xm`, `:843431`) / `stopAllRunningAgentTasks` (`gmr`, `:399888`) - the `--max-budget-usd` halt

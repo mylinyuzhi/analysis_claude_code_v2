@@ -1,4 +1,4 @@
-# Claude Code v2.1.193 → v2.1.220 — a 26-theme source delta
+# Claude Code v2.1.193 → v2.1.220 — source delta plus the 2.1.220 core loop
 
 This tree is a **line-anchored source delta** of the **v2.1.193 → v2.1.220** window: **25 published
 releases** (`2.1.195 … 2.1.220`; `2.1.194` and `2.1.213` were never published) and **579 changelog
@@ -6,18 +6,20 @@ bullets**, the largest window analysed in this project so far. Every claim is an
 was read in the 2.1.220 bundle, and every "this is new" claim is backed by a grep count in **both**
 bundles.
 
-It is a **delta tree**, not a module-complete re-analysis. Where a mechanism did not change, this tree
-says so explicitly and links to the [`../../claude_code_v_2.1.193/analyze/`](../../claude_code_v_2.1.193/analyze/)
-tree rather than restating it.
+The 26 release themes remain a **delta tree**, not a module-complete re-analysis. One deliberately
+different module, [`03_llm_core/`](03_llm_core/), now supplies a current-state architecture baseline for
+the query loop that connects those deltas. It labels carryover mechanisms explicitly rather than
+presenting them as window changes.
 
 ```
 window     v2.1.193 → v2.1.220 · 25 published releases · 579 changelog bullets
 bundle     872,596 lines / build_sha 4073f595 / build_time 2026-07-24T22:17:45Z
            (2.1.193 was 718,679 lines — the bundle grew +153,917 lines, +21.4%)
-tree       26 module themes · 111 module docs · 25 by_version files · 4 symbol indexes
+tree       26 delta themes + 1 core architecture module · 130 module docs · 25 by_version files
+           · 4 symbol indexes
 verdicts   NET_NEW 340 · UNANCHORED 99 · DELTA 85 · CARRYOVER 48 · SERVER_SIDE 3 · GATE_REMOVAL 2
 coverage   509 / 579 bullets (87.9%) link to a module document
-symbols    3,402 unique rows across 216 module sections in 4 indexes
+symbols    3,624 table rows across 228 module sections in 4 indexes
 ```
 
 ---
@@ -97,18 +99,19 @@ of a codebase that grew 21.4% in 29 days.**
 
 ---
 
-## The 26 themes
+## The core runtime baseline and 26 delta themes
 
 Doc counts are deep-dive documents plus the module `README.md` (which always carries the theme's
 per-bullet ledger).
 
 | Theme | Covers | Docs | The finding worth knowing | Link |
 |---|---|---:|---|---|
+| **LLM core (architecture baseline)** | Query lifecycle, explicit turn state, streaming tool scheduler, recovery and terminal taxonomy | 3+R | Model output and in-flight tools are one rollback unit: fallback tombstones visible messages, aborts/discards tracked tools, clears UI IDs, and rebuilds the executor before retrying | [`03_llm_core/`](03_llm_core/) |
 | Tools | Tool surface 50 → 65, `EndConversation`, Bash/PowerShell, file+search, web+misc | 5+R | `EndConversation` is guarded by **four independent gates** (model version floor, entrypoint regex, enable flag, flag-value parse) and its session lockout leaves exactly five slash commands alive | [`04_tools/`](04_tools/) |
-| Plan mode | Read-only auto-allow, Bash bypasses, classifier adjudication | 2+R | Every plan-mode bullet is the same bug six times: permission fast paths never asked *"but are we in plan mode?"*. One two-line predicate, seven insertion sites, no rewrites | [`05_plan_mode/`](05_plan_mode/) |
-| Compact | Dispatcher and breakers, context accounting, `/context` | 2+R | The assigned headline was a **false delta** — the compaction failure breaker is byte-for-byte carryover. The real `.217` fix is a model-pinned conjunct *deleted* from three predicates at once | [`07_compact/`](07_compact/) |
-| Agent team | Mailbox transport, teammate lifecycle and notifications | 2+R | `teammate` grew 385→426 while `mailbox` grew 19→48: the team surface barely moved and the *message transport* was hardened 2.5×, validated at both ends of the wire | [`30_agent_team/`](30_agent_team/) |
-| Auto memory | Frontmatter rewrite safety, memory-index size budget | 2+R | An undocumented `<cc-memory>` citation surface (5 / 193=0) ships behind a default-off gate — prompt side, strip side, extract side and telemetry side, with no bullet anywhere | [`31_auto_memory/`](31_auto_memory/) |
+| Plan mode | Entry/exit lifecycle, approval, reminders and compaction; read-only and classifier deltas | 4+R | Plan Mode is a permission floor plus a durable artifact protocol: local and teammate approval converge on the same saved plan, and compaction reconstructs the full contract before work can resume | [`05_plan_mode/`](05_plan_mode/) |
+| Compact | Precompute/reactive state machine, full pipeline, context accounting and breakers | 4+R | Persisted precompute is accepted by transcript continuity—not CLI-version equality—while reactive and full compaction converge on one boundary/summary/retained-message installation shape | [`07_compact/`](07_compact/) |
+| Agent team | Implicit startup team, spawn/runtime/task orchestration, mailbox and lifecycle hardening | 3+R | 2.1.220 creates a private team at session startup and owns cleanup at process shutdown; the readable tree's model-invoked `TeamCreate`/`TeamDelete` tools are not the shipped 220 lifecycle | [`30_agent_team/`](30_agent_team/) |
+| Auto memory | Extraction, Dream consolidation, rewrite safety and memory-index budget | 4+R | Extraction is a latest-state coalescing latch, while Dream is a separately scheduled cross-session transaction whose PID+mtime checkpoint is rolled back on cancellation or failure | [`31_auto_memory/`](31_auto_memory/) |
 | Background agents | Daemon, worker respawn, session store, agent view, `/fork`, notifications | 6+R | The densest theme (112 of 579 bullets). Daemon handover stopped judging recency by semver and now parses an **embedded build timestamp**; `CLAUDE_CODE_PROCESS_WRAPPER` adds a corporate launcher prefix to every self-spawn | [`36_background_agents/`](36_background_agents/) |
 | Permissions | Auto-mode availability, classifier adjudication, rule matching, `.214` hardening | 5+R | Auto mode stopped being opt-in via **one line** — a provider predicate that read an env var became `return !0`. Everything else in `.207`/`.210`/`.212` is the consequence | [`38_permissions/`](38_permissions/) |
 | MCP | Dual runtime trees, auto-backgrounding, errors, OAuth/timeouts, roots and managed config | 5+R | Two complete MCP runtime trees ship in one bundle, chosen at runtime — the largest MCP change in the window and it has **no bullet at all** | [`39_mcp/`](39_mcp/) |
@@ -125,7 +128,7 @@ per-bullet ledger).
 | Performance | Memory bounds and leaks, CPU and caching, disk and transcript | 3+R | `flattenString` breaks V8's `SlicedString` parent pointer and is wired into a truncator with **65 call sites**; the `.217` MCP memory bullet is one symptom of a class fix | [`50_performance/`](50_performance/) |
 | Headless / SDK | stream-json init and output, control requests, subagent text forwarding | 3+R | The process-IO module rewrite is *"four bullets in a trench coat"* — and its enabling change (the stdout guard finally forwarding the write callback) has no bullet at all | [`51_headless_sdk/`](51_headless_sdk/) |
 | Code review | `/code-review` as a background subagent, `/ultrareview` arguments, manual-invocation gating | 3+R | The `/ultrareview` precondition function went from **123 lines to 422**, and eight separate bullets all land inside it — each one a recovery path bolted onto a refusal that used to be terminal | [`52_code_review/`](52_code_review/) |
-| Subagent limits | Spawn-depth gate, concurrency and session caps, budget and delegation hardening | 3+R | Four caps, and only the depth cap is gate-backed — which is exactly how the default moved from "no nesting" to "depth 3" without an emergency release | [`53_subagent_limits/`](53_subagent_limits/) |
+| Subagent limits | Agent tool runtime, depth/concurrency/session caps, budget and delegation hardening | 4+R | The Agent tool treats model output and lifecycle state separately: eligible transient API cutoffs recover only prior text with a partial marker, while an error before first text remains an error | [`53_subagent_limits/`](53_subagent_limits/) |
 | Remote control | Transport and session lifecycle, security and enablement, client surfaces | 3+R | 21 of 23 bullets are repairs to a transport that already existed. Three of the six new `tengu_remote_*` gates are **unreachable in the shipped binary** | [`54_remote_control/`](54_remote_control/) |
 | Auth / providers | Login and credentials, AWS and provider plumbing, transport settings | 3+R | *"Every AWS literal is unchanged"* is true and misleading: a whole caching, timeout and invalidation layer was inserted between Claude Code and the AWS SDK, and no bullet mentions it | [`55_auth_providers/`](55_auth_providers/) |
 | Chrome / IDE | Bridge transport, Chrome GA and hardening, IDE and desktop | 3+R | **"Bridge" names three unrelated transports** (Chrome extension, environment/work bridge, REPL bridge). Anyone who greps `bridge` will conflate them; this module separates them first | [`56_chrome_ide/`](56_chrome_ide/) |
@@ -252,6 +255,9 @@ analyze/
 ├─ by_version/                     25 per-release files, one per published release, each with a
 │                                  100%-coverage per-bullet ledger
 │
+│  ─── current-state core architecture ───
+├─ 03_llm_core/              agent/query loop · streaming tools · recovery/termination
+│
 │  ─── the 26 theme deltas ───
 ├─ 04_tools/                 05_plan_mode/          07_compact/          30_agent_team/
 ├─ 31_auto_memory/           36_background_agents/  38_permissions/      39_mcp/
@@ -262,9 +268,10 @@ analyze/
 └─ 56_chrome_ide/            57_api_reliability/
 ```
 
-Every module directory has the same shape: a `README.md` carrying the theme narrative, a **per-bullet
-ledger** with a verdict and anchor for every changelog bullet in that theme, a false-delta table, and an
-explicit **"Not covered"** section; plus two to six deep-dive documents.
+Every **delta** module directory has the same shape: a `README.md` carrying the theme narrative, a
+per-bullet ledger, a false-delta table, and an explicit “Not covered” section, plus deep dives.
+`03_llm_core` is the exception by design: it is a current-state architecture reference and therefore
+has no changelog ledger.
 
 ---
 
@@ -316,3 +323,5 @@ The symbols that most repay knowing before reading anything else in this tree:
 - `isTaskTrackingSuppressedForModel` (`_te`, `:403922`) - the undocumented model-targeted tool kill switch
 - `getTrustedSettingsSources` (`YLt`, `:204062`) - the scope primitive the whole sandbox-settings window turns on
 - `getOpus47FastModeSunsetDate` (`LIc`, `:109491`) - the notice whose live window was one hour and 42 minutes
+- `runQueryTurns` (`xud`, `:337348`) - the explicit-state model/tool turn machine
+- `StreamingToolExecutor` (`Wks`, `:331761`) - the input-sensitive concurrency scheduler

@@ -2,18 +2,19 @@
 
 This directory holds everything in the v2.1.193 → v2.1.220 tree that is **not** a theme analysis: the
 bullet-to-code map, the bundle map, the four symbol indexes, and the working registers the module
-agents were built on. The theme analyses live in the 26 numbered module directories; the per-release
+agents were built on. The release-delta analyses live in 26 numbered module directories; the
+current-state query-loop baseline lives in [`../03_llm_core/`](../03_llm_core/); and per-release
 analyses live in [`../by_version/`](../by_version/). Start at the tree front door,
 [`../README.md`](../README.md), if you have not already.
 
-**40 files, four kinds:**
+**49 files, four content kinds plus this guide:**
 
 | Kind | Files | Use it when |
 |---|---:|---|
-| **Consolidated outputs** — the answers | 2 | You want a verdict, an anchor, or a line region |
+| **Consolidated outputs** — the answers | 3 | You want a verdict, an anchor, or a line region |
 | **Symbol indexes** — the merged lookup tables | 4 | You have an obfuscated identifier and need its meaning |
-| **Symbol staging** — the per-theme sources those were merged from | 27 | You want a theme's exhaustive symbol list, gate census or collision notes |
-| **Provenance registers** — how the tree was built | 7 | You are auditing a claim, or a verdict looks wrong |
+| **Symbol staging** — the per-theme sources those were merged from | 29 | You want a theme's exhaustive symbol list, gate census or collision notes |
+| **Provenance and validation registers** — how the tree was built and checked | 12 | You are auditing a claim, or a verdict looks wrong |
 
 > ⚠ **The provenance registers are not conclusions.** The five `_scope_v*.md` files and
 > `_raw_asset_diff_193_to_220.md` were produced by the *foundation pass*, before any module agent read
@@ -89,7 +90,7 @@ in the tree if you are starting from the changelog rather than from the code.
 
 Four merged lookup tables, four columns each (obfuscated name, readable name, `File:Line`, and type ∈
 `function` / `constant` / `class` / `object` / `variable`), sorted by obfuscated name inside each module
-section. **3,402 unique rows across 216 module sections.** Every `File:Line` is a
+section. **3,624 table rows across 228 module sections.** Every `File:Line` is a
 2.1.220 line; a `(193)` tag inside a description refers to the baseline and is never used as a
 `File:Line` value.
 
@@ -112,19 +113,20 @@ list format and never duplicate a table.
 
 ## 3. Symbol staging — `symbol_additions_v2_1_220_<theme>.md`
 
-**27 files.** Each module agent wrote one; the four indexes above were mechanically merged from them.
+**29 files.** Each analysis pass wrote one; the four indexes above were mechanically merged from them.
 They remain the **authoritative sources**, and they carry material the merge deliberately drops:
 per-theme feature-gate and env-var censuses, symbol-collision warnings, and a merge-routing table naming
 which `symbol_index_*.md` each group belongs in.
 
-There are 27 staging files for 26 module themes because `36_background_agents` was analysed by two
-agents and staged as `…_background_agents_daemon.md` (daemon, workers, session store, worktrees) and
-`…_background_agents_view.md` (the `claude agents` view, `/fork`, notifications and reporting).
+The count exceeds the 26 release themes because `36_background_agents` was split into daemon and view
+passes, `42_workflow` has a separate deep-research follow-up, and `03_llm_core` is the current-state
+architecture pass added after the delta tree.
 
 Complete list, grouped by the module directory that produced each file:
 
 | Module | Staging file |
 |---|---|
+| [`../03_llm_core/`](../03_llm_core/README.md) | [`symbol_additions_v2_1_220_llm_core.md`](symbol_additions_v2_1_220_llm_core.md) |
 | [`../04_tools/`](../04_tools/README.md) | [`symbol_additions_v2_1_220_tools.md`](symbol_additions_v2_1_220_tools.md) |
 | [`../05_plan_mode/`](../05_plan_mode/README.md) | [`symbol_additions_v2_1_220_plan_mode.md`](symbol_additions_v2_1_220_plan_mode.md) |
 | [`../07_compact/`](../07_compact/README.md) | [`symbol_additions_v2_1_220_compact.md`](symbol_additions_v2_1_220_compact.md) |
@@ -135,7 +137,7 @@ Complete list, grouped by the module directory that produced each file:
 | [`../39_mcp/`](../39_mcp/README.md) | [`symbol_additions_v2_1_220_mcp.md`](symbol_additions_v2_1_220_mcp.md) |
 | [`../40_system_prompt/`](../40_system_prompt/README.md) | [`symbol_additions_v2_1_220_system_prompt.md`](symbol_additions_v2_1_220_system_prompt.md) |
 | [`../41_hooks/`](../41_hooks/README.md) | [`symbol_additions_v2_1_220_hooks.md`](symbol_additions_v2_1_220_hooks.md) |
-| [`../42_workflow/`](../42_workflow/README.md) | [`symbol_additions_v2_1_220_workflow.md`](symbol_additions_v2_1_220_workflow.md) |
+| [`../42_workflow/`](../42_workflow/README.md) | [`symbol_additions_v2_1_220_workflow.md`](symbol_additions_v2_1_220_workflow.md) · [`symbol_additions_v2_1_220_deep_research.md`](symbol_additions_v2_1_220_deep_research.md) |
 | [`../43_slash_commands/`](../43_slash_commands/README.md) | [`symbol_additions_v2_1_220_slash_cli.md`](symbol_additions_v2_1_220_slash_cli.md) |
 | [`../44_telemetry/`](../44_telemetry/README.md) | [`symbol_additions_v2_1_220_telemetry.md`](symbol_additions_v2_1_220_telemetry.md) |
 | [`../45_skills/`](../45_skills/README.md) | [`symbol_additions_v2_1_220_skills_plugins.md`](symbol_additions_v2_1_220_skills_plugins.md) |
@@ -244,7 +246,7 @@ supersedes the scoping row it names.
 > - [symbol_index_infra_platform.md](symbol_index_infra_platform.md) - Platform infra
 > - [symbol_index_infra_integration.md](symbol_index_infra_integration.md) - Integrations
 >
-> The 27 `symbol_additions_v2_1_220_<theme>.md` files in this directory are the authoritative sources
+> The 29 `symbol_additions_v2_1_220_<theme>.md` files in this directory are the authoritative sources
 > those four were merged from; §3 above maps each one to the module that produced it.
 
 This file cites no code of its own. The symbols worth knowing before using the indexes — because they
@@ -258,3 +260,5 @@ are the ones this window's biggest undocumented changes hang from:
 - `logEvent` (`O`, `:4083`) - the emitter behind all 32 `tengu_dead_probe_*` sites
 - `getTrustedSettingsSources` (`YLt`, `:204062`) - the sandbox scope primitive with five call sites
 - `supportsMidConversationSystem` (`Ser`, `:150505`) - the mid-conversation system-role resolver
+- `runQueryTurns` (`xud`, `:337348`) - the central explicit-state agent loop
+- `StreamingToolExecutor` (`Wks`, `:331761`) - the model-stream-overlapped tool scheduler

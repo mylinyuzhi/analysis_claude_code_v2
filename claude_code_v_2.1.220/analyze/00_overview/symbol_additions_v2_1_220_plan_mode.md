@@ -18,6 +18,8 @@ used as the File:Line value.
 - `OKt` — 2.1.220: `BROWSER_AUTO_ALLOW_TOOL_NAMES`. 2.1.193: `getRemoteControlPolicyVerdict`, `:603963 (193)`.
 
 Source documents: [`../05_plan_mode/README.md`](../05_plan_mode/README.md),
+[`../05_plan_mode/lifecycle_and_approval_runtime.md`](../05_plan_mode/lifecycle_and_approval_runtime.md),
+[`../05_plan_mode/reminder_prompt_and_compact_runtime.md`](../05_plan_mode/reminder_prompt_and_compact_runtime.md),
 [`../05_plan_mode/readonly_auto_allow_198_199.md`](../05_plan_mode/readonly_auto_allow_198_199.md),
 [`../05_plan_mode/bash_bypass_and_classifier_212_218.md`](../05_plan_mode/bash_bypass_and_classifier_212_218.md).
 
@@ -133,8 +135,46 @@ Source documents: [`../05_plan_mode/README.md`](../05_plan_mode/README.md),
 | `v4` | `readPlanFile` | cli_inner_pretty.js:527779 | function |
 | `znl` | `PlanApprovalDialog` | cli_inner_pretty.js:761198 | function |
 
-> Deliberately **not** staged: `Cid` (`:326066`) and `hnn` (`:326152`) were observed in the
-> `ExitPlanMode` call path but not traced far enough to name confidently.
+`Cid` is now traced through the teammate task registry and staged below. `hnn` remains deliberately
+unstaged because its task-tool guidance text is not needed to explain the lifecycle.
+
+---
+
+## Module: Plan Mode — lifecycle state
+
+> Merge into: `symbol_index_core_features.md`
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Cid` | `findInProcessTeammateTaskId` | cli_inner_pretty.js:324678 | function |
+| `EK` | `setHasExitedPlanMode` | cli_inner_pretty.js:3652 | function |
+| `fNr` | `hasExitedPlanModeInSession` | cli_inner_pretty.js:3649 | function |
+| `IAo` | `EnterPlanModeTool` | cli_inner_pretty.js:326287 | object |
+| `qEi` | `needsPlanModeExitAttachment` | cli_inner_pretty.js:3655 | function |
+| `Sue` | `setNeedsPlanModeExitAttachment` | cli_inner_pretty.js:3658 | function |
+| `uOe` | `handlePlanModeTransition` | cli_inner_pretty.js:3661 | function |
+| `VCs` | `setAwaitingPlanApproval` | cli_inner_pretty.js:324682 | function |
+
+---
+
+## Module: Plan Mode — reminders and compact carryover
+
+> Merge into: `symbol_index_core_features.md`
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `AU_` | `renderPlanModeAttachment` | cli_inner_pretty.js:532458 | function |
+| `CU_` | `renderSparsePlanModeAttachment` | cli_inner_pretty.js:532607 | function |
+| `HN_` | `buildPlanModeAttachments` | cli_inner_pretty.js:516849 | function |
+| `I8s` | `countHumanTurnsSinceLastPlanAttachment` | cli_inner_pretty.js:516816 | function |
+| `kN_` | `countPlanModeAttachmentsSinceLastExit` | cli_inner_pretty.js:516832 | function |
+| `TU_` | `renderFullPlanModeAttachment` | cli_inner_pretty.js:532482 | function |
+| `x8s` | `PLAN_MODE_ATTACHMENT_CONFIG` | cli_inner_pretty.js:518134 | object |
+| `xU_` | `renderSubagentPlanModeAttachment` | cli_inner_pretty.js:532613 | function |
+| `yop` | `buildPlanModeExitAttachment` | cli_inner_pretty.js:516887 | function |
+
+`rks` (`buildPlanModeAttachmentAfterCompact`, `:440904`) is used by Plan Mode but is already indexed
+under **Compact — conversation pipeline and preservation**; it is intentionally not duplicated here.
 
 ---
 

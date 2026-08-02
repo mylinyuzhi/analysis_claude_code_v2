@@ -24,6 +24,15 @@ inline `#`. The fix is a whole new *rewrite-safety* layer with a three-way fallb
 [`frontmatter_rewrite_safety.md`](frontmatter_rewrite_safety.md), which also covers `.214` #10 (the
 `modified:` timestamp) because the two share one function and cannot be explained apart.
 
+Current-state coverage, anchored directly in the 2.1.220 bundle:
+
+- [`extraction_pipeline.md`](extraction_pipeline.md) — post-turn eligibility, UUID cursor, direct-write
+  mutual exclusion, prose filter, throttle/coalescing, permission membrane, five-turn fork, telemetry,
+  and graceful drain.
+- [`dream_and_auto_dream.md`](dream_and_auto_dream.md) — availability/preference resolution, ordered
+  schedule gates, PID+mtime lock, four-phase consolidation, task projection, cancellation rollback,
+  settings UI, background-task UI, and three-way cross-validation.
+
 ---
 
 ## 1. Per-bullet ledger
@@ -249,6 +258,8 @@ all small repairs. The changelog's picture of "auto memory was quiet this window
   `_raw_asset_diff_193_to_220.md:290-300`). No changelog bullet in this window claims them, and they
   are a large enough system to deserve their own module. `oPd` (`:434139`) is covered here only because
   it shares the size-budget code path.
+- The two current-state documents cover team memory only where it changes extraction or Dream
+  decisions. They do not replace a dedicated team-memory storage/synchronization analysis.
 - **`tengu_session_memory_*` / `tengu_memory_rating_*` gates** (asset diff lines 270-273, 356-360) —
   these are the *session* memory viewer, a different subsystem from auto memory.
 - **Which prompt builder emits which of the two `Recalled memories …` copies** (§3) — needs the

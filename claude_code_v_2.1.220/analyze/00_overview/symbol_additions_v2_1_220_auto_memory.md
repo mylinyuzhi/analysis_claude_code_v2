@@ -12,7 +12,9 @@ File:Line value.
 
 Source documents: [`../31_auto_memory/README.md`](../31_auto_memory/README.md),
 [`../31_auto_memory/frontmatter_rewrite_safety.md`](../31_auto_memory/frontmatter_rewrite_safety.md),
-[`../31_auto_memory/memory_index_size_budget.md`](../31_auto_memory/memory_index_size_budget.md).
+[`../31_auto_memory/memory_index_size_budget.md`](../31_auto_memory/memory_index_size_budget.md),
+[`../31_auto_memory/extraction_pipeline.md`](../31_auto_memory/extraction_pipeline.md), and
+[`../31_auto_memory/dream_and_auto_dream.md`](../31_auto_memory/dream_and_auto_dream.md).
 
 ---
 
@@ -131,6 +133,82 @@ Source documents: [`../31_auto_memory/README.md`](../31_auto_memory/README.md),
 | `ifo` | `loadConditionalRules` (gained the symlink realpath retry at :235996) | cli_inner_pretty.js:235992 | function |
 | `pg` | `isSettingSourceEnabled` | cli_inner_pretty.js:57672 | function |
 | `ufo` | `loadNestedDirectoryMemoryFiles` (`.claude/rules` now inside the `projectSettings` guard) | cli_inner_pretty.js:235962 | function |
+
+---
+
+## Module: Auto memory — extraction pipeline and path safety
+
+> Merge into: `symbol_index_core_features.md`
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `$My` | `hasMemoryWritesSince` — suppresses a redundant fork after direct Edit/Write memory updates | cli_inner_pretty.js:332441-332457 | function |
+| `$wo` | `DELETE_COMMAND_NAMES` (`rm\|remove-item\|ri\|del\|erase`) | cli_inner_pretty.js:332723 | constant |
+| `BMy` | `isAllowedPowerShellMemoryDelete` — conservative token/path validator | cli_inner_pretty.js:332487-332502 | function |
+| `Cst` | `isProtectedMemoryPath` — normalized protected-segment detector | cli_inner_pretty.js:156903-156912 | function |
+| `Dld` | `drainInFlightExtractions` — all in-flight work versus an unref'd timeout | cli_inner_pretty.js:332710-332713 | variable |
+| `eHs` | `isModelVisibleMessage` — user/assistant only | cli_inner_pretty.js:332424-332426 | function |
+| `FMy` | `DELETE_COMMAND_NAME_RE` | cli_inner_pretty.js:332755 | variable |
+| `GMy` | `executeExtractMemories` — public stop-hook dispatcher | cli_inner_pretty.js:332715-332717 | function |
+| `gVr` | `isPathInsideUnprotectedMemoryRoot` — exact-root containment plus protected-path rejection | cli_inner_pretty.js:157060-157065 | function |
+| `Hf` | `getAutoMemoryRoot` — memoized configured/default memory directory with trailing separator | cli_inner_pretty.js:157093-157102 | variable |
+| `Hld` | `isSubstantiveUserProse` — non-meta user text with at least three whitespace tokens | cli_inner_pretty.js:332461-332467 | function |
+| `jMy` | `extractWrittenPaths` — deduplicated, root-validated Edit/Write outputs | cli_inner_pretty.js:332577-332589 | function |
+| `kld` | `countWhitespaceTokens` | cli_inner_pretty.js:332458-332460 | function |
+| `Lld` | `activeMemoryExtractor` — initialized dispatcher tracked by the drain set | cli_inner_pretty.js:332701-332709 | variable |
+| `NMy` | `hasSubstantiveUserProseSince` — cursor-aware relevance filter | cli_inner_pretty.js:332468-332479 | function |
+| `Nwo` | `createAutoMemCanUseTool` — Read/Grep/Glob, read-only shell, and root-bound Markdown mutations | cli_inner_pretty.js:332536-332567 | function |
+| `OMy` | `countModelVisibleMessagesSince` — UUID cursor with compaction fallback | cli_inner_pretty.js:332427-332440 | function |
+| `Owo` | `denyAutoMemTool` — deny result plus sanitized telemetry | cli_inner_pretty.js:332480-332486 | function |
+| `Rld` | `getWrittenFilePath` — Edit/Write tool block decoder | cli_inner_pretty.js:332568-332576 | function |
+| `tHs` | `initExtractMemories` — closure-owned cursor, throttle, coalescing, fork, and drain | cli_inner_pretty.js:332590-332714 | function |
+| `Tld` | `buildMemoryExtractionPrompt` — manifest-first, limited-turn tool contract | cli_inner_pretty.js:332357-332407 | function |
+| `UMy` | `isAllowedPosixMemoryDelete` — parsed single `rm`, force-only, absolute safe Markdown paths | cli_inner_pretty.js:332503-332532 | function |
+| `W1t` | `isAllowedAutoMemWritePath` — `.md` plus exact safe-root containment | cli_inner_pretty.js:332533-332535 | function |
+| `WMy` | `drainPendingExtraction` — public bounded shutdown drain | cli_inner_pretty.js:332718-332720 | function |
+| `xld` | `MIN_SUBSTANTIVE_USER_PROSE_TOKENS` (`3`) | cli_inner_pretty.js:332722 | constant |
+
+---
+
+## Module: Auto memory — Dream / Auto-Dream
+
+> Merge into: `symbol_index_core_features.md`
+
+| Obfuscated | Readable | File:Line | Type |
+|------------|----------|-----------|------|
+| `Ald` | `getAutoDreamFeatureConfig` — reads `tengu_onyx_plover` | cli_inner_pretty.js:332330-332332 | function |
+| `aOy` | `isAutoDreamGateOpen` — Remote Control, SDK, auto-memory, and preference gate | cli_inner_pretty.js:333167-333172 | function |
+| `Bld` | `listSessionsTouchedSince` — current-project transcript mtime census | cli_inner_pretty.js:333090-333093 | function |
+| `cOy` | `makeDreamProgressWatcher` — text/tool projection plus root-validated touched paths | cli_inner_pretty.js:333300-333326 | function |
+| `eOy` | `DREAM_LOCK_STALE_MS` (`3600000`) | cli_inner_pretty.js:333097 | constant |
+| `Fld` | `tryAcquireConsolidationLock` — current-memory-root wrapper | cli_inner_pretty.js:333046-333048 | function |
+| `Gld` | `completeDreamTask` — terminal state, metrics, and task event | cli_inner_pretty.js:333140-333144 | function |
+| `Gwo` | `rollbackConsolidationLock` — current-memory-root wrapper | cli_inner_pretty.js:333073-333075 | function |
+| `iOy` | `DREAM_DELETE_COMMAND_RE` | cli_inner_pretty.js:333372 | variable |
+| `Jld` | `executeAutoDream` — public stop-hook dispatcher | cli_inner_pretty.js:333336-333338 | function |
+| `jld` | `addDreamTurn` — path dedupe, phase flip, and 30-turn ring | cli_inner_pretty.js:333127-333139 | function |
+| `jwo` | `readLastConsolidatedAt` — lock mtime or zero | cli_inner_pretty.js:333039-333045 | function |
+| `lOy` | `isAutoDreamForced` — production stub returning false | cli_inner_pretty.js:333173-333175 | function |
+| `nHs` | `getConsolidationLockPath` | cli_inner_pretty.js:333036-333038 | function |
+| `nOy` | `MAX_DREAM_PROGRESS_TURNS` (`30`) | cli_inner_pretty.js:333150 | constant |
+| `oHs` | `isDreamTask` | cli_inner_pretty.js:333108-333110 | function |
+| `oOy` | `DREAM_SESSION_SCAN_INTERVAL_MS` (`600000`) | cli_inner_pretty.js:333341 | constant |
+| `Pld` | `buildConsolidationPrompt` — four-phase personal/team memory maintenance prompt | cli_inner_pretty.js:332757-332824 | function |
+| `Pwo` | `isAutoDreamEnabled` — availability, explicit setting, then server default | cli_inner_pretty.js:332337-332342 | function |
+| `Qks` | `isAutoDreamAvailable` — `enabled || available` | cli_inner_pretty.js:332333-332336 | function |
+| `qMy` | `TEAM_MEMORY_DREAM_GUIDANCE` — conservative shared-memory pruning rules | cli_inner_pretty.js:332825-332826 | constant |
+| `rOy` | `rollbackConsolidationLockAt` — unlink zero-state or restore prior mtime | cli_inner_pretty.js:333076-333089 | function |
+| `sOy` | `getAutoDreamScheduleConfig` — independently validated hours/session thresholds | cli_inner_pretty.js:333156-333166 | function |
+| `tOy` | `tryAcquireConsolidationLockAt` — PID claim, stale recovery, and read-back verification | cli_inner_pretty.js:333049-333072 | function |
+| `Uld` | `registerDreamTask` — visible cancellable background task | cli_inner_pretty.js:333111-333126 | function |
+| `uOy` | `countDreamDailyLogs` — recursive Markdown count below `logs/` | cli_inner_pretty.js:333327-333335 | function |
+| `Vko` | `DreamTask` — kill handler aborts and rolls the checkpoint back | cli_inner_pretty.js:399409-399427 | object |
+| `Vld` | `AUTO_DREAM_DEFAULTS` (`minHours: 24`, `minSessions: 5`) | cli_inner_pretty.js:333373 | object |
+| `VMy` | `CLAUDE_MD_RECONCILIATION_GUIDANCE` | cli_inner_pretty.js:332827-332835 | constant |
+| `Wld` | `failDreamTask` — terminal failure state, metrics, and task event | cli_inner_pretty.js:333145-333149 | function |
+| `Xld` | `initAutoDream` — gate ordering, scheduler, fork transaction, and telemetry | cli_inner_pretty.js:333176-333299 | function |
+| `Yld` | `autoDreamRunner` — closure-installed async runner | cli_inner_pretty.js:333178-333298 | variable |
+| `ZMy` | `DREAM_LOCK_FILENAME` (`.consolidate-lock`) | cli_inner_pretty.js:333096 | constant |
 
 ---
 

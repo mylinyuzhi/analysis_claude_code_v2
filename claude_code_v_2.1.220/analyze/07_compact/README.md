@@ -10,6 +10,8 @@ always tagged `(193)`.
 |---|---|
 | [`dispatcher_and_failure_breakers.md`](dispatcher_and_failure_breakers.md) | the `FHs` dispatcher and its `{kind}` union; both circuit breakers; the `.217` Opus-4.8 conditional deletion; the `.198` extended-thinking inheritance |
 | [`context_accounting_and_context_command.md`](context_accounting_and_context_command.md) | the three window-resolution layers; the `/context` breakdown and grid; token counting and the `.196` Bedrock fix; `.208`, `.218` fork lineage; two decoys |
+| [`precomputed_and_reactive_compaction.md`](precomputed_and_reactive_compaction.md) | the complete pending/ready/failed precompute lifecycle, 2.1.220 sidecar persistence and resume validation, borrowing/consumption, and the adaptive reactive algorithm |
+| [`compact_conversation_pipeline.md`](compact_conversation_pipeline.md) | `compactConversation` end to end, PTL recovery, state invalidation, attachment reconstruction, `messagesToKeep`, and preserved-message chain metadata |
 
 ---
 
@@ -182,23 +184,18 @@ which is [`../57_api_reliability/`](../57_api_reliability/)'s. **No compaction-s
 
 ---
 
-## Not covered, and why
+## Coverage completed and remaining follow-ups
 
-1. **The precompute-then-swap state machine** (`:328400-328900`). Ten `tengu_precomputed_compact_*`
-   gates, an arm/gate/start/ready/consume/discard lifecycle, and a rehydration validator. Three of its
-   gates are net-new and are anchored in
-   [`dispatcher_and_failure_breakers.md`](dispatcher_and_failure_breakers.md) §5.4, but the machine
-   deserves its own document and no changelog bullet in this window describes it. **Highest-value
-   follow-up in this theme.**
-2. **`compactConversation` (`Pko` `:440219`) end to end** — the message-selection, `preserved_segment`
-   and `messagesToKeep` logic. Sampled only where the `.198` thinking change lands. `messagesToKeep`
-   is 9/9 and `anchor_uuid` 9/9, so the core is carryover; `preserved_segment` is 220=8 / 193=4 and was
-   not chased.
-3. **The reactive-compaction path** (`nwo` `:329022`, called at `:441164`; recovery timeout `Eio` `:441154`). Structurally
-   identical to 193's `jKn`; not diffed statement by statement.
-4. **`count_tokens` 220=32 / 193=22.** I isolated the `.196` fix inside that delta but did not diff the
+1. **Completed:** the precompute-then-swap state machine and its 2.1.220-only persisted-resume layer are
+   analyzed in [`precomputed_and_reactive_compaction.md`](precomputed_and_reactive_compaction.md).
+2. **Completed:** `compactConversation`, `messagesToKeep`, `preservedSegment`, and post-compact
+   reconstruction are analyzed in [`compact_conversation_pipeline.md`](compact_conversation_pipeline.md).
+3. **Completed:** the reactive-compaction path, including gap-guided suffix growth, media stripping,
+   precompute reuse, and finalization, is analyzed in
+   [`precomputed_and_reactive_compaction.md`](precomputed_and_reactive_compaction.md).
+4. **Remaining:** `count_tokens` 220=32 / 193=22. I isolated the `.196` fix inside that delta but did not diff the
    remaining ~10 sites.
-5. **The `.208` fix line.** Mechanism identified (§1 of the context doc), exact changed statement not
+5. **Remaining:** the `.208` fix line. Mechanism identified (§1 of the context doc), exact changed statement not
    isolated; the suggested next step is recorded there.
 
 ---
